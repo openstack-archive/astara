@@ -28,8 +28,8 @@ class Router(object):
 
     def __repr__(self):
         return '<%s (%s:%s)>' % (self.__class__.__name__,
-                               self.name,
-                               self.tenant_id)
+                                 self.name,
+                                 self.tenant_id)
 
     def __eq__(self, other):
         return type(self) == type(other) and vars(self) == vars(other)
@@ -39,7 +39,7 @@ class Router(object):
 
     @classmethod
     def from_dict(cls, d):
-        rtr = cls( d['id'], d['tenant_id'], d['name'], d.get('external_port'))
+        rtr = cls(d['id'], d['tenant_id'], d['name'], d.get('external_port'))
 
         for port_dict in d['ports']:
             port = Port.from_dict(port_dict)
@@ -147,7 +147,7 @@ class Quantum(object):
         host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
-                         device_id=host_id)
+                          device_id=host_id)
 
         ports = self.client.list_ports(**query_dict)['ports']
 
@@ -163,14 +163,13 @@ class Quantum(object):
             port = Port.from_dict(
                 self.client.create_port(dict(port=port_dict))['port'])
 
-
             driver.plug(port.network_id,
                         port.id,
                         driver.get_device_name(port),
                         port.mac_address)
 
         mgt_net = netaddr.IPNetwork(self.conf.management_prefix)
-        rug_ip = '%s/%s' % (netaddr.IPAddress(mgt_net.first+1),
+        rug_ip = '%s/%s' % (netaddr.IPAddress(mgt_net.first + 1),
                             mgt_net.prefixlen)
 
         driver.init_l3(driver.get_device_name(port), [rug_ip])

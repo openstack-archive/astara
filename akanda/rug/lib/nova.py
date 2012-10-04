@@ -1,5 +1,6 @@
 from novaclient.v1_1 import client
 
+
 class Nova(object):
     def __init__(self, conf):
         self.conf = conf
@@ -11,11 +12,11 @@ class Nova(object):
             auth_system=conf.auth_strategy,
             region_name=conf.auth_region)
 
-
     def create_router_instance(self, router):
         ports = [router.management_port, router.external_port]
         ports.extend(router.internal_ports)
-        nics = [{'net-id': p.network_id, 'v4-fixed-ip':'', 'port-id': p.id} for p in ports]
+        nics = [{'net-id': p.network_id, 'v4-fixed-ip':'', 'port-id': p.id}
+                for p in ports]
 
         server = self.client.servers.create(
             'ak-' + router.id,

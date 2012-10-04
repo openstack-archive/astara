@@ -13,6 +13,7 @@ def _mgt_url(host, port, path):
         host = '[%s]' % host
     return 'http://%s:%s%s' % (host, port, path)
 
+
 def is_alive(host, port):
     path = AKANDA_BASE_PATH + 'system/interfaces'
     try:
@@ -23,10 +24,12 @@ def is_alive(host, port):
         pass
     return False
 
+
 def get_interfaces(host, port):
     path = AKANDA_BASE_PATH + 'system/interfaces'
     response = requests.get(_mgt_url(host, port, path))
     return response.json
+
 
 def update_config(host, port, config_dict):
     path = AKANDA_BASE_PATH + 'system/config'

@@ -36,6 +36,7 @@ OPTIONS = [
 
 cfg.CONF.register_opts(OPTIONS)
 
+
 class RouterCache(object):
     def __init__(self):
         self.routers = {}
@@ -228,6 +229,7 @@ class AkandaL3Manager(periodic_task.PeriodicTasks):
 
     def _update_router_configuration(self, router):
         LOG.warn('push router config')
+
 
 def _get_management_address(router):
     prefix, prefix_len = cfg.CONF.management_prefix.split('/', 1)
