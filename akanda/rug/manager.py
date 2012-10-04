@@ -30,7 +30,8 @@ OPTIONS = [
     cfg.StrOpt('interface_driver'),
     cfg.StrOpt('ovs_integration_bridge', default='br-int'),
     cfg.StrOpt('root_helper', default='sudo'),
-    cfg.IntOpt('network_device_mtu')
+    cfg.IntOpt('network_device_mtu'),
+    cfg.StrOpt('quantum_notification_topic', default='notifications.info')
 ]
 
 cfg.CONF.register_opts(OPTIONS)
@@ -66,6 +67,9 @@ class RouterCache(object):
         except KeyError:
             return default
 
+    def get_by_tenant_id(self, tenant_id):
+        return self.router_by_tenant.get(tenant_id)
+
     def keys(self):
         return self.routers.keys()
 
@@ -83,6 +87,7 @@ class AkandaL3Manager(periodic_task.PeriodicTasks):
     def init_host(self):
         self.sync_state()
         eventlet.spawn(self._serialized_task_runner)
+        self.create_notification_listener()
 
     def sync_state(self):
         """Load state from database and update routers that have changed."""
@@ -122,6 +127,48 @@ class AkandaL3Manager(periodic_task.PeriodicTasks):
             except eventlet.queue.Empty:
                 break
 
+    def create_notification_listener(self):
+        self.connection = rpc.create_connection(new=True)
+        self.connection.declare_topic_consumer(
+            topic=cfg.CONF.quantum_notification_topic,
+            callback=self._notification_dispatcher)
+        self.connection.consume_in_thread()
+
+    def _notification_dispatcher(self, msg):
+        handler_name = '_' + msg['event_type'].replace('.', '_')
+
+        try:
+            LOG.debug('Dispatching: %s' % handler_name)
+            if hasattr(self, handler_name):
+                h = getattr(self, handler_name)
+                h(msg['_context_tenant_id'], msg['payload'])
+        except Exception, e:
+            LOG.exception('Error processing notification.')
+
+    def _port_update(self, tenant_id, payload):
+        rtr = self.cache.get_by_tenant_id(tenant_id)
+
+        if rtr:
+            self.task_queue.put((self._update_router, rtr.id))
+
+    _port_create_end = _port_update
+    _port_delete_end = _port_update
+
+    def _router_create_end(self, tenant_id, payload):
+        self.task_queue.put((self._update_router, payload['router']['id']))
+
+    def _router_delete_end(self, tenant_id, payload):
+        self.task_queue.put((self._delete_router, payload['router_id']))
+
+    def _subnet_change(self, tenant_id, payload):
+        rtr = self.cache.get_by_tenant_id(tenant_id)
+        if rtr:
+            self.task_queue.put((self._update_router_subnets, rtr.id))
+
+    _subnet_create_end = _subnet_change
+    _subnet_delete_end = _subnet_change
+    _subnet_update_end = _subnet_change
+
     def _serialized_task_runner(self):
         while True:
             LOG.warn('Waiting on item')
@@ -144,15 +191,16 @@ class AkandaL3Manager(periodic_task.PeriodicTasks):
         elif 1 or self._router_is_alive(rtr):
             # if the internal ports of have changed we'll reboot for now
             # FIXME: change this to carp failover
-            if self.cache.get(rtr.id).internal_ports != rtr.internal_ports:
+            prev = self.cache.get(rtr.id)
+            if prev and prev.internal_ports != rtr.internal_ports:
                 self._reboot_router_instance(rtr)
             else:
                 self._update_router_configuration(rtr)
         else:
+            # FIXME: change this to carp failover"
             self._reboot_router_instance(rtr)
         self.cache.put(rtr)
 
-            # FIXME: change this to carp failover"
     def _delete_router(self, router_id):
         LOG.warn('Deleting router: %s' % router_id)
         rtr = self.quantum.get_router_detail(router_id)
@@ -161,6 +209,10 @@ class AkandaL3Manager(periodic_task.PeriodicTasks):
             return
         self._kill_router_instance()
         self.cache.remove(rtr)
+
+    def _update_router_subnets(self, router_id):
+        LOG.warn('update router subnets')
+        #XXX Do we automatically add subnets to routers?
 
     def _router_is_alive(self, router):
         return rest.is_alive(_get_management_address(router),
