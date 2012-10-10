@@ -1,5 +1,7 @@
 import sys
 
+import eventlet
+
 from akanda.rug import manager
 from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import log
@@ -7,12 +9,13 @@ from akanda.rug.openstack.common import service
 
 cfg.CONF.register_opts([
     cfg.IntOpt('periodic_interval',
-               default=60,
+               default=10,
                help='seconds between running periodic tasks (ie health check)')
 ])
 
 
 def main():
+    eventlet.monkey_patch()
     cfg.CONF(sys.argv[1:])
     log.setup('akanda')
 

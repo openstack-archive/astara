@@ -15,7 +15,7 @@ def _mgt_url(host, port, path):
 
 
 def is_alive(host, port):
-    path = AKANDA_BASE_PATH + 'system/interfaces'
+    path = AKANDA_BASE_PATH + 'firewall/labels'
     try:
         response = requests.get(_mgt_url(host, port, path), timeout=1.0)
         if response.status_code == requests.codes.ok:
@@ -28,7 +28,7 @@ def is_alive(host, port):
 def get_interfaces(host, port):
     path = AKANDA_BASE_PATH + 'system/interfaces'
     response = requests.get(_mgt_url(host, port, path))
-    return response.json
+    return response.json.get('interfaces', [])
 
 
 def update_config(host, port, config_dict):
@@ -38,5 +38,10 @@ def update_config(host, port, config_dict):
                             data=jsonutils.dumps(config_dict),
                             headers=headers)
 
-    if response.status_code != request.code.ok:
+    if response.status_code != requests.codes.ok:
         raise Exception('Config update failed: %s' % response.text)
+
+def read_labels(host, port):
+    path = AKANDA_BASE_PATH + 'firewall/labels'
+    response = requests.post(_mgt_url(host, port, path))
+    return response.json.get('labels', [])

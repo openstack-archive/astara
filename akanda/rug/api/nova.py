@@ -24,22 +24,31 @@ class Nova(object):
             flavor=self.conf.router_instance_flavor,
             nics=nics)
 
-    def _get_instance_id(self, router_id):
+    def get_instance_id(self, router):
         instances = self.client.servers.list(
-            search_opts=dict(name='ak-' + router_id))
+            search_opts=dict(name='ak-' + router.id))
 
         if instances:
             return instances[0]
         else:
             return None
 
-    def delete_router_instance(self, router):
-        instance_id = self._get_instance_id(router.id)
+    def get_router_instance_status(self, router):
+        instances = self.client.servers.list(
+            search_opts=dict(name='ak-' + router.id))
+
+        if instances:
+            return instances[0].status
+        else:
+            return None
+
+    def destory_router_instance(self, router):
+        instance_id = self.get_instance_id(router)
         if instance_id:
-            self.client.servers.delete(instance_id)
+            self.client.servers.destroy(instance_id)
 
     def reboot_router_instance(self, router):
-        instance_id = self._get_instance_id(router.id)
+        instance_id = self.get_instance_id(router)
         if instance_id:
             self.client.servers.reboot(instance_id)
         else:

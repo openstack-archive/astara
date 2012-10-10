@@ -3,14 +3,19 @@ import weakref
 
 import eventlet
 import netaddr
-from quantumclient.v2_0 import client
 
-from akanda.rug.lib import nova
-from akanda.rug.lib import quantum
-from akanda.rug.lib import rest
+from akanda.rug.common import cache
+from akanda.rug.common import notification
+from akanda.rug.common import task
+from akanda.rug.api import configuration
+from akanda.rug.api import nova
+from akanda.rug.api import quantum
+from akanda.rug.api import rest
 from akanda.rug.openstack.common import cfg
-from akanda.rug.openstack.common import rpc
+from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common import periodic_task
+from akanda.rug.openstack.common import rpc
+from akanda.rug.openstack.common import timeutils
 
 LOG = logging.getLogger(__name__)
 
@@ -21,215 +26,218 @@ OPTIONS = [
     cfg.StrOpt('auth_url'),
     cfg.StrOpt('auth_strategy', default='keystone'),
     cfg.StrOpt('auth_region'),
+
     cfg.StrOpt('management_network_id'),
+    cfg.StrOpt('external_network_id'),
     cfg.StrOpt('management_subnet_id'),
     cfg.StrOpt('router_image_uuid'),
+
     cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
     cfg.IntOpt('akanda_mgt_service_port', default=5000),
     cfg.IntOpt('router_instance_flavor', default=1),
+
+    # needed for plugging locally into management network
     cfg.StrOpt('interface_driver'),
     cfg.StrOpt('ovs_integration_bridge', default='br-int'),
     cfg.StrOpt('root_helper', default='sudo'),
     cfg.IntOpt('network_device_mtu'),
-    cfg.StrOpt('quantum_notification_topic', default='notifications.info')
+
+    # listen for Quantum notification events
+    cfg.StrOpt('notification_topic',
+        default='notifications.info',
+        help='Quantum notification topic name'),
+    cfg.StrOpt('quantum_control_exchange',
+        default='openstack',
+        help='Quantum control exchange name'),
+    cfg.StrOpt('control_exchange',
+        default='akanda',
+        help='Akanda control exchange name')
 ]
 
 cfg.CONF.register_opts(OPTIONS)
 
 
-class RouterCache(object):
+class AkandaL3Manager(notification.NotificationMixin,
+                      periodic_task.PeriodicTasks):
     def __init__(self):
-        self.routers = {}
-        self.router_by_tenant = weakref.WeakValueDictionary()
-        self.router_by_tenant_network = weakref.WeakValueDictionary()
-        self.router_by_tenant_subnet = weakref.WeakValueDictionary()
-        self.router_by_port = weakref.WeakValueDictionary()
-
-    def put(self, router):
-        self.routers[router.id] = router
-        self.router_by_tenant[router.tenant_id] = router
-
-        for port in router.internal_ports:
-            self.router_by_port[port.id] = router
-            self.router_by_tenant_network[port.network_id] = router
-
-            for fixed in port.fixed_ips:
-                self.router_by_tenant_subnet[fixed.subnet_id] = router
-
-    def remove(self, router_id):
-        try:
-            del self.routers[router_id]
-        except KeyError:
-            pass
-
-    def get(self, key, default=None):
-        try:
-            return self.routers[key]
-        except KeyError:
-            return default
-
-    def get_by_tenant_id(self, tenant_id):
-        return self.router_by_tenant.get(tenant_id)
-
-    def keys(self):
-        return self.routers.keys()
-
-
-class AkandaL3Manager(periodic_task.PeriodicTasks):
-    def __init__(self):
-        self.cache = RouterCache()
+        self.cache = cache.RouterCache()
         self.quantum = quantum.Quantum(cfg.CONF)
         self.nova = nova.Nova(cfg.CONF)
-        self.task_queue = eventlet.queue.Queue()
-        self.delay_queue = eventlet.queue.Queue()
+        self.task_mgr = task.TaskManager()
 
         self.quantum.ensure_local_service_port()
 
     def init_host(self):
         self.sync_state()
-        eventlet.spawn(self._serialized_task_runner)
-        self.create_notification_listener()
+        self.task_mgr.start()
+        self.create_notification_listener(
+            cfg.CONF.notification_topic,
+            cfg.CONF.quantum_control_exchange)
+
+    @periodic_task.periodic_task
+    def begin_health_check(self):
+        LOG.info('start health check queueing')
+        for rtr in self.cache.routers():
+            self.task_mgr.put(self.check_health, rtr)
+
+    @periodic_task.periodic_task(ticks_between_runs=1)
+    def report_bandwidth_usage(self):
+        LOG.info('start bandwidth usage reporting')
+        for rtr in self.cache.routers():
+            self.task_mgr.put(self.report_bandwidth, rtr)
+
+    @periodic_task.periodic_task(ticks_between_runs=10)
+    def janitor(self):
+        """Periodically do a full state resync."""
+        LOG.debug('resync router state')
+        self.sync_state()
+
+    @periodic_task.periodic_task(ticks_between_runs=15)
+    def refresh_configs(self):
+        LOG.debug('resync configuration state')
+        for rtr in self.cache.keys():
+            self.task_mgr.put(self.update_config, rtr.id)
+
+    # notification handlers
+    def default_notifcation_handler(self, event_type, tenant_id, payload):
+        parts = event_type.split('.')
+        if parts and parts[-1] == 'end':
+            rtr = self.cache.get_by_tenant_id(tenant_id)
+            if rtr:
+                self.task_mgr.put(self.update_config, rtr.id)
+
+    @notification.handles('subnet.create.end',
+                          'subnet.change.end',
+                          'subnet.delete.end')
+    def handle_router_subnet_change(self, tenant_id, payload):
+        rtr = self.cache.get_by_tenant_id(tenant_id)
+        if not rtr:
+            rtr = self.quantum.get_router_for_tenant(tenant_id)
+
+        if rtr:
+            self.task_mgr.put(self.update_router, rtr.id)
+
+
+    @notification.handles('router.create.end')
+    def handle_router_create_notification(self, tenant_id, payload):
+        self.task_mgr.put(self._spawn_router, payload['router']['id'])
+
+    @notification.handles('router.delete.end')
+    def handle_router_delete_notification(self, tenant_id, payload):
+        self.task_mgr.put(self._destroy_router, payload['router']['id'])
 
     def sync_state(self):
         """Load state from database and update routers that have changed."""
         # pull all known routers
-        routers = self.quantum.get_routers()
+        known_routers = set(self.cache.keys())
+        active_routers = set()
 
-        # now compare to see if they are the same
-        for rtr in routers.values():
-            if not rtr.internal_ports:
-                # remove routers without any internal ports
-                self.task_queue.put((self._delete_router, rtr.id))
-            elif self.cache.get(rtr.id) != rtr:
-                # activate any missing routers or
-                # updating routers with new configs
-                self.task_queue.put((self._update_router, rtr.id))
+        for rtr in self.quantum.get_routers():
+            active_routers.add(rtr.id)
+            cached = self.cache.get(rtr.id)
 
-    @periodic_task.periodic_task
-    def health_check(self):
-        LOG.warn('health check')
+            if self.cache.get(rtr.id) != rtr:
+                self.task_mgr.put(self.update_router, rtr.id)
 
-    @periodic_task.periodic_task(ticks_between_runs=5)
-    def resync(self):
-        LOG.debug('resync router state')
-        self.sync_state()
+        for rtr_id in (known_routers - active_routers):
+            self.task_mgr.put(self.destory_router, rtr.id)
 
-    @periodic_task.periodic_task(ticks_between_runs=10)
-    def refresh_configs(self):
-        LOG.debug('resync configuration state')
+    def update_router(self, router_id):
+        LOG.debug('Updating router: %s' % router_id)
 
-    @periodic_task.periodic_task
-    def delayed_task_requeue(self):
-        LOG.warn('requeuing delayed tasked')
-        while 1:
-            try:
-                item = self.delay_queue.get_nowait()
-                self.task_queue.put(item)
-            except eventlet.queue.Empty:
-                break
-
-    def create_notification_listener(self):
-        self.connection = rpc.create_connection(new=True)
-        self.connection.declare_topic_consumer(
-            topic=cfg.CONF.quantum_notification_topic,
-            callback=self._notification_dispatcher)
-        self.connection.consume_in_thread()
-
-    def _notification_dispatcher(self, msg):
-        handler_name = '_' + msg['event_type'].replace('.', '_')
-
-        try:
-            LOG.debug('Dispatching: %s' % handler_name)
-            if hasattr(self, handler_name):
-                h = getattr(self, handler_name)
-                h(msg['_context_tenant_id'], msg['payload'])
-        except Exception, e:
-            LOG.exception('Error processing notification.')
-
-    def _port_update(self, tenant_id, payload):
-        rtr = self.cache.get_by_tenant_id(tenant_id)
-
-        if rtr:
-            self.task_queue.put((self._update_router, rtr.id))
-
-    _port_create_end = _port_update
-    _port_delete_end = _port_update
-
-    def _router_create_end(self, tenant_id, payload):
-        self.task_queue.put((self._update_router, payload['router']['id']))
-
-    def _router_delete_end(self, tenant_id, payload):
-        self.task_queue.put((self._delete_router, payload['router_id']))
-
-    def _subnet_change(self, tenant_id, payload):
-        rtr = self.cache.get_by_tenant_id(tenant_id)
-        if rtr:
-            self.task_queue.put((self._update_router_subnets, rtr.id))
-
-    _subnet_create_end = _subnet_change
-    _subnet_delete_end = _subnet_change
-    _subnet_update_end = _subnet_change
-
-    def _serialized_task_runner(self):
-        while True:
-            LOG.warn('Waiting on item')
-            action, router_id = self.task_queue.get()
-
-            try:
-                action(router_id)
-            except:
-                LOG.exception('unable to %s' % action.__name__)
-                self.delay_queue.put((action, router_id))
-
-    def _update_router(self, router_id):
-        LOG.warn('Updating router: %s' % router_id)
         rtr = self.quantum.get_router_detail(router_id)
+        rtr = self.ensure_provider_ports(rtr)
 
-        if rtr.management_port is None:
-            mgt_port = self.quantum.create_router_management_port(rtr.id)
-            rtr.management_port = mgt_port
-            self._boot_router_instance(rtr)
-        elif 1 or self._router_is_alive(rtr):
-            # if the internal ports of have changed we'll reboot for now
-            # FIXME: change this to carp failover
-            prev = self.cache.get(rtr.id)
-            if prev and prev.internal_ports != rtr.internal_ports:
-                self._reboot_router_instance(rtr)
-            else:
-                self._update_router_configuration(rtr)
+        if self.router_is_alive(rtr) and self.verify_router_interfaces(rtr):
+            self.update_config(rtr)
         else:
             # FIXME: change this to carp failover"
-            self._reboot_router_instance(rtr)
+            self.reboot_router(rtr)
         self.cache.put(rtr)
 
-    def _delete_router(self, router_id):
-        LOG.warn('Deleting router: %s' % router_id)
-        rtr = self.quantum.get_router_detail(router_id)
+    def destroy_router(self, router_id):
+        LOG.debug('Destroying router: %s' % router_id)
+        rtr = self.cache.get(router_id)
+        if rtr:
+            self.nova.destory_router_instance(rtr)
+            self.cache.remove(rtr)
 
-        if rtr.management_port is None:
-            return
-        self._kill_router_instance()
-        self.cache.remove(rtr)
+    def reboot_router(self, router):
+        self.nova.reboot_router_instance(router)
+        # TODO: add thread that waits until this router is functional
+        self.task_mgr.put(self._post_reboot, router, 30)
 
-    def _update_router_subnets(self, router_id):
-        LOG.warn('update router subnets')
-        #XXX Do we automatically add subnets to routers?
+    def _post_reboot(self, router):
+        if self.router_is_alive(router):
+            self.task_mgr.put(self.update_router, router.id)
+        raise Exception('Router %s has not finished booting.' % router.id)
 
-    def _router_is_alive(self, router):
+    def update_config(self, router):
+        LOG.debug('Updating router %s config' % router.id)
+        interfaces = rest.get_interfaces(_get_management_address(router),
+                                         cfg.CONF.akanda_mgt_service_port)
+
+        config = configuration.generate(self.quantum, router, interfaces)
+        import pprint
+        pprint.pprint(config)
+
+        rest.update_config(_get_management_address(router),
+                           cfg.CONF.akanda_mgt_service_port,
+                           config)
+        LOG.debug('Router %s config updated.' % router.id)
+
+    def router_is_alive(self, router):
         return rest.is_alive(_get_management_address(router),
                              cfg.CONF.akanda_mgt_service_port)
 
-    def _boot_router_instance(self, router):
-        self.nova.create_router_instance(router)
-        # TODO: add thread that waits until this router is functional
+    def verify_router_interfaces(self, router):
+        try:
+            interfaces = rest.get_interfaces(_get_management_address(router),
+                                             cfg.CONF.akanda_mgt_service_port)
 
-    def _reboot_router_instance(self, router):
-        self.nova.reboot_router_instance(router)
-        # TODO: add thread that waits until this router is functional
+            router_macs = set([iface['lladdr'] for iface in interfaces])
 
-    def _update_router_configuration(self, router):
-        LOG.warn('push router config')
+            expected_macs = set([p.mac_address for p in router.internal_ports])
+            expected_macs.add(router.management_port.mac_address)
+            expected_macs.add(router.external_port.mac_address)
+            return router_macs == expected_macs
 
+        except:
+            LOG.exception('Unable verify interfaces.')
+
+    def report_bandwidth(self, router):
+        try:
+            bandwidth = rest.read_labels(_get_management_address(router),
+                                         cfg.CONF.akanda_mgt_service_port)
+            if bandwidth:
+                message = {
+                    'tenant_id': router.tenant_id,
+                    'timestamp': timeutils.isotime(),
+                    'event_type': 'akanda.bandwidth.used',
+                    'payload': dict((b.pop('name'), b) for b in bandwidth)
+                }
+
+                rpc.notify(context.get_admin_context(),
+                           cfg.CONF.notification_topic,
+                           message)
+        except:
+            LOG.exception('Error during bandwidth report.')
+
+    def check_health(self, router):
+            if not self.router_is_alive(router):
+                status = self.nova.get_router_instance_status(router)
+                if status not in ('ACTIVE', 'REBOOT', 'BUILD'):
+                    self.task_mgr.put(self.reboot_router, router)
+
+    def ensure_provider_ports(self, router):
+        if router.management_port is None:
+            mgt_port = self.quantum.create_router_management_port(router.id)
+            router.management_port = mgt_port
+
+        if router.external_port is None:
+            router = self.quantum.create_router_external_port(router)
+
+        return router
 
 def _get_management_address(router):
     prefix, prefix_len = cfg.CONF.management_prefix.split('/', 1)
