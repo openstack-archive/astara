@@ -11,7 +11,8 @@ setup(
     license='BSD',
     install_requires=[
         'netaddr>=0.7.7',
-        'requests>=0.14.1'
+        'requests>=0.14.1',
+        'python-quantumclient>=2.1'
     ],
     namespace_packages=['akanda'],
     packages=find_packages(),

@@ -9,7 +9,6 @@ _HANDLER_ATTR = '_notification_handle_event_type'
 
 
 class NotificationMixin(object):
-
     def create_notification_listener(self, topic, exchange_name=None):
         self._notification_handlers = {}
         for method in inspect.getmembers(self, inspect.ismethod):
@@ -24,7 +23,6 @@ class NotificationMixin(object):
             exchange_name=exchange_name)
         self.notification_connection.consume_in_thread()
 
-
     def _notification_mixin_dispatcher(self, msg):
         try:
             handlers = self._notification_handlers.get(msg['event_type'], [])
@@ -34,7 +32,7 @@ class NotificationMixin(object):
             else:
                 if hasattr(self, 'default_notification_handler'):
                     self.default_notification_handler(
-                        event_type,
+                        msg['event_type'],
                         msg['_context_tenant_id'],
                         msg['payload'])
 

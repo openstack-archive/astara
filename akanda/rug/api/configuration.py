@@ -35,16 +35,15 @@ def generate(client, router, interfaces):
 
 def load_provider_rules(path):
     try:
-        return jsonutils.load(file(path))
-    except:
+        return jsonutils.load(open(path))
+    except: #pragma nocove
         LOG.exception('unable to open provider rules: %s' % path)
 
 
 def generate_network_config(client, router, interfaces):
     iface_map = dict([(i['lladdr'], i['ifname']) for i in interfaces])
 
-
-    retval= [
+    retval = [
         _network_config(
             client,
             router.external_port,
@@ -72,12 +71,13 @@ def _management_network_config(port, ifname, interfaces):
     for iface in interfaces:
         if iface['ifname'] == ifname:
             interface = iface
-            return _network_config_dict(iface, MANAGEMENT_NET, port.network_id)
+            return _make_network_config_dict(
+                iface, MANAGEMENT_NET, port.network_id)
 
 
 def _network_config(client, port, ifname, network_type, network_ports=[]):
     subnets = client.get_network_subnets(port.network_id)
-    return _network_config_dict(
+    return _make_network_config_dict(
         _interface_config(ifname, port, subnets),
         network_type,
         port.network_id,
@@ -85,10 +85,9 @@ def _network_config(client, port, ifname, network_type, network_ports=[]):
         network_ports=network_ports)
 
 
-def _network_config_dict(interface, network_type, network_id,
-                         v4_conf=SERVICE_STATIC, v6_conf=SERVICE_STATIC,
-                         subnets=[], network_ports=[]):
-
+def _make_network_config_dict(interface, network_type, network_id,
+                              v4_conf=SERVICE_STATIC, v6_conf=SERVICE_STATIC,
+                              subnets=[], network_ports=[]):
     return {'interface': interface,
             'network_id': network_id,
             'v4_conf_service': v4_conf,
@@ -106,7 +105,7 @@ def _interface_config(ifname, port, subnets):
                           subnet_lookup[fixed.subnet_id].cidr.prefixlen)
 
     return {'ifname': ifname,
-            'addresses':  [fmt(fixed) for fixed in port.fixed_ips]}
+            'addresses': [fmt(fixed) for fixed in port.fixed_ips]}
 
 
 def _subnet_config(subnet):
@@ -114,7 +113,8 @@ def _subnet_config(subnet):
         'cidr': str(subnet.cidr),
         'dhcp_enabled': subnet.enable_dhcp,
         'dns_nameservers': subnet.dns_nameservers,
-        'host_routes': subnet.host_routes
+        'host_routes': subnet.host_routes,
+        'gateway_ip': str(subnet.gateway_ip)
     }
 
 
@@ -149,13 +149,10 @@ def generate_anchor_config(client, provider_rules, router):
 
 
 def generate_tenant_port_forward_anchor(client, router):
-    to_ip = router.external_port.first_v4
+    to_ip = router.external_port.first_v4 or INVALID_IP
 
-    if not to_ip:
-        rules = [_format_port_forward_rule(to_ip, pf)
-                 for pf in client.get_portforwards(router.tenant_id)]
-    else:
-        rules = []
+    rules = [_format_port_forward_rule(to_ip, pf)
+             for pf in client.get_portforwards(router.tenant_id)]
 
     return {
         'name': 'tenant_v4_portforwards',
@@ -164,7 +161,7 @@ def generate_tenant_port_forward_anchor(client, router):
 
 
 def _format_port_forward_rule(to_ip, pf):
-    redirect_ip = pf.port.first_v4
+    redirect_ip = pf.port.first_v4 or INVALID_IP
 
     if not redirect_ip:
         return
@@ -188,16 +185,12 @@ def generate_tenant_filter_rule_anchor(client, router):
     }
 
 
-def _format_filter_rules(rule):
+def _format_filter_rule(rule):
     return {
         'action': rule.action,
         'protocol': rule.protocol,
         'source': rule.source.name if rule.source else None,
-        'source_port': source_port,
+        'source_port': rule.source_port,
         'destination': rule.destination.name if rule.destination else None,
-        'destination_port': destination_port,
+        'destination_port': rule.destination_port,
     }
-
-
-def generate_label_config():
-    return dict([l.split('=', 1) for l in cfg.CONF.destination_labels])

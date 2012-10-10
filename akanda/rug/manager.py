@@ -10,7 +10,7 @@ from akanda.rug.common import task
 from akanda.rug.api import configuration
 from akanda.rug.api import nova
 from akanda.rug.api import quantum
-from akanda.rug.api import rest
+from akanda.rug.api import akanda_client as router_api
 from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common import periodic_task
@@ -44,14 +44,14 @@ OPTIONS = [
 
     # listen for Quantum notification events
     cfg.StrOpt('notification_topic',
-        default='notifications.info',
-        help='Quantum notification topic name'),
+               default='notifications.info',
+               help='Quantum notification topic name'),
     cfg.StrOpt('quantum_control_exchange',
-        default='openstack',
-        help='Quantum control exchange name'),
+               default='openstack',
+               help='Quantum control exchange name'),
     cfg.StrOpt('control_exchange',
-        default='akanda',
-        help='Akanda control exchange name')
+               default='akanda',
+               help='Akanda control exchange name')
 ]
 
 cfg.CONF.register_opts(OPTIONS)
@@ -95,8 +95,8 @@ class AkandaL3Manager(notification.NotificationMixin,
     @periodic_task.periodic_task(ticks_between_runs=15)
     def refresh_configs(self):
         LOG.debug('resync configuration state')
-        for rtr in self.cache.keys():
-            self.task_mgr.put(self.update_config, rtr.id)
+        for rtr_id in self.cache.keys():
+            self.task_mgr.put(self.update_config, rtr_id)
 
     # notification handlers
     def default_notifcation_handler(self, event_type, tenant_id, payload):
@@ -116,7 +116,6 @@ class AkandaL3Manager(notification.NotificationMixin,
 
         if rtr:
             self.task_mgr.put(self.update_router, rtr.id)
-
 
     @notification.handles('router.create.end')
     def handle_router_create_notification(self, tenant_id, payload):
@@ -140,7 +139,7 @@ class AkandaL3Manager(notification.NotificationMixin,
                 self.task_mgr.put(self.update_router, rtr.id)
 
         for rtr_id in (known_routers - active_routers):
-            self.task_mgr.put(self.destory_router, rtr.id)
+            self.task_mgr.put(self.destroy_router, rtr.id)
 
     def update_router(self, router_id):
         LOG.debug('Updating router: %s' % router_id)
@@ -159,7 +158,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         LOG.debug('Destroying router: %s' % router_id)
         rtr = self.cache.get(router_id)
         if rtr:
-            self.nova.destory_router_instance(rtr)
+            self.nova.destroy_router_instance(rtr)
             self.cache.remove(rtr)
 
     def reboot_router(self, router):
@@ -174,26 +173,28 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     def update_config(self, router):
         LOG.debug('Updating router %s config' % router.id)
-        interfaces = rest.get_interfaces(_get_management_address(router),
-                                         cfg.CONF.akanda_mgt_service_port)
+        interfaces = router_api.get_interfaces(
+            _get_management_address(router),
+            cfg.CONF.akanda_mgt_service_port)
 
         config = configuration.generate(self.quantum, router, interfaces)
         import pprint
         pprint.pprint(config)
 
-        rest.update_config(_get_management_address(router),
-                           cfg.CONF.akanda_mgt_service_port,
-                           config)
+        router_api.update_config(_get_management_address(router),
+                                 cfg.CONF.akanda_mgt_service_port,
+                                 config)
         LOG.debug('Router %s config updated.' % router.id)
 
     def router_is_alive(self, router):
-        return rest.is_alive(_get_management_address(router),
-                             cfg.CONF.akanda_mgt_service_port)
+        return router_api.is_alive(_get_management_address(router),
+                                   cfg.CONF.akanda_mgt_service_port)
 
     def verify_router_interfaces(self, router):
         try:
-            interfaces = rest.get_interfaces(_get_management_address(router),
-                                             cfg.CONF.akanda_mgt_service_port)
+            interfaces = router_api.get_interfaces(
+                _get_management_address(router),
+                cfg.CONF.akanda_mgt_service_port)
 
             router_macs = set([iface['lladdr'] for iface in interfaces])
 
@@ -207,8 +208,10 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     def report_bandwidth(self, router):
         try:
-            bandwidth = rest.read_labels(_get_management_address(router),
-                                         cfg.CONF.akanda_mgt_service_port)
+            bandwidth = router_api.read_labels(
+                _get_management_address(router),
+                cfg.CONF.akanda_mgt_service_port)
+
             if bandwidth:
                 message = {
                     'tenant_id': router.tenant_id,
@@ -238,6 +241,7 @@ class AkandaL3Manager(notification.NotificationMixin,
             router = self.quantum.create_router_external_port(router)
 
         return router
+
 
 def _get_management_address(router):
     prefix, prefix_len = cfg.CONF.management_prefix.split('/', 1)

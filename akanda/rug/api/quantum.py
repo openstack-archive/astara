@@ -69,7 +69,7 @@ class Subnet(object):
         self.network_id = network_id
         self.ip_version = ip_version
         self.cidr = netaddr.IPNetwork(cidr)
-        self.gateway_ip = gateway_ip
+        self.gateway_ip = netaddr.IPAddress(gateway_ip)
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers
         self.host_routes = host_routes
@@ -157,7 +157,7 @@ class FilterRule(object):
         self.source = source
         self.source_port = source_port
         self.destination = destination
-        self.desination_port = destination_port
+        self.destination_port = destination_port
 
     @classmethod
     def from_dict(cls, d):
@@ -183,7 +183,7 @@ class FilterRule(object):
 
 class PortForward(object):
     def __init__(self, id_, name, protocol, public_port, private_port, port):
-        self.id_ = id
+        self.id = id_
         self.name = name
         self.protocol = protocol
         self.public_port = public_port
@@ -201,14 +201,13 @@ class PortForward(object):
             Port.from_dict(d['port']))
 
 
-class AkandaClientWrapper(client.Client):
+class AkandaExtClientWrapper(client.Client):
     """Add client support for Akanda Extensions. """
     addressgroup_path = '/dhaddressgroup'
     addressentry_path = '/dhaddressentry'
     filterrule_path = '/dhfilterrule'
     portalias_path = '/dhportalias'
     portforward_path = '/dhportforward'
-
 
     # portalias crud
     @client.APIParamsCall
@@ -266,7 +265,7 @@ class AkandaClientWrapper(client.Client):
 class Quantum(object):
     def __init__(self, conf):
         self.conf = conf
-        self.client = AkandaClientWrapper(
+        self.client = AkandaExtClientWrapper(
             username=conf.admin_user,
             password=conf.admin_password,
             tenant_name=conf.admin_tenant_name,
@@ -376,15 +375,3 @@ class Quantum(object):
         driver.init_l3(driver.get_device_name(port), [rug_ip])
 
         return port
-
-
-class DummyConf:
-    admin_user='demo'
-    admin_password='secret'
-    admin_tenant_name='demo'
-    auth_url='http://192.168.57.100:5000/v2.0/'
-    auth_strategy='keystone'
-    auth_region='RegionOne'
-
-q= Quantum(DummyConf)
-

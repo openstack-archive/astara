@@ -40,6 +40,9 @@ def update_config(host, port, config_dict):
 
     if response.status_code != requests.codes.ok:
         raise Exception('Config update failed: %s' % response.text)
+    else:
+        return response.json
+
 
 def read_labels(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'

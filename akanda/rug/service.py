@@ -9,7 +9,7 @@ from akanda.rug.openstack.common import service
 
 cfg.CONF.register_opts([
     cfg.IntOpt('periodic_interval',
-               default=10,
+               default=60,
                help='seconds between running periodic tasks (ie health check)')
 ])
 

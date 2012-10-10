@@ -6,14 +6,14 @@ LOG = logging.getLogger(__name__)
 
 
 class Task(object):
-    def __init__(self, method, data, max_attempts=9):
+    def __init__(self, method, data, max_attempts=3):
         self.method = method
         self.data = data
         self.current = 0
         self.max_attempts = max_attempts
 
     def __call__(self):
-        self.current +=1
+        self.current += 1
         self.method(self.data)
 
     def should_retry(self):
@@ -53,6 +53,8 @@ class TaskManager(object):
 
                 if task.should_retry():
                     self.delay_queue.put(task)
+                else:
+                    LOG.error('Task Error: %s' % task)
 
     def _requeue_failed(self):
         while True:
