@@ -178,8 +178,8 @@ class AkandaL3Manager(notification.NotificationMixin,
             cfg.CONF.akanda_mgt_service_port)
 
         config = configuration.generate(self.quantum, router, interfaces)
-        import pprint
-        pprint.pprint(config)
+        #import pprint
+        #pprint.pprint(config)
 
         router_api.update_config(_get_management_address(router),
                                  cfg.CONF.akanda_mgt_service_port,
