@@ -1,5 +1,7 @@
 import sys
 
+import eventlet
+
 from akanda.rug import manager
 from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import log
@@ -13,6 +15,7 @@ cfg.CONF.register_opts([
 
 
 def main():
+    eventlet.monkey_patch()
     cfg.CONF(sys.argv[1:])
     log.setup('akanda')
 
