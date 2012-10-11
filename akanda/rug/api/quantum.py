@@ -41,23 +41,27 @@ class Router(object):
 
     @classmethod
     def from_dict(cls, d):
-        rtr = cls(
-            d['id'],
-            d['tenant_id'],
-            d['name'],
-            d['admin_state_up'],
-            d.get('external_port'))
+        external_port = None
+        management_port = None
+        internal_ports = []
 
         for port_dict in d['ports']:
             port = Port.from_dict(port_dict)
             if port.device_owner == DEVICE_OWNER_ROUTER_GW:
-                rtr.external_port = port
+                external_port = port
             elif port.device_owner == DEVICE_OWNER_ROUTER_MGT:
-                rtr.management_port = port
+                management_port = port
             elif port.device_owner == DEVICE_OWNER_ROUTER_INT:
-                rtr.internal_ports.append(port)
+                internal_ports.append(port)
 
-        return rtr
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            external_port,
+            internal_ports,
+            management_port)
 
 
 class Subnet(object):
@@ -338,7 +342,7 @@ class Quantum(object):
         }
 
         r = self.client.update_router(router.id, body=dict(router=update_args))
-        return Router.from_dict(r)
+        return Router.from_dict(r).external_port
 
     def ensure_local_service_port(self):
         driver = importutils.import_object(self.conf.interface_driver,

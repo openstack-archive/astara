@@ -19,13 +19,21 @@ class TestQuantumModels(unittest.TestCase):
 
 
     def test_router_from_dict(self):
+        p = {
+            'id': 'ext',
+            'device_id': 'device_id',
+            'fixed_ips': [],
+            'mac_address': 'aa:bb:cc:dd:ee:ff',
+            'network_id': 'net_id',
+            'device_owner': 'network:router_gateway'
+        }
+
         d = {
             'id': '1',
             'tenant_id': 'tenant_id',
             'name': 'name',
             'admin_state_up': True,
-            'external_port': 'ext',
-            'ports' : []
+            'ports' : [p]
         }
 
         r = quantum.Router.from_dict(d)
@@ -34,7 +42,6 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(r.tenant_id, 'tenant_id')
         self.assertEqual(r.name, 'name')
         self.assertTrue(r.admin_state_up)
-        self.assertEqual(r.external_port, 'ext')
 
     def test_router_eq(self):
         r1 = quantum.Router(

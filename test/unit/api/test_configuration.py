@@ -60,7 +60,7 @@ class TestAkandaClient(unittest.TestCase):
     def tearDown(self):
         cfg.CONF.reset()
 
-    def test_generate(self):
+    def test_build_config(self):
         methods = {
             'load_provider_rules': mock.DEFAULT,
             'generate_network_config': mock.DEFAULT,
@@ -78,7 +78,7 @@ class TestAkandaClient(unittest.TestCase):
             mocks['generate_address_book_config'].return_value = 'ab_config'
             mocks['generate_anchor_config'].return_value = 'anchor_config'
 
-            config = conf_mod.generate(mock_client, fake_router, ifaces)
+            config = conf_mod.build_config(mock_client, fake_router, ifaces)
 
             expected = {
                 'networks': 'network_config',

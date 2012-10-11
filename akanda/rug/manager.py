@@ -145,7 +145,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         LOG.debug('Updating router: %s' % router_id)
 
         rtr = self.quantum.get_router_detail(router_id)
-        rtr = self.ensure_provider_ports(rtr)
+        self.ensure_provider_ports(rtr)
 
         if self.router_is_alive(rtr) and self.verify_router_interfaces(rtr):
             self.update_config(rtr)
@@ -177,9 +177,7 @@ class AkandaL3Manager(notification.NotificationMixin,
             _get_management_address(router),
             cfg.CONF.akanda_mgt_service_port)
 
-        config = configuration.generate(self.quantum, router, interfaces)
-        #import pprint
-        #pprint.pprint(config)
+        config = configuration.build_config(self.quantum, router, interfaces)
 
         router_api.update_config(_get_management_address(router),
                                  cfg.CONF.akanda_mgt_service_port,
@@ -238,7 +236,8 @@ class AkandaL3Manager(notification.NotificationMixin,
             router.management_port = mgt_port
 
         if router.external_port is None:
-            router = self.quantum.create_router_external_port(router)
+            ext_port = self.quantum.create_router_external_port(router)
+            router.external_port = ext_port
 
         return router
 

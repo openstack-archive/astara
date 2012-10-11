@@ -22,7 +22,7 @@ SERVICE_DHCP = 'dhcp'
 SERVICE_RA = 'ra'
 
 
-def generate(client, router, interfaces):
+def build_config(client, router, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
     return {
@@ -41,7 +41,7 @@ def load_provider_rules(path):
 
 
 def generate_network_config(client, router, interfaces):
-    iface_map = dict([(i['lladdr'], i['ifname']) for i in interfaces])
+    iface_map = dict((i['lladdr'], i['ifname']) for i in interfaces)
 
     retval = [
         _network_config(
