@@ -20,7 +20,7 @@ setup(
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            'akanda-rug-service=akanda.rug.agent:main'
+            'akanda-rug-service=akanda.rug.service:main'
         ]
     },
 )
