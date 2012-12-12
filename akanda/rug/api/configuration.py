@@ -36,7 +36,7 @@ def build_config(client, router, interfaces):
 def load_provider_rules(path):
     try:
         return jsonutils.load(open(path))
-    except: #pragma nocove
+    except:  # pragma nocover
         LOG.exception('unable to open provider rules: %s' % path)
 
 
@@ -77,32 +77,31 @@ def _management_network_config(port, ifname, interfaces):
 
 def _network_config(client, port, ifname, network_type, network_ports=[]):
     subnets = client.get_network_subnets(port.network_id)
+    subnets_dict = dict((s.id, s) for s in subnets)
     return _make_network_config_dict(
-        _interface_config(ifname, port, subnets),
+        _interface_config(ifname, port, subnets_dict),
         network_type,
         port.network_id,
-        subnets=subnets,
+        subnets_dict=subnets_dict,
         network_ports=network_ports)
 
 
 def _make_network_config_dict(interface, network_type, network_id,
                               v4_conf=SERVICE_STATIC, v6_conf=SERVICE_STATIC,
-                              subnets=[], network_ports=[]):
+                              subnets_dict={}, network_ports=[]):
     return {'interface': interface,
             'network_id': network_id,
             'v4_conf_service': v4_conf,
             'v6_conf_service': v6_conf,
             'network_type': network_type,
-            'subnets': [_subnet_config(s) for s in subnets],
-            'allocations': _allocation_config(network_ports)}
+            'subnets': [_subnet_config(s) for s in subnets_dict.values()],
+            'allocations': _allocation_config(network_ports, subnets_dict)}
 
 
-def _interface_config(ifname, port, subnets):
-    subnet_lookup = dict((s.id, s) for s in subnets)
-
+def _interface_config(ifname, port, subnets_dict):
     def fmt(fixed):
         return '%s/%s' % (fixed.ip_address,
-                          subnet_lookup[fixed.subnet_id].cidr.prefixlen)
+                          subnets_dict[fixed.subnet_id].cidr.prefixlen)
 
     return {'ifname': ifname,
             'addresses': [fmt(fixed) for fixed in port.fixed_ips]}
@@ -118,15 +117,18 @@ def _subnet_config(subnet):
     }
 
 
-def _allocation_config(ports):
+def _allocation_config(ports, subnets_dict):
     r = re.compile('[:.]')
     allocations = []
 
     for port in ports:
         for fixed_ip in port.fixed_ips:
+            if not subnets_dict[fixed_ip.subnet_id].enable_dhcp:
+                continue
+
             ip_str = str(fixed_ip.ip_address)
             name = '%s.local' % r.sub('-', ip_str)
-            allocations.append((port.mac_address, name, ip_str))
+            allocations.append((port.mac_address, ip_str, name))
 
     return allocations
 

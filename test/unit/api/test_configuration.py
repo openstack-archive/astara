@@ -164,9 +164,9 @@ class TestAkandaClient(unittest.TestCase):
             nc.assert_called_once_with(interface, 'management', 'mgt-net')
 
     def test_network_config(self):
-        subnets = [fake_subnet]
         mock_client = mock.Mock()
-        mock_client.get_network_subnets.return_value = subnets
+        mock_client.get_network_subnets.return_value = [fake_subnet]
+        subnets_dict = {fake_subnet.id: fake_subnet}
 
         with mock.patch.object(conf_mod, '_make_network_config_dict') as nc:
             with mock.patch.object(conf_mod, '_interface_config') as ic:
@@ -180,12 +180,12 @@ class TestAkandaClient(unittest.TestCase):
                     'internal',
                     [])
 
-                ic.assert_called_once_with('ge1', fake_int_port, subnets)
+                ic.assert_called_once_with('ge1', fake_int_port, subnets_dict)
                 nc.assert_called_once_with(
                     mock_interface,
                     'internal',
                     'int-net',
-                    subnets=subnets,
+                    subnets_dict=subnets_dict,
                     network_ports=[])
 
     def test_make_network_config(self):
@@ -197,7 +197,7 @@ class TestAkandaClient(unittest.TestCase):
             fake_int_port.network_id,
             'dhcp',
             'ra',
-            subnets=[fake_subnet],
+            subnets_dict={fake_subnet.id: fake_subnet},
             network_ports=[fake_vm_port])
 
         expected = {
@@ -212,18 +212,20 @@ class TestAkandaClient(unittest.TestCase):
                          'gateway_ip': '192.168.1.1',
                          'host_routes': {}}],
             'allocations': [('aa:aa:aa:aa:aa:bb',
-                             '192-168-1-2.local',
-                             '192.168.1.2')]
+                             '192.168.1.2',
+                             '192-168-1-2.local'
+                             )]
         }
 
         self.assertEqual(result, expected)
 
     def test_interface_config(self):
         expected = {'addresses': ['192.168.1.1/24'], 'ifname': 'ge1'}
+        subnets_dict = {fake_subnet.id: fake_subnet}
 
         self.assertEqual(
             expected,
-            conf_mod._interface_config('ge1', fake_int_port, [fake_subnet]))
+            conf_mod._interface_config('ge1', fake_int_port, subnets_dict))
 
     def test_subnet_config(self):
         expected = {
@@ -237,8 +239,12 @@ class TestAkandaClient(unittest.TestCase):
         self.assertEqual(conf_mod._subnet_config(fake_subnet), expected)
 
     def test_allocation_config(self):
-        expected = [('aa:aa:aa:aa:aa:bb', '192-168-1-2.local', '192.168.1.2')]
-        self.assertEqual(conf_mod._allocation_config([fake_vm_port]), expected)
+        subnets_dict = {fake_subnet.id: fake_subnet}
+        expected = [('aa:aa:aa:aa:aa:bb', '192.168.1.2', '192-168-1-2.local')]
+        self.assertEqual(
+            conf_mod._allocation_config([fake_vm_port], subnets_dict),
+            expected
+        )
 
     def test_generate_address_book_config(self):
         fake_address_group = FakeModel(
@@ -349,4 +355,3 @@ class TestAkandaClient(unittest.TestCase):
         }
 
         self.assertEqual(result, expected)
-

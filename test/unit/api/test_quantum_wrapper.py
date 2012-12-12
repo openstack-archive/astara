@@ -17,7 +17,6 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(r.management_port, 'mgt')
         self.assertEqual(r.internal_ports, ['int'])
 
-
     def test_router_from_dict(self):
         p = {
             'id': 'ext',
@@ -33,7 +32,7 @@ class TestQuantumModels(unittest.TestCase):
             'tenant_id': 'tenant_id',
             'name': 'name',
             'admin_state_up': True,
-            'ports' : [p]
+            'ports': [p]
         }
 
         r = quantum.Router.from_dict(d)
@@ -58,7 +57,6 @@ class TestQuantumModels(unittest.TestCase):
             '2', 'tenant_id', 'name', True, 'ext', ['int'], 'mgt')
 
         self.assertNotEqual(r1, r2)
-
 
     def test_subnet_model(self):
         d = {
@@ -105,7 +103,6 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(p.device_owner, 'test')
         self.assertEqual(len(p.fixed_ips), 1)
 
-
     def test_fixed_ip_model(self):
         d = {
             'subnet_id': 'sub1',
@@ -129,7 +126,6 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(g.id, '1')
         self.assertEqual(g.name, 'group1')
         self.assertEqual(g.entries, [netaddr.IPNetwork('192.168.1.1/24')])
-
 
     def test_filterrule_model(self):
         d = {
@@ -182,13 +178,14 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(fw.private_port, 22)
         self.assertEqual(fw.port.device_id, 'device_id')
 
+
 class FakeConf:
-    admin_user='admin'
-    admin_password='password'
-    admin_tenant_name='admin'
-    auth_url='http://127.0.0.1/'
-    auth_strategy='keystone'
-    auth_region='RegionOne'
+    admin_user = 'admin'
+    admin_password = 'password'
+    admin_tenant_name = 'admin'
+    auth_url = 'http://127.0.0.1/'
+    auth_strategy = 'keystone'
+    auth_region = 'RegionOne'
 
 
 class TestAkandaClientWrapper(unittest.TestCase):

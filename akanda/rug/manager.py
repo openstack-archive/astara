@@ -39,6 +39,7 @@ OPTIONS = [
     # needed for plugging locally into management network
     cfg.StrOpt('interface_driver'),
     cfg.StrOpt('ovs_integration_bridge', default='br-int'),
+    cfg.BoolOpt('ovs_use_veth', default=False),
     cfg.StrOpt('root_helper', default='sudo'),
     cfg.IntOpt('network_device_mtu'),
 
@@ -119,11 +120,11 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     @notification.handles('router.create.end')
     def handle_router_create_notification(self, tenant_id, payload):
-        self.task_mgr.put(self._spawn_router, payload['router']['id'])
+        self.task_mgr.put(self.update_router, payload['router']['id'])
 
     @notification.handles('router.delete.end')
     def handle_router_delete_notification(self, tenant_id, payload):
-        self.task_mgr.put(self._destroy_router, payload['router']['id'])
+        self.task_mgr.put(self.destroy_router, payload['router_id'])
 
     def sync_state(self):
         """Load state from database and update routers that have changed."""
@@ -169,7 +170,8 @@ class AkandaL3Manager(notification.NotificationMixin,
     def _post_reboot(self, router):
         if self.router_is_alive(router):
             self.task_mgr.put(self.update_router, router.id)
-        raise Exception('Router %s has not finished booting.' % router.id)
+        raise Exception('Router %s has not finished booting. IP: %s' %
+                        (router.id, _get_management_address(router)))
 
     def update_config(self, router):
         LOG.debug('Updating router %s config' % router.id)

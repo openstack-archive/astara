@@ -314,7 +314,7 @@ class Quantum(object):
 
     def get_portforwards(self, tenant_id):
         return [PortForward.from_dict(f) for f in
-                self.client.list_portforward(
+                self.client.list_portforwards(
                     tenant_id=tenant_id)['portforwards']]
 
     def create_router_management_port(self, router_id):
@@ -322,8 +322,8 @@ class Quantum(object):
                          network_id=self.conf.management_network_id,
                          device_owner=DEVICE_OWNER_ROUTER_MGT
                          )
-        port = Port.from_dict(
-            self.client.create_port(dict(port=port_dict))['port'])
+        response = self.client.create_port(dict(port=port_dict))
+        port = Port.from_dict(response['port'])
         args = dict(port_id=port.id, owner=DEVICE_OWNER_ROUTER_MGT)
         self.client.add_interface_router(router_id, args)
 
@@ -342,7 +342,7 @@ class Quantum(object):
         }
 
         r = self.client.update_router(router.id, body=dict(router=update_args))
-        return Router.from_dict(r).external_port
+        return Router.from_dict(r['router']).external_port
 
     def ensure_local_service_port(self):
         driver = importutils.import_object(self.conf.interface_driver,

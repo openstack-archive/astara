@@ -43,13 +43,14 @@ class Nova(object):
     def destroy_router_instance(self, router):
         instance = self.get_instance(router)
         if instance:
-            self.client.servers.destroy(instance.id)
+            self.client.servers.delete(instance.id)
 
     def reboot_router_instance(self, router):
         instance = self.get_instance(router)
         if instance:
-            if instance.status != 'REBOOT':
-                # no need to reboot twice
-                self.client.servers.reboot(instance.id)
-        else:
-            self.create_router_instance(router)
+            if 'BUILD' in instance.status:
+                return
+
+            self.client.servers.delete(instance.id)
+
+        self.create_router_instance(router)
