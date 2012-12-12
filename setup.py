@@ -3,15 +3,15 @@ from setuptools import setup, find_packages
 
 setup(
     name='Akanda Router Update Generator',
-    version='0.1.1',
+    version='0.1.2',
     description='A service that manages tenant Akanda router instances',
     author='DreamHost',
     author_email='dev-community@dreamhost.com',
     url='http://github.com/dreamhost/akanda-rug',
     license='BSD',
     install_requires=[
-        'netaddr>=0.7.7',
-        'requests>=0.14.1',
+        'netaddr>=0.7.5',
+        'requests>=0.8.2',
         'python-quantumclient>=2.1'
     ],
     namespace_packages=['akanda'],
