@@ -3,10 +3,12 @@ import unittest2 as unittest
 
 from akanda.rug.api import nova
 
+
 class FakeModel(object):
     def __init__(self, id_, **kwargs):
         self.id = id_
         self.__dict__.update(kwargs)
+
 
 fake_ext_port = FakeModel(
     '1',
@@ -34,14 +36,14 @@ fake_router = FakeModel(
 
 
 class FakeConf:
-    admin_user='admin'
-    admin_password='password'
-    admin_tenant_name='admin'
-    auth_url='http://127.0.0.1/'
-    auth_strategy='keystone'
-    auth_region='RegionOne'
-    router_image_uuid='akanda-image'
-    router_instance_flavor=1
+    admin_user = 'admin'
+    admin_password = 'password'
+    admin_tenant_name = 'admin'
+    auth_url = 'http://127.0.0.1/'
+    auth_strategy = 'keystone'
+    auth_region = 'RegionOne'
+    router_image_uuid = 'akanda-image'
+    router_instance_flavor = 1
 
 
 class TestNovaWrapper(unittest.TestCase):
@@ -52,7 +54,6 @@ class TestNovaWrapper(unittest.TestCase):
         self.client_cls = patch.start()
         self.client_cls.return_value = self.client
         self.nova = nova.Nova(FakeConf)
-
 
     def test_create_router_instance(self):
         expected = [
@@ -67,14 +68,13 @@ class TestNovaWrapper(unittest.TestCase):
                       {'port-id': '3',
                        'net-id': 'int-net',
                        'v4-fixed-ip': ''}],
-                 flavor=1,
-                 image='akanda-image'
+                flavor=1,
+                image='akanda-image'
             )
         ]
 
         self.nova.create_router_instance(fake_router)
         self.client.assert_has_calls(expected)
-
 
     def test_get_instance(self):
         instance = mock.Mock()
@@ -123,13 +123,12 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.assert_has_calls(expected)
         self.assertIsNone(result)
 
-
-    def test_destory_router_instance(self):
+    def test_destroy_router_instance(self):
         with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            get_instance.return_value.id='instance_id'
+            get_instance.return_value.id = 'instance_id'
 
             expected = [
-                mock.call.servers.destroy('instance_id')
+                mock.call.servers.delete('instance_id')
             ]
 
             self.nova.destroy_router_instance(fake_router)
@@ -137,11 +136,13 @@ class TestNovaWrapper(unittest.TestCase):
 
     def test_reboot_router_instance_exists(self):
         with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            get_instance.return_value.id='instance_id'
-            get_instance.return_value.status='ACTIVE'
+            get_instance.return_value.id = 'instance_id'
+            get_instance.return_value.status = 'ACTIVE'
 
             expected = [
-                mock.call.servers.reboot('instance_id')
+                mock.call.servers.delete('instance_id'),
+                mock.call.servers.create(mock.ANY, nics=mock.ANY,
+                                         flavor=1, image=mock.ANY)
             ]
 
             self.nova.reboot_router_instance(fake_router)
@@ -149,8 +150,8 @@ class TestNovaWrapper(unittest.TestCase):
 
     def test_reboot_router_instance_rebooting(self):
         with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            get_instance.return_value.id='instance_id'
-            get_instance.return_value.status='REBOOT'
+            get_instance.return_value.id = 'instance_id'
+            get_instance.return_value.status = 'BUILD'
 
             self.nova.reboot_router_instance(fake_router)
             self.assertEqual(self.client.mock_calls, [])
