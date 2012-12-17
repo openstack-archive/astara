@@ -245,6 +245,15 @@ class AkandaL3Manager(notification.NotificationMixin,
 
 
 def _get_management_address(router):
-    prefix, prefix_len = cfg.CONF.management_prefix.split('/', 1)
-    eui = netaddr.EUI(router.management_port.mac_address)
-    return str(eui.ipv6_link_local()).replace('fe80::', prefix[:-1])
+    network = netaddr.IPNetwork(cfg.CONF.management_prefix)
+
+    tokens = ['%02x' % int(t, 16)
+              for t in router.management_port.mac_address.split(':')]
+
+    eui64 = int(
+        ''.join(tokens[0:3] + ['ff', 'fe'] + tokens[3:6]),
+        16
+    )
+
+    # the bit inversion is required by the RFC
+    return str(netaddr.IPAddress(network.value + (eui64 ^ 0x0200000000000000)))
