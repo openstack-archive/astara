@@ -4,13 +4,14 @@ import weakref
 import eventlet
 import netaddr
 
-from akanda.rug.common import cache
-from akanda.rug.common import notification
-from akanda.rug.common import task
 from akanda.rug.api import configuration
 from akanda.rug.api import nova
 from akanda.rug.api import quantum
 from akanda.rug.api import akanda_client as router_api
+from akanda.rug.common import cache
+from akanda.rug.common import notification
+from akanda.rug.common import task
+from akanda.rug import metadata
 from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common import periodic_task
@@ -74,6 +75,9 @@ class AkandaL3Manager(notification.NotificationMixin,
         self.create_notification_listener(
             cfg.CONF.notification_topic,
             cfg.CONF.quantum_control_exchange)
+        self.metadata = metadata.create_metadata_signing_proxy(
+            quantum.get_local_service_ip(cfg.CONF).split('/')[0]
+        )
 
     @periodic_task.periodic_task
     def begin_health_check(self):
@@ -170,8 +174,9 @@ class AkandaL3Manager(notification.NotificationMixin,
     def _post_reboot(self, router):
         if self.router_is_alive(router):
             self.task_mgr.put(self.update_router, router.id)
-        raise Exception('Router %s has not finished booting. IP: %s' %
-                        (router.id, _get_management_address(router)))
+        else:
+            raise Warning('Router %s has not finished booting. IP: %s' %
+                          (router.id, _get_management_address(router)))
 
     def update_config(self, router):
         LOG.debug('Updating router %s config' % router.id)

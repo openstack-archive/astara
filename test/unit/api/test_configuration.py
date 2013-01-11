@@ -16,26 +16,30 @@ fake_ext_port = FakeModel(
     mac_address='aa:bb:cc:dd:ee:ff',
     network_id='ext-net',
     fixed_ips=[FakeModel('', ip_address='9.9.9.9', subnet_id='s2')],
-    first_v4='9.9.9.9')
+    first_v4='9.9.9.9',
+    device_id='e-e-e-e')
 
 
 fake_mgt_port = FakeModel(
     '2',
     mac_address='aa:bb:cc:cc:bb:aa',
-    network_id='mgt-net')
+    network_id='mgt-net',
+    device_id='m-m-m-m')
 
 fake_int_port = FakeModel(
     '3',
     mac_address='aa:aa:aa:aa:aa:aa',
     network_id='int-net',
-    fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')])
+    fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')],
+    device_id='i-i-i-i')
 
 fake_vm_port = FakeModel(
     '4',
     mac_address='aa:aa:aa:aa:aa:bb',
     network_id='int-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],
-    first_v4='192.168.1.2')
+    first_v4='192.168.1.2',
+    device_id='v-v-v-v')
 
 fake_subnet = FakeModel(
     's1',
@@ -211,10 +215,12 @@ class TestAkandaClient(unittest.TestCase):
                          'dns_nameservers': ['8.8.8.8'],
                          'gateway_ip': '192.168.1.1',
                          'host_routes': {}}],
-            'allocations': [('aa:aa:aa:aa:aa:bb',
-                             '192.168.1.2',
-                             '192-168-1-2.local'
-                             )]
+            'allocations': [
+                 {'mac_address': 'aa:aa:aa:aa:aa:bb',
+                  'ip_addresses': {'192.168.1.2': True},
+                  'hostname': '192-168-1-2.local',
+                  'device_id': 'v-v-v-v'}
+            ]
         }
 
         self.assertEqual(result, expected)
@@ -240,7 +246,13 @@ class TestAkandaClient(unittest.TestCase):
 
     def test_allocation_config(self):
         subnets_dict = {fake_subnet.id: fake_subnet}
-        expected = [('aa:aa:aa:aa:aa:bb', '192.168.1.2', '192-168-1-2.local')]
+        expected = [
+            {'mac_address': 'aa:aa:aa:aa:aa:bb',
+             'ip_addresses': {'192.168.1.2': True},
+             'hostname': '192-168-1-2.local',
+             'device_id': 'v-v-v-v'}
+        ]
+
         self.assertEqual(
             conf_mod._allocation_config([fake_vm_port], subnets_dict),
             expected
