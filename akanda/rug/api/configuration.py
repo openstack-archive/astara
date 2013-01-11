@@ -122,13 +122,22 @@ def _allocation_config(ports, subnets_dict):
     allocations = []
 
     for port in ports:
-        for fixed_ip in port.fixed_ips:
-            if not subnets_dict[fixed_ip.subnet_id].enable_dhcp:
-                continue
+        addrs = {
+            str(fixed.ip_address): subnets_dict[fixed.subnet_id].enable_dhcp
+            for fixed in port.fixed_ips
+        }
 
-            ip_str = str(fixed_ip.ip_address)
-            name = '%s.local' % r.sub('-', ip_str)
-            allocations.append((port.mac_address, ip_str, name))
+        if not addrs:
+            continue
+
+        allocations.append(
+            {
+                'ip_addresses': addrs,
+                'device_id': port.device_id,
+                'hostname': '%s.local' % r.sub('-', sorted(addrs.keys())[0]),
+                'mac_address': port.mac_address
+            }
+        )
 
     return allocations
 
