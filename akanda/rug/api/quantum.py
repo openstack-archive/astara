@@ -372,10 +372,13 @@ class Quantum(object):
                         driver.get_device_name(port),
                         port.mac_address)
 
-        mgt_net = netaddr.IPNetwork(self.conf.management_prefix)
-        rug_ip = '%s/%s' % (netaddr.IPAddress(mgt_net.first + 1),
-                            mgt_net.prefixlen)
-
-        driver.init_l3(driver.get_device_name(port), [rug_ip])
+        driver.init_l3(driver.get_device_name(port),
+                       [get_local_service_ip(self.conf)])
 
         return port
+
+def get_local_service_ip(conf):
+    mgt_net = netaddr.IPNetwork(conf.management_prefix)
+    rug_ip = '%s/%s' % (netaddr.IPAddress(mgt_net.first + 1),
+                        mgt_net.prefixlen)
+    return rug_ip
