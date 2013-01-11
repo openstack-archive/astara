@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Akanda Router Update Generator',
-    version='0.1.3',
+    version='0.1.4',
     description='A service that manages tenant Akanda router instances',
     author='DreamHost',
     author_email='dev-community@dreamhost.com',
@@ -11,7 +11,7 @@ setup(
     license='BSD',
     install_requires=[
         'netaddr>=0.7.5',
-        'requests>=0.8.2',
+        'httplib2>=0.7.2',
         'python-quantumclient>=2.1'
     ],
     namespace_packages=['akanda'],
