@@ -1,5 +1,6 @@
+import httplib2
+import json
 import netaddr
-import requests
 
 from akanda.rug.openstack.common import jsonutils
 
@@ -17,8 +18,9 @@ def _mgt_url(host, port, path):
 def is_alive(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'
     try:
-        response = requests.get(_mgt_url(host, port, path), timeout=1.0)
-        if response.status_code == requests.codes.ok:
+        h = httplib2.Http(timeout=1.0)
+        response, body = h.request(_mgt_url(host, port, path))
+        if response.status == 200:
             return True
     except:
         pass
@@ -27,24 +29,29 @@ def is_alive(host, port):
 
 def get_interfaces(host, port):
     path = AKANDA_BASE_PATH + 'system/interfaces'
-    response = requests.get(_mgt_url(host, port, path))
-    return response.json.get('interfaces', [])
+    h = httplib2.Http()
+    response, body = h.request(_mgt_url(host, port, path))
+    return json.loads(body).get('interfaces', [])
 
 
 def update_config(host, port, config_dict):
     path = AKANDA_BASE_PATH + 'system/config'
     headers = {'Content-type': 'application/json'}
-    response = requests.put(_mgt_url(host, port, path),
-                            data=jsonutils.dumps(config_dict),
-                            headers=headers)
 
-    if response.status_code != requests.codes.ok:
-        raise Exception('Config update failed: %s' % response.text)
+    h = httplib2.Http()
+    response, body = h.request(_mgt_url(host, port, path),
+                               method='PUT',
+                               body=jsonutils.dumps(config_dict),
+                               headers=headers)
+
+    if response.status != 200:
+        raise Exception('Config update failed: %s' % body)
     else:
-        return response.json
+        return json.loads(body)
 
 
 def read_labels(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'
-    response = requests.post(_mgt_url(host, port, path))
-    return response.json.get('labels', [])
+    h = httplib2.Http()
+    response, body = h.request(_mgt_url(host, port, path), method='POST')
+    return json.loads(body).get('labels', [])
