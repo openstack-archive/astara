@@ -49,7 +49,10 @@ class TaskManager(object):
             try:
                 task()
             except Exception, e:
-                LOG.exception('Task failed: %s' % task)
+                if isinstance(e, Warning):
+                    LOG.warn('Task: %s' % task)
+                else:
+                    LOG.exception('Task failed: %s' % task)
 
                 if task.should_retry():
                     self.delay_queue.put(task)
