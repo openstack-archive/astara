@@ -181,8 +181,8 @@ def _format_port_forward_rule(to_ip, pf):
         'action': 'pass',
         'family': 'inet',
         'protocol': pf.protocol,
-        'to': '%s/32' % to_ip,
-        'to_port': pf.public_port,
+        'destination': '%s/32' % to_ip,
+        'destination_port': pf.public_port,
         'redirect': redirect_ip,
         'redirect_port': pf.private_port
     }
