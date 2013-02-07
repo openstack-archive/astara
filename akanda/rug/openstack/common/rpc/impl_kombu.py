@@ -31,9 +31,9 @@ import kombu.messaging
 
 from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.openstack.common import network_utils
 from akanda.rug.openstack.common.rpc import amqp as rpc_amqp
 from akanda.rug.openstack.common.rpc import common as rpc_common
-from akanda.rug.openstack.common import network_utils
 
 kombu_opts = [
     cfg.StrOpt('kombu_ssl_version',
@@ -162,7 +162,8 @@ class ConsumerBase(object):
         def _callback(raw_message):
             message = self.channel.message_to_python(raw_message)
             try:
-                callback(message.payload)
+                msg = rpc_common.deserialize_msg(message.payload)
+                callback(msg)
                 message.ack()
             except Exception:
                 LOG.exception(_("Failed to process message... skipping it."))
@@ -196,7 +197,7 @@ class DirectConsumer(ConsumerBase):
         # Default options
         options = {'durable': False,
                    'auto_delete': True,
-                   'exclusive': True}
+                   'exclusive': False}
         options.update(kwargs)
         exchange = kombu.entity.Exchange(name=msg_id,
                                          type='direct',
@@ -267,8 +268,9 @@ class FanoutConsumer(ConsumerBase):
 
         # Default options
         options = {'durable': False,
+                   'queue_arguments': _get_queue_arguments(conf),
                    'auto_delete': True,
-                   'exclusive': True}
+                   'exclusive': False}
         options.update(kwargs)
         exchange = kombu.entity.Exchange(name=exchange_name, type='fanout',
                                          durable=options['durable'],
@@ -300,9 +302,15 @@ class Publisher(object):
                                                  channel=channel,
                                                  routing_key=self.routing_key)
 
-    def send(self, msg):
+    def send(self, msg, timeout=None):
         """Send a message"""
-        self.producer.publish(msg)
+        if timeout:
+            #
+            # AMQP TTL is in milliseconds when set in the header.
+            #
+            self.producer.publish(msg, headers={'ttl': (timeout * 1000)})
+        else:
+            self.producer.publish(msg)
 
 
 class DirectPublisher(Publisher):
@@ -315,7 +323,7 @@ class DirectPublisher(Publisher):
 
         options = {'durable': False,
                    'auto_delete': True,
-                   'exclusive': True}
+                   'exclusive': False}
         options.update(kwargs)
         super(DirectPublisher, self).__init__(channel, msg_id, msg_id,
                                               type='direct', **options)
@@ -349,7 +357,7 @@ class FanoutPublisher(Publisher):
         """
         options = {'durable': False,
                    'auto_delete': True,
-                   'exclusive': True}
+                   'exclusive': False}
         options.update(kwargs)
         super(FanoutPublisher, self).__init__(channel, '%s_fanout' % topic,
                                               None, type='fanout', **options)
@@ -386,6 +394,7 @@ class Connection(object):
     def __init__(self, conf, server_params=None):
         self.consumers = []
         self.consumer_thread = None
+        self.proxy_callbacks = []
         self.conf = conf
         self.max_retries = self.conf.rabbit_max_retries
         # Try forever?
@@ -408,17 +417,17 @@ class Connection(object):
             hostname, port = network_utils.parse_host_port(
                 adr, default_port=self.conf.rabbit_port)
 
-            params = {}
+            params = {
+                'hostname': hostname,
+                'port': port,
+                'userid': self.conf.rabbit_userid,
+                'password': self.conf.rabbit_password,
+                'virtual_host': self.conf.rabbit_virtual_host,
+            }
 
             for sp_key, value in server_params.iteritems():
                 p_key = server_params_to_kombu_params.get(sp_key, sp_key)
                 params[p_key] = value
-
-            params.setdefault('hostname', hostname)
-            params.setdefault('port', port)
-            params.setdefault('userid', self.conf.rabbit_userid)
-            params.setdefault('password', self.conf.rabbit_password)
-            params.setdefault('virtual_host', self.conf.rabbit_virtual_host)
 
             if self.conf.fake_rabbit:
                 params['transport'] = 'memory'
@@ -468,7 +477,7 @@ class Connection(object):
             LOG.info(_("Reconnecting to AMQP server on "
                      "%(hostname)s:%(port)d") % params)
             try:
-                self.connection.close()
+                self.connection.release()
             except self.connection_errors:
                 pass
             # Setting this in case the next statement fails, though
@@ -572,12 +581,14 @@ class Connection(object):
     def close(self):
         """Close/release this connection"""
         self.cancel_consumer_thread()
+        self.wait_on_proxy_callbacks()
         self.connection.release()
         self.connection = None
 
     def reset(self):
         """Reset a connection so it can be used again"""
         self.cancel_consumer_thread()
+        self.wait_on_proxy_callbacks()
         self.channel.close()
         self.channel = self.connection.channel()
         # work around 'memory' transport bug in 1.1.3
@@ -643,7 +654,12 @@ class Connection(object):
                 pass
             self.consumer_thread = None
 
-    def publisher_send(self, cls, topic, msg, **kwargs):
+    def wait_on_proxy_callbacks(self):
+        """Wait for all proxy callback threads to exit."""
+        for proxy_cb in self.proxy_callbacks:
+            proxy_cb.wait()
+
+    def publisher_send(self, cls, topic, msg, timeout=None, **kwargs):
         """Send to a publisher based on the publisher class"""
 
         def _error_callback(exc):
@@ -653,7 +669,7 @@ class Connection(object):
 
         def _publish():
             publisher = cls(self.conf, self.channel, topic, **kwargs)
-            publisher.send(msg)
+            publisher.send(msg, timeout)
 
         self.ensure(_error_callback, _publish)
 
@@ -681,9 +697,9 @@ class Connection(object):
         """Send a 'direct' message"""
         self.publisher_send(DirectPublisher, msg_id, msg)
 
-    def topic_send(self, topic, msg):
+    def topic_send(self, topic, msg, timeout=None):
         """Send a 'topic' message"""
-        self.publisher_send(TopicPublisher, topic, msg)
+        self.publisher_send(TopicPublisher, topic, msg, timeout)
 
     def fanout_send(self, topic, msg):
         """Send a 'fanout' message"""
@@ -691,7 +707,7 @@ class Connection(object):
 
     def notify_send(self, topic, msg, **kwargs):
         """Send a notify message on a topic"""
-        self.publisher_send(NotifyPublisher, topic, msg, **kwargs)
+        self.publisher_send(NotifyPublisher, topic, msg, None, **kwargs)
 
     def consume(self, limit=None):
         """Consume from all queues/consumers"""
@@ -718,6 +734,7 @@ class Connection(object):
         proxy_cb = rpc_amqp.ProxyCallback(
             self.conf, proxy,
             rpc_amqp.get_connection_pool(self.conf, Connection))
+        self.proxy_callbacks.append(proxy_cb)
 
         if fanout:
             self.declare_fanout_consumer(topic, proxy_cb)
@@ -729,6 +746,7 @@ class Connection(object):
         proxy_cb = rpc_amqp.ProxyCallback(
             self.conf, proxy,
             rpc_amqp.get_connection_pool(self.conf, Connection))
+        self.proxy_callbacks.append(proxy_cb)
         self.declare_topic_consumer(topic, proxy_cb, pool_name)
 
 
@@ -776,16 +794,17 @@ def cast_to_server(conf, context, server_params, topic, msg):
 
 def fanout_cast_to_server(conf, context, server_params, topic, msg):
     """Sends a message on a fanout exchange to a specific server."""
-    return rpc_amqp.cast_to_server(
+    return rpc_amqp.fanout_cast_to_server(
         conf, context, server_params, topic, msg,
         rpc_amqp.get_connection_pool(conf, Connection))
 
 
-def notify(conf, context, topic, msg):
+def notify(conf, context, topic, msg, envelope):
     """Sends a notification event on a topic."""
     return rpc_amqp.notify(
         conf, context, topic, msg,
-        rpc_amqp.get_connection_pool(conf, Connection))
+        rpc_amqp.get_connection_pool(conf, Connection),
+        envelope)
 
 
 def cleanup():
