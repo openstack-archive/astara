@@ -22,7 +22,7 @@ LOG = logging.getLogger(__name__)
 
 OPTIONS = [
     cfg.StrOpt('admin_user'),
-    cfg.StrOpt('admin_password'),
+    cfg.StrOpt('admin_password', secret=True),
     cfg.StrOpt('admin_tenant_name'),
     cfg.StrOpt('auth_url'),
     cfg.StrOpt('auth_strategy', default='keystone'),
@@ -41,22 +41,20 @@ OPTIONS = [
     cfg.StrOpt('interface_driver'),
     cfg.StrOpt('ovs_integration_bridge', default='br-int'),
     cfg.BoolOpt('ovs_use_veth', default=False),
-    cfg.StrOpt('root_helper', default='sudo'),
     cfg.IntOpt('network_device_mtu'),
 
     # listen for Quantum notification events
     cfg.StrOpt('notification_topic',
                default='notifications.info',
-               help='Quantum notification topic name'),
-    cfg.StrOpt('quantum_control_exchange',
-               default='openstack',
-               help='Quantum control exchange name'),
-    cfg.StrOpt('control_exchange',
-               default='akanda',
-               help='Akanda control exchange name')
+               help='Quantum notification topic name')
+]
+
+AGENT_OPTIONS = [
+    cfg.StrOpt('root_helper', default='sudo'),
 ]
 
 cfg.CONF.register_opts(OPTIONS)
+cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 
 
 class AkandaL3Manager(notification.NotificationMixin,
@@ -66,39 +64,38 @@ class AkandaL3Manager(notification.NotificationMixin,
         self.quantum = quantum.Quantum(cfg.CONF)
         self.nova = nova.Nova(cfg.CONF)
         self.task_mgr = task.TaskManager()
-
         self.quantum.ensure_local_service_port()
 
-    def init_host(self):
+    def initialize_service_hook(self, started_by):
         self.sync_state()
         self.task_mgr.start()
         self.create_notification_listener(
             cfg.CONF.notification_topic,
-            cfg.CONF.quantum_control_exchange)
+            cfg.CONF.control_exchange)
         self.metadata = metadata.create_metadata_signing_proxy(
             quantum.get_local_service_ip(cfg.CONF).split('/')[0]
         )
 
     @periodic_task.periodic_task
-    def begin_health_check(self):
+    def begin_health_check(self, context):
         LOG.info('start health check queueing')
         for rtr in self.cache.routers():
             self.task_mgr.put(self.check_health, rtr)
 
     @periodic_task.periodic_task(ticks_between_runs=1)
-    def report_bandwidth_usage(self):
+    def report_bandwidth_usage(self, context):
         LOG.info('start bandwidth usage reporting')
         for rtr in self.cache.routers():
             self.task_mgr.put(self.report_bandwidth, rtr)
 
     @periodic_task.periodic_task(ticks_between_runs=10)
-    def janitor(self):
+    def janitor(self, context):
         """Periodically do a full state resync."""
         LOG.debug('resync router state')
         self.sync_state()
 
     @periodic_task.periodic_task(ticks_between_runs=15)
-    def refresh_configs(self):
+    def refresh_configs(self, context):
         LOG.debug('resync configuration state')
         for rtr_id in self.cache.keys():
             self.task_mgr.put(self.update_config, rtr_id)
@@ -113,7 +110,10 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     @notification.handles('subnet.create.end',
                           'subnet.change.end',
-                          'subnet.delete.end')
+                          'subnet.delete.end',
+                          'port.create.end',
+                          'port.change.end',
+                          'port.delete.end')
     def handle_router_subnet_change(self, tenant_id, payload):
         rtr = self.cache.get_by_tenant_id(tenant_id)
         if not rtr:
