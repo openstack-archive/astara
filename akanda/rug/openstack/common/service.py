@@ -27,13 +27,18 @@ import sys
 import time
 
 import eventlet
-import greenlet
+import logging as std_logging
 
+from akanda.rug.openstack.common import cfg
+from akanda.rug.openstack.common import eventlet_backdoor
+from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import log as logging
 from akanda.rug.openstack.common import threadgroup
-from akanda.rug.openstack.common.gettextutils import _
 
 
+rpc = importutils.try_import('akanda.rug.openstack.common.rpc')
+CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
@@ -46,7 +51,8 @@ class Launcher(object):
         :returns: None
 
         """
-        self._services = []
+        self._services = threadgroup.ThreadGroup()
+        eventlet_backdoor.initialize_if_enabled()
 
     @staticmethod
     def run_service(service):
@@ -66,8 +72,7 @@ class Launcher(object):
         :returns: None
 
         """
-        gt = eventlet.spawn(self.run_service, service)
-        self._services.append(gt)
+        self._services.add_thread(self.run_service, service)
 
     def stop(self):
         """Stop all services which are currently running.
@@ -75,8 +80,7 @@ class Launcher(object):
         :returns: None
 
         """
-        for service in self._services:
-            service.kill()
+        self._services.stop()
 
     def wait(self):
         """Waits until all services have been stopped, and then returns.
@@ -84,11 +88,7 @@ class Launcher(object):
         :returns: None
 
         """
-        for service in self._services:
-            try:
-                service.wait()
-            except greenlet.GreenletExit:
-                pass
+        self._services.wait()
 
 
 class SignalExit(SystemExit):
@@ -109,6 +109,9 @@ class ServiceLauncher(Launcher):
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
 
+        LOG.debug(_('Full set of CONF:'))
+        CONF.log_opt_values(LOG, std_logging.DEBUG)
+
         status = None
         try:
             super(ServiceLauncher, self).wait()
@@ -120,6 +123,8 @@ class ServiceLauncher(Launcher):
         except SystemExit as exc:
             status = exc.code
         finally:
+            if rpc:
+                rpc.cleanup()
             self.stop()
         return status
 
@@ -177,7 +182,7 @@ class ProcessLauncher(object):
         # Close write to ensure only parent has it open
         os.close(self.writepipe)
         # Create greenthread to watch for parent to close pipe
-        eventlet.spawn(self._pipe_watcher)
+        eventlet.spawn_n(self._pipe_watcher)
 
         # Reseed random number generator
         random.seed()
@@ -238,7 +243,10 @@ class ProcessLauncher(object):
 
     def _wait_child(self):
         try:
-            pid, status = os.wait()
+            # Don't block if no child processes have exited
+            pid, status = os.waitpid(0, os.WNOHANG)
+            if not pid:
+                return None
         except OSError as exc:
             if exc.errno not in (errno.EINTR, errno.ECHILD):
                 raise
@@ -246,10 +254,12 @@ class ProcessLauncher(object):
 
         if os.WIFSIGNALED(status):
             sig = os.WTERMSIG(status)
-            LOG.info(_('Child %(pid)d killed by signal %(sig)d'), locals())
+            LOG.info(_('Child %(pid)d killed by signal %(sig)d'),
+                     dict(pid=pid, sig=sig))
         else:
             code = os.WEXITSTATUS(status)
-            LOG.info(_('Child %(pid)d exited with status %(code)d'), locals())
+            LOG.info(_('Child %(pid)s exited with status %(code)d'),
+                     dict(pid=pid, code=code))
 
         if pid not in self.children:
             LOG.warning(_('pid %d not in child list'), pid)
@@ -261,9 +271,17 @@ class ProcessLauncher(object):
 
     def wait(self):
         """Loop waiting on children to die and respawning as necessary"""
+
+        LOG.debug(_('Full set of CONF:'))
+        CONF.log_opt_values(LOG, std_logging.DEBUG)
+
         while self.running:
             wrap = self._wait_child()
             if not wrap:
+                # Yield to other threads if no children have exited
+                # Sleep for a short time to avoid excessive CPU usage
+                # (see bug #1095346)
+                eventlet.greenthread.sleep(.01)
                 continue
 
             while self.running and len(wrap.children) < wrap.workers:
@@ -289,35 +307,13 @@ class ProcessLauncher(object):
 
 
 class Service(object):
-    """Service object for binaries running on hosts.
+    """Service object for binaries running on hosts."""
 
-    A service takes a manager and periodically runs tasks on the manager."""
-
-    def __init__(self, host, manager,
-                 periodic_interval=None,
-                 periodic_fuzzy_delay=None):
-        self.host = host
-        self.manager = manager
-        self.periodic_interval = periodic_interval
-        self.periodic_fuzzy_delay = periodic_fuzzy_delay
-        self.tg = threadgroup.ThreadGroup('service')
-        self.periodic_args = []
-        self.periodic_kwargs = {}
+    def __init__(self, threads=1000):
+        self.tg = threadgroup.ThreadGroup(threads)
 
     def start(self):
-        if self.manager:
-            self.manager.init_host()
-
-        if self.periodic_interval and self.manager:
-            if self.periodic_fuzzy_delay:
-                initial_delay = random.randint(0, self.periodic_fuzzy_delay)
-            else:
-                initial_delay = 0
-            self.tg.add_timer(self.periodic_interval,
-                              self.manager.run_periodic_tasks,
-                              initial_delay,
-                              *self.periodic_args,
-                              **self.periodic_kwargs)
+        pass
 
     def stop(self):
         self.tg.stop()

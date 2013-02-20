@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from akanda.rug.openstack.common import log as logging
 from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -87,26 +87,29 @@ class _PeriodicTasksMeta(type):
 class PeriodicTasks(object):
     __metaclass__ = _PeriodicTasksMeta
 
-    def run_periodic_tasks(self, *args, **kwargs):
+    def run_periodic_tasks(self, context, raise_on_error=False):
         """Tasks to be run at a periodic interval."""
-        raise_on_error = kwargs.get('raise_on_error', False)
         for task_name, task in self._periodic_tasks:
             full_task_name = '.'.join([self.__class__.__name__, task_name])
 
             ticks_to_skip = self._ticks_to_skip[task_name]
             if ticks_to_skip > 0:
                 LOG.debug(_("Skipping %(full_task_name)s, %(ticks_to_skip)s"
-                            " ticks left until next run"), locals())
+                            " ticks left until next run"),
+                          dict(full_task_name=full_task_name,
+                               ticks_to_skip=ticks_to_skip))
                 self._ticks_to_skip[task_name] -= 1
                 continue
 
             self._ticks_to_skip[task_name] = task._ticks_between_runs
-            LOG.debug(_("Running periodic task %(full_task_name)s"), locals())
+            LOG.debug(_("Running periodic task %(full_task_name)s"),
+                      dict(full_task_name=full_task_name))
 
             try:
-                task(self, *args, **kwargs)
+                task(self, context)
             except Exception as e:
                 if raise_on_error:
                     raise
-                LOG.exception(_("Error during %(full_task_name)s: %(e)s"),
-                              locals())
+                LOG.exception(_("Error during %(full_task_name)s:"
+                                " %(e)s"),
+                              dict(e=e, full_task_name=full_task_name))

@@ -1,10 +1,14 @@
 import socket
+import time
 import uuid
 
 import netaddr
 from quantumclient.v2_0 import client
 
 from akanda.rug.openstack.common import importutils
+from akanda.rug.openstack.common import cfg
+from akanda.rug.openstack.common import context
+from akanda.rug.openstack.common.rpc import proxy
 
 
 # copied from Quantum source
@@ -12,8 +16,8 @@ DEVICE_OWNER_ROUTER_MGT = "network:router_management"
 DEVICE_OWNER_ROUTER_INT = "network:router_interface"
 DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
-
-DEVICE_OWNER_RUG = "akanda:rug"
+DEVICE_OWNER_RUG = "network:akanda"
+PLUGIN_RPC_TOPIC = 'q-plugin'
 
 
 class Router(object):
@@ -266,28 +270,52 @@ class AkandaExtClientWrapper(client.Client):
                         params=params)
 
 
+class L3PluginApi(proxy.RpcProxy):
+    """Agent side of the Qunatum l3 agent RPC API."""
+
+    BASE_RPC_API_VERSION = '1.0'
+
+    def __init__(self, topic, host):
+        super(L3PluginApi, self).__init__(
+            topic=topic, default_version=self.BASE_RPC_API_VERSION)
+        self.host = host
+
+    def get_routers(self, router_id=None):
+        """Make a remote process call to retrieve the sync data for routers."""
+        router_ids = [router_id] if router_id else None
+        retval = self.call(context.get_admin_context(),
+                           self.make_msg('sync_routers', host=self.host,
+                                         router_ids=router_ids),
+                           topic=self.topic)
+        return retval
+
+
 class Quantum(object):
     def __init__(self, conf):
         self.conf = conf
-        self.client = AkandaExtClientWrapper(
+        self.api_client = AkandaExtClientWrapper(
             username=conf.admin_user,
             password=conf.admin_password,
             tenant_name=conf.admin_tenant_name,
             auth_url=conf.auth_url,
             auth_strategy=conf.auth_strategy,
-            auth_region=conf.auth_region)
+            auth_region=conf.auth_region
+        )
+        self.rpc_client = L3PluginApi(PLUGIN_RPC_TOPIC, cfg.CONF.host)
 
     def get_routers(self):
         """Return a list of routers."""
         return [Router.from_dict(r) for r in
-                self.client.list_routers()['routers']]
+                self.rpc_client.get_routers()]
 
     def get_router_detail(self, router_id):
         """Return detailed information about a router and it's networks."""
-        return Router.from_dict(self.client.show_router(router_id)['router'])
+        return Router.from_dict(
+            self.rpc_client.get_routers(router_id=router_id)[0]
+        )
 
     def get_router_for_tenant(self, tenant_id):
-        routers = self.client.list_routers(tenant_id=tenant_id)['routers']
+        routers = self.api_client.list_routers(tenant_id=tenant_id)['routers']
 
         if routers:
             return Router.from_dict(routers[0])
@@ -296,25 +324,25 @@ class Quantum(object):
 
     def get_network_ports(self, network_id):
         return [Port.from_dict(p) for p in
-                self.client.list_ports(network_id=network_id)['ports']]
+                self.api_client.list_ports(network_id=network_id)['ports']]
 
     def get_network_subnets(self, network_id):
         return [Subnet.from_dict(s) for s in
-                self.client.list_subnets(network_id=network_id)['subnets']]
+                self.api_client.list_subnets(network_id=network_id)['subnets']]
 
     def get_addressgroups(self, tenant_id):
         return [AddressGroup.from_dict(g) for g in
-                self.client.list_addressgroups(
+                self.api_client.list_addressgroups(
                     tenant_id=tenant_id)['addressgroups']]
 
     def get_filterrules(self, tenant_id):
         return [FilterRule.from_dict(r) for r in
-                self.client.list_filterrules(
+                self.api_client.list_filterrules(
                     tenant_id=tenant_id)['filterrules']]
 
     def get_portforwards(self, tenant_id):
         return [PortForward.from_dict(f) for f in
-                self.client.list_portforwards(
+                self.api_client.list_portforwards(
                     tenant_id=tenant_id)['portforwards']]
 
     def create_router_management_port(self, router_id):
@@ -322,16 +350,16 @@ class Quantum(object):
                          network_id=self.conf.management_network_id,
                          device_owner=DEVICE_OWNER_ROUTER_MGT
                          )
-        response = self.client.create_port(dict(port=port_dict))
+        response = self.api_client.create_port(dict(port=port_dict))
         port = Port.from_dict(response['port'])
         args = dict(port_id=port.id, owner=DEVICE_OWNER_ROUTER_MGT)
-        self.client.add_interface_router(router_id, args)
+        self.api_client.add_interface_router(router_id, args)
 
         return port
 
     def delete_router_management_port(self, router_id, port_id):
         args = dict(port_id=port_id, owner=DEVICE_OWNER_ROUTER_MGT)
-        self.client.remove_interface_router(router_id, args)
+        self.api_client.remove_interface_router(router_id, args)
 
     def create_router_external_port(self, router):
         network_args = {'network_id': self.conf.external_network_id}
@@ -341,7 +369,10 @@ class Quantum(object):
             'external_gateway_info': network_args
         }
 
-        r = self.client.update_router(router.id, body=dict(router=update_args))
+        r = self.api_client.update_router(
+            router.id,
+            body=dict(router=update_args)
+        )
         return Router.from_dict(r['router']).external_port
 
     def ensure_local_service_port(self):
@@ -353,29 +384,39 @@ class Quantum(object):
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id)
 
-        ports = self.client.list_ports(**query_dict)['ports']
+        ports = self.api_client.list_ports(**query_dict)['ports']
+
+        ip_address = get_local_service_ip(self.conf)
 
         if ports:
             port = Port.from_dict(ports[0])
         else:
             # create the missing local port
-            port_dict = dict(admin_state_up=True,
-                             network_id=self.conf.management_network_id,
-                             device_owner=DEVICE_OWNER_RUG,
-                             device_id=host_id)
+            port_dict = dict(
+                admin_state_up=True,
+                network_id=self.conf.management_network_id,
+                device_owner=DEVICE_OWNER_RUG,
+                device_id=host_id,
+                fixed_ips=[{
+                    'ip_address': ip_address.split('/')[0],
+                    'subnet_id': self.conf.management_subnet_id
+                }]
+            )
 
             port = Port.from_dict(
-                self.client.create_port(dict(port=port_dict))['port'])
+                self.api_client.create_port(dict(port=port_dict))['port'])
 
             driver.plug(port.network_id,
                         port.id,
                         driver.get_device_name(port),
                         port.mac_address)
+            # add sleep to ensure that port is setup before use
+            time.sleep(1)
 
-        driver.init_l3(driver.get_device_name(port),
-                       [get_local_service_ip(self.conf)])
+        driver.init_l3(driver.get_device_name(port), [ip_address])
 
         return port
+
 
 def get_local_service_ip(conf):
     mgt_net = netaddr.IPNetwork(conf.management_prefix)

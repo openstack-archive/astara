@@ -67,7 +67,7 @@ class MetadataProxyHandler(object):
         except Exception, e:
             LOG.exception("Unexpected error.")
             msg = ('An unknown error has occurred. '
-                    'Please try your request again.')
+                   'Please try your request again.')
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
 
     def _get_instance_id(self, req):
@@ -123,15 +123,18 @@ class MetadataProxy(object):
 
     def run(self, ip_address):
         app = MetadataProxyHandler()
-        sock = eventlet.listen((ip_address, RUG_META_PORT),
-                                 family=socket.AF_INET6,
-                                 backlog=128)
+        sock = eventlet.listen(
+            (ip_address, RUG_META_PORT),
+            family=socket.AF_INET6,
+            backlog=128
+        )
         self.pool.spawn_n(
             eventlet.wsgi.server,
             sock,
             app,
             custom_pool=self.pool,
             log=logging.WritableLogger(LOG))
+
 
 def create_metadata_signing_proxy(ip_address):
     mdp = MetadataProxy()
