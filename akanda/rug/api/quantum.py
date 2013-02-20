@@ -290,7 +290,6 @@ class L3PluginApi(proxy.RpcProxy):
         return retval
 
 
-
 class Quantum(object):
     def __init__(self, conf):
         self.conf = conf
@@ -370,7 +369,10 @@ class Quantum(object):
             'external_gateway_info': network_args
         }
 
-        r = self.api_client.update_router(router.id, body=dict(router=update_args))
+        r = self.api_client.update_router(
+            router.id,
+            body=dict(router=update_args)
+        )
         return Router.from_dict(r['router']).external_port
 
     def ensure_local_service_port(self):
@@ -414,6 +416,7 @@ class Quantum(object):
         driver.init_l3(driver.get_device_name(port), [ip_address])
 
         return port
+
 
 def get_local_service_ip(conf):
     mgt_net = netaddr.IPNetwork(conf.management_prefix)

@@ -216,10 +216,12 @@ class TestAkandaClient(unittest.TestCase):
                          'gateway_ip': '192.168.1.1',
                          'host_routes': {}}],
             'allocations': [
-                 {'mac_address': 'aa:aa:aa:aa:aa:bb',
-                  'ip_addresses': {'192.168.1.2': True},
-                  'hostname': '192-168-1-2.local',
-                  'device_id': 'v-v-v-v'}
+                {
+                    'mac_address': 'aa:aa:aa:aa:aa:bb',
+                    'ip_addresses': {'192.168.1.2': True},
+                    'hostname': '192-168-1-2.local',
+                    'device_id': 'v-v-v-v'
+                }
             ]
         }
 

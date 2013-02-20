@@ -14,9 +14,9 @@ cfg.CONF.register_opts([
     cfg.IntOpt('periodic_interval',
                default=60,
                help='seconds between periodic task runs (ie health check)'),
-     cfg.StrOpt('host',
-                default=socket.getfqdn(),
-                help=_("The hostname Quantum is running on")),
+    cfg.StrOpt('host',
+               default=socket.getfqdn(),
+               help=_("The hostname Quantum is running on")),
 ])
 
 
@@ -28,7 +28,7 @@ class PeriodicService(rpc_service.Service):
             self.manager.run_periodic_tasks,
             None,
             None
-            )
+        )
 
 
 def main():
