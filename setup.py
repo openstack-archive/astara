@@ -1,5 +1,7 @@
 from setuptools import setup, find_packages
 
+packages = [p for p in find_packages()
+            if not p.startswith('test')]
 
 setup(
     name='Akanda Router Update Generator',
@@ -15,7 +17,7 @@ setup(
         'python-quantumclient>=2.1'
     ],
     namespace_packages=['akanda'],
-    packages=find_packages(),
+    packages=packages,
     include_package_data=True,
     zip_safe=False,
     entry_points={
