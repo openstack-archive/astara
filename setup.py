@@ -1,8 +1,5 @@
 from setuptools import setup, find_packages
 
-packages = [p for p in find_packages()
-            if not p.startswith('test')]
-
 setup(
     name='akanda-rug',
     version='0.1.5',
@@ -17,7 +14,7 @@ setup(
         'python-quantumclient>=2.1'
     ],
     namespace_packages=['akanda'],
-    packages=packages,
+    packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
     entry_points={
