@@ -4,9 +4,9 @@ packages = [p for p in find_packages()
             if not p.startswith('test')]
 
 setup(
-    name='Akanda Router Update Generator',
+    name='akanda-rug',
     version='0.1.5',
-    description='A service that manages tenant Akanda router instances',
+    description='Akanda Router Update Generator manages tenant routers',
     author='DreamHost',
     author_email='dev-community@dreamhost.com',
     url='http://github.com/dreamhost/akanda-rug',
