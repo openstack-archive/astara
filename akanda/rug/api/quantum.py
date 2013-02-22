@@ -338,7 +338,7 @@ class Quantum(object):
         routers = self.api_client.list_routers(tenant_id=tenant_id)['routers']
 
         if routers:
-            return get_router_detail(routers[0]['id'])
+            return self.get_router_detail(routers[0]['id'])
         else:
             return None
 
