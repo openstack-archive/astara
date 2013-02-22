@@ -10,6 +10,7 @@ from akanda.rug.openstack.common import rpc
 from akanda.rug.openstack.common.rpc import service as rpc_service
 from akanda.rug.openstack.common import service
 
+L3_AGENT_TOPIC = 'l3_agent'
 cfg.CONF.register_opts([
     cfg.IntOpt('periodic_interval',
                default=60,
@@ -37,7 +38,9 @@ def main():
     log.setup('akanda')
 
     mgr = manager.AkandaL3Manager()
-    svc = PeriodicService(host=cfg.CONF.host, topic='akanda', manager=mgr)
+    svc = PeriodicService(
+        host=cfg.CONF.host, topic=L3_AGENT_TOPIC, manager=mgr
+    )
     service.launch(svc).wait()
 
 
