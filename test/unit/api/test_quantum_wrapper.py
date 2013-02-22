@@ -27,12 +27,19 @@ class TestQuantumModels(unittest.TestCase):
             'device_owner': 'network:router_gateway'
         }
 
+        fip = {
+            'id': 'fip',
+            'floating_ip_address': '9.9.9.9',
+            'fixed_ip_address': '192.168.1.1'
+        }
+
         d = {
             'id': '1',
             'tenant_id': 'tenant_id',
             'name': 'name',
             'admin_state_up': True,
-            'ports': [p]
+            'ports': [p],
+            'floatingips': [fip]
         }
 
         r = quantum.Router.from_dict(d)
@@ -41,6 +48,7 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(r.tenant_id, 'tenant_id')
         self.assertEqual(r.name, 'name')
         self.assertTrue(r.admin_state_up)
+        self.assertTrue(r.floating_ips)  # just make sure this exists
 
     def test_router_eq(self):
         r1 = quantum.Router(
@@ -177,6 +185,19 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(fw.public_port, 8022)
         self.assertEqual(fw.private_port, 22)
         self.assertEqual(fw.port.device_id, 'device_id')
+
+    def test_floating_ip_model(self):
+        d = {
+            'id': 'a-b-c-d',
+            'floating_ip_address': '9.9.9.9',
+            'fixed_ip_address': '192.168.1.1'
+        }
+
+        fip = quantum.FloatingIP.from_dict(d)
+
+        self.assertEqual(fip.id, 'a-b-c-d')
+        self.assertEqual(fip.floating_ip, netaddr.IPAddress('9.9.9.9'))
+        self.assertEqual(fip.fixed_ip, netaddr.IPAddress('192.168.1.1'))
 
 
 class FakeConf:

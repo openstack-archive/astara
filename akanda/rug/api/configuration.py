@@ -29,7 +29,8 @@ def build_config(client, router, interfaces):
         'networks': generate_network_config(client, router, interfaces),
         'address_book': generate_address_book_config(client, router),
         'anchors': generate_anchor_config(client, provider_rules, router),
-        'labels': provider_rules.get('labels', {})
+        'labels': provider_rules.get('labels', {}),
+        'floating_ips': generate_floating_config(router)
     }
 
 
@@ -205,3 +206,10 @@ def _format_filter_rule(rule):
         'destination': rule.destination.name if rule.destination else None,
         'destination_port': rule.destination_port,
     }
+
+
+def generate_floating_config(router):
+    return [
+        {'floating_ip': str(fip.floating_ip), 'fixed_ip': str(fip.fixed_ip)}
+        for fip in router.floating_ips
+    ]
