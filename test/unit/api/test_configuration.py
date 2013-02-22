@@ -69,7 +69,8 @@ class TestAkandaClient(unittest.TestCase):
             'load_provider_rules': mock.DEFAULT,
             'generate_network_config': mock.DEFAULT,
             'generate_address_book_config': mock.DEFAULT,
-            'generate_anchor_config': mock.DEFAULT
+            'generate_anchor_config': mock.DEFAULT,
+            'generate_floating_config': mock.DEFAULT
         }
 
         mock_client = mock.Mock()
@@ -81,6 +82,7 @@ class TestAkandaClient(unittest.TestCase):
             mocks['generate_network_config'].return_value = 'network_config'
             mocks['generate_address_book_config'].return_value = 'ab_config'
             mocks['generate_anchor_config'].return_value = 'anchor_config'
+            mocks['generate_floating_config'].return_value = 'floating_config'
 
             config = conf_mod.build_config(mock_client, fake_router, ifaces)
 
@@ -88,7 +90,9 @@ class TestAkandaClient(unittest.TestCase):
                 'networks': 'network_config',
                 'address_book': 'ab_config',
                 'anchors': 'anchor_config',
-                'labels': {'ext': ['192.168.1.1']}}
+                'labels': {'ext': ['192.168.1.1']},
+                'floating_ips': 'floating_config'
+            }
 
             self.assertEqual(config, expected)
 
@@ -367,5 +371,19 @@ class TestAkandaClient(unittest.TestCase):
                        'source_port': None}
                       ]
         }
+
+        self.assertEqual(result, expected)
+
+    def test_generate_floating_config(self):
+        fip = FakeModel(
+            'id',
+            floating_ip=netaddr.IPAddress('9.9.9.9'),
+            fixed_ip=netaddr.IPAddress('192.168.1.1')
+        )
+
+        rtr = FakeModel('rtr_id', floating_ips=[fip])
+
+        result = conf_mod.generate_floating_config(rtr)
+        expected = [{'floating_ip': '9.9.9.9', 'fixed_ip': '192.168.1.1' }]
 
         self.assertEqual(result, expected)
