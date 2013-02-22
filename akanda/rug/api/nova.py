@@ -15,7 +15,7 @@ class Nova(object):
     def create_router_instance(self, router):
         ports = [router.management_port, router.external_port]
         ports.extend(router.internal_ports)
-        nics = [{'net-id': p.network_id, 'v4-fixed-ip':'', 'port-id': p.id}
+        nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in ports]
 
         server = self.client.servers.create(

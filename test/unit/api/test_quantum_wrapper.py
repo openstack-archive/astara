@@ -187,17 +187,17 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(fw.port.device_id, 'device_id')
 
     def test_floating_ip_model(self):
-         d = {
-             'id': 'a-b-c-d',
-             'floating_ip_address': '9.9.9.9',
-             'fixed_ip_address': '192.168.1.1'
-         }
+        d = {
+            'id': 'a-b-c-d',
+            'floating_ip_address': '9.9.9.9',
+            'fixed_ip_address': '192.168.1.1'
+        }
 
-         fip = quantum.FloatingIP.from_dict(d)
+        fip = quantum.FloatingIP.from_dict(d)
 
-         self.assertEqual(fip.id, 'a-b-c-d')
-         self.assertEqual(fip.floating_ip, netaddr.IPAddress('9.9.9.9'))
-         self.assertEqual(fip.fixed_ip, netaddr.IPAddress('192.168.1.1'))
+        self.assertEqual(fip.id, 'a-b-c-d')
+        self.assertEqual(fip.floating_ip, netaddr.IPAddress('9.9.9.9'))
+        self.assertEqual(fip.fixed_ip, netaddr.IPAddress('192.168.1.1'))
 
 
 class FakeConf:

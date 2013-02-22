@@ -213,4 +213,3 @@ def generate_floating_config(router):
         {'floating_ip': str(fip.floating_ip), 'fixed_ip': str(fip.fixed_ip)}
         for fip in router.floating_ips
     ]
-

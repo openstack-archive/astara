@@ -384,6 +384,6 @@ class TestAkandaClient(unittest.TestCase):
         rtr = FakeModel('rtr_id', floating_ips=[fip])
 
         result = conf_mod.generate_floating_config(rtr)
-        expected = [{'floating_ip': '9.9.9.9', 'fixed_ip': '192.168.1.1' }]
+        expected = [{'floating_ip': '9.9.9.9', 'fixed_ip': '192.168.1.1'}]
 
         self.assertEqual(result, expected)
