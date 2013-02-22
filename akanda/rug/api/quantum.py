@@ -302,10 +302,10 @@ class L3PluginApi(proxy.RpcProxy):
 
     def get_routers(self, router_id=None):
         """Make a remote process call to retrieve the sync data for routers."""
-        router_ids = [router_id] if router_id else None
+        router_id = [router_id] if router_id else None
         retval = self.call(context.get_admin_context(),
                            self.make_msg('sync_routers', host=self.host,
-                                         router_ids=router_ids),
+                                         router_id=router_id),
                            topic=self.topic)
         return retval
 
