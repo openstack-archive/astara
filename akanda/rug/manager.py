@@ -133,12 +133,12 @@ class AkandaL3Manager(notification.NotificationMixin,
     def routers_updated(self, context, routers):
         """Method for Quantum L3 Agent API"""
         for r in routers:
-            self.task_mgr.put(self.update_router, rtr['id'])
+            self.task_mgr.put(self.update_router, r['id'])
 
     def routers_deleted(self, context, routers):
         """ Method for Quamtum L3 Agent API"""
         for r in routers:
-            self.task_mgr.put(self.destroy_router, rtr['id'])
+            self.task_mgr.put(self.destroy_router, r['id'])
 
     def sync_state(self):
         """Load state from database and update routers that have changed."""
