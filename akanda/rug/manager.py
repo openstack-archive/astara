@@ -98,7 +98,7 @@ class AkandaL3Manager(notification.NotificationMixin,
     def refresh_configs(self, context):
         LOG.debug('resync configuration state')
         for rtr_id in self.cache.keys():
-            self.task_mgr.put(self.update_config, rtr_id)
+            self.task_mgr.put(self.update_router, rtr_id)
 
     # notification handlers
     def default_notifcation_handler(self, event_type, tenant_id, payload):
@@ -106,7 +106,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         if parts and parts[-1] == 'end':
             rtr = self.cache.get_by_tenant_id(tenant_id)
             if rtr:
-                self.task_mgr.put(self.update_config, rtr.id)
+                self.task_mgr.put(self.update_router, rtr.id)
 
     @notification.handles('subnet.create.end',
                           'subnet.change.end',
