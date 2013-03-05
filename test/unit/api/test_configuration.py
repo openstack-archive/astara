@@ -318,13 +318,16 @@ class TestAkandaClient(unittest.TestCase):
         expected = {
             'name': 'tenant_v4_portforwards',
             'rules': [
-                {'action': 'pass',
-                 'family': 'inet',
-                 'protocol': 'tcp',
-                 'redirect': '192.168.1.2',
-                 'redirect_port': 80,
-                 'destination': '9.9.9.9/32',
-                 'destination_port': 8080}
+                {
+                    'action': 'pass',
+                    'direction': 'in',
+                    'family': 'inet',
+                    'protocol': 'tcp',
+                    'redirect': '192.168.1.2',
+                    'redirect_port': 80,
+                    'destination': '9.9.9.9/32',
+                    'destination_port': 8080
+                }
             ]
         }
 

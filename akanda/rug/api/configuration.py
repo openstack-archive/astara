@@ -180,6 +180,7 @@ def _format_port_forward_rule(to_ip, pf):
 
     return {
         'action': 'pass',
+        'direction': 'in',
         'family': 'inet',
         'protocol': pf.protocol,
         'destination': '%s/32' % to_ip,
