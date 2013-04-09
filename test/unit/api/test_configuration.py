@@ -1,9 +1,9 @@
 import mock
 import netaddr
+from oslo.config import cfg
 import unittest2 as unittest
 
 from akanda.rug.api import configuration as conf_mod
-from akanda.rug.openstack.common import cfg
 
 
 class FakeModel(object):

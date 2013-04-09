@@ -3,6 +3,7 @@ import weakref
 
 import eventlet
 import netaddr
+from oslo.config import cfg
 
 from akanda.rug.api import configuration
 from akanda.rug.api import nova
@@ -12,7 +13,6 @@ from akanda.rug.common import cache
 from akanda.rug.common import notification
 from akanda.rug.common import task
 from akanda.rug import metadata
-from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common import periodic_task
 from akanda.rug.openstack.common import rpc

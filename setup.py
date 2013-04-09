@@ -11,7 +11,8 @@ setup(
     install_requires=[
         'netaddr>=0.7.5',
         'httplib2>=0.7.2',
-        'python-quantumclient>=2.1'
+        'python-quantumclient>=2.1',
+        'oslo.config'
     ],
     namespace_packages=['akanda'],
     packages=find_packages(),

@@ -26,11 +26,11 @@ import urlparse
 import eventlet
 import eventlet.wsgi
 import httplib2
+from oslo.config import cfg
 import webob
 import webob.dec
 import webob.exc
 
-from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
