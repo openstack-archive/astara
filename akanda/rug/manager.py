@@ -223,8 +223,9 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     def report_bandwidth(self, router):
         try:
+            ip = _get_management_address(router)
             bandwidth = router_api.read_labels(
-                _get_management_address(router),
+                ip,
                 cfg.CONF.akanda_mgt_service_port)
 
             if bandwidth:
@@ -239,7 +240,8 @@ class AkandaL3Manager(notification.NotificationMixin,
                            cfg.CONF.notification_topic,
                            message)
         except:
-            LOG.exception('Error during bandwidth report.')
+            LOG.exception('Error during bandwidth report for %s (ip:%s)'
+                          % (router, ip))
 
     def check_health(self, router):
             if not self.router_is_alive(router):
