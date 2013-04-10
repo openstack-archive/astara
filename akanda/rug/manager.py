@@ -3,6 +3,7 @@ import weakref
 
 import eventlet
 import netaddr
+from oslo.config import cfg
 
 from akanda.rug.api import configuration
 from akanda.rug.api import nova
@@ -12,7 +13,6 @@ from akanda.rug.common import cache
 from akanda.rug.common import notification
 from akanda.rug.common import task
 from akanda.rug import metadata
-from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common import periodic_task
 from akanda.rug.openstack.common import rpc
@@ -135,7 +135,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         for r in routers:
             self.task_mgr.put(self.update_router, r['id'])
 
-    def routers_deleted(self, context, routers):
+    def router_deleted(self, context, routers):
         """ Method for Quamtum L3 Agent API"""
         for r in routers:
             self.task_mgr.put(self.destroy_router, r['id'])
@@ -148,13 +148,12 @@ class AkandaL3Manager(notification.NotificationMixin,
 
         for rtr in self.quantum.get_routers():
             active_routers.add(rtr.id)
-            cached = self.cache.get(rtr.id)
 
             if self.cache.get(rtr.id) != rtr:
                 self.task_mgr.put(self.update_router, rtr.id)
 
         for rtr_id in (known_routers - active_routers):
-            self.task_mgr.put(self.destroy_router, rtr.id)
+            self.task_mgr.put(self.destroy_router, rtr_id)
 
     def update_router(self, router_id):
         LOG.debug('Updating router: %s' % router_id)

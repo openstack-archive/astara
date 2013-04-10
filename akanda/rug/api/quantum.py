@@ -3,10 +3,10 @@ import time
 import uuid
 
 import netaddr
+from oslo.config import cfg
 from quantumclient.v2_0 import client
 
 from akanda.rug.openstack.common import importutils
-from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import proxy
 

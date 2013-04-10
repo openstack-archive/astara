@@ -1,4 +1,4 @@
-# Copyright 2011 OpenStack LLC.
+# Copyright 2011 OpenStack Foundation.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,7 +15,8 @@
 
 import uuid
 
-from akanda.rug.openstack.common import cfg
+from oslo.config import cfg
+
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.gettextutils import _
 from akanda.rug.openstack.common import importutils

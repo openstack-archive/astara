@@ -28,8 +28,8 @@ import time
 
 import eventlet
 import logging as std_logging
+from oslo.config import cfg
 
-from akanda.rug.openstack.common import cfg
 from akanda.rug.openstack.common import eventlet_backdoor
 from akanda.rug.openstack.common.gettextutils import _
 from akanda.rug.openstack.common import importutils
