@@ -9,7 +9,9 @@ from quantumclient.v2_0 import client
 from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import proxy
+from akanda.rug.openstack.common import log as logging
 
+LOG = logging.getLogger(__name__)
 
 # copied from Quantum source
 DEVICE_OWNER_ROUTER_MGT = "network:router_management"
@@ -335,11 +337,14 @@ class Quantum(object):
         )
 
     def get_router_for_tenant(self, tenant_id):
-        routers = self.api_client.list_routers(tenant_id=tenant_id)['routers']
+        response = self.api_client.list_routers(tenant_id=tenant_id)
+        routers = response.get('routers', [])
 
         if routers:
             return self.get_router_detail(routers[0]['id'])
         else:
+            LOG.debug('found no router for tenant %s', tenant_id)
+            LOG.debug('query response: %r', response)
             return None
 
     def get_network_ports(self, network_id):
