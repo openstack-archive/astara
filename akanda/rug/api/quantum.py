@@ -376,7 +376,11 @@ class Quantum(object):
                          device_owner=DEVICE_OWNER_ROUTER_MGT
                          )
         response = self.api_client.create_port(dict(port=port_dict))
-        port = Port.from_dict(response['port'])
+        port_data = response.get('port')
+        if not port_data:
+            raise ValueError('No port data found for router %s network %s' %
+                             (router_id, self.conf.management_network_id))
+        port = Port.from_dict(port_data)
         args = dict(port_id=port.id, owner=DEVICE_OWNER_ROUTER_MGT)
         self.api_client.add_interface_router(router_id, args)
 

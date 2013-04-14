@@ -47,17 +47,22 @@ class TaskManager(object):
             LOG.info('Waiting on item')
             task = self.task_queue.get()
             try:
+                LOG.debug('starting %s', task)
                 task()
-            except Exception, e:
-                if isinstance(e, Warning):
-                    LOG.warn('Task: %s' % task)
-                else:
-                    LOG.exception('Task failed: %s' % task)
+                LOG.debug('success for task %s', task)
+            except Exception as e:
+                try:
+                    if isinstance(e, Warning):
+                        LOG.warn('Task: %s' % task)
+                    else:
+                        LOG.exception('Task failed: %s' % task)
 
-                if task.should_retry():
-                    self.delay_queue.put(task)
-                else:
-                    LOG.error('Task Error: %s' % task)
+                    if task.should_retry():
+                        self.delay_queue.put(task)
+                    else:
+                        LOG.error('Task Error: %s' % task)
+                except Exception as e2:
+                    LOG.exception('Error processing exception in task')
 
     def _requeue_failed(self):
         while True:
