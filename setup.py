@@ -15,7 +15,7 @@ setup(
         'oslo.config'
     ],
     namespace_packages=['akanda'],
-    packages=find_packages(),
+    packages=find_packages(exclude=['test']),
     include_package_data=True,
     zip_safe=False,
     entry_points={
