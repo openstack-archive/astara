@@ -57,16 +57,19 @@ cfg.CONF.register_opts(OPTIONS)
 cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 
 
-def wait_for_callable(f, error_msg, max_sleep=15):
+def wait_for_callable(f, error_msg, max_sleep=15, ignorable_exceptions=(Exception,)):
     """Wait for a callable to return without exception.
 
     Pause up to max_sleep seconds between each attempt.
+
+    Only trap the named ignorable_exceptions, allowing others to abort
+    the call.
     """
     nap_time = 1
     while True:
         try:
             return f()
-        except Exception as err:
+        except ignorable_exceptions as err:
             LOG.warning('%s: %s' % (error_msg, err))
             LOG.warning('sleeping %s seconds before retrying' % nap_time)
             eventlet.sleep(nap_time)
@@ -83,6 +86,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         wait_for_callable(
             self.quantum.ensure_local_service_port,
             error_msg='Could not ensure local service port',
+            ignorable_exceptions=(quantum.client.exceptions.QuantumClientException,),
         )
 
     def initialize_service_hook(self, started_by):
