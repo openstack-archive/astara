@@ -69,8 +69,18 @@ class TestTaskManager(unittest.TestCase):
         tm = task.TaskManager(10)
 
         with mock.patch.object(tm, 'task_queue') as q:
-            with mock.patch.object(task.LOG, 'info') as info:
-                info.side_effect = [None, IOError]
+            with mock.patch.object(task, 'LOG') as log:
+                # We need to mock the Log object and not just Log.info.
+                # Inside _serialized_task_runner a call to the get method on
+                # task_queue return a task object. Subsequent Log.debug calls
+                # that print the task object are considered by mock as calls on
+                # the task_queue mocked object and listed as
+                # mock.call.get().__str__() in the chain of calls of the
+                # assert_has_calls method.
+                # Mocking the LOG.debug object the task object is not
+                # actually printed leaving the chain of calls looking like how
+                # we expect it to be
+                log.info.side_effect = [None, IOError]
                 try:
                     tm._serialized_task_runner()
                 except IOError:
