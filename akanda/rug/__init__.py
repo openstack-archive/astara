@@ -1,4 +1,4 @@
 import gettext
 
-gettext.install('quantum', unicode=1)
 
+gettext.install('quantum', unicode=1)
