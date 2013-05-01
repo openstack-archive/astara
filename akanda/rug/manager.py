@@ -1,5 +1,4 @@
 import logging
-import weakref
 
 import eventlet
 import netaddr
@@ -57,7 +56,8 @@ cfg.CONF.register_opts(OPTIONS)
 cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 
 
-def wait_for_callable(f, error_msg, max_sleep=15, ignorable_exceptions=(Exception,)):
+def wait_for_callable(f, error_msg, max_sleep=15,
+                      ignorable_exceptions=(Exception,)):
     """Wait for a callable to return without exception.
 
     Pause up to max_sleep seconds between each attempt.
@@ -86,7 +86,9 @@ class AkandaL3Manager(notification.NotificationMixin,
         wait_for_callable(
             self.quantum.ensure_local_service_port,
             error_msg='Could not ensure local service port',
-            ignorable_exceptions=(quantum.client.exceptions.QuantumClientException,),
+            ignorable_exceptions=(
+                quantum.client.exceptions.QuantumClientException,
+            ),
         )
 
     def initialize_service_hook(self, started_by):
@@ -169,6 +171,9 @@ class AkandaL3Manager(notification.NotificationMixin,
         quantum_routers = wait_for_callable(
             self.quantum.get_routers,
             error_msg='Could not fetch routers from quantum',
+            ignorable_exceptions=(
+                quantum.client.exceptions.QuantumClientException,
+            ),
         )
         known_routers = set(self.cache.keys())
         active_routers = set()
