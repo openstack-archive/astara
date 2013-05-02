@@ -189,15 +189,20 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     def update_config(self, router):
         LOG.debug('Updating router %s config' % router.id)
+
+        mgmt_ip = _get_management_address(router)
         interfaces = router_api.get_interfaces(
-            _get_management_address(router),
-            cfg.CONF.akanda_mgt_service_port)
+            mgmt_ip,
+            cfg.CONF.akanda_mgt_service_port,
+        )
 
         config = configuration.build_config(self.quantum, router, interfaces)
 
-        router_api.update_config(_get_management_address(router),
-                                 cfg.CONF.akanda_mgt_service_port,
-                                 config)
+        router_api.update_config(
+            mgmt_ip,
+            cfg.CONF.akanda_mgt_service_port,
+            config,
+        )
         LOG.debug('Router %s config updated.' % router.id)
 
     def router_is_alive(self, router):
