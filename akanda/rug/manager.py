@@ -1,5 +1,4 @@
 import logging
-import weakref
 
 import eventlet
 import netaddr
@@ -57,6 +56,26 @@ cfg.CONF.register_opts(OPTIONS)
 cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 
 
+def wait_for_callable(f, error_msg, max_sleep=15,
+                      ignorable_exceptions=(Exception,)):
+    """Wait for a callable to return without exception.
+
+    Pause up to max_sleep seconds between each attempt.
+
+    Only trap the named ignorable_exceptions, allowing others to abort
+    the call.
+    """
+    nap_time = 1
+    while True:
+        try:
+            return f()
+        except ignorable_exceptions as err:
+            LOG.warning('%s: %s' % (error_msg, err))
+            LOG.warning('sleeping %s seconds before retrying' % nap_time)
+            eventlet.sleep(nap_time)
+            nap_time = min(nap_time * 2, max_sleep)
+
+
 class AkandaL3Manager(notification.NotificationMixin,
                       periodic_task.PeriodicTasks):
     def __init__(self):
@@ -64,7 +83,13 @@ class AkandaL3Manager(notification.NotificationMixin,
         self.quantum = quantum.Quantum(cfg.CONF)
         self.nova = nova.Nova(cfg.CONF)
         self.task_mgr = task.TaskManager()
-        self.quantum.ensure_local_service_port()
+        wait_for_callable(
+            self.quantum.ensure_local_service_port,
+            error_msg='Could not ensure local service port',
+            ignorable_exceptions=(
+                quantum.client.exceptions.QuantumClientException,
+            ),
+        )
 
     def initialize_service_hook(self, started_by):
         self.sync_state()
@@ -143,10 +168,17 @@ class AkandaL3Manager(notification.NotificationMixin,
     def sync_state(self):
         """Load state from database and update routers that have changed."""
         # pull all known routers
+        quantum_routers = wait_for_callable(
+            self.quantum.get_routers,
+            error_msg='Could not fetch routers from quantum',
+            ignorable_exceptions=(
+                quantum.client.exceptions.QuantumClientException,
+            ),
+        )
         known_routers = set(self.cache.keys())
         active_routers = set()
 
-        for rtr in self.quantum.get_routers():
+        for rtr in quantum_routers:
             active_routers.add(rtr.id)
 
             if self.cache.get(rtr.id) != rtr:
