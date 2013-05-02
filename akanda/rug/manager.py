@@ -182,13 +182,15 @@ class AkandaL3Manager(notification.NotificationMixin,
             active_routers.add(rtr.id)
 
             if self.cache.get(rtr.id) != rtr:
+                LOG.info('scheduling update for router %s' % rtr.id)
                 self.task_mgr.put(self.update_router, rtr.id)
 
         for rtr_id in (known_routers - active_routers):
+            LOG.info('scheduling delete for router %s' % rtr_id)
             self.task_mgr.put(self.destroy_router, rtr_id)
 
     def update_router(self, router_id):
-        LOG.debug('Updating router: %s' % router_id)
+        LOG.info('Updating router: %s' % router_id)
 
         rtr = self.quantum.get_router_detail(router_id)
         self.ensure_provider_ports(rtr)
@@ -201,13 +203,14 @@ class AkandaL3Manager(notification.NotificationMixin,
         self.cache.put(rtr)
 
     def destroy_router(self, router_id):
-        LOG.debug('Destroying router: %s' % router_id)
+        LOG.info('Destroying router: %s' % router_id)
         rtr = self.cache.get(router_id)
         if rtr:
             self.nova.destroy_router_instance(rtr)
             self.cache.remove(rtr)
 
     def reboot_router(self, router):
+        LOG.info('Rebooting router: %s' % router.id)
         self.nova.reboot_router_instance(router)
         # TODO: add thread that waits until this router is functional
         self.task_mgr.put(self._post_reboot, router, 30)
@@ -221,15 +224,20 @@ class AkandaL3Manager(notification.NotificationMixin,
 
     def update_config(self, router):
         LOG.debug('Updating router %s config' % router.id)
+
+        mgmt_ip = _get_management_address(router)
         interfaces = router_api.get_interfaces(
-            _get_management_address(router),
-            cfg.CONF.akanda_mgt_service_port)
+            mgmt_ip,
+            cfg.CONF.akanda_mgt_service_port,
+        )
 
         config = configuration.build_config(self.quantum, router, interfaces)
 
-        router_api.update_config(_get_management_address(router),
-                                 cfg.CONF.akanda_mgt_service_port,
-                                 config)
+        router_api.update_config(
+            mgmt_ip,
+            cfg.CONF.akanda_mgt_service_port,
+            config,
+        )
         LOG.debug('Router %s config updated.' % router.id)
 
     def router_is_alive(self, router):
@@ -249,8 +257,8 @@ class AkandaL3Manager(notification.NotificationMixin,
             expected_macs.add(router.external_port.mac_address)
             return router_macs == expected_macs
 
-        except:
-            LOG.exception('Unable verify interfaces.')
+        except Exception:
+            LOG.exception('Unable verify interfaces on router %s' % router.id)
 
     def report_bandwidth(self, router):
         try:
@@ -270,7 +278,7 @@ class AkandaL3Manager(notification.NotificationMixin,
                 rpc.notify(context.get_admin_context(),
                            cfg.CONF.notification_topic,
                            message)
-        except:
+        except Exception:
             LOG.exception('Error during bandwidth report for %s (ip:%s)'
                           % (router, ip))
 
