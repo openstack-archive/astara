@@ -250,11 +250,15 @@ class AkandaL3Manager(notification.NotificationMixin,
                 _get_management_address(router),
                 cfg.CONF.akanda_mgt_service_port)
 
-            router_macs = set([iface['lladdr'] for iface in interfaces])
+            router_macs = set((iface['lladdr'] for iface in interfaces))
+            LOG.debug('Router %s has       MACs: %s',
+                      router.id, ', '.join(sorted(router_macs)))
 
-            expected_macs = set([p.mac_address for p in router.internal_ports])
+            expected_macs = set((p.mac_address for p in router.internal_ports))
             expected_macs.add(router.management_port.mac_address)
             expected_macs.add(router.external_port.mac_address)
+            LOG.debug('Router %s expecting MACs: %s',
+                      router.id, ', '.join(sorted(expected_macs)))
             return router_macs == expected_macs
 
         except Exception:
