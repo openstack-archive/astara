@@ -1,3 +1,4 @@
+import httplib
 import logging
 
 import eventlet
@@ -55,6 +56,9 @@ AGENT_OPTIONS = [
 cfg.CONF.register_opts(OPTIONS)
 cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 
+
+# How many licks does it take to get to the center of a Tootsie pop?
+MAGIC_MAX_RETRIES = 3
 
 def wait_for_callable(f, error_msg, max_sleep=15,
                       ignorable_exceptions=(Exception,)):
@@ -233,16 +237,34 @@ class AkandaL3Manager(notification.NotificationMixin,
 
         config = configuration.build_config(self.quantum, router, interfaces)
 
-        router_api.update_config(
-            mgmt_ip,
-            cfg.CONF.akanda_mgt_service_port,
-            config,
-        )
-        LOG.debug('Router %s config updated.' % router.id)
+        for i in xrange(MAGIC_MAX_RETRIES):
+            try:
+                router_api.update_config(
+                    mgmt_ip,
+                    cfg.CONF.akanda_mgt_service_port,
+                    config,
+                )
+            except httplib.BadStatusLine:
+                # Ignore this and try again.
+                LOG.debug(
+                    'retrying after error calling update_config for %s',
+                    router.id,
+                )
+                eventlet.sleep(i + 1)
+            except Exception as e:
+                LOG.warning('Failed to update config of router %s: %s',
+                            router.id, e)
+                raise
+            else:
+                LOG.debug('Router %s config updated.' % router.id)
 
     def router_is_alive(self, router):
-        return router_api.is_alive(_get_management_address(router),
-                                   cfg.CONF.akanda_mgt_service_port)
+        addr = _get_management_address(router)
+        for i in xrange(MAGIC_MAX_RETRIES):
+            if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
+                return True
+            eventlet.sleep(i + 1)
+        return False
 
     def verify_router_interfaces(self, router):
         try:
