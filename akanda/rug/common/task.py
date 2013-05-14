@@ -53,15 +53,15 @@ class TaskManager(object):
             except Exception as e:
                 try:
                     if isinstance(e, Warning):
-                        LOG.warn('Task: %s' % task)
+                        LOG.warn('Task: %s (%s)' % (e, task))
                     else:
-                        LOG.exception('Task failed: %s' % task)
+                        LOG.exception('Task failed: %s (%s)' % (e, task))
 
                     if task.should_retry():
                         self.delay_queue.put(task)
                     else:
-                        LOG.error('Task Error: %s' % task)
-                except Exception as e2:
+                        LOG.error('Task Error: %s (%s)' % (e, task))
+                except Exception:
                     LOG.exception('Error processing exception in task')
 
     def _requeue_failed(self):

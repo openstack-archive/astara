@@ -419,7 +419,9 @@ class Quantum(object):
 
         if ports:
             port = Port.from_dict(ports[0])
+            LOG.info('already have ports, using %r', port)
         else:
+            LOG.info('creating a new port')
             # create the missing local port
             port_dict = dict(
                 admin_state_up=True,
@@ -434,6 +436,7 @@ class Quantum(object):
 
             port = Port.from_dict(
                 self.api_client.create_port(dict(port=port_dict))['port'])
+            LOG.info('new port: %r', port)
 
             driver.plug(port.network_id,
                         port.id,
