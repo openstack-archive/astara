@@ -60,6 +60,7 @@ cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 # How many licks does it take to get to the center of a Tootsie pop?
 MAGIC_MAX_RETRIES = 3
 
+
 def wait_for_callable(f, error_msg, max_sleep=15,
                       ignorable_exceptions=(Exception,)):
     """Wait for a callable to return without exception.

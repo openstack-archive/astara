@@ -5,8 +5,8 @@ import eventlet
 from oslo.config import cfg
 
 from akanda.rug import manager
+from akanda.rug.openstack.common.gettextutils import _
 from akanda.rug.openstack.common import log
-from akanda.rug.openstack.common import rpc
 from akanda.rug.openstack.common.rpc import service as rpc_service
 from akanda.rug.openstack.common import service
 

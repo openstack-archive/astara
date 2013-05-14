@@ -18,9 +18,7 @@
 
 import hashlib
 import hmac
-import os
 import socket
-import sys
 import urlparse
 
 import eventlet
@@ -64,7 +62,7 @@ class MetadataProxyHandler(object):
             else:
                 return webob.exc.HTTPNotFound()
 
-        except Exception, e:
+        except Exception:
             LOG.exception("Unexpected error.")
             msg = ('An unknown error has occurred. '
                    'Please try your request again.')

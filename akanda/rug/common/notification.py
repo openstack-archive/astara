@@ -36,7 +36,7 @@ class NotificationMixin(object):
                         msg['_context_tenant_id'],
                         msg['payload'])
 
-        except Exception, e:
+        except Exception:
             LOG.exception('Error processing notification.')
 
 

@@ -1,6 +1,5 @@
 import httplib2
 import json
-import netaddr
 
 from akanda.rug.openstack.common import jsonutils
 
