@@ -121,11 +121,30 @@ class MetadataProxy(object):
 
     def run(self, ip_address):
         app = MetadataProxyHandler()
-        sock = eventlet.listen(
-            (ip_address, RUG_META_PORT),
-            family=socket.AF_INET6,
-            backlog=128
-        )
+        for i in xrange(5):
+            LOG.info(
+                'Starting the metadata proxy on %s/%s',
+                ip_address, RUG_META_PORT,
+            )
+            try:
+                sock = eventlet.listen(
+                    (ip_address, RUG_META_PORT),
+                    family=socket.AF_INET6,
+                    backlog=128
+                )
+            except socket.error as err:
+                if err.errno != 99:
+                    raise
+                LOG.warn('Could not create metadata proxy socket: %s', err)
+                LOG.warn('Sleeping %s before trying again', i + 1)
+                eventlet.sleep(i + 1)
+            else:
+                break
+        else:
+            raise RuntimeError(
+                'Could not establish metadata proxy socket on %s/%s' %
+                (ip_address, RUG_META_PORT)
+            )
         self.pool.spawn_n(
             eventlet.wsgi.server,
             sock,
