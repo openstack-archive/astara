@@ -1,7 +1,6 @@
 import logging
 import re
 
-import netaddr
 from oslo.config import cfg
 
 from akanda.rug.openstack.common import jsonutils
@@ -71,7 +70,6 @@ def generate_network_config(client, router, interfaces):
 def _management_network_config(port, ifname, interfaces):
     for iface in interfaces:
         if iface['ifname'] == ifname:
-            interface = iface
             return _make_network_config_dict(
                 iface, MANAGEMENT_NET, port.network_id)
 
@@ -161,7 +159,7 @@ def generate_anchor_config(client, provider_rules, router):
 
 
 def generate_tenant_port_forward_anchor(client, router):
-    to_ip = router.external_port.first_v4 or INVALID_IP
+    to_ip = router.external_port.first_v4 or '127.0.0.1'
 
     rules = [_format_port_forward_rule(to_ip, pf)
              for pf in client.get_portforwards(router.tenant_id)]
@@ -173,7 +171,7 @@ def generate_tenant_port_forward_anchor(client, router):
 
 
 def _format_port_forward_rule(to_ip, pf):
-    redirect_ip = pf.port.first_v4 or INVALID_IP
+    redirect_ip = pf.port.first_v4
 
     if not redirect_ip:
         return

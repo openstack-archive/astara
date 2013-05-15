@@ -17,6 +17,7 @@
 import netaddr
 
 from akanda.rug.common.linux import utils
+from akanda.rug.openstack.common.gettextutils import _
 
 
 LOOPBACK_DEVNAME = 'lo'

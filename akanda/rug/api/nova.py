@@ -18,7 +18,7 @@ class Nova(object):
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in ports]
 
-        server = self.client.servers.create(
+        self.client.servers.create(
             'ak-' + router.id,
             image=self.conf.router_image_uuid,
             flavor=self.conf.router_instance_flavor,
