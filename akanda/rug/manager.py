@@ -258,6 +258,7 @@ class AkandaL3Manager(notification.NotificationMixin,
                 raise
             else:
                 LOG.debug('Router %s config updated.' % router.id)
+                return
 
     def router_is_alive(self, router):
         addr = _get_management_address(router)
