@@ -2,6 +2,9 @@ import logging
 
 import eventlet
 
+from akanda.rug.common.exceptions import AbortTask
+
+
 LOG = logging.getLogger(__name__)
 
 
@@ -50,6 +53,8 @@ class TaskManager(object):
                 LOG.debug('starting %s', task)
                 task()
                 LOG.debug('success for task %s', task)
+            except AbortTask as e:
+                LOG.warn('Task aborted: %s (%s)', e, task)
             except Exception as e:
                 try:
                     if isinstance(e, Warning):
