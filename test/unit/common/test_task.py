@@ -2,7 +2,7 @@ import mock
 import unittest2 as unittest
 
 from akanda.rug.common import task
-
+from akanda.rug.common.exceptions import AbortTask
 
 class TestTask(unittest.TestCase):
     def test_init(self):
@@ -124,6 +124,25 @@ class TestTaskManager(unittest.TestCase):
                 q.assert_has_calls([mock.call.get(), mock.call.get()()])
                 self.assertEqual(tm.delay_queue.qsize(), 0)
                 self.assertEqual(len(error.mock_calls), 2)
+
+    def test_task_runner_exception_abort_task(self):
+        tm = task.TaskManager(10)
+
+        mock_task = mock.Mock()
+        mock_task.side_effect = AbortTask
+
+        with mock.patch.object(tm, 'task_queue') as q:
+            q.get.return_value = mock_task
+            with mock.patch.object(task.LOG, 'info') as info:
+                info.side_effect = [None, IOError]
+                with mock.patch.object(task.LOG, 'warn') as warn:
+                    try:
+                        tm._serialized_task_runner()
+                    except IOError:
+                        pass
+                q.assert_has_calls([mock.call.get(), mock.call.get()()])
+                self.assertEqual(tm.delay_queue.qsize(), 0)
+                self.assertEqual(len(warn.mock_calls), 1)
 
     def test_requeue_failed(self):
         tm = task.TaskManager(10)
