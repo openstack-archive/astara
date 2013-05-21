@@ -6,6 +6,7 @@ import netaddr
 from oslo.config import cfg
 from quantumclient.v2_0 import client
 
+from akanda.rug.common.exceptions import AbortTask
 from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import proxy
@@ -332,9 +333,11 @@ class Quantum(object):
 
     def get_router_detail(self, router_id):
         """Return detailed information about a router and it's networks."""
-        return Router.from_dict(
-            self.rpc_client.get_routers(router_id=router_id)[0]
-        )
+        router = self.rpc_client.get_routers(router_id=router_id)
+        try:
+            return Router.from_dict(router[0])
+        except IndexError:
+            raise AbortTask('the router is no longer available')
 
     def get_router_for_tenant(self, tenant_id):
         response = self.api_client.list_routers(tenant_id=tenant_id)
