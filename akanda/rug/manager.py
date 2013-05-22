@@ -131,7 +131,7 @@ class AkandaL3Manager(notification.NotificationMixin,
             self.task_mgr.put(self.update_router, rtr_id)
 
     # notification handlers
-    def default_notifcation_handler(self, event_type, tenant_id, payload):
+    def default_notification_handler(self, event_type, tenant_id, payload):
         parts = event_type.split('.')
         if parts and parts[-1] == 'end':
             rtr = self.cache.get_by_tenant_id(tenant_id)
