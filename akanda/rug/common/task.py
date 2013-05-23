@@ -9,11 +9,12 @@ LOG = logging.getLogger(__name__)
 
 
 class Task(object):
-    def __init__(self, method, data, max_attempts=3):
+    def __init__(self, method, data, max_attempts=3, reason=None):
         self.method = method
         self.data = data
         self.current = 0
         self.max_attempts = max_attempts
+        self.reason = reason
 
     def __call__(self):
         self.current += 1
@@ -23,9 +24,10 @@ class Task(object):
         return self.current < self.max_attempts
 
     def __repr__(self):
-        msg = '<Task method: %s data: %s attempt: %d/%d >'
+        msg = '<Task method: %s reason: (%s) data: %s attempt: %d/%d >'
 
         return msg % (self.method.__name__,
+                      self.reason,
                       self.data,
                       self.current,
                       self.max_attempts)
@@ -38,8 +40,8 @@ class TaskManager(object):
         self.blocked = set()
         self.max_requeue_delay = max_requeue_delay
 
-    def put(self, method, data, max_attempts=3):
-        self.task_queue.put(Task(method, data, max_attempts))
+    def put(self, method, data, max_attempts=3, reason=None):
+        self.task_queue.put(Task(method, data, max_attempts, reason))
 
     def start(self):
         eventlet.spawn(self._serialized_task_runner)
