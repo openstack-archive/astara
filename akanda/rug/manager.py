@@ -111,7 +111,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         LOG.info('start health check queueing')
         for rtr in self.cache.routers():
             self.task_mgr.put(self.check_health, rtr,
-                              reason='Periodic healt check')
+                              reason='Periodic health check')
 
     @periodic_task.periodic_task(ticks_between_runs=1)
     def report_bandwidth_usage(self, context):
@@ -141,7 +141,7 @@ class AkandaL3Manager(notification.NotificationMixin,
             if rtr:
                 self.task_mgr.put(self.update_router, rtr.id,
                                   reason='Default handler notification '
-                                  'reiceved')
+                                  'received')
 
     @notification.handles('subnet.create.end',
                           'subnet.change.end',
