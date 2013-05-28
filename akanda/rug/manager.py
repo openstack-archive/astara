@@ -97,7 +97,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         )
 
     def initialize_service_hook(self, started_by):
-        self.sync_state()
+        self.sync_state('iniziatization process')
         self.task_mgr.start()
         self.create_notification_listener(
             cfg.CONF.notification_topic,
@@ -110,13 +110,15 @@ class AkandaL3Manager(notification.NotificationMixin,
     def begin_health_check(self, context):
         LOG.info('start health check queueing')
         for rtr in self.cache.routers():
-            self.task_mgr.put(self.check_health, rtr)
+            self.task_mgr.put(self.check_health, rtr,
+                              reason='Periodic healt check')
 
     @periodic_task.periodic_task(ticks_between_runs=1)
     def report_bandwidth_usage(self, context):
         LOG.info('start bandwidth usage reporting')
         for rtr in self.cache.routers():
-            self.task_mgr.put(self.report_bandwidth, rtr)
+            self.task_mgr.put(self.report_bandwidth, rtr,
+                              reason='Bandwith usage reporting')
 
     @periodic_task.periodic_task(ticks_between_runs=10)
     def janitor(self, context):
@@ -128,7 +130,8 @@ class AkandaL3Manager(notification.NotificationMixin,
     def refresh_configs(self, context):
         LOG.debug('resync configuration state')
         for rtr_id in self.cache.keys():
-            self.task_mgr.put(self.update_router, rtr_id)
+            self.task_mgr.put(self.update_router, rtr_id,
+                              reason='Refresh configuration periodic task')
 
     # notification handlers
     def default_notification_handler(self, event_type, tenant_id, payload):
@@ -136,7 +139,9 @@ class AkandaL3Manager(notification.NotificationMixin,
         if parts and parts[-1] == 'end':
             rtr = self.cache.get_by_tenant_id(tenant_id)
             if rtr:
-                self.task_mgr.put(self.update_router, rtr.id)
+                self.task_mgr.put(self.update_router, rtr.id,
+                                  reason='Default handler notification '
+                                  'reiceved')
 
     @notification.handles('subnet.create.end',
                           'subnet.change.end',
@@ -150,15 +155,19 @@ class AkandaL3Manager(notification.NotificationMixin,
             rtr = self.quantum.get_router_for_tenant(tenant_id)
 
         if rtr:
-            self.task_mgr.put(self.update_router, rtr.id)
+            self.task_mgr.put(self.update_router, rtr.id,
+                              reason='Port or subnet create/change/delete '
+                              'notification received')
 
     @notification.handles('router.create.end')
     def handle_router_create_notification(self, tenant_id, payload):
-        self.task_mgr.put(self.update_router, payload['router']['id'])
+        self.task_mgr.put(self.update_router, payload['router']['id'],
+                          reason='Router create notification received')
 
     @notification.handles('router.delete.end')
     def handle_router_delete_notification(self, tenant_id, payload):
-        self.task_mgr.put(self.destroy_router, payload['router_id'])
+        self.task_mgr.put(self.destroy_router, payload['router_id'],
+                          reason='Router delete notification received')
 
     def routers_updated(self, context, routers):
         """Method for Quantum L3 Agent API"""
@@ -170,7 +179,7 @@ class AkandaL3Manager(notification.NotificationMixin,
         if router_id:
             self.task_mgr.put(self.destroy_router, router_id)
 
-    def sync_state(self):
+    def sync_state(self, reason_msg='janitor periodic task'):
         """Load state from database and update routers that have changed."""
         # pull all known routers
         quantum_routers = wait_for_callable(
@@ -188,11 +197,15 @@ class AkandaL3Manager(notification.NotificationMixin,
 
             if self.cache.get(rtr.id) != rtr:
                 LOG.info('scheduling update for router %s' % rtr.id)
-                self.task_mgr.put(self.update_router, rtr.id)
+                self.task_mgr.put(self.update_router, rtr.id,
+                                  reason=('Updated by sync_state as '
+                                  'part of the %s' % reason_msg))
 
         for rtr_id in (known_routers - active_routers):
             LOG.info('scheduling delete for router %s' % rtr_id)
-            self.task_mgr.put(self.destroy_router, rtr_id)
+            self.task_mgr.put(self.destroy_router, rtr_id,
+                              reason=('Deleted by sync_state as part of '
+                                      'the %s' % reason_msg))
 
     def update_router(self, router_id):
         LOG.info('Updating router: %s' % router_id)
@@ -218,11 +231,12 @@ class AkandaL3Manager(notification.NotificationMixin,
         LOG.info('Rebooting router: %s' % router.id)
         self.nova.reboot_router_instance(router)
         # TODO: add thread that waits until this router is functional
-        self.task_mgr.put(self._post_reboot, router, 30)
+        self.task_mgr.put(self._post_reboot, router, 30, 'Router rebooted')
 
     def _post_reboot(self, router):
         if self.router_is_alive(router):
-            self.task_mgr.put(self.update_router, router.id)
+            self.task_mgr.put(self.update_router, router.id,
+                              reason='Post reboot update')
         else:
             raise Warning('Router %s has not finished booting. IP: %s' %
                           (router.id, _get_management_address(router)))
@@ -314,7 +328,10 @@ class AkandaL3Manager(notification.NotificationMixin,
             if not self.router_is_alive(router):
                 status = self.nova.get_router_instance_status(router)
                 if status not in ('ACTIVE', 'REBOOT', 'BUILD'):
-                    self.task_mgr.put(self.reboot_router, router)
+                    self.task_mgr.put(self.reboot_router, router,
+                                      reason='Rebooted by the healt_check '
+                                      'periodic task because of a is_alive '
+                                      'failure')
 
     def ensure_provider_ports(self, router):
         if router.management_port is None:
