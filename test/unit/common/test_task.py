@@ -38,7 +38,7 @@ class TestTask(unittest.TestCase):
 
         self.assertEqual(
             repr(t),
-            '<Task method: method data: data attempt: 0/1 >')
+            '<Task method: method reason: (None) data: data attempt: 0/1 >')
 
 
 class TestTaskManager(unittest.TestCase):
