@@ -142,6 +142,9 @@ class AkandaL3Manager(notification.NotificationMixin,
                 self.task_mgr.put(self.update_router, rtr.id,
                                   reason='Default handler notification '
                                   'received')
+        else:
+            LOG.debug('Ignoring event type: %s tenant: %s data: %s',
+                      event_type, tenant_id, payload)
 
     @notification.handles('subnet.create.end',
                           'subnet.change.end',
