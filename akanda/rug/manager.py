@@ -332,7 +332,7 @@ class AkandaL3Manager(notification.NotificationMixin,
                 status = self.nova.get_router_instance_status(router)
                 if status not in ('ACTIVE', 'REBOOT', 'BUILD'):
                     self.task_mgr.put(self.reboot_router, router,
-                                      reason='Rebooted by the healt_check '
+                                      reason='Rebooted by the health_check '
                                       'periodic task because of a is_alive '
                                       'failure')
 
