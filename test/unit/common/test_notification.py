@@ -87,3 +87,18 @@ class TestNotificationMixin(unittest.TestCase):
             n._notification_mixin_dispatcher(test_message)
             mock_handler.assert_called_once_with('tenant_id', 'the_payload')
             log.assert_has_calls([mock.call.exception(mock.ANY)])
+
+    def test_dispatcher_with_no_context_tenant_id(self):
+        test_message = {
+            'event_type': 'foo',
+            'payload': 'the_payload'
+        }
+
+        mock_method = mock.Mock()
+
+        n = NotificationTest()
+        n._notification_handlers = {}
+        n.default_notification_handler = mock_method
+
+        n._notification_mixin_dispatcher(test_message)
+        mock_method.assert_called_once_with('foo', None, 'the_payload')

@@ -33,7 +33,7 @@ class NotificationMixin(object):
                 if hasattr(self, 'default_notification_handler'):
                     self.default_notification_handler(
                         msg['event_type'],
-                        msg['_context_tenant_id'],
+                        msg.get('_context_tenant_id'),
                         msg['payload'])
 
         except Exception:

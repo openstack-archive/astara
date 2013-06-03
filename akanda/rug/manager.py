@@ -142,6 +142,9 @@ class AkandaL3Manager(notification.NotificationMixin,
                 self.task_mgr.put(self.update_router, rtr.id,
                                   reason='Default handler notification '
                                   'received')
+        else:
+            LOG.debug('Ignoring event type: %s tenant: %s data: %s',
+                      event_type, tenant_id, payload)
 
     @notification.handles('subnet.create.end',
                           'subnet.change.end',
@@ -329,7 +332,7 @@ class AkandaL3Manager(notification.NotificationMixin,
                 status = self.nova.get_router_instance_status(router)
                 if status not in ('ACTIVE', 'REBOOT', 'BUILD'):
                     self.task_mgr.put(self.reboot_router, router,
-                                      reason='Rebooted by the healt_check '
+                                      reason='Rebooted by the health_check '
                                       'periodic task because of a is_alive '
                                       'failure')
 
