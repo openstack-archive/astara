@@ -17,9 +17,10 @@ class NotificationMixin(object):
                     event_type, []).append(method[1])
 
         self.notification_connection = rpc.create_connection(new=True)
-        self.notification_connection.declare_topic_consumer(
-            topic=topic,
-            callback=self._notification_mixin_dispatcher,
+        self.notification_connection.join_consumer_pool(
+            self._notification_mixin_dispatcher,
+            'akanda.notifications',
+            topic,
             exchange_name=exchange_name)
         self.notification_connection.consume_in_thread()
 

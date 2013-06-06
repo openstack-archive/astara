@@ -29,9 +29,10 @@ class TestNotificationMixin(unittest.TestCase):
 
             expected = [
                 mock.call.create_connection(new=True),
-                mock.call.create_connection().declare_topic_consumer(
-                    topic='the_topic',
-                    callback=n._notification_mixin_dispatcher,
+                mock.call.create_connection().join_consumer_pool(
+                    n._notification_mixin_dispatcher,
+                    'akanda.notifications',
+                    'the_topic',
                     exchange_name='the_exch'),
                 mock.call.create_connection().consume_in_thread()]
 
