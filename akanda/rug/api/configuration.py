@@ -7,8 +7,12 @@ from akanda.rug.openstack.common import jsonutils
 
 LOG = logging.getLogger(__name__)
 
+DEFAULT_AS = 64512
+
 OPTIONS = [
-    cfg.StrOpt('provider_rules_path')
+    cfg.StrOpt('provider_rules_path'),
+    cfg.IntOpt('asn', default=DEFAULT_AS),
+    cfg.IntOpt('neighbor_asn', default=DEFAULT_AS),
 ]
 
 cfg.CONF.register_opts(OPTIONS)
@@ -25,6 +29,8 @@ def build_config(client, router, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
     return {
+        'asn': cfg.CONF.asn,
+        'neighbor_asn': cfg.CONF.neighbor_asn,
         'networks': generate_network_config(client, router, interfaces),
         'address_book': generate_address_book_config(client, router),
         'anchors': generate_anchor_config(client, provider_rules, router),
