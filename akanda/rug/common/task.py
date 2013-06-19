@@ -74,10 +74,11 @@ class TaskManager(object):
     def _requeue_failed(self):
         while True:
             eventlet.sleep(self.max_requeue_delay)
-            LOG.info('requeueing delayed tasks')
+            LOG.info('requeueing %d delayed tasks', self.delay_queue.qsize())
             while True:
                 try:
                     task = self.delay_queue.get_nowait()
+                    LOG.info('Requeueing Task: %s', task)
                     self.task_queue.put(task)
                 except eventlet.queue.Empty:
                     break
