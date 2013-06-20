@@ -1,6 +1,7 @@
 from novaclient.v1_1 import client
 from novaclient.exceptions import ClientException
 
+
 class Nova(object):
     def __init__(self, conf):
         self.conf = conf
