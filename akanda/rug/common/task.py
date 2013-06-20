@@ -49,7 +49,8 @@ class TaskManager(object):
 
     def _serialized_task_runner(self):
         while True:
-            LOG.info('Waiting on item')
+            LOG.info('Waiting to execute one of the %d tasks '
+                     'remaining in the queue', self.task_queue.qsize())
             task = self.task_queue.get()
             try:
                 LOG.debug('starting %s', task)
