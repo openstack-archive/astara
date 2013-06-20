@@ -1,5 +1,5 @@
 from novaclient.v1_1 import client
-
+from novaclient.exceptions import ClientException
 
 class Nova(object):
     def __init__(self, conf):
@@ -18,11 +18,15 @@ class Nova(object):
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in ports]
 
-        self.client.servers.create(
-            'ak-' + router.id,
-            image=self.conf.router_image_uuid,
-            flavor=self.conf.router_instance_flavor,
-            nics=nics)
+        try:
+            self.client.servers.create(
+                'ak-' + router.id,
+                image=self.conf.router_image_uuid,
+                flavor=self.conf.router_instance_flavor,
+                nics=nics)
+        except ClientException:
+            raise RuntimeWarning('Failed to create an instance for '
+                                 'the router %s' % router.name)
 
     def get_instance(self, router):
         instances = self.client.servers.list(
