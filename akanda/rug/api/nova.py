@@ -19,6 +19,13 @@ class Nova(object):
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in ports]
 
+        # Sometimes a timing problem makes Nova try to create an akanda
+        # instance using some ports that haven't been cleaned up yet from
+        # Quantum. This problem makes the novaclient return an Internal Server
+        # Error to the rug.
+        # We can safely ignore this exception because the failed task is going
+        # to be requeued and executed again later when the ports should be
+        # finally cleaned up.
         try:
             self.client.servers.create(
                 'ak-' + router.id,
