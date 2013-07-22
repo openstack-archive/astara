@@ -313,8 +313,11 @@ def _get_version_from_git(pre_version):
                 return "%s.a%s.g%s" % (pre_version, _get_revno(git_dir), sha)
         else:
             return _run_shell_command(
-                "git --git-dir=" + git_dir + " describe --always").replace(
-                    '-', '.')
+                "git --git-dir=" + git_dir + " describe --always"
+            ).replace(
+                '-',
+                '.',
+            )
     return None
 
 
