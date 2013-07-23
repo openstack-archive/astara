@@ -4,6 +4,7 @@
 import logging
 import multiprocessing
 import signal
+import uuid
 
 
 LOG = logging.getLogger(__name__)
@@ -18,8 +19,12 @@ def _worker(inq, callback):
     LOG.debug('starting')
     while True:
         data = inq.get()
+        if data is None:
+            target, message = None, None
+        else:
+            target, message = data
         try:
-            callback(data)
+            callback(target, message)
         except Exception:
             LOG.exception('Error processing data %s' % data)
         if data is None:
@@ -27,7 +32,26 @@ def _worker(inq, callback):
     LOG.debug('exiting')
 
 
+class Dispatcher(object):
+    """Choose one of the workers to receive a message.
+
+    The current implementation uses the least significant bits of the
+    UUID as an integer to shard across the worker pool.
+    """
+
+    def __init__(self, workers):
+        self.workers = workers
+
+    def pick_worker(self, target):
+        """Returns the worker that manages the target.
+        """
+        idx = uuid.UUID(target).int % len(self.workers)
+        return self.workers[idx]
+
+
 class Scheduler(object):
+    """Managers a worker pool and redistributes messages.
+    """
 
     def __init__(self, num_workers, worker_func):
         """
@@ -59,6 +83,7 @@ class Scheduler(object):
                 'queue': wq,
                 'worker': worker,
             })
+        self.dispatcher = Dispatcher(self.workers)
 
     def stop(self):
         """Shutdown all workers cleanly.
@@ -74,10 +99,14 @@ class Scheduler(object):
             w['queue'].close()
             w['worker'].join()
 
-    def handle_message(self, message):
+    def handle_message(self, target, message):
         """Call this method when a new notification message is delivered. The
         scheduler will distribute it to the appropriate worker.
+
+        :param target: UUID of the resource that needs to get the message.
+        :type target: uuid
+        :param message: Dictionary full of data to send to the target.
+        :type message: dict
         """
-        # TODO(dhellmann): Need a real dispatching algorithm here.
-        for w in self.workers:
-            w['queue'].put(message)
+        w = self.dispatcher.pick_worker(target)
+        w['queue'].put((target, message))

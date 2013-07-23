@@ -10,10 +10,10 @@ from akanda.rug import scheduler
 LOG = logging.getLogger(__name__)
 
 
-def worker(message):
+def worker(target, message):
     # TODO(dhellmann): Replace with something from the state machine
     # module.
-    LOG.debug('got: %s', message)
+    LOG.debug('got: %s %s', target, message)
 
 
 def shuffle_notifications(notification_queue, sched):
@@ -21,8 +21,8 @@ def shuffle_notifications(notification_queue, sched):
     """
     while True:
         try:
-            message = notification_queue.get()
-            sched.handle_message(message)
+            router_id, message = notification_queue.get()
+            sched.handle_message(router_id, message)
         except KeyboardInterrupt:
             sched.stop()
             break

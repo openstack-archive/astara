@@ -9,7 +9,7 @@ class TestMain(unittest.TestCase):
     def test_shuffle_notifications(self):
         queue = mock.Mock()
         queue.get.side_effect = [
-            'message',
+            ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
             KeyboardInterrupt,
         ]
         sched = mock.Mock()
