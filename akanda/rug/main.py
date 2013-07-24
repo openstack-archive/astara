@@ -47,7 +47,12 @@ def main(argv=sys.argv[1:]):
     #
     # TODO(dhellmann): We will need to pass config settings through
     # here, or have the child process reset the cfg.CONF object.
-    notifications.listen(notification_queue)
+    notification_proc = multiprocessing.Process(
+        target=notifications.listen,
+        args=(notification_queue,),
+        name='NotificationListener',
+    )
+    notification_proc.start()
 
     worker_dispatcher = worker.Worker()
 
@@ -57,8 +62,12 @@ def main(argv=sys.argv[1:]):
         num_workers=cfg.CONF.num_workers,
         worker_func=worker_dispatcher.handle_message,
     )
-    shuffle_notifications(notification_queue,
-                          sched,
-                          )
+
+    # Block the main process, copying messages from the notification
+    # listener to the scheduler
+    shuffle_notifications(notification_queue, sched)
+
+    # Terminate the listening process
+    notification_proc.terminate()
 
     LOG.info('exiting')

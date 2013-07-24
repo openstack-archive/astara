@@ -1,10 +1,14 @@
 """Listen for notifications.
 """
 
+import logging
 import uuid
+
+LOG = logging.getLogger(__name__)
 
 
 def listen(notification_queue):
+    LOG.debug('starting')
     # TODO(dhellmann): Replace with a version of the service code from
     # oslo that knows how to subscribe to notifications.
     for i in range(5):
