@@ -26,7 +26,7 @@ def _worker(inq, callback):
         try:
             callback(target, message)
         except Exception:
-            LOG.exception('Error processing data %s' % data)
+            LOG.exception('Error processing data %s' % unicode(data))
         if data is None:
             break
     LOG.debug('exiting')

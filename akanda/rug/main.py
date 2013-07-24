@@ -6,14 +6,9 @@ from oslo.config import cfg
 
 from akanda.rug import notifications
 from akanda.rug import scheduler
+from akanda.rug import worker
 
 LOG = logging.getLogger(__name__)
-
-
-def worker(target, message):
-    # TODO(dhellmann): Replace with something from the state machine
-    # module.
-    LOG.debug('got: %s %s', target, message)
 
 
 def shuffle_notifications(notification_queue, sched):
@@ -54,11 +49,13 @@ def main(argv=sys.argv[1:]):
     # here, or have the child process reset the cfg.CONF object.
     notifications.listen(notification_queue)
 
+    worker_dispatcher = worker.Worker()
+
     # Set up the scheduler that knows how to manage the routers and
     # dispatch messages.
     sched = scheduler.Scheduler(
         num_workers=cfg.CONF.num_workers,
-        worker_func=worker,
+        worker_func=worker_dispatcher.handle_message,
     )
     shuffle_notifications(notification_queue,
                           sched,
