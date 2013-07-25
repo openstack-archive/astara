@@ -25,20 +25,26 @@ class Worker(object):
             LOG.debug('deleting state machine for %s', router_id)
             del self.state_machines[router_id]
 
+    def _shutdown(self):
+        LOG.info('shutting down')
+        for rid, sm in self.state_machines.items():
+            try:
+                sm.service_shutdown()
+            except Exception:
+                LOG.exception(
+                    'Failed to shutdown state machine for %s' % rid
+                )
+
     def handle_message(self, target, message):
         """Callback to be used in main
         """
-        LOG.debug('got: %s %s', target, message)
+        # LOG.debug('got: %s %s', target, message)
         if target is None:
-            LOG.info('shutting down')
-            for rid, sm in self.state_machines.items():
-                try:
-                    sm.service_shutdown()
-                except Exception:
-                    LOG.exception(
-                        'Failed to shutdown state machine for %s' % rid
-                    )
+            # We got the shutdown instruction from our parent process.
+            self._shutdown()
             return
+        # FIXME(dhellmann): The "target" value is now the tenant id,
+        # not the router id. We need to convert to the router id.
         if target not in self.state_machines:
             LOG.debug('creating state machine for %s', target)
             self.state_machines[target] = state.Automaton(

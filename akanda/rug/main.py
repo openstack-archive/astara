@@ -1,5 +1,6 @@
 import logging
 import multiprocessing
+import socket
 import sys
 
 from oslo.config import cfg
@@ -16,14 +17,19 @@ def shuffle_notifications(notification_queue, sched):
     """
     while True:
         try:
-            router_id, message = notification_queue.get()
-            sched.handle_message(router_id, message)
+            target, message = notification_queue.get()
+            sched.handle_message(target, message)
         except KeyboardInterrupt:
             sched.stop()
             break
 
 
 def main(argv=sys.argv[1:]):
+    cfg.CONF.register_opts([
+        cfg.StrOpt('host',
+                   default=socket.getfqdn(),
+                   help="The hostname Akanda is running on"),
+    ])
     # FIXME: Convert these to regular options, not command line options.
     cfg.CONF.register_cli_opts([
         cfg.IntOpt('health-check-period',
@@ -40,7 +46,7 @@ def main(argv=sys.argv[1:]):
     cfg.CONF(argv, project='akanda')
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(processName)s:%(name)s:%(message)s',
+        format='%(processName)s:%(name)s:%(levelname)s:%(message)s',
     )
 
     # Set up the queue to move messages between the eventlet-based
@@ -53,7 +59,7 @@ def main(argv=sys.argv[1:]):
     # here, or have the child process reset the cfg.CONF object.
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
-        args=(cfg.CONF.amqp_url, notification_queue,),
+        args=(cfg.CONF.host, cfg.CONF.amqp_url, notification_queue,),
         name='NotificationListener',
     )
     notification_proc.start()

@@ -76,7 +76,7 @@ class Scheduler(object):
                     'inq': wq,
                     'callback': worker_func,
                 },
-                name='Worker %d' % i,
+                name='worker-%02d' % i,
             )
             worker.start()
             self.workers.append({
