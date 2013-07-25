@@ -24,6 +24,7 @@ def shuffle_notifications(notification_queue, sched):
 
 
 def main(argv=sys.argv[1:]):
+    # FIXME: Convert these to regular options, not command line options.
     cfg.CONF.register_cli_opts([
         cfg.IntOpt('health-check-period',
                    default=60,
@@ -32,6 +33,9 @@ def main(argv=sys.argv[1:]):
                    short='n',
                    default=16,
                    help='the number of worker processes to run'),
+        cfg.StrOpt('amqp-url',
+                   default='amqp://guest:secrete@localhost:5672/',
+                   help='connection for AMQP server'),
     ])
     cfg.CONF(argv, project='akanda')
     logging.basicConfig(
@@ -49,10 +53,11 @@ def main(argv=sys.argv[1:]):
     # here, or have the child process reset the cfg.CONF object.
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
-        args=(notification_queue,),
+        args=(cfg.CONF.amqp_url, notification_queue,),
         name='NotificationListener',
     )
     notification_proc.start()
+    # notifications.listen(amqp_url, notification_queue)
 
     worker_dispatcher = worker.Worker()
 
