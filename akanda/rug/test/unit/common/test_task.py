@@ -4,6 +4,7 @@ import unittest2 as unittest
 from akanda.rug.common import task
 from akanda.rug.common.exceptions import AbortTask
 
+
 class TestTask(unittest.TestCase):
     def test_init(self):
         t = task.Task('the_method', 'data')
@@ -43,7 +44,7 @@ class TestTask(unittest.TestCase):
 
 class TestTaskManager(unittest.TestCase):
     def test_init(self):
-        tm = task.TaskManager(10)
+        task.TaskManager(10)
 
     def test_put(self):
         tm = task.TaskManager(10)

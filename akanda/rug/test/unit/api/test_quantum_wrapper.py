@@ -1,4 +1,3 @@
-import mock
 import netaddr
 import unittest2 as unittest
 

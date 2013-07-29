@@ -200,9 +200,11 @@ class AkandaL3Manager(notification.NotificationMixin,
 
             if self.cache.get(rtr.id) != rtr:
                 LOG.info('scheduling update for router %s' % rtr.id)
-                self.task_mgr.put(self.update_router, rtr.id,
-                                  reason=('Updated by sync_state as '
-                                  'part of the %s' % reason_msg))
+                self.task_mgr.put(
+                    self.update_router, rtr.id,
+                    reason=('Updated by sync_state as '
+                            'part of the %s' % reason_msg),
+                )
 
         for rtr_id in (known_routers - active_routers):
             LOG.info('scheduling delete for router %s' % rtr_id)

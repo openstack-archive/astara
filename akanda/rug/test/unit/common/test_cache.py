@@ -14,7 +14,7 @@ class FakeModel:
 
 class TestCache(unittest.TestCase):
     def test_init(self):
-        c = cache.RouterCache()
+        cache.RouterCache()
 
     def test_put(self):
         fake_router = FakeModel(
