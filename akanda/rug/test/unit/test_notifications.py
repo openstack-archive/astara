@@ -19,7 +19,7 @@ class TestGetTenantID(unittest.TestCase):
                'method': 'router_deleted',
                'version': '1.0'}
         tenant_id = notifications._get_tenant_id_for_message(msg)
-        self.assertEquals("c25992581e574b6485dbfdf39a3df46c", tenant_id)
+        self.assertEqual("c25992581e574b6485dbfdf39a3df46c", tenant_id)
 
     def test_notification_tenant_id(self):
         msg = {u'_context_is_admin': False,
@@ -53,7 +53,7 @@ class TestGetTenantID(unittest.TestCase):
                u'publisher_id': u'network.akanda',
                u'timestamp': u'2013-07-25 14:02:55.244126'}
         tenant_id = notifications._get_tenant_id_for_message(msg)
-        self.assertEquals('c25992581e574b6485dbfdf39a3df46c', tenant_id)
+        self.assertEqual('c25992581e574b6485dbfdf39a3df46c', tenant_id)
 
     def test_notification_project_id(self):
         msg = {
@@ -88,7 +88,7 @@ class TestGetTenantID(unittest.TestCase):
             u'timestamp': u'2013-07-25 14:02:55.244126'}
 
         tenant_id = notifications._get_tenant_id_for_message(msg)
-        self.assertEquals('c25992581e574b6485dbfdf39a3df46c', tenant_id)
+        self.assertEqual('c25992581e574b6485dbfdf39a3df46c', tenant_id)
 
 
 class TestGetCRUD(unittest.TestCase):
@@ -96,7 +96,7 @@ class TestGetCRUD(unittest.TestCase):
     def test_rpc_router_deleted(self):
         msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"router_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "_context_user_id": "472511eedebd4322a26c5fb1f52711ee", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
         e = notifications._make_event_from_message(msg)
-        self.assertEquals(event.DELETE, e.crud)
+        self.assertEqual(event.DELETE, e.crud)
         self.assert_(e.router_id)
 
     def _test_notification(self, event_type):
@@ -136,43 +136,43 @@ class TestGetCRUD(unittest.TestCase):
         e = self._test_notification('port.create.start')
         self.assertFalse(e)
         e = self._test_notification('port.create.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
         e = self._test_notification('port.change.start')
         self.assertFalse(e)
         e = self._test_notification('port.change.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
         e = self._test_notification('port.delete.start')
         self.assertFalse(e)
         e = self._test_notification('port.delete.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
 
     def test_notification_subnet(self):
         e = self._test_notification('subnet.create.start')
         self.assertFalse(e)
         e = self._test_notification('subnet.create.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
         e = self._test_notification('subnet.change.start')
         self.assertFalse(e)
         e = self._test_notification('subnet.change.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
         e = self._test_notification('subnet.delete.start')
         self.assertFalse(e)
         e = self._test_notification('subnet.delete.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
 
     def test_notification_router(self):
         e = self._test_notification('router.create.start')
         self.assertFalse(e)
         e = self._test_notification('router.create.end')
-        self.assertEquals(event.CREATE, e.crud)
+        self.assertEqual(event.CREATE, e.crud)
         e = self._test_notification('router.change.start')
         self.assertFalse(e)
         e = self._test_notification('router.change.end')
-        self.assertEquals(event.UPDATE, e.crud)
+        self.assertEqual(event.UPDATE, e.crud)
         e = self._test_notification('router.delete.start')
         self.assertFalse(e)
         e = self._test_notification('router.delete.end')
-        self.assertEquals(event.DELETE, e.crud)
+        self.assertEqual(event.DELETE, e.crud)
 
     def test_notification_router_id(self):
         msg = {
