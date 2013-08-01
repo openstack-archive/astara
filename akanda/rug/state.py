@@ -23,6 +23,5 @@ class Automaton(object):
 
     def update(self, message):
         "Called when the router config should be changed"
-        self.log.debug('update')
-        # self.log.debug('update %r', message)
+        self.log.debug('update: %r', message)
         # TODO: Manage the router!

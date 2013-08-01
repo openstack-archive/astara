@@ -38,7 +38,7 @@ class Worker(object):
     def handle_message(self, target, message):
         """Callback to be used in main
         """
-        # LOG.debug('got: %s %s', target, message)
+        #LOG.debug('got: %s %r', target, message)
         if target is None:
             # We got the shutdown instruction from our parent process.
             self._shutdown()
