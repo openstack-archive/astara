@@ -53,13 +53,13 @@ class Scheduler(object):
     """Managers a worker pool and redistributes messages.
     """
 
-    def __init__(self, num_workers, worker_func):
+    def __init__(self, num_workers, worker_factory):
         """
         :param num_workers: The number of worker processes to create.
         :type num_workers: int
         :param worker_func: Callable for the worker processes to use
                             when a notification is received.
-        :type worker_func: Callable taking one argument.
+        :type worker_factory: Callable to create Worker instances.
         """
         if num_workers < 1:
             raise ValueError('Need at least one worker process')
@@ -74,7 +74,7 @@ class Scheduler(object):
                 target=_worker,
                 kwargs={
                     'inq': wq,
-                    'callback': worker_func,
+                    'callback': worker_factory().handle_message,
                 },
                 name='worker-%02d' % i,
             )

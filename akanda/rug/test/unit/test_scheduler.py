@@ -18,13 +18,13 @@ class TestScheduler(unittest.TestCase):
 
     @mock.patch('multiprocessing.Process')
     def test_creating_workers(self, process):
-        s = scheduler.Scheduler(2, lambda x: x)
+        s = scheduler.Scheduler(2, mock.Mock)
         self.assertEqual(2, len(s.workers))
 
     @mock.patch('multiprocessing.Process')
     @mock.patch('multiprocessing.JoinableQueue')
     def test_stop(self, process, queue):
-        s = scheduler.Scheduler(2, lambda x: x)
+        s = scheduler.Scheduler(2, mock.Mock)
         s.stop()
         for w in s.workers:
             w['queue'].put.assert_called_once(None)

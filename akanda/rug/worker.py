@@ -3,7 +3,7 @@
 
 import logging
 
-from akanda.rug import state
+from akanda.rug import tenant
 
 LOG = logging.getLogger(__name__)
 
@@ -16,24 +16,12 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self):
-        self.state_machines = {}
-
-    def _delete_router(self, router_id):
-        "Called when the Automaton decides the router can be deleted"
-        if router_id in self.state_machines:
-            LOG.debug('deleting state machine for %s', router_id)
-            del self.state_machines[router_id]
+    def __init__(self, num_threads):
+        self.tenant_managers = {}
 
     def _shutdown(self):
-        LOG.info('shutting down')
-        for rid, sm in self.state_machines.items():
-            try:
-                sm.service_shutdown()
-            except Exception:
-                LOG.exception(
-                    'Failed to shutdown state machine for %s' % rid
-                )
+        for trm in self.tenant_managers.values():
+            trm.shutdown()
 
     def handle_message(self, target, message):
         """Callback to be used in main
@@ -43,13 +31,10 @@ class Worker(object):
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
-        # FIXME(dhellmann): The "target" value is now the tenant id,
-        # not the router id. We need to convert to the router id.
-        if target not in self.state_machines:
-            LOG.debug('creating state machine for %s', target)
-            self.state_machines[target] = state.Automaton(
-                router_id=target,
-                delete_callback=self._delete_router,
+        if target not in self.tenant_managers:
+            LOG.debug('creating tenant manager for %s', target)
+            self.tenant_managers[target] = tenant.TenantRouterManager(
+                tenant_id=target,
             )
-        sm = self.state_machines.get(target)
-        sm.update(message)
+        trm = self.tenant_managers[target]
+        trm.handle_message(message)

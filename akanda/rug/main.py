@@ -1,3 +1,4 @@
+import functools
 import logging
 import multiprocessing
 import socket
@@ -35,10 +36,14 @@ def main(argv=sys.argv[1:]):
         cfg.IntOpt('health-check-period',
                    default=60,
                    help='seconds between health checks'),
-        cfg.IntOpt('num-workers',
-                   short='n',
+        cfg.IntOpt('num-worker-processes',
+                   short='w',
                    default=16,
                    help='the number of worker processes to run'),
+        cfg.IntOpt('num-worker-threads',
+                   short='t',
+                   default=4,
+                   help='the number of worker threads to run per process'),
         cfg.StrOpt('amqp-url',
                    default='amqp://guest:secrete@localhost:5672/',
                    help='connection for AMQP server'),
@@ -54,9 +59,6 @@ def main(argv=sys.argv[1:]):
     notification_queue = multiprocessing.Queue()
 
     # Listen for notifications.
-    #
-    # TODO(dhellmann): We will need to pass config settings through
-    # here, or have the child process reset the cfg.CONF object.
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         args=(cfg.CONF.host, cfg.CONF.amqp_url, notification_queue,),
@@ -65,13 +67,18 @@ def main(argv=sys.argv[1:]):
     notification_proc.start()
     # notifications.listen(amqp_url, notification_queue)
 
-    worker_dispatcher = worker.Worker()
+    # Set up a factory to make Workers that know how many threads to
+    # run.
+    worker_factory = functools.partial(
+        worker.Worker,
+        num_threads=cfg.CONF.num_worker_threads,
+    )
 
     # Set up the scheduler that knows how to manage the routers and
     # dispatch messages.
     sched = scheduler.Scheduler(
-        num_workers=cfg.CONF.num_workers,
-        worker_func=worker_dispatcher.handle_message,
+        num_workers=cfg.CONF.num_worker_processes,
+        worker_factory=worker_factory,
     )
 
     # Block the main process, copying messages from the notification
