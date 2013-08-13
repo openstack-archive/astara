@@ -10,13 +10,14 @@ import uuid
 LOG = logging.getLogger(__name__)
 
 
-def _worker(inq, callback):
+def _worker(inq, worker_factory):
     """Scheduler's worker process main function.
     """
     # Ignore SIGINT, since the parent will catch it and give us a
     # chance to exit cleanly.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    LOG.debug('starting')
+    LOG.debug('starting worker process')
+    worker = worker_factory()
     while True:
         data = inq.get()
         if data is None:
@@ -24,7 +25,7 @@ def _worker(inq, callback):
         else:
             target, message = data
         try:
-            callback(target, message)
+            worker.handle_message(target, message)
         except Exception:
             LOG.exception('Error processing data %s' % unicode(data))
         if data is None:
@@ -74,7 +75,7 @@ class Scheduler(object):
                 target=_worker,
                 kwargs={
                     'inq': wq,
-                    'callback': worker_factory().handle_message,
+                    'worker_factory': worker_factory,
                 },
                 name='worker-%02d' % i,
             )

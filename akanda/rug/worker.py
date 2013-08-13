@@ -2,6 +2,8 @@
 """
 
 import logging
+import Queue
+import threading
 
 from akanda.rug import tenant
 
@@ -17,11 +19,69 @@ class Worker(object):
     """
 
     def __init__(self, num_threads):
+        self.work_queue = Queue.Queue()
+        self.lock = threading.Lock()
+        self._keep_going = True
         self.tenant_managers = {}
+        self.being_updated = set()
+        self.threads = [
+            threading.Thread(
+                name='worker-thread-%02d' % i,
+                target=self._thread_target,
+            )
+            for i in xrange(num_threads)
+        ]
+        for t in self.threads:
+            t.setDaemon(True)
+            t.start()
+
+    def _thread_target(self):
+        """This method runs in each worker thread.
+        """
+        LOG.debug('starting thread')
+        while self._keep_going:
+            try:
+                # Try to get a state machine from the work queue. If
+                # there's nothing to do, we will block for a while.
+                sm, inq = self.work_queue.get(timeout=10)
+            except Queue.Empty:
+                continue
+            if not sm:
+                break
+            LOG.debug('updating %s', sm.router_id)
+            try:
+                sm.update()
+            except:
+                LOG.exception('could not complete update for %s'
+                              % sm.router_id)
+            finally:
+                self.work_queue.task_done()
+                with self.lock:
+                    # The state machine has indicated that it is done
+                    # by returning. If there is more work for it to
+                    # do, reschedule it by placing it at the end of
+                    # the queue.
+                    if inq.empty():
+                        self.being_updated.discard(sm.router_id)
+                    else:
+                        self.work_queue.put((sm, inq))
 
     def _shutdown(self):
-        for trm in self.tenant_managers.values():
-            trm.shutdown()
+        """Stop the worker.
+        """
+        # Stop the worker threads
+        self._keep_going = True
+        # Drain the task queue by discarding it
+        # FIXME(dhellmann): This could prevent us from deleting
+        # routers that need to be deleted.
+        self.work_queue = Queue.Queue()
+        # Shutdown all of the tenant router managers. The lock is
+        # probably not necessary, since this should be running in the
+        # same thread where new messages are being received (and
+        # therefore those messages aren't being processed).
+        with self.lock:
+            for trm in self.tenant_managers.values():
+                trm.shutdown()
 
     def handle_message(self, target, message):
         """Callback to be used in main
@@ -37,4 +97,14 @@ class Worker(object):
                 tenant_id=target,
             )
         trm = self.tenant_managers[target]
-        trm.handle_message(message)
+        sm, inq = trm.get_state_machine(message)
+        with self.lock:
+            if sm.router_id not in self.being_updated:
+                # Queue up the state machine by router id.
+                # No work should be picked up, because we
+                # have the lock, so it doesn't matter that
+                # the queue is empty right now.
+                self.work_queue.put((sm, inq))
+                self.being_updated.add(sm.router_id)
+            # Add the message to the state machine's inbox
+            inq.put(message)

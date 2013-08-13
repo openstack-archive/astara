@@ -51,7 +51,12 @@ def main(argv=sys.argv[1:]):
     cfg.CONF(argv, project='akanda')
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(processName)s:%(name)s:%(levelname)s:%(message)s',
+        format=':'.join('%(' + n + ')s'
+                        for n in ['processName',
+                                  'threadName',
+                                  'name',
+                                  'levelname',
+                                  'message']),
     )
 
     # Set up the queue to move messages between the eventlet-based

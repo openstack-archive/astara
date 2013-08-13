@@ -2,6 +2,7 @@
 """
 
 import logging
+import Queue
 
 from akanda.rug import state
 
@@ -13,6 +14,7 @@ class TenantRouterManager(object):
     """
 
     def __init__(self, tenant_id):
+        self.tenant_id = tenant_id
         self.state_machines = {}
 
     def _delete_router(self, router_id):
@@ -31,16 +33,27 @@ class TenantRouterManager(object):
                     'Failed to shutdown state machine for %s' % rid
                 )
 
-    def handle_message(self, message):
+    def get_state_machine(self, message):
+        """Return the state machine and the queue for sending it messages for
+        the router being addressed by the message.
+        """
         router_id = message.router_id
-        if router_id is None:
-            LOG.debug('do not know how to handle %r', message)
-        else:
-            if router_id not in self.state_machines:
-                self.state_machines[router_id] = state.Automaton(
-                    router_id=router_id,
-                    delete_callback=self._delete_router,
-                )
-            sm = self.state_machines[router_id]
-            sm.update(message)
-
+        if not router_id:
+            # FIXME(dhellmann): Need to look up the "default" router
+            # for a tenant here.
+            raise RuntimeError('do not know how to handle %r', message)
+        if router_id not in self.state_machines:
+            def deleter():
+                self._delete_router(router_id)
+            q = Queue.Queue()
+            sm = state.Automaton(
+                router_id=router_id,
+                delete_callback=deleter,
+                queue=q,
+            )
+            self.state_machines[router_id] = {
+                'sm': sm,
+                'inq': q,
+            }
+        sm = self.state_machines[router_id]
+        return sm['sm'], sm['inq']
