@@ -70,13 +70,16 @@ class Worker(object):
         """Stop the worker.
         """
         # Stop the worker threads
-        self._keep_going = True
+        self._keep_going = False
         # Drain the task queue by discarding it
         # FIXME(dhellmann): This could prevent us from deleting
         # routers that need to be deleted.
         self.work_queue = Queue.Queue()
         for t in self.threads:
             self.work_queue.put((None, None))
+        # Wait for our threads to finish
+        for t in self.threads:
+            t.join(timeout=1)
         # Shutdown all of the tenant router managers. The lock is
         # probably not necessary, since this should be running in the
         # same thread where new messages are being received (and
@@ -84,9 +87,14 @@ class Worker(object):
         with self.lock:
             for trm in self.tenant_managers.values():
                 trm.shutdown()
-        # Wait for our threads to finish
-        for t in self.threads:
-            t.join(timeout=1)
+
+    def _get_trm_for_tenant(self, target):
+        if target not in self.tenant_managers:
+            LOG.debug('creating tenant manager for %s', target)
+            self.tenant_managers[target] = tenant.TenantRouterManager(
+                tenant_id=target,
+            )
+        return self.tenant_managers[target]
 
     def handle_message(self, target, message):
         """Callback to be used in main
@@ -96,12 +104,7 @@ class Worker(object):
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
-        if target not in self.tenant_managers:
-            LOG.debug('creating tenant manager for %s', target)
-            self.tenant_managers[target] = tenant.TenantRouterManager(
-                tenant_id=target,
-            )
-        trm = self.tenant_managers[target]
+        trm = self._get_trm_for_tenant(target)
         sm, inq = trm.get_state_machine(message)
         with self.lock:
             if sm.router_id not in self.being_updated:

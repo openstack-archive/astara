@@ -58,6 +58,29 @@ class TestTenantRouterManager(unittest.TestCase):
         self.assertIs(sm1, sm2)
         self.assertIs(inq1, inq2)
 
+    @mock.patch('akanda.rug.state.Automaton')
+    def test_existing_router_of_many(self, automaton):
+        sms = {}
+        for router_id in ['5678', 'ABCD', 'EFGH']:
+            msg = event.Event(
+                tenant_id='1234',
+                router_id=router_id,
+                crud=event.CREATE,
+                body={'key': 'value'},
+            )
+            # First time creates...
+            sm1, inq1 = self.trm.get_state_machine(msg)
+            sms[router_id] = sm1
+        # Second time should return the same objects...
+        msg = event.Event(
+            tenant_id='1234',
+            router_id='5678',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        sm2, inq2 = self.trm.get_state_machine(msg)
+        self.assertIs(sm1, sms['5678'])
+
     def test_delete_router(self):
         self.trm.state_machines['1234'] = {
             'sm': mock.Mock(),
