@@ -75,6 +75,8 @@ class Worker(object):
         # FIXME(dhellmann): This could prevent us from deleting
         # routers that need to be deleted.
         self.work_queue = Queue.Queue()
+        for t in self.threads:
+            self.work_queue.put((None, None))
         # Shutdown all of the tenant router managers. The lock is
         # probably not necessary, since this should be running in the
         # same thread where new messages are being received (and
@@ -82,6 +84,9 @@ class Worker(object):
         with self.lock:
             for trm in self.tenant_managers.values():
                 trm.shutdown()
+        # Wait for our threads to finish
+        for t in self.threads:
+            t.join(timeout=1)
 
     def handle_message(self, target, message):
         """Callback to be used in main

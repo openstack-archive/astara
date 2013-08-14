@@ -1,3 +1,5 @@
+import mock
+
 import unittest2 as unittest
 
 from akanda.rug import event
@@ -10,7 +12,12 @@ class TestWorker(unittest.TestCase):
         super(TestWorker, self).setUp()
         self.w = worker.Worker(1)
 
-    def test_new_router(self):
+    def tearDown(self):
+        self.w._shutdown()
+        super(TestWorker, self).tearDown()
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def test_new_router(self, quantum):
         msg = event.Event(
             tenant_id='1234',
             router_id='5678',

@@ -7,9 +7,19 @@ from akanda.rug import tenant
 
 class TestTenantRouterManager(unittest.TestCase):
 
-    def setUp(self):
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def setUp(self, quantum_client):
         super(TestTenantRouterManager, self).setUp()
         self.trm = tenant.TenantRouterManager('1234')
+        # Establish a fake default router for the tenant for tests
+        # that try to use it. We mock out the class above to avoid
+        # errors instantiating the client without enough config
+        # settings, but we have to attach to the mock instance created
+        # when we set the return value for get_router_for_tenant().
+        client = self.trm.quantum
+        self.default_router = mock.MagicMock(name='default_router')
+        self.default_router.configure_mock(id='9ABC')
+        client.get_router_for_tenant.return_value = self.default_router
 
     def test_new_router(self):
         msg = event.Event(
@@ -21,6 +31,17 @@ class TestTenantRouterManager(unittest.TestCase):
         sm, inq = self.trm.get_state_machine(msg)
         self.assertEqual(sm.router_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
+
+    def test_default_router(self):
+        msg = event.Event(
+            tenant_id='1234',
+            router_id=None,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        sm, inq = self.trm.get_state_machine(msg)
+        self.assertEqual(sm.router_id, self.default_router.id)
+        self.assertIn(self.default_router.id, self.trm.state_machines)
 
     @mock.patch('akanda.rug.state.Automaton')
     def test_existing_router(self, automaton):
@@ -44,6 +65,25 @@ class TestTenantRouterManager(unittest.TestCase):
         }
         self.trm._delete_router('1234')
         self.assertNotIn('1234', self.trm.state_machines)
+
+    def test_delete_default_router(self):
+        self.trm._default_router_id = '1234'
+        self.trm.state_machines['1234'] = {
+            'sm': mock.Mock(),
+            'inq': mock.Mock(),
+        }
+        self.trm._delete_router('1234')
+        self.assertNotIn('1234', self.trm.state_machines)
+        self.assertIs(None, self.trm._default_router_id)
+
+    def test_delete_not_default_router(self):
+        self.trm._default_router_id = 'abcd'
+        self.trm.state_machines['1234'] = {
+            'sm': mock.Mock(),
+            'inq': mock.Mock(),
+        }
+        self.trm._delete_router('1234')
+        self.assertEqual('abcd', self.trm._default_router_id)
 
     def test_deleter_callback(self):
         msg = event.Event(

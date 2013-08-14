@@ -30,6 +30,14 @@ def main(argv=sys.argv[1:]):
         cfg.StrOpt('host',
                    default=socket.getfqdn(),
                    help="The hostname Akanda is running on"),
+
+        # FIXME(dhellmann): Use a separate group for these auth params
+        cfg.StrOpt('admin_user'),
+        cfg.StrOpt('admin_password', secret=True),
+        cfg.StrOpt('admin_tenant_name'),
+        cfg.StrOpt('auth_url'),
+        cfg.StrOpt('auth_strategy', default='keystone'),
+        cfg.StrOpt('auth_region'),
     ])
     # FIXME: Convert these to regular options, not command line options.
     cfg.CONF.register_cli_opts([
