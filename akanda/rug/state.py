@@ -30,3 +30,9 @@ class Automaton(object):
             message = self.queue.get()
             self.log.debug('update: %r', message)
             # TODO: Manage the router!
+
+    def send_message(self, message):
+        self.queue.put(message)
+
+    def has_more_work(self):
+        return not self.queue.empty()

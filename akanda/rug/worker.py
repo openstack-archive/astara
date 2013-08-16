@@ -61,10 +61,10 @@ class Worker(object):
                     # by returning. If there is more work for it to
                     # do, reschedule it by placing it at the end of
                     # the queue.
-                    if inq.empty():
-                        self.being_updated.discard(sm.router_id)
-                    else:
+                    if sm.has_more_work():
                         self.work_queue.put((sm, inq))
+                    else:
+                        self.being_updated.discard(sm.router_id)
 
     def _shutdown(self):
         """Stop the worker.
@@ -115,4 +115,4 @@ class Worker(object):
                 self.work_queue.put((sm, inq))
                 self.being_updated.add(sm.router_id)
             # Add the message to the state machine's inbox
-            inq.put(message)
+            sm.send_message(message)
