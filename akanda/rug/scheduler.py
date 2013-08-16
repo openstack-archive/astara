@@ -10,13 +10,14 @@ import uuid
 LOG = logging.getLogger(__name__)
 
 
-def _worker(inq, callback):
+def _worker(inq, worker_factory):
     """Scheduler's worker process main function.
     """
     # Ignore SIGINT, since the parent will catch it and give us a
     # chance to exit cleanly.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    LOG.debug('starting')
+    LOG.debug('starting worker process')
+    worker = worker_factory()
     while True:
         data = inq.get()
         if data is None:
@@ -24,7 +25,7 @@ def _worker(inq, callback):
         else:
             target, message = data
         try:
-            callback(target, message)
+            worker.handle_message(target, message)
         except Exception:
             LOG.exception('Error processing data %s' % unicode(data))
         if data is None:
@@ -53,13 +54,13 @@ class Scheduler(object):
     """Managers a worker pool and redistributes messages.
     """
 
-    def __init__(self, num_workers, worker_func):
+    def __init__(self, num_workers, worker_factory):
         """
         :param num_workers: The number of worker processes to create.
         :type num_workers: int
         :param worker_func: Callable for the worker processes to use
                             when a notification is received.
-        :type worker_func: Callable taking one argument.
+        :type worker_factory: Callable to create Worker instances.
         """
         if num_workers < 1:
             raise ValueError('Need at least one worker process')
@@ -74,7 +75,7 @@ class Scheduler(object):
                 target=_worker,
                 kwargs={
                     'inq': wq,
-                    'callback': worker_func,
+                    'worker_factory': worker_factory,
                 },
                 name='worker-%02d' % i,
             )

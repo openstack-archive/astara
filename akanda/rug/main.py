@@ -1,3 +1,4 @@
+import functools
 import logging
 import multiprocessing
 import socket
@@ -29,16 +30,28 @@ def main(argv=sys.argv[1:]):
         cfg.StrOpt('host',
                    default=socket.getfqdn(),
                    help="The hostname Akanda is running on"),
+
+        # FIXME(dhellmann): Use a separate group for these auth params
+        cfg.StrOpt('admin_user'),
+        cfg.StrOpt('admin_password', secret=True),
+        cfg.StrOpt('admin_tenant_name'),
+        cfg.StrOpt('auth_url'),
+        cfg.StrOpt('auth_strategy', default='keystone'),
+        cfg.StrOpt('auth_region'),
     ])
     # FIXME: Convert these to regular options, not command line options.
     cfg.CONF.register_cli_opts([
         cfg.IntOpt('health-check-period',
                    default=60,
                    help='seconds between health checks'),
-        cfg.IntOpt('num-workers',
-                   short='n',
+        cfg.IntOpt('num-worker-processes',
+                   short='w',
                    default=16,
                    help='the number of worker processes to run'),
+        cfg.IntOpt('num-worker-threads',
+                   short='t',
+                   default=4,
+                   help='the number of worker threads to run per process'),
         cfg.StrOpt('amqp-url',
                    default='amqp://guest:secrete@localhost:5672/',
                    help='connection for AMQP server'),
@@ -46,7 +59,12 @@ def main(argv=sys.argv[1:]):
     cfg.CONF(argv, project='akanda')
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(processName)s:%(name)s:%(levelname)s:%(message)s',
+        format=':'.join('%(' + n + ')s'
+                        for n in ['processName',
+                                  'threadName',
+                                  'name',
+                                  'levelname',
+                                  'message']),
     )
 
     # Set up the queue to move messages between the eventlet-based
@@ -54,9 +72,6 @@ def main(argv=sys.argv[1:]):
     notification_queue = multiprocessing.Queue()
 
     # Listen for notifications.
-    #
-    # TODO(dhellmann): We will need to pass config settings through
-    # here, or have the child process reset the cfg.CONF object.
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         args=(cfg.CONF.host, cfg.CONF.amqp_url, notification_queue,),
@@ -65,13 +80,18 @@ def main(argv=sys.argv[1:]):
     notification_proc.start()
     # notifications.listen(amqp_url, notification_queue)
 
-    worker_dispatcher = worker.Worker()
+    # Set up a factory to make Workers that know how many threads to
+    # run.
+    worker_factory = functools.partial(
+        worker.Worker,
+        num_threads=cfg.CONF.num_worker_threads,
+    )
 
     # Set up the scheduler that knows how to manage the routers and
     # dispatch messages.
     sched = scheduler.Scheduler(
-        num_workers=cfg.CONF.num_workers,
-        worker_func=worker_dispatcher.handle_message,
+        num_workers=cfg.CONF.num_worker_processes,
+        worker_factory=worker_factory,
     )
 
     # Block the main process, copying messages from the notification
