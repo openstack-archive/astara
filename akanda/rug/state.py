@@ -31,7 +31,9 @@ class Automaton(object):
             # TODO: Manage the router!
 
     def send_message(self, message):
+        "Called when the worker put a message in the state machine queue"
         self._queue.put(message)
 
     def has_more_work(self):
+        "Called to check if there are more messages in the state machine queue"
         return not self._queue.empty()
