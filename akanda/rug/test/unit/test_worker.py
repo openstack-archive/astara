@@ -34,7 +34,7 @@ class TestWorkerCreatingRouter(unittest.TestCase):
     def test_message_enqueued(self):
         trm = self.w.tenant_managers[self.tenant_id]
         sm = trm.get_state_machine(self.msg)
-        self.assertEqual(1, sm.queue.qsize())
+        self.assertEqual(1, sm._queue.qsize())
 
     def test_being_updated_set(self):
         self.assertIn(self.router_id, self.w.being_updated)

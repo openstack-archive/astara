@@ -2,7 +2,6 @@
 """
 
 import logging
-import Queue
 
 from akanda.rug.api import quantum
 from akanda.rug import state
@@ -54,11 +53,9 @@ class TenantRouterManager(object):
         if router_id not in self.state_machines:
             def deleter():
                 self._delete_router(router_id)
-            q = Queue.Queue()
             sm = state.Automaton(
                 router_id=router_id,
                 delete_callback=deleter,
-                queue=q,
             )
             self.state_machines[router_id] = sm
         sm = self.state_machines[router_id]
