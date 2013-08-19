@@ -34,7 +34,7 @@ class TenantRouterManager(object):
         LOG.info('shutting down')
         for rid, sm in self.state_machines.items():
             try:
-                sm['sm'].service_shutdown()
+                sm.service_shutdown()
             except Exception:
                 LOG.exception(
                     'Failed to shutdown state machine for %s' % rid
@@ -60,9 +60,6 @@ class TenantRouterManager(object):
                 delete_callback=deleter,
                 queue=q,
             )
-            self.state_machines[router_id] = {
-                'sm': sm,
-                'inq': q,
-            }
+            self.state_machines[router_id] = sm
         sm = self.state_machines[router_id]
-        return sm['sm'], sm['inq']
+        return sm

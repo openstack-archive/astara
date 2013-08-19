@@ -33,8 +33,8 @@ class TestWorkerCreatingRouter(unittest.TestCase):
 
     def test_message_enqueued(self):
         trm = self.w.tenant_managers[self.tenant_id]
-        sm, inq = trm.get_state_machine(self.msg)
-        self.assertEqual(1, inq.qsize())
+        sm = trm.get_state_machine(self.msg)
+        self.assertEqual(1, sm.queue.qsize())
 
     def test_being_updated_set(self):
         self.assertIn(self.router_id, self.w.being_updated)
@@ -76,14 +76,14 @@ class TestWorkerUpdateStateMachine(unittest.TestCase):
         # Create the router manager and state machine so we can
         # replace the update() method with a mock.
         trm = w._get_trm_for_tenant(tenant_id)
-        sm, inq = trm.get_state_machine(msg)
+        sm = trm.get_state_machine(msg)
         with mock.patch.object(sm, 'update') as meth:
             w.handle_message(tenant_id, msg)
             # Add a null message so the worker loop will exit. We have
             # to do this directly, because if we do it through
             # handle_message() that triggers shutdown logic that keeps
             # the loop from working properly.
-            w.work_queue.put((None, None))
+            w.work_queue.put(None)
             # We aren't using threads (and we trust that threads do
             # work) so we just invoke the thread target ourselves to
             # pretend.
