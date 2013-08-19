@@ -2,7 +2,6 @@
 """
 
 import logging
-import Queue
 
 from akanda.rug.api import quantum
 from akanda.rug import state
@@ -34,7 +33,7 @@ class TenantRouterManager(object):
         LOG.info('shutting down')
         for rid, sm in self.state_machines.items():
             try:
-                sm['sm'].service_shutdown()
+                sm.service_shutdown()
             except Exception:
                 LOG.exception(
                     'Failed to shutdown state machine for %s' % rid
@@ -54,15 +53,10 @@ class TenantRouterManager(object):
         if router_id not in self.state_machines:
             def deleter():
                 self._delete_router(router_id)
-            q = Queue.Queue()
             sm = state.Automaton(
                 router_id=router_id,
                 delete_callback=deleter,
-                queue=q,
             )
-            self.state_machines[router_id] = {
-                'sm': sm,
-                'inq': q,
-            }
+            self.state_machines[router_id] = sm
         sm = self.state_machines[router_id]
-        return sm['sm'], sm['inq']
+        return sm

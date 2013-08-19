@@ -43,7 +43,7 @@ class Worker(object):
             try:
                 # Try to get a state machine from the work queue. If
                 # there's nothing to do, we will block for a while.
-                sm, inq = self.work_queue.get(timeout=10)
+                sm = self.work_queue.get(timeout=10)
             except Queue.Empty:
                 continue
             if not sm:
@@ -61,10 +61,10 @@ class Worker(object):
                     # by returning. If there is more work for it to
                     # do, reschedule it by placing it at the end of
                     # the queue.
-                    if inq.empty():
-                        self.being_updated.discard(sm.router_id)
+                    if sm.has_more_work():
+                        self.work_queue.put(sm)
                     else:
-                        self.work_queue.put((sm, inq))
+                        self.being_updated.discard(sm.router_id)
 
     def _shutdown(self):
         """Stop the worker.
@@ -105,14 +105,14 @@ class Worker(object):
             self._shutdown()
             return
         trm = self._get_trm_for_tenant(target)
-        sm, inq = trm.get_state_machine(message)
+        sm = trm.get_state_machine(message)
         with self.lock:
             if sm.router_id not in self.being_updated:
                 # Queue up the state machine by router id.
                 # No work should be picked up, because we
                 # have the lock, so it doesn't matter that
                 # the queue is empty right now.
-                self.work_queue.put((sm, inq))
+                self.work_queue.put(sm)
                 self.being_updated.add(sm.router_id)
             # Add the message to the state machine's inbox
-            inq.put(message)
+            sm.send_message(message)
