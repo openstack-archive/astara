@@ -45,6 +45,11 @@ class TestTenantRouterManager(unittest.TestCase):
 
     @mock.patch('akanda.rug.state.Automaton')
     def test_existing_router(self, automaton):
+
+        def side_effect(*args, **kwargs):
+            return mock.Mock(*args, **kwargs)
+
+        automaton.side_effect = side_effect
         msg = event.Event(
             tenant_id='1234',
             router_id='5678',
