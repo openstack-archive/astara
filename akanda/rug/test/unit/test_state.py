@@ -23,3 +23,8 @@ class TestAutomaton(unittest.TestCase):
         with mock.patch.object(self.sm._queue, 'empty') as meth:
             meth.return_value = False
             self.assertTrue(self.sm.has_more_work())
+
+    def test_update_no_work(self):
+        with mock.patch.object(self.sm._queue, 'empty') as meth:
+            self.sm.update()
+            meth.assert_called_with()

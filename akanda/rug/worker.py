@@ -88,13 +88,15 @@ class Worker(object):
             for trm in self.tenant_managers.values():
                 trm.shutdown()
 
-    def _get_trm_for_tenant(self, target):
+    def _get_trms(self, target):
+        if target == '*':
+            return list(self.tenant_managers.values())
         if target not in self.tenant_managers:
             LOG.debug('creating tenant manager for %s', target)
             self.tenant_managers[target] = tenant.TenantRouterManager(
                 tenant_id=target,
             )
-        return self.tenant_managers[target]
+        return [self.tenant_managers[target]]
 
     def handle_message(self, target, message):
         """Callback to be used in main
@@ -104,15 +106,17 @@ class Worker(object):
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
-        trm = self._get_trm_for_tenant(target)
-        sm = trm.get_state_machine(message)
         with self.lock:
-            if sm.router_id not in self.being_updated:
-                # Queue up the state machine by router id.
-                # No work should be picked up, because we
-                # have the lock, so it doesn't matter that
-                # the queue is empty right now.
-                self.work_queue.put(sm)
-                self.being_updated.add(sm.router_id)
-            # Add the message to the state machine's inbox
-            sm.send_message(message)
+            trms = self._get_trms(target)
+            for trm in trms:
+                sms = trm.get_state_machines(message)
+                for sm in sms:
+                    if sm.router_id not in self.being_updated:
+                        # Queue up the state machine by router id.
+                        # No work should be picked up, because we
+                        # have the lock, so it doesn't matter that
+                        # the queue is empty right now.
+                        self.work_queue.put(sm)
+                        self.being_updated.add(sm.router_id)
+                    # Add the message to the state machine's inbox
+                    sm.send_message(message)

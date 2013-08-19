@@ -28,7 +28,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machine(msg)
+        sm = self.trm.get_state_machines(msg)[0]
         self.assertEqual(sm.router_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
 
@@ -39,9 +39,20 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machine(msg)
+        sm = self.trm.get_state_machines(msg)[0]
         self.assertEqual(sm.router_id, self.default_router.id)
         self.assertIn(self.default_router.id, self.trm.state_machines)
+
+    def test_all_routers(self):
+        self.trm.state_machines = dict((str(i), i) for i in range(5))
+        msg = event.Event(
+            tenant_id='1234',
+            router_id='*',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        sms = self.trm.get_state_machines(msg)
+        self.assertEqual(5, len(sms))
 
     @mock.patch('akanda.rug.state.Automaton')
     def test_existing_router(self, automaton):
@@ -57,9 +68,9 @@ class TestTenantRouterManager(unittest.TestCase):
             body={'key': 'value'},
         )
         # First time creates...
-        sm1 = self.trm.get_state_machine(msg)
+        sm1 = self.trm.get_state_machines(msg)[0]
         # Second time should return the same objects...
-        sm2 = self.trm.get_state_machine(msg)
+        sm2 = self.trm.get_state_machines(msg)[0]
         self.assertIs(sm1, sm2)
         self.assertIs(sm1.queue, sm2.queue)
 
@@ -79,7 +90,7 @@ class TestTenantRouterManager(unittest.TestCase):
                 body={'key': 'value'},
             )
             # First time creates...
-            sm1 = self.trm.get_state_machine(msg)
+            sm1 = self.trm.get_state_machines(msg)[0]
             sms[router_id] = sm1
         # Second time should return the same objects...
         msg = event.Event(
@@ -88,7 +99,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm2 = self.trm.get_state_machine(msg)
+        sm2 = self.trm.get_state_machines(msg)[0]
         self.assertIs(sm2, sms['5678'])
 
     def test_delete_router(self):
@@ -116,7 +127,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machine(msg)
+        sm = self.trm.get_state_machines(msg)[0]
         self.assertIn('5678', self.trm.state_machines)
         sm.delete_callback()
         self.assertNotIn('5678', self.trm.state_machines)

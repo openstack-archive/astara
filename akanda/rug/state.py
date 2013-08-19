@@ -25,10 +25,11 @@ class Automaton(object):
 
     def update(self):
         "Called when the router config should be changed"
-        while not self.queue.empty():
-            message = self.queue.get()
+        while self.has_more_work():
+            message = self._queue.get()
             self.log.debug('update: %r', message)
             # TODO: Manage the router!
+            self._queue.task_done()
 
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"

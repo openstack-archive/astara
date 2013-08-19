@@ -39,8 +39,8 @@ class TenantRouterManager(object):
                     'Failed to shutdown state machine for %s' % rid
                 )
 
-    def get_state_machine(self, message):
-        """Return the state machine and the queue for sending it messages for
+    def get_state_machines(self, message):
+        """Return the state machines and the queue for sending it messages for
         the router being addressed by the message.
         """
         router_id = message.router_id
@@ -50,6 +50,12 @@ class TenantRouterManager(object):
                 router = self.quantum.get_router_for_tenant(message.tenant_id)
                 self._default_router_id = router.id
             router_id = self._default_router_id
+
+        elif router_id == '*':
+            # All of our routers
+            return list(self.state_machines.values())
+
+        # An individual router by its id.
         if router_id not in self.state_machines:
             def deleter():
                 self._delete_router(router_id)
@@ -59,4 +65,4 @@ class TenantRouterManager(object):
             )
             self.state_machines[router_id] = sm
         sm = self.state_machines[router_id]
-        return sm
+        return [sm]

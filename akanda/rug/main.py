@@ -6,6 +6,7 @@ import sys
 
 from oslo.config import cfg
 
+from akanda.rug import health
 from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import worker
@@ -78,7 +79,6 @@ def main(argv=sys.argv[1:]):
         name='NotificationListener',
     )
     notification_proc.start()
-    # notifications.listen(amqp_url, notification_queue)
 
     # Set up a factory to make Workers that know how many threads to
     # run.
@@ -93,6 +93,9 @@ def main(argv=sys.argv[1:]):
         num_workers=cfg.CONF.num_worker_processes,
         worker_factory=worker_factory,
     )
+
+    # Set up the periodic health check
+    health.start_inspector(cfg.CONF.health_check_period, sched)
 
     # Block the main process, copying messages from the notification
     # listener to the scheduler
