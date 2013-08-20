@@ -91,7 +91,7 @@ def main(argv=sys.argv[1:]):
     worker_factory = functools.partial(
         worker.Worker,
         num_threads=cfg.CONF.num_worker_threads,
-        notification_publisher=publisher,
+        notifier=publisher,
     )
 
     # Set up the scheduler that knows how to manage the routers and
