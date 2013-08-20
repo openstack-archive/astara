@@ -1,4 +1,5 @@
 import Queue
+import time
 
 import mock
 
@@ -219,13 +220,38 @@ class TestSend(unittest.TestCase):
     @mock.patch('kombu.connection.BrokerConnection')
     @mock.patch('kombu.entity.Exchange')
     @mock.patch('kombu.Producer')
-    def test_break_on_none(self, producer_cls, exchange, broker):
-        # Set up the producer "instance" so we can test how it is
-        # used.
-        producer = mock.Mock()
-        producer_cls.return_value = producer
-        notifier = notifications.Publisher('url', 'topic')
-        notifier.publish('message here')
-        notifier.start()
-        notifier.stop()
-        producer.publish.assert_called_with('message here')
+    def setUp(self, producer_cls, exchange, broker):
+        super(TestSend, self).setUp()
+        self.messages = []
+        self.producer = mock.Mock()
+        self.producer.publish.side_effect = self.messages.append
+        producer_cls.return_value = self.producer
+        self.notifier = notifications.Publisher('url', 'topic')
+        self.notifier.start()
+
+    def tearDown(self):
+        if self.notifier:
+            self.notifier.stop()
+        super(TestSend, self).tearDown()
+
+    def test_payload(self):
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.stop()  # flushes the queue
+        self.notifier = None
+        msg = self.messages[0]
+        self.assertEqual(msg['payload'], 'message here')
+
+    def test_context(self):
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.stop()  # flushes the queue
+        self.notifier = None
+        msg = self.messages[0]
+        self.assertIn('_context_tenant', msg)
+
+    def test_unique_id(self):
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.stop()  # flushes the queue
+        self.notifier = None
+        msg1, msg2 = self.messages
+        self.assertNotEqual(msg1['_unique_id'], msg2['_unique_id'])

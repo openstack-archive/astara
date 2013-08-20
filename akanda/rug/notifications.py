@@ -5,6 +5,7 @@ import logging
 import Queue
 import urlparse
 import threading
+import uuid
 
 import kombu
 import kombu.connection
@@ -12,6 +13,8 @@ import kombu.entity
 import kombu.messaging
 
 from akanda.rug import event
+
+from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import common as rpc_common
 
 LOG = logging.getLogger(__name__)
@@ -194,16 +197,30 @@ class Publisher(object):
     def __init__(self, amqp_url, topic):
         self.amqp_url = amqp_url
         self.topic = topic
+        self._context = context.get_admin_context()
+        # Pre-pack the context in the format used by
+        # openstack.common.rpc.amqp.pack_context(). Since we always
+        # use the same context, there is no reason to repack it every
+        # time we get a new message.
+        self._packed_context = dict(
+            ('_context_%s' % key, value)
+            for (key, value) in self._context.to_dict().iteritems()
+        )
         self._q = Queue.Queue()
         self._t = None
 
     def start(self):
+        ready = threading.Event()
         self._t = threading.Thread(
             name='notification-publisher',
             target=self._send,
+            args=(ready,),
         )
         self._t.setDaemon(True)
         self._t.start()
+        # Block until the thread is ready for work, but use a timeout
+        # in case of error in the thread.
+        ready.wait(10)
         LOG.debug('started %s', self._t.getName())
 
     def stop(self):
@@ -212,10 +229,17 @@ class Publisher(object):
         self._t.join(timeout=1)
         self._t = None
 
-    def publish(self, msg):
+    def publish(self, incoming):
+        msg = {}
+        msg.update(incoming)
+        # Do the work of openstack.common.rpc.amqp._add_unique_id()
+        msg['_unique_id'] = uuid.uuid4().hex
+        # Add our context, in the way of
+        # openstack.common.rpc.amqp.pack_context()
+        msg.update(self._packed_context)
         self._q.put(msg)
 
-    def _send(self):
+    def _send(self, ready):
         """Deliver notification messages from the in-process queue
         to the appropriate topic via the AMQP service.
         """
@@ -251,6 +275,10 @@ class Publisher(object):
             exchange=notifications_exchange,
             routing_key=self.topic,
         )
+
+        # Tell the start() method that we have set up the AMQP
+        # communication stuff and are ready to do some work.
+        ready.set()
 
         while True:
             msg = self._q.get()
