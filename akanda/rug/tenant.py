@@ -5,6 +5,7 @@ import logging
 
 from akanda.rug.api import quantum
 from akanda.rug import state
+from akanda.rug.openstack.common import timeutils
 
 from oslo.config import cfg
 
@@ -15,8 +16,9 @@ class TenantRouterManager(object):
     """Keep track of the state machines for the routers for a given tenant.
     """
 
-    def __init__(self, tenant_id):
+    def __init__(self, tenant_id, notifier):
         self.tenant_id = tenant_id
+        self.notifier = notifier
         self.state_machines = {}
         self.quantum = quantum.Quantum(cfg.CONF)
         self._default_router_id = None
@@ -38,6 +40,17 @@ class TenantRouterManager(object):
                 LOG.exception(
                     'Failed to shutdown state machine for %s' % rid
                 )
+
+    def _report_bandwidth(self, router_id, bandwidth):
+        LOG.info('reporting bandwidth for %s', router_id)
+        msg = {
+            'tenant_id': self.tenant_id,
+            'timestamp': timeutils.isotime(),
+            'event_type': 'akanda.bandwidth.used',
+            'payload': dict((b.pop('name'), b) for b in bandwidth),
+            'router_id': router_id,
+        }
+        self.notifier.publish(msg)
 
     def get_state_machines(self, message):
         """Return the state machines and the queue for sending it messages for
@@ -62,6 +75,7 @@ class TenantRouterManager(object):
             sm = state.Automaton(
                 router_id=router_id,
                 delete_callback=deleter,
+                bandwidth_callback=self._report_bandwidth,
             )
             self.state_machines[router_id] = sm
         sm = self.state_machines[router_id]

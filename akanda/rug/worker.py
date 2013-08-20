@@ -105,6 +105,7 @@ class Worker(object):
             LOG.debug('creating tenant manager for %s', target)
             self.tenant_managers[target] = tenant.TenantRouterManager(
                 tenant_id=target,
+                notifier=self.notifier,
             )
         return [self.tenant_managers[target]]
 

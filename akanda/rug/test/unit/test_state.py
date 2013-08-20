@@ -11,6 +11,7 @@ class TestAutomaton(unittest.TestCase):
         self.sm = state.Automaton(
             router_id='9306bbd8-f3cc-11e2-bd68-080027e60b25',
             delete_callback=mock.Mock(),
+            bandwidth_callback=None,
         )
 
     def test_send_message(self):

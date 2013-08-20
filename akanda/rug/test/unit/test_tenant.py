@@ -10,7 +10,11 @@ class TestTenantRouterManager(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum_client):
         super(TestTenantRouterManager, self).setUp()
-        self.trm = tenant.TenantRouterManager('1234')
+        self.notifier = mock.Mock()
+        self.trm = tenant.TenantRouterManager(
+            '1234',
+            notifier=self.notifier,
+        )
         # Establish a fake default router for the tenant for tests
         # that try to use it. We mock out the class above to avoid
         # errors instantiating the client without enough config
@@ -131,3 +135,23 @@ class TestTenantRouterManager(unittest.TestCase):
         self.assertIn('5678', self.trm.state_machines)
         sm.delete_callback()
         self.assertNotIn('5678', self.trm.state_machines)
+
+    def test_report_bandwidth(self):
+        notifications = []
+        self.notifier.publish.side_effect = notifications.append
+        self.trm._report_bandwidth(
+            '5678',
+            [{'name': 'a',
+              'value': 1,
+              },
+             {'name': 'b',
+              'value': 2,
+              }],
+        )
+        n = notifications[0]
+        self.assertEqual('1234', n['tenant_id'])
+        self.assertIn('5678', n['router_id'])
+        self.assertIn('timestamp', n)
+        self.assertEqual('akanda.bandwidth.used', n['event_type'])
+        self.assertIn('a', n['payload'])
+        self.assertIn('b', n['payload'])
