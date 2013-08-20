@@ -2,7 +2,9 @@
 """
 
 import logging
+import Queue
 import urlparse
+import threading
 
 import kombu
 import kombu.connection
@@ -16,7 +18,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _get_tenant_id_for_message(message):
-    # Find the tenant id in the incoming message.
+    """Find the tenant id in the incoming message."""
     for key in ['_context_tenant_id', '_context_project_id']:
         if key in message:
             val = message[key]
@@ -63,6 +65,9 @@ def _make_event_from_message(message):
             crud = event.UPDATE
         elif event_type.endswith('.end'):
             crud = event.UPDATE
+        elif event_type.startswith('akanda.'):
+            # Silently ignore notifications we send ourself
+            return None
         else:
             # LOG.debug('ignoring message %r', message)
             return None
@@ -70,6 +75,9 @@ def _make_event_from_message(message):
 
 
 def listen(host_id, amqp_url, notification_queue):
+    """Listen for messages from AMQP and deliver them to the
+    in-process queue provided.
+    """
     LOG.debug('%s starting to listen on %s', host_id, amqp_url)
 
     conn_info = urlparse.urlparse(amqp_url)
@@ -177,3 +185,81 @@ def listen(host_id, amqp_url, notification_queue):
             connection.drain_events()
         except KeyboardInterrupt:
             break
+
+    connection.release()
+
+
+class Publisher(object):
+
+    def __init__(self, amqp_url, topic):
+        self.amqp_url = amqp_url
+        self.topic = topic
+        self._q = Queue.Queue()
+        self._t = None
+
+    def start(self):
+        self._t = threading.Thread(
+            name='notification-publisher',
+            target=self._send,
+        )
+        self._t.setDaemon(True)
+        self._t.start()
+        LOG.debug('started %s', self._t.getName())
+
+    def stop(self):
+        LOG.debug('stopping %s', self._t.getName())
+        self._q.put(None)
+        self._t.join(timeout=1)
+        self._t = None
+
+    def publish(self, msg):
+        self._q.put(msg)
+
+    def _send(self):
+        """Deliver notification messages from the in-process queue
+        to the appropriate topic via the AMQP service.
+        """
+        LOG.debug('setting up notification publisher for %s to %s',
+                  self.topic, self.amqp_url)
+
+        # We expect to be created in one process and then used in
+        # another, so we delay creating any actual AMQP connections or
+        # other resources until we're going to use them.
+        conn_info = urlparse.urlparse(self.amqp_url)
+        connection = kombu.connection.BrokerConnection(
+            hostname=conn_info.hostname,
+            userid=conn_info.username,
+            password=conn_info.password,
+            virtual_host=conn_info.path,
+            port=conn_info.port,
+        )
+        connection.connect()
+        channel = connection.channel()
+
+        # Use the same exchange where we're receiving notifications
+        notifications_exchange = kombu.entity.Exchange(
+            name='quantum',  # neutron?
+            type='topic',
+            durable=False,
+            auto_delete=False,
+            internal=False,
+            channel=channel,
+        )
+
+        producer = kombu.Producer(
+            channel=channel,
+            exchange=notifications_exchange,
+            routing_key=self.topic,
+        )
+
+        while True:
+            msg = self._q.get()
+            if msg is None:
+                break
+            LOG.debug('sending notification %r', msg)
+            try:
+                producer.publish(msg)
+            except Exception:
+                LOG.exception('could not publish notification')
+
+        connection.release()

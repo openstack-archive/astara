@@ -18,7 +18,7 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads):
+    def __init__(self, num_threads, notifier=None):
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -34,6 +34,10 @@ class Worker(object):
         for t in self.threads:
             t.setDaemon(True)
             t.start()
+        self.outgoing_notifications = Queue.Queue()
+        self.notifier = notifier
+        if notifier:
+            self.notifier.start()
 
     def _thread_target(self):
         """This method runs in each worker thread.
@@ -69,6 +73,9 @@ class Worker(object):
     def _shutdown(self):
         """Stop the worker.
         """
+        # Tell the notifier to stop
+        if self.notifier:
+            self.notifier.stop()
         # Stop the worker threads
         self._keep_going = False
         # Drain the task queue by discarding it
@@ -76,9 +83,11 @@ class Worker(object):
         # routers that need to be deleted.
         self.work_queue = Queue.Queue()
         for t in self.threads:
+            LOG.debug('sending stop message to %s', t.getName())
             self.work_queue.put((None, None))
         # Wait for our threads to finish
         for t in self.threads:
+            LOG.debug('waiting for %s to finish', t.getName())
             t.join(timeout=1)
         # Shutdown all of the tenant router managers. The lock is
         # probably not necessary, since this should be running in the
@@ -86,6 +95,7 @@ class Worker(object):
         # therefore those messages aren't being processed).
         with self.lock:
             for trm in self.tenant_managers.values():
+                LOG.debug('stopping tenant manager for %s', trm.tenant_id)
                 trm.shutdown()
 
     def _get_trms(self, target):

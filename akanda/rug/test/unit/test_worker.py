@@ -1,8 +1,11 @@
+import Queue
+
 import mock
 
 import unittest2 as unittest
 
 from akanda.rug import event
+from akanda.rug import notifications
 from akanda.rug import worker
 
 
@@ -90,6 +93,17 @@ class TestWorkerShutdown(unittest.TestCase):
         self.assertFalse(self.w._keep_going)
         new_queue = self.w.work_queue
         self.assertIsNot(original_queue, new_queue)
+
+    @mock.patch('kombu.connection.BrokerConnection')
+    @mock.patch('kombu.entity.Exchange')
+    @mock.patch('kombu.Producer')
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def test_stop_threads_notifier(self, quantum, producer, exchange, broker):
+        notifier = notifications.Publisher('url', 'topic')
+        self.w = worker.Worker(0, notifier)
+        self.assertTrue(self.w.notifier._t)
+        self.w._shutdown()
+        self.assertFalse(self.w.notifier._t)
 
 
 class TestWorkerUpdateStateMachine(unittest.TestCase):

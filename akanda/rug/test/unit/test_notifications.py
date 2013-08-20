@@ -1,3 +1,7 @@
+import Queue
+
+import mock
+
 import unittest2 as unittest
 
 from akanda.rug import event
@@ -204,3 +208,24 @@ class TestGetCRUD(unittest.TestCase):
 
         e = notifications._make_event_from_message(msg)
         self.assertEqual(e.router_id, u'f95fb32d-0072-4675-b4bd-61d829a46aca')
+
+    def test_notification_akanda(self):
+        e = self._test_notification('akanda.bandwidth.used')
+        self.assertIs(None, e)
+
+
+class TestSend(unittest.TestCase):
+
+    @mock.patch('kombu.connection.BrokerConnection')
+    @mock.patch('kombu.entity.Exchange')
+    @mock.patch('kombu.Producer')
+    def test_break_on_none(self, producer_cls, exchange, broker):
+        # Set up the producer "instance" so we can test how it is
+        # used.
+        producer = mock.Mock()
+        producer_cls.return_value = producer
+        notifier = notifications.Publisher('url', 'topic')
+        notifier.publish('message here')
+        notifier.start()
+        notifier.stop()
+        producer.publish.assert_called_with('message here')

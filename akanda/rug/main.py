@@ -76,15 +76,22 @@ def main(argv=sys.argv[1:]):
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         args=(cfg.CONF.host, cfg.CONF.amqp_url, notification_queue,),
-        name='NotificationListener',
+        name='notification-listener',
     )
     notification_proc.start()
+
+    # Set up the notifications publisher
+    publisher = notifications.Publisher(
+        cfg.CONF.amqp_url,
+        topic='notifications.info',
+    )
 
     # Set up a factory to make Workers that know how many threads to
     # run.
     worker_factory = functools.partial(
         worker.Worker,
         num_threads=cfg.CONF.num_worker_threads,
+        notification_publisher=publisher,
     )
 
     # Set up the scheduler that knows how to manage the routers and
