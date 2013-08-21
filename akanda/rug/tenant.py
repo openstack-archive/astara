@@ -16,9 +16,9 @@ class TenantRouterManager(object):
     """Keep track of the state machines for the routers for a given tenant.
     """
 
-    def __init__(self, tenant_id, notifier):
+    def __init__(self, tenant_id, notify_callback):
         self.tenant_id = tenant_id
-        self.notifier = notifier
+        self.notify = notify_callback
         self.state_machines = {}
         self.quantum = quantum.Quantum(cfg.CONF)
         self._default_router_id = None
@@ -50,7 +50,7 @@ class TenantRouterManager(object):
             'payload': dict((b.pop('name'), b) for b in bandwidth),
             'router_id': router_id,
         }
-        self.notifier.publish(msg)
+        self.notify(msg)
 
     def get_state_machines(self, message):
         """Return the state machines and the queue for sending it messages for

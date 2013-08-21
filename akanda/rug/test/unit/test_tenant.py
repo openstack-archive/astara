@@ -13,7 +13,7 @@ class TestTenantRouterManager(unittest.TestCase):
         self.notifier = mock.Mock()
         self.trm = tenant.TenantRouterManager(
             '1234',
-            notifier=self.notifier,
+            notify_callback=self.notifier,
         )
         # Establish a fake default router for the tenant for tests
         # that try to use it. We mock out the class above to avoid
@@ -138,7 +138,7 @@ class TestTenantRouterManager(unittest.TestCase):
 
     def test_report_bandwidth(self):
         notifications = []
-        self.notifier.publish.side_effect = notifications.append
+        self.notifier.side_effect = notifications.append
         self.trm._report_bandwidth(
             '5678',
             [{'name': 'a',
