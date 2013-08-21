@@ -10,7 +10,11 @@ class TestTenantRouterManager(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum_client):
         super(TestTenantRouterManager, self).setUp()
-        self.trm = tenant.TenantRouterManager('1234')
+        self.notifier = mock.Mock()
+        self.trm = tenant.TenantRouterManager(
+            '1234',
+            notify_callback=self.notifier,
+        )
         # Establish a fake default router for the tenant for tests
         # that try to use it. We mock out the class above to avoid
         # errors instantiating the client without enough config
@@ -28,7 +32,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machine(msg)
+        sm = self.trm.get_state_machines(msg)[0]
         self.assertEqual(sm.router_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
 
@@ -39,9 +43,20 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machine(msg)
+        sm = self.trm.get_state_machines(msg)[0]
         self.assertEqual(sm.router_id, self.default_router.id)
         self.assertIn(self.default_router.id, self.trm.state_machines)
+
+    def test_all_routers(self):
+        self.trm.state_machines = dict((str(i), i) for i in range(5))
+        msg = event.Event(
+            tenant_id='1234',
+            router_id='*',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        sms = self.trm.get_state_machines(msg)
+        self.assertEqual(5, len(sms))
 
     @mock.patch('akanda.rug.state.Automaton')
     def test_existing_router(self, automaton):
@@ -57,9 +72,9 @@ class TestTenantRouterManager(unittest.TestCase):
             body={'key': 'value'},
         )
         # First time creates...
-        sm1 = self.trm.get_state_machine(msg)
+        sm1 = self.trm.get_state_machines(msg)[0]
         # Second time should return the same objects...
-        sm2 = self.trm.get_state_machine(msg)
+        sm2 = self.trm.get_state_machines(msg)[0]
         self.assertIs(sm1, sm2)
         self.assertIs(sm1.queue, sm2.queue)
 
@@ -79,7 +94,7 @@ class TestTenantRouterManager(unittest.TestCase):
                 body={'key': 'value'},
             )
             # First time creates...
-            sm1 = self.trm.get_state_machine(msg)
+            sm1 = self.trm.get_state_machines(msg)[0]
             sms[router_id] = sm1
         # Second time should return the same objects...
         msg = event.Event(
@@ -88,7 +103,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm2 = self.trm.get_state_machine(msg)
+        sm2 = self.trm.get_state_machines(msg)[0]
         self.assertIs(sm2, sms['5678'])
 
     def test_delete_router(self):
@@ -116,7 +131,27 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machine(msg)
+        sm = self.trm.get_state_machines(msg)[0]
         self.assertIn('5678', self.trm.state_machines)
         sm.delete_callback()
         self.assertNotIn('5678', self.trm.state_machines)
+
+    def test_report_bandwidth(self):
+        notifications = []
+        self.notifier.side_effect = notifications.append
+        self.trm._report_bandwidth(
+            '5678',
+            [{'name': 'a',
+              'value': 1,
+              },
+             {'name': 'b',
+              'value': 2,
+              }],
+        )
+        n = notifications[0]
+        self.assertEqual('1234', n['tenant_id'])
+        self.assertIn('5678', n['router_id'])
+        self.assertIn('timestamp', n)
+        self.assertEqual('akanda.bandwidth.used', n['event_type'])
+        self.assertIn('a', n['payload'])
+        self.assertIn('b', n['payload'])

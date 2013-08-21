@@ -43,11 +43,15 @@ class Dispatcher(object):
     def __init__(self, workers):
         self.workers = workers
 
-    def pick_worker(self, target):
-        """Returns the worker that manages the target.
+    def pick_workers(self, target):
+        """Returns the workers that match the target.
         """
+        # If we get the wildcard target, send the message to all of
+        # the workers.
+        if target == '*':
+            return self.workers[:]
         idx = uuid.UUID(target).int % len(self.workers)
-        return self.workers[idx]
+        return [self.workers[idx]]
 
 
 class Scheduler(object):
@@ -109,5 +113,5 @@ class Scheduler(object):
         :param message: Dictionary full of data to send to the target.
         :type message: dict
         """
-        w = self.dispatcher.pick_worker(target)
-        w['queue'].put((target, message))
+        for w in self.dispatcher.pick_workers(target):
+            w['queue'].put((target, message))

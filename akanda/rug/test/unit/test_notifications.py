@@ -1,3 +1,5 @@
+import mock
+
 import unittest2 as unittest
 
 from akanda.rug import event
@@ -204,3 +206,47 @@ class TestGetCRUD(unittest.TestCase):
 
         e = notifications._make_event_from_message(msg)
         self.assertEqual(e.router_id, u'f95fb32d-0072-4675-b4bd-61d829a46aca')
+
+    def test_notification_akanda(self):
+        e = self._test_notification('akanda.bandwidth.used')
+        self.assertIs(None, e)
+
+
+class TestSend(unittest.TestCase):
+
+    @mock.patch('kombu.connection.BrokerConnection')
+    @mock.patch('kombu.entity.Exchange')
+    @mock.patch('kombu.Producer')
+    def setUp(self, producer_cls, exchange, broker):
+        super(TestSend, self).setUp()
+        self.messages = []
+        self.producer = mock.Mock()
+        self.producer.publish.side_effect = self.messages.append
+        producer_cls.return_value = self.producer
+        self.notifier = notifications.Publisher('url', 'quantum', 'topic')
+        self.notifier.start()
+        self.addCleanup(self.notifier.stop)
+
+    # def tearDown(self):
+    #     if self.notifier:
+    #         self.notifier.stop()
+    #     super(TestSend, self).tearDown()
+
+    def test_payload(self):
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.stop()  # flushes the queue
+        msg = self.messages[0]
+        self.assertEqual(msg['payload'], 'message here')
+
+    def test_context(self):
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.stop()  # flushes the queue
+        msg = self.messages[0]
+        self.assertIn('_context_tenant', msg)
+
+    def test_unique_id(self):
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.publish({'payload': 'message here'})
+        self.notifier.stop()  # flushes the queue
+        msg1, msg2 = self.messages
+        self.assertNotEqual(msg1['_unique_id'], msg2['_unique_id'])

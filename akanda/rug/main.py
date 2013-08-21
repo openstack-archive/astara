@@ -6,6 +6,7 @@ import sys
 
 from oslo.config import cfg
 
+from akanda.rug import health
 from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import worker
@@ -52,9 +53,20 @@ def main(argv=sys.argv[1:]):
                    short='t',
                    default=4,
                    help='the number of worker threads to run per process'),
+
+        # FIXME(dhellmann): set up a group for these messaging params
         cfg.StrOpt('amqp-url',
                    default='amqp://guest:secrete@localhost:5672/',
                    help='connection for AMQP server'),
+        cfg.StrOpt('incoming-notifications-exchange',
+                   default='quantum',
+                   help='name of the exchange where we receive notifications'),
+        cfg.StrOpt('outgoing-notifications-exchange',
+                   default='quantum',
+                   help='name of the exchange where we send notifications'),
+        cfg.StrOpt('rpc-exchange',
+                   default='l3_agent_fanout',
+                   help='name of the exchange where we receive RPC calls'),
     ])
     cfg.CONF(argv, project='akanda')
     logging.basicConfig(
@@ -74,17 +86,31 @@ def main(argv=sys.argv[1:]):
     # Listen for notifications.
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
-        args=(cfg.CONF.host, cfg.CONF.amqp_url, notification_queue,),
-        name='NotificationListener',
+        kwargs={
+            'host_id': cfg.CONF.host,
+            'amqp_url': cfg.CONF.amqp_url,
+            'notifications_exchange_name':
+            cfg.CONF.incoming_notifications_exchange,
+            'rpc_exchange_name': cfg.CONF.rpc_exchange,
+            'notification_queue': notification_queue,
+        },
+        name='notification-listener',
     )
     notification_proc.start()
-    # notifications.listen(amqp_url, notification_queue)
+
+    # Set up the notifications publisher
+    publisher = notifications.Publisher(
+        cfg.CONF.amqp_url,
+        exchange_name=cfg.CONF.outgoing_notifications_exchange,
+        topic='notifications.info',
+    )
 
     # Set up a factory to make Workers that know how many threads to
     # run.
     worker_factory = functools.partial(
         worker.Worker,
         num_threads=cfg.CONF.num_worker_threads,
+        notifier=publisher,
     )
 
     # Set up the scheduler that knows how to manage the routers and
@@ -93,6 +119,9 @@ def main(argv=sys.argv[1:]):
         num_workers=cfg.CONF.num_worker_processes,
         worker_factory=worker_factory,
     )
+
+    # Set up the periodic health check
+    health.start_inspector(cfg.CONF.health_check_period, sched)
 
     # Block the main process, copying messages from the notification
     # listener to the scheduler

@@ -18,7 +18,7 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads):
+    def __init__(self, num_threads, notifier):
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -34,6 +34,10 @@ class Worker(object):
         for t in self.threads:
             t.setDaemon(True)
             t.start()
+        self.notifier = notifier
+        # The notifier needs to be started here to ensure that it
+        # happens inside the worker process and not the parent.
+        self.notifier.start()
 
     def _thread_target(self):
         """This method runs in each worker thread.
@@ -69,6 +73,9 @@ class Worker(object):
     def _shutdown(self):
         """Stop the worker.
         """
+        # Tell the notifier to stop
+        if self.notifier:
+            self.notifier.stop()
         # Stop the worker threads
         self._keep_going = False
         # Drain the task queue by discarding it
@@ -76,9 +83,11 @@ class Worker(object):
         # routers that need to be deleted.
         self.work_queue = Queue.Queue()
         for t in self.threads:
+            LOG.debug('sending stop message to %s', t.getName())
             self.work_queue.put((None, None))
         # Wait for our threads to finish
         for t in self.threads:
+            LOG.debug('waiting for %s to finish', t.getName())
             t.join(timeout=1)
         # Shutdown all of the tenant router managers. The lock is
         # probably not necessary, since this should be running in the
@@ -86,15 +95,19 @@ class Worker(object):
         # therefore those messages aren't being processed).
         with self.lock:
             for trm in self.tenant_managers.values():
+                LOG.debug('stopping tenant manager for %s', trm.tenant_id)
                 trm.shutdown()
 
-    def _get_trm_for_tenant(self, target):
+    def _get_trms(self, target):
+        if target == '*':
+            return list(self.tenant_managers.values())
         if target not in self.tenant_managers:
             LOG.debug('creating tenant manager for %s', target)
             self.tenant_managers[target] = tenant.TenantRouterManager(
                 tenant_id=target,
+                notify_callback=self.notifier.publish,
             )
-        return self.tenant_managers[target]
+        return [self.tenant_managers[target]]
 
     def handle_message(self, target, message):
         """Callback to be used in main
@@ -104,15 +117,17 @@ class Worker(object):
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
-        trm = self._get_trm_for_tenant(target)
-        sm = trm.get_state_machine(message)
         with self.lock:
-            if sm.router_id not in self.being_updated:
-                # Queue up the state machine by router id.
-                # No work should be picked up, because we
-                # have the lock, so it doesn't matter that
-                # the queue is empty right now.
-                self.work_queue.put(sm)
-                self.being_updated.add(sm.router_id)
-            # Add the message to the state machine's inbox
-            sm.send_message(message)
+            trms = self._get_trms(target)
+            for trm in trms:
+                sms = trm.get_state_machines(message)
+                for sm in sms:
+                    if sm.router_id not in self.being_updated:
+                        # Queue up the state machine by router id.
+                        # No work should be picked up, because we
+                        # have the lock, so it doesn't matter that
+                        # the queue is empty right now.
+                        self.work_queue.put(sm)
+                        self.being_updated.add(sm.router_id)
+                    # Add the message to the state machine's inbox
+                    sm.send_message(message)

@@ -47,7 +47,14 @@ class TestDispatcher(unittest.TestCase):
         for i in range(len(self.workers)):
             router_id = self._mk_uuid(i)
             self.assertEqual(
-                i,
-                self.d.pick_worker(router_id),
+                [i],
+                self.d.pick_workers(router_id),
                 'Incorrect index for %s' % router_id,
             )
+
+    def test_wildcard(self):
+        self.assertEqual(
+            self.workers,
+            self.d.pick_workers('*'),
+            'wildcard dispatch failed',
+        )

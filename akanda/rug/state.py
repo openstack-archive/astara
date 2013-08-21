@@ -7,16 +7,22 @@ import Queue
 
 class Automaton(object):
 
-    def __init__(self, router_id, delete_callback):
+    def __init__(self, router_id, delete_callback, bandwidth_callback):
         """
         :param router_id: UUID of the router being managed
         :type router_id: str
         :param delete_callback: Invoked when the Automaton decides
                                 the router should be deleted.
         :type delete_callback: callable
+        :param bandwidth_callback: To be invoked when the Automaton
+                                   needs to report how much bandwidth
+                                   a router has used.
+        :type bandwidth_callback: callable taking router_id and bandwidth
+                                  info dict
         """
         self.router_id = router_id
         self.delete_callback = delete_callback
+        self.bandwidth_callback = bandwidth_callback
         self._queue = Queue.Queue()
         self.log = logging.getLogger(__name__ + '.' + router_id)
 
@@ -25,10 +31,11 @@ class Automaton(object):
 
     def update(self):
         "Called when the router config should be changed"
-        while not self.queue.empty():
-            message = self.queue.get()
+        while self.has_more_work():
+            message = self._queue.get()
             self.log.debug('update: %r', message)
             # TODO: Manage the router!
+            self._queue.task_done()
 
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"
