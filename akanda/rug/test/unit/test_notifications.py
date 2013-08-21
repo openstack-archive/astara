@@ -223,7 +223,7 @@ class TestSend(unittest.TestCase):
         self.producer = mock.Mock()
         self.producer.publish.side_effect = self.messages.append
         producer_cls.return_value = self.producer
-        self.notifier = notifications.Publisher('url', 'topic')
+        self.notifier = notifications.Publisher('url', 'quantum', 'topic')
         self.notifier.start()
 
     def tearDown(self):

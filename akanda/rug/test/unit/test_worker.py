@@ -97,7 +97,7 @@ class TestWorkerShutdown(unittest.TestCase):
     @mock.patch('kombu.Producer')
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def test_stop_threads_notifier(self, quantum, producer, exchange, broker):
-        notifier = notifications.Publisher('url', 'topic')
+        notifier = notifications.Publisher('url', 'quantum', 'topic')
         self.w = worker.Worker(0, notifier)
         self.assertTrue(self.w.notifier._t)
         self.w._shutdown()

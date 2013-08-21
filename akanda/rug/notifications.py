@@ -77,7 +77,9 @@ def _make_event_from_message(message):
     return event.Event(tenant_id, router_id, crud, message)
 
 
-def listen(host_id, amqp_url, notification_queue):
+def listen(host_id, amqp_url,
+           notifications_exchange_name, rpc_exchange_name,
+           notification_queue):
     """Listen for messages from AMQP and deliver them to the
     in-process queue provided.
     """
@@ -96,7 +98,7 @@ def listen(host_id, amqp_url, notification_queue):
 
     # The notifications coming from quantum/neutron.
     notifications_exchange = kombu.entity.Exchange(
-        name='quantum',  # neutron?
+        name=notifications_exchange_name,
         type='topic',
         durable=False,
         auto_delete=False,
@@ -106,7 +108,7 @@ def listen(host_id, amqp_url, notification_queue):
 
     # The RPC instructions coming from quantum/neutron.
     agent_exchange = kombu.entity.Exchange(
-        name='l3_agent_fanout',
+        name=rpc_exchange_name,
         type='fanout',
         durable=False,
         auto_delete=True,
@@ -194,8 +196,9 @@ def listen(host_id, amqp_url, notification_queue):
 
 class Publisher(object):
 
-    def __init__(self, amqp_url, topic):
+    def __init__(self, amqp_url, exchange_name, topic):
         self.amqp_url = amqp_url
+        self.exchange_name = exchange_name
         self.topic = topic
         self._context = context.get_admin_context()
         # Pre-pack the context in the format used by
@@ -262,7 +265,7 @@ class Publisher(object):
 
         # Use the same exchange where we're receiving notifications
         notifications_exchange = kombu.entity.Exchange(
-            name='quantum',  # neutron?
+            name=self.exchange_name,
             type='topic',
             durable=False,
             auto_delete=False,
