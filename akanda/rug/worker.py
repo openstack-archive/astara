@@ -18,7 +18,7 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads, notifier=None):
+    def __init__(self, num_threads, notifier):
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -34,10 +34,10 @@ class Worker(object):
         for t in self.threads:
             t.setDaemon(True)
             t.start()
-        self.outgoing_notifications = Queue.Queue()
         self.notifier = notifier
-        if notifier:
-            self.notifier.start()
+        # The notifier needs to be started here to ensure that it
+        # happens inside the worker process and not the parent.
+        self.notifier.start()
 
     def _thread_target(self):
         """This method runs in each worker thread.

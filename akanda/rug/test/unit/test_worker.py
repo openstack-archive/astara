@@ -12,7 +12,7 @@ class TestWorkerCreatingRouter(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum):
         super(TestWorkerCreatingRouter, self).setUp()
-        self.w = worker.Worker(0)
+        self.w = worker.Worker(0, mock.Mock())
         self.tenant_id = '1234'
         self.router_id = '5678'
         self.msg = event.Event(
@@ -46,7 +46,7 @@ class TestWorkerWildcardMessages(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum):
         super(TestWorkerWildcardMessages, self).setUp()
-        self.w = worker.Worker(0)
+        self.w = worker.Worker(0, mock.Mock())
         # Create some tenants
         for msg in [
                 event.Event(
@@ -77,14 +77,14 @@ class TestWorkerShutdown(unittest.TestCase):
 
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def test_shutdown_on_null_message(self, quantum):
-        self.w = worker.Worker(0)
+        self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, '_shutdown') as meth:
             self.w.handle_message(None, None)
             meth.assert_called_once_with()
 
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def test_stop_threads(self, quantum):
-        self.w = worker.Worker(1)
+        self.w = worker.Worker(1, mock.Mock())
         original_queue = self.w.work_queue
         self.assertTrue(self.w._keep_going)
         self.w._shutdown()
@@ -108,7 +108,7 @@ class TestWorkerUpdateStateMachine(unittest.TestCase):
 
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def test(self, quantum):
-        w = worker.Worker(0)
+        w = worker.Worker(0, mock.Mock())
         tenant_id = '1234'
         router_id = '5678'
         msg = event.Event(
