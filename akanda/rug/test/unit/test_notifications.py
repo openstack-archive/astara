@@ -225,23 +225,22 @@ class TestSend(unittest.TestCase):
         producer_cls.return_value = self.producer
         self.notifier = notifications.Publisher('url', 'quantum', 'topic')
         self.notifier.start()
+        self.addCleanup(self.notifier.stop)
 
-    def tearDown(self):
-        if self.notifier:
-            self.notifier.stop()
-        super(TestSend, self).tearDown()
+    # def tearDown(self):
+    #     if self.notifier:
+    #         self.notifier.stop()
+    #     super(TestSend, self).tearDown()
 
     def test_payload(self):
         self.notifier.publish({'payload': 'message here'})
         self.notifier.stop()  # flushes the queue
-        self.notifier = None
         msg = self.messages[0]
         self.assertEqual(msg['payload'], 'message here')
 
     def test_context(self):
         self.notifier.publish({'payload': 'message here'})
         self.notifier.stop()  # flushes the queue
-        self.notifier = None
         msg = self.messages[0]
         self.assertIn('_context_tenant', msg)
 
@@ -249,6 +248,5 @@ class TestSend(unittest.TestCase):
         self.notifier.publish({'payload': 'message here'})
         self.notifier.publish({'payload': 'message here'})
         self.notifier.stop()  # flushes the queue
-        self.notifier = None
         msg1, msg2 = self.messages
         self.assertNotEqual(msg1['_unique_id'], msg2['_unique_id'])

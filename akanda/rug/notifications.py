@@ -227,10 +227,11 @@ class Publisher(object):
         LOG.debug('started %s', self._t.getName())
 
     def stop(self):
-        LOG.debug('stopping %s', self._t.getName())
-        self._q.put(None)
-        self._t.join(timeout=1)
-        self._t = None
+        if self._t:
+            LOG.debug('stopping %s', self._t.getName())
+            self._q.put(None)
+            self._t.join(timeout=1)
+            self._t = None
 
     def publish(self, incoming):
         msg = {}
