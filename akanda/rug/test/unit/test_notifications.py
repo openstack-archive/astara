@@ -1,6 +1,3 @@
-import Queue
-import time
-
 import mock
 
 import unittest2 as unittest
