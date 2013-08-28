@@ -452,6 +452,20 @@ class Quantum(object):
 
         return port
 
+    def purge_management_interface(self):
+        driver = importutils.import_object(
+            self.conf.interface_driver,
+            self.conf
+        )
+        host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
+        query_dict = dict(device_owner=DEVICE_OWNER_RUG, device_id=host_id)
+        ports = self.api_client.list_ports(**query_dict)['ports']
+
+        if ports:
+            port = Port.from_dict(ports[0])
+            device_name = driver.get_device_name(port)
+            driver.unplug(device_name)
+
 
 def get_local_service_ip(conf):
     mgt_net = netaddr.IPNetwork(conf.management_prefix)
