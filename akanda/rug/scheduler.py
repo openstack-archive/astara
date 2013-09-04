@@ -16,6 +16,7 @@ def _worker(inq, worker_factory):
     # Ignore SIGINT, since the parent will catch it and give us a
     # chance to exit cleanly.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGUSR1, signal.SIG_IGN)
     LOG.debug('starting worker process')
     worker = worker_factory()
     while True:
@@ -48,7 +49,7 @@ class Dispatcher(object):
         """
         # If we get the wildcard target, send the message to all of
         # the workers.
-        if target == '*':
+        if target in ['*', 'debug']:
             return self.workers[:]
         idx = uuid.UUID(target).int % len(self.workers)
         return [self.workers[idx]]
