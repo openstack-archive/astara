@@ -49,7 +49,7 @@ def _pre_populate_workers(scheduler):
     for router in quantum_routers:
         message = event.Event(
             tenant_id=router.tenant_id,
-            router_id=router.router_id,
+            router_id=router.id,
             crud=event.POLL,
             body={}
         )

@@ -78,12 +78,23 @@ class TestPrePopulateWorkers(unittest.TestCase):
     @mock.patch('akanda.rug.event.Event')
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def test_scheduler_handle_message(self, mocked_quantum_api, event):
+
+        def message_to_router_args(message):
+            tmp = message.copy()
+            tmp['id'] = tmp.pop('router_id')
+            return tmp
+
         quantum_client = mock.Mock()
         message1 = {'tenant_id': '1', 'router_id': '2',
                     'body': {}, 'crud': 'poll'}
         message2 = {'tenant_id': '3', 'router_id': '4',
                     'body': {}, 'crud': 'poll'}
-        return_value = [mock.Mock(**message1), mock.Mock(** message2)]
+
+        return_value = [
+            mock.Mock(**message_to_router_args(message1)),
+            mock.Mock(**message_to_router_args(message2))
+        ]
+
         quantum_client.get_routers.return_value = return_value
 
         sched = mock.Mock()

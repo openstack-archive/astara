@@ -133,3 +133,15 @@ class TestWorkerUpdateStateMachine(unittest.TestCase):
             # pretend.
             w._thread_target()
             meth.assert_called_once_with()
+
+
+class TestWorkerReportStatus(unittest.TestCase):
+
+    def test_handle_message_report_status(self):
+        self.w = worker.Worker(0, mock.Mock())
+        with mock.patch.object(self.w, 'report_status') as meth:
+            self.w.handle_message(
+                'debug',
+                event.Event('debug', '', event.POLL, {'verbose': 1})
+            )
+            meth.assert_called_once_with()

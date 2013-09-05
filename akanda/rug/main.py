@@ -1,11 +1,13 @@
 import functools
 import logging
 import multiprocessing
+import signal
 import socket
 import sys
 
 from oslo.config import cfg
 
+from akanda.rug import event
 from akanda.rug import health
 from akanda.rug import notifications
 from akanda.rug import scheduler
@@ -22,6 +24,11 @@ def shuffle_notifications(notification_queue, sched):
         try:
             target, message = notification_queue.get()
             sched.handle_message(target, message)
+        # FIXME(rods): if a signal arrive during an IO operation an
+        # IOError is raised. We catch the exceptions in meantime
+        # waiting for a better solution.
+        except IOError:
+            pass
         except KeyboardInterrupt:
             sched.stop()
             break
@@ -120,6 +127,14 @@ def main(argv=sys.argv[1:]):
         num_workers=cfg.CONF.num_worker_processes,
         worker_factory=worker_factory,
     )
+
+    def debug_workers(signum, stack):
+        sched.handle_message(
+            'debug',
+            event.Event('debug', '', event.POLL, {'verbose': 1})
+        )
+
+    signal.signal(signal.SIGUSR1, debug_workers)
 
     # Prepopulate the workers with existing routers on startup
     populate.pre_populate_workers(sched)

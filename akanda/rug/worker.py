@@ -117,6 +117,9 @@ class Worker(object):
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
+        if target == 'debug' and message.body['verbose'] == 1:
+            self.report_status()
+            return
         with self.lock:
             trms = self._get_trms(target)
             for trm in trms:
@@ -131,3 +134,17 @@ class Worker(object):
                         self.being_updated.add(sm.router_id)
                     # Add the message to the state machine's inbox
                     sm.send_message(message)
+
+    def report_status(self):
+        LOG.debug(
+            'Number of elements in the queue: %d',
+            self.work_queue.qsize()
+        )
+        LOG.debug(
+            'Number of tenant router managers managed: %d',
+            len(self.tenant_managers)
+        )
+        for thread in self.threads:
+            LOG.debug(
+                'Thread %s is %s',
+                thread.name, 'alive' if thread.isAlive() else 'DEAD')
