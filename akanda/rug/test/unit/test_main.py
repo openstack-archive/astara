@@ -19,6 +19,7 @@ class TestMain(unittest.TestCase):
         sched.stop.assert_called_once()
 
     @mock.patch('akanda.rug.main.cfg')
+    @mock.patch('akanda.rug.main.quantum_api')
     @mock.patch('akanda.rug.main.multiprocessing')
     @mock.patch('akanda.rug.main.notifications')
     @mock.patch('akanda.rug.main.scheduler')
@@ -28,6 +29,6 @@ class TestMain(unittest.TestCase):
     @mock.patch('akanda.rug.main.signal.signal')
     def test_sigusr1_handler(self, mock_signal, shuffle_notifications, health,
                              populate, scheduler, notifications,
-                             multiprocessing, cfg):
+                             multiprocessing, quantum_api, cfg):
         main.main()
         mock_signal.assert_called_once_with(signal.SIGUSR1, mock.ANY)

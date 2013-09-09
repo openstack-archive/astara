@@ -7,6 +7,7 @@ from oslo.config import cfg
 from quantumclient.v2_0 import client
 
 from akanda.rug.common.exceptions import AbortTask
+from akanda.rug.common.linux import ip_lib
 from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import proxy
@@ -441,10 +442,14 @@ class Quantum(object):
                 self.api_client.create_port(dict(port=port_dict))['port'])
             LOG.info('new port: %r', port)
 
-            driver.plug(port.network_id,
-                        port.id,
-                        driver.get_device_name(port),
-                        port.mac_address)
+        # create the tap interface if it doesn't already exist
+        if not ip_lib.device_exists(driver.get_device_name(port)):
+            driver.plug(
+                port.network_id,
+                port.id,
+                driver.get_device_name(port),
+                port.mac_address)
+
             # add sleep to ensure that port is setup before use
             time.sleep(1)
 
