@@ -10,6 +10,9 @@ class TestTenantRouterManager(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum_client):
         super(TestTenantRouterManager, self).setUp()
+
+        self.vm_mgr = mock.patch('akanda.rug.vm_manager.VmManager').start()
+        self.addCleanup(mock.patch.stopall)
         self.notifier = mock.Mock()
         self.trm = tenant.TenantRouterManager(
             '1234',
