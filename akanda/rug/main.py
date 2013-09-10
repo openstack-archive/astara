@@ -13,6 +13,7 @@ from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import populate
 from akanda.rug import worker
+from akanda.rug.api import quantum as quantum_api
 
 LOG = logging.getLogger(__name__)
 
@@ -47,7 +48,29 @@ def main(argv=sys.argv[1:]):
         cfg.StrOpt('auth_url'),
         cfg.StrOpt('auth_strategy', default='keystone'),
         cfg.StrOpt('auth_region'),
+
+        cfg.StrOpt('management_network_id'),
+        cfg.StrOpt('external_network_id'),
+        cfg.StrOpt('management_subnet_id'),
+        cfg.StrOpt('router_image_uuid'),
+
+        cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
+        cfg.IntOpt('akanda_mgt_service_port', default=5000),
+        cfg.IntOpt('router_instance_flavor', default=1),
+
+        # needed for plugging locally into management network
+        cfg.StrOpt('interface_driver'),
+        cfg.StrOpt('ovs_integration_bridge', default='br-int'),
+        cfg.BoolOpt('ovs_use_veth', default=False),
+        cfg.IntOpt('network_device_mtu'),
     ])
+
+    AGENT_OPTIONS = [
+        cfg.StrOpt('root_helper', default='sudo'),
+    ]
+
+    cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
+
     # FIXME: Convert these to regular options, not command line options.
     cfg.CONF.register_cli_opts([
         cfg.IntOpt('health-check-period',
@@ -77,6 +100,7 @@ def main(argv=sys.argv[1:]):
                    help='name of the exchange where we receive RPC calls'),
     ])
     cfg.CONF(argv, project='akanda')
+
     logging.basicConfig(
         level=logging.DEBUG,
         format=':'.join('%(' + n + ')s'
@@ -86,6 +110,13 @@ def main(argv=sys.argv[1:]):
                                   'levelname',
                                   'message']),
     )
+
+    # Purge the mgt tap interface on startup
+    quantum = quantum_api.Quantum(cfg.CONF)
+    quantum.purge_management_interface()
+
+    # bring the mgt tap interface up
+    quantum.ensure_local_service_port()
 
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.
@@ -148,5 +179,8 @@ def main(argv=sys.argv[1:]):
 
     # Terminate the listening process
     notification_proc.terminate()
+
+    # Purge the mgt tap interface
+    quantum.purge_management_interface()
 
     LOG.info('exiting')
