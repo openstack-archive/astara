@@ -30,7 +30,7 @@ class VmManager(object):
     def update_state(self, silent=False):
         self._ensure_cache()
 
-        addr = _get_management_address(router)
+        addr = _get_management_address(self.router_id)
         for i in xrange(MAX_RETRIES):
             try:
                 if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
@@ -52,7 +52,7 @@ class VmManager(object):
         return self.state
 
     def boot(self):
-        self._logical_router = self.quantum.get_router_detail(router_id)
+        self._logical_router = self.quantum.get_router_detail(self.router_id)
 
         self.log.info('Booting router')
         nova_client = nova.Nova(cfg.CONF)
@@ -63,7 +63,8 @@ class VmManager(object):
         while time.time() - start < BOOT_WAIT:
             if self.update_state(silent=True) in (UP, CONFIGURED):
                 return
-            self.log.debug('Router has not finished booting. IP: %s', addr)
+            self.log.debug('Router has not finished booting ID: %s',
+                           self.router_id)
 
         self.log.error('Router failed to boot within %d secs', BOOT_WAIT)
 
@@ -78,7 +79,7 @@ class VmManager(object):
         self.log.debug('Begin router config')
         self.state = UP
 
-        self._logical_router = self.quantum.get_router_detail(router_id)
+        self._logical_router = self.quantum.get_router_detail(self.router_id)
 
         addr = _get_management_address(self._logical_router)
 
@@ -104,7 +105,7 @@ class VmManager(object):
                     cfg.CONF.akanda_mgt_service_port,
                     config
                 )
-            except Exception as e:
+            except Exception:
                 self.log.exception('failed to update config')
                 time.sleep(i + 1)
             else:
@@ -115,15 +116,16 @@ class VmManager(object):
     def _ensure_cache(self):
         if self._logical_router:
             return
-        self._logical_router = self.quantum.get_router_detail(router_id)
+        self._logical_router = self.quantum.get_router_detail(self.router_id)
 
     def _verify_interfaces(self, logical_config, interfaces):
         router_macs = set((iface['lladdr'] for iface in interfaces))
         self.log.debug('MACs found: %s', ', '.join(sorted(router_macs)))
 
-        expected_macs = set((p.mac_address for p in router.internal_ports))
-        expected_macs.add(router.management_port.mac_address)
-        expected_macs.add(router.external_port.mac_address)
+        expected_macs = set(p.mac_address
+                            for p in self._logical_router.internal_ports)
+        expected_macs.add(self._logical_router.management_port.mac_address)
+        expected_macs.add(self._logical_router.external_port.mac_address)
         self.log.debug('MACs expected: %s', ', '.join(sorted(expected_macs)))
 
         return router_macs == expected_macs
