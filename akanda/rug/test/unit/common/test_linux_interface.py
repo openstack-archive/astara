@@ -222,15 +222,6 @@ class TestBridgeInterfaceDriver(TestBase):
             self.ip_dev.assert_has_calls([])
             self.assertEquals(log.call_count, 1)
 
-    def test_unplug(self):
-        self.device_exists.return_value = True
-        with mock.patch('akanda.rug.common.linux.interface.LOG.debug') as log:
-            br = interface.BridgeInterfaceDriver(self.conf)
-            br.unplug('tap0')
-            log.assert_called_once()
-        self.execute.assert_has_calls(
-            [mock.call(['ip', 'link', 'delete', 'tap0'], 'sudo')])
-
     def test_unplug_no_device(self):
         self.device_exists.return_value = False
         self.ip_dev().link.delete.side_effect = RuntimeError

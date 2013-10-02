@@ -209,5 +209,17 @@ class FakeConf:
     auth_region = 'RegionOne'
 
 
-class TestAkandaClientWrapper(unittest.TestCase):
-    pass
+class TestQuantumWrapper(unittest.TestCase):
+
+    @mock.patch('akanda.rug.api.quantum.cfg')
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.quantum.importutils')
+    def test_purge_management_interface(self, import_utils, ak_wrapper, cfg):
+        conf = mock.Mock()
+        driver = mock.Mock()
+        import_utils.import_object.return_value = driver
+
+        quantum_wrapper = quantum.Quantum(conf)
+        quantum_wrapper.purge_management_interface()
+        driver.get_device_name.assert_called_once()
+        driver.unplug.assert_called_once()

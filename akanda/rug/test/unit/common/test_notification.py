@@ -20,7 +20,7 @@ class NotificationTest(notification.NotificationMixin):
 
 class TestNotificationMixin(unittest.TestCase):
     def test_init(self):
-        n = NotificationTest()
+        NotificationTest()
 
     def test_create_listener(self):
         with mock.patch.object(notification, 'rpc') as rpc:

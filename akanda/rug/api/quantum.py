@@ -7,6 +7,7 @@ from oslo.config import cfg
 from quantumclient.v2_0 import client
 
 from akanda.rug.common.exceptions import AbortTask
+from akanda.rug.common.linux import ip_lib
 from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import proxy
@@ -441,16 +442,34 @@ class Quantum(object):
                 self.api_client.create_port(dict(port=port_dict))['port'])
             LOG.info('new port: %r', port)
 
-            driver.plug(port.network_id,
-                        port.id,
-                        driver.get_device_name(port),
-                        port.mac_address)
+        # create the tap interface if it doesn't already exist
+        if not ip_lib.device_exists(driver.get_device_name(port)):
+            driver.plug(
+                port.network_id,
+                port.id,
+                driver.get_device_name(port),
+                port.mac_address)
+
             # add sleep to ensure that port is setup before use
             time.sleep(1)
 
         driver.init_l3(driver.get_device_name(port), [ip_address])
 
         return port
+
+    def purge_management_interface(self):
+        driver = importutils.import_object(
+            self.conf.interface_driver,
+            self.conf
+        )
+        host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
+        query_dict = dict(device_owner=DEVICE_OWNER_RUG, device_id=host_id)
+        ports = self.api_client.list_ports(**query_dict)['ports']
+
+        if ports:
+            port = Port.from_dict(ports[0])
+            device_name = driver.get_device_name(port)
+            driver.unplug(device_name)
 
 
 def get_local_service_ip(conf):
