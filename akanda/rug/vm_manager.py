@@ -14,7 +14,7 @@ CONFIGURED = 'configured'
 RESTART = 'restart'
 
 MAX_RETRIES = 3
-BOOT_WAIT = 60
+BOOT_WAIT = 120
 RETRY_DELAY = 1
 
 
@@ -24,16 +24,19 @@ class VmManager(object):
         self.log = log
         self.state = DOWN
         self._logical_router = None
-
         self.quantum = quantum.Quantum(cfg.CONF)
+
+        self.update_state(silent=True)
 
     def update_state(self, silent=False):
         self._ensure_cache()
 
-        addr = _get_management_address(self.router_id)
+        addr = _get_management_address(self._logical_router)
         for i in xrange(MAX_RETRIES):
             try:
                 if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
+                    if self.state != CONFIGURED:
+                        self.state = UP
                     break
             except:
                 if not silent:
@@ -46,13 +49,12 @@ class VmManager(object):
         else:
             self.state = DOWN
 
-        if self.state == DOWN:
-            self.state = UP
-
         return self.state
 
     def boot(self):
         self._logical_router = self.quantum.get_router_detail(self.router_id)
+
+        self._ensure_provider_ports(self._logical_router)
 
         self.log.info('Booting router')
         nova_client = nova.Nova(cfg.CONF)
@@ -63,8 +65,7 @@ class VmManager(object):
         while time.time() - start < BOOT_WAIT:
             if self.update_state(silent=True) in (UP, CONFIGURED):
                 return
-            self.log.debug('Router has not finished booting ID: %s',
-                           self.router_id)
+            self.log.debug('Router has not finished booting')
 
         self.log.error('Router failed to boot within %d secs', BOOT_WAIT)
 
@@ -73,7 +74,16 @@ class VmManager(object):
         self.log.info('Destroying router')
 
         nova_client = nova.Nova(cfg.CONF)
-        nova_client.reboot_router_instance(self._logical_router)
+        nova_client.destroy_router_instance(self._logical_router)
+
+        start = time.time()
+        while time.time() - start < BOOT_WAIT:
+            if not nova_client.get_router_instance_status(self._logical_router):
+                self.state = DOWN
+                return
+            self.log.debug('Router has not finished stopping')
+            time.sleep(RETRY_DELAY)
+        self.log.error('Router failed to stop within %d secs', BOOT_WAIT)
 
     def configure(self):
         self.log.debug('Begin router config')
@@ -129,6 +139,18 @@ class VmManager(object):
         self.log.debug('MACs expected: %s', ', '.join(sorted(expected_macs)))
 
         return router_macs == expected_macs
+
+    def _ensure_provider_ports(self, router):
+        if router.management_port is None:
+            self.log.info('Adding management port to router')
+            mgt_port = self.quantum.create_router_management_port(router.id)
+            router.management_port = mgt_port
+
+        if router.external_port is None:
+            self.log.info('Adding external port to router')
+            ext_port = self.quantum.create_router_external_port(router)
+            router.external_port = ext_port
+        return router
 
 
 def _get_management_address(router):
