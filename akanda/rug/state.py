@@ -47,7 +47,7 @@ class CalcAction(State):
                 return StopVM()
         elif vm.state == vm_manager.DOWN:
             return CreateVM()
-        elif action == POLL:
+        elif action == POLL and vm.state == vm_manager.CONFIGURED:
             return Wait()
         else:
             return Alive()
