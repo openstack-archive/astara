@@ -60,7 +60,14 @@ class TenantRouterManager(object):
         if not router_id:
             if self._default_router_id is None:
                 LOG.debug('looking up router for tenant %s', message.tenant_id)
+                #TODO(mark): handle muliple router lookup
                 router = self.quantum.get_router_for_tenant(message.tenant_id)
+                if not router:
+                    LOG.debug(
+                        'router not found for tenant %s',
+                        message.tenant_id
+                    )
+                    return []
                 self._default_router_id = router.id
             router_id = self._default_router_id
 
