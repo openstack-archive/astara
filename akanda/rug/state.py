@@ -34,7 +34,7 @@ class CalcAction(State):
                 continue
             elif queue[0] == POLL:
                 pass  # a no-op when collapsing events
-            elif action != POLL and  action != queue[0]:
+            elif action != POLL and action != queue[0]:
                 break
             action = queue.popleft()
         return action
@@ -94,6 +94,7 @@ class StopVM(State):
         else:
             return CreateVM()
 
+
 class Exit(State):
     pass
 
@@ -108,7 +109,6 @@ class ConfigureVM(State):
                 return POLL
         else:
             return action
-
 
     def transition(self, action, vm):
         if vm.state != vm_manager.CONFIGURED:
@@ -196,7 +196,6 @@ class Automaton(object):
 
                 if isinstance(self.state, CalcAction):
                     return  # yield
-
 
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"

@@ -23,7 +23,7 @@ class VmManager(object):
         self.router_id = router_id
         self.log = log
         self.state = DOWN
-        self._logical_router = None
+        self.router_obj = None
         self.quantum = quantum.Quantum(cfg.CONF)
 
         self.update_state(silent=True)
@@ -31,7 +31,7 @@ class VmManager(object):
     def update_state(self, silent=False):
         self._ensure_cache()
 
-        addr = _get_management_address(self._logical_router)
+        addr = _get_management_address(self.router_obj)
         for i in xrange(MAX_RETRIES):
             try:
                 if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
@@ -52,13 +52,13 @@ class VmManager(object):
         return self.state
 
     def boot(self):
-        self._logical_router = self.quantum.get_router_detail(self.router_id)
+        self.router_obj = self.quantum.get_router_detail(self.router_id)
 
-        self._ensure_provider_ports(self._logical_router)
+        self._ensure_provider_ports(self.router_obj)
 
         self.log.info('Booting router')
         nova_client = nova.Nova(cfg.CONF)
-        nova_client.reboot_router_instance(self._logical_router)
+        nova_client.reboot_router_instance(self.router_obj)
         self.state = DOWN
 
         start = time.time()
@@ -74,11 +74,11 @@ class VmManager(object):
         self.log.info('Destroying router')
 
         nova_client = nova.Nova(cfg.CONF)
-        nova_client.destroy_router_instance(self._logical_router)
+        nova_client.destroy_router_instance(self.router_obj)
 
         start = time.time()
         while time.time() - start < BOOT_WAIT:
-            if not nova_client.get_router_instance_status(self._logical_router):
+            if not nova_client.get_router_instance_status(self.router_obj):
                 self.state = DOWN
                 return
             self.log.debug('Router has not finished stopping')
@@ -89,22 +89,22 @@ class VmManager(object):
         self.log.debug('Begin router config')
         self.state = UP
 
-        self._logical_router = self.quantum.get_router_detail(self.router_id)
+        self.router_obj = self.quantum.get_router_detail(self.router_id)
 
-        addr = _get_management_address(self._logical_router)
+        addr = _get_management_address(self.router_obj)
 
         interfaces = router_api.get_interfaces(
             addr,
             cfg.CONF.akanda_mgt_service_port
         )
 
-        if not self._verify_interfaces(self._logical_router, interfaces):
+        if not self._verify_interfaces(self.router_obj, interfaces):
             self.state = RESTART
             return
 
         config = configuration.build_config(
             self.quantum,
-            self._logical_router,
+            self.router_obj,
             interfaces
         )
 
@@ -124,9 +124,9 @@ class VmManager(object):
                 return
 
     def _ensure_cache(self):
-        if self._logical_router:
+        if self.router_obj:
             return
-        self._logical_router = self.quantum.get_router_detail(self.router_id)
+        self.router_obj = self.quantum.get_router_detail(self.router_id)
 
     def _verify_interfaces(self, logical_config, interfaces):
         router_macs = set((iface['lladdr'] for iface in interfaces))

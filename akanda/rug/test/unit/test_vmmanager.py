@@ -22,7 +22,7 @@ class TestVmManager(unittest.TestCase):
 
         self.mock_update_state = self.update_state_p.start()
         self.vm_mgr = vm_manager.VmManager('the_id', self.log)
-        self.vm_mgr._logical_router = {'id': 'the_id'}
+        self.vm_mgr.router_obj = {'id': 'the_id'}
 
         self.next_state = None
 
@@ -64,7 +64,7 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.boot()
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
         nova_cls.return_value.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr._logical_router
+            self.vm_mgr.router_obj
         )
 
     @mock.patch('time.sleep')
@@ -74,7 +74,7 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.boot()
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
         nova_cls.return_value.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr._logical_router
+            self.vm_mgr.router_obj
         )
         self.log.error.assert_called_once_with(mock.ANY, 1)
 
@@ -86,7 +86,7 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.stop()
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
         nova_cls.return_value.destroy_router_instance.assert_called_once_with(
-            self.vm_mgr._logical_router
+            self.vm_mgr.router_obj
         )
 
     @mock.patch('time.sleep')
@@ -97,7 +97,7 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.stop()
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
         nova_cls.return_value.destroy_router_instance.assert_called_once_with(
-            self.vm_mgr._logical_router
+            self.vm_mgr.router_obj
         )
         self.log.error.assert_called_once_with(mock.ANY, 1)
 
@@ -179,7 +179,7 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr._ensure_cache()
         self.assertFalse(self.quantum.get_router_detail.called)
 
-        self.vm_mgr._logical_router = None
+        self.vm_mgr.router_obj = None
         self.vm_mgr._ensure_cache()
         self.assertTrue(self.quantum.get_router_detail.called)
 
