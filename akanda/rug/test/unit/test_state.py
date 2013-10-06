@@ -91,7 +91,14 @@ class TestCalcActionState(BaseTestStateCase):
             self._test_transition_hlpr(evt, state.CreateVM, vm_manager.DOWN)
 
     def test_transition_poll_up_vm(self):
-        self._test_transition_hlpr(event.POLL, state.Wait)
+        self._test_transition_hlpr(event.POLL, state.Alive, vm_manager.UP)
+
+    def test_transition_poll_configured_vm(self):
+        self._test_transition_hlpr(
+            event.POLL,
+            state.Wait,
+            vm_manager.CONFIGURED
+        )
 
     def test_transition_other_up_vm(self):
         for evt in [event.READ, event.UPDATE, event.CREATE]:
