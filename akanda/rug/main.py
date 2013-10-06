@@ -35,7 +35,7 @@ def shuffle_notifications(notification_queue, sched):
             break
 
 
-def main(argv=sys.argv[1:]):
+def register_and_load_opts(argv):
     cfg.CONF.register_opts([
         cfg.StrOpt('host',
                    default=socket.getfqdn(),
@@ -101,6 +101,9 @@ def main(argv=sys.argv[1:]):
     ])
     cfg.CONF(argv, project='akanda')
 
+
+def main(argv=sys.argv[1:]):
+    register_and_load_opts(argv)
     logging.basicConfig(
         level=logging.DEBUG,
         format=':'.join('%(' + n + ')s'
@@ -113,7 +116,8 @@ def main(argv=sys.argv[1:]):
 
     # Purge the mgt tap interface on startup
     quantum = quantum_api.Quantum(cfg.CONF)
-    quantum.purge_management_interface()
+    #TODO(mark): develop better way restore after machine reboot
+    #quantum.purge_management_interface()
 
     # bring the mgt tap interface up
     quantum.ensure_local_service_port()
@@ -179,8 +183,5 @@ def main(argv=sys.argv[1:]):
 
     # Terminate the listening process
     notification_proc.terminate()
-
-    # Purge the mgt tap interface
-    quantum.purge_management_interface()
 
     LOG.info('exiting')
