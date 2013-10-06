@@ -133,9 +133,9 @@ class VmManager(object):
         self.log.debug('MACs found: %s', ', '.join(sorted(router_macs)))
 
         expected_macs = set(p.mac_address
-                            for p in self._logical_router.internal_ports)
-        expected_macs.add(self._logical_router.management_port.mac_address)
-        expected_macs.add(self._logical_router.external_port.mac_address)
+                            for p in logical_config.internal_ports)
+        expected_macs.add(logical_config.management_port.mac_address)
+        expected_macs.add(logical_config.external_port.mac_address)
         self.log.debug('MACs expected: %s', ', '.join(sorted(expected_macs)))
 
         return router_macs == expected_macs
