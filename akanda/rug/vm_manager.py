@@ -31,6 +31,10 @@ class VmManager(object):
     def update_state(self, silent=False):
         self._ensure_cache()
 
+        if self.router_obj.management_port is None:
+            self.state = DOWN
+            return self.state
+
         addr = _get_management_address(self.router_obj)
         for i in xrange(MAX_RETRIES):
             try:

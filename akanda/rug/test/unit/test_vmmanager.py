@@ -22,7 +22,7 @@ class TestVmManager(unittest.TestCase):
 
         self.mock_update_state = self.update_state_p.start()
         self.vm_mgr = vm_manager.VmManager('the_id', self.log)
-        self.vm_mgr.router_obj = {'id': 'the_id'}
+        self.vm_mgr.router_obj = mock.Mock()
 
         self.next_state = None
 
@@ -56,6 +56,13 @@ class TestVmManager(unittest.TestCase):
             mock.call('fe80::beef', 5000),
             mock.call('fe80::beef', 5000)
         ])
+
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_update_state_no_mgt_port(self, get_mgt_addr):
+        self.update_state_p.stop()
+        self.vm_mgr.router_obj.management_port = None
+        self.assertEqual(self.vm_mgr.update_state(), vm_manager.DOWN)
+        self.assertFalse(get_mgt_addr.called)
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.api.nova.Nova')
@@ -106,7 +113,7 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_configure_success(self, config, get_mgt_addr, router_api):
         get_mgt_addr.return_value = 'fe80::beef'
-        rtr = {'id': 'the_id'}
+        rtr = mock.sentinel.router
 
         self.quantum.get_router_detail.return_value = rtr
 
@@ -129,7 +136,7 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('akanda.rug.vm_manager._get_management_address')
     def test_configure_mismatched_interfaces(self, get_mgt_addr, router_api):
         get_mgt_addr.return_value = 'fe80::beef'
-        rtr = {'id': 'the_id'}
+        rtr = mock.sentinel.router
 
         self.quantum.get_router_detail.return_value = rtr
 
