@@ -18,7 +18,7 @@ class BaseTestStateCase(unittest.TestCase):
         self.vm = vm_mgr_cls.return_value
 
     def _test_transition_hlpr(self, action, expected_class,
-                                vm_state=state.vm_manager.UP):
+                              vm_state=state.vm_manager.UP):
         self.vm.state = vm_state
         self.assertIsInstance(
             self.state.transition(action, self.vm),
@@ -44,7 +44,7 @@ class TestCalcActionState(BaseTestStateCase):
     state_cls = state.CalcAction
 
     def _test_hlpr(self, expected_action, queue_states,
-                     leftover=0, initial_action=event.POLL):
+                   leftover=0, initial_action=event.POLL):
         queue = collections.deque(queue_states)
         self.assertEqual(
             self.state.execute(initial_action, self.vm, queue),
@@ -79,7 +79,6 @@ class TestCalcActionState(BaseTestStateCase):
         ]
         self._test_hlpr(event.UPDATE, events, 1)
 
-
     def test_transition_delete_down_vm(self):
         self._test_transition_hlpr(event.DELETE, state.Exit, vm_manager.DOWN)
 
@@ -91,7 +90,14 @@ class TestCalcActionState(BaseTestStateCase):
             self._test_transition_hlpr(evt, state.CreateVM, vm_manager.DOWN)
 
     def test_transition_poll_up_vm(self):
-        self._test_transition_hlpr(event.POLL, state.Wait)
+        self._test_transition_hlpr(event.POLL, state.Alive, vm_manager.UP)
+
+    def test_transition_poll_configured_vm(self):
+        self._test_transition_hlpr(
+            event.POLL,
+            state.Wait,
+            vm_manager.CONFIGURED
+        )
 
     def test_transition_other_up_vm(self):
         for evt in [event.READ, event.UPDATE, event.CREATE]:
@@ -207,7 +213,7 @@ class TestConfigureVMState(BaseTestStateCase):
         self.vm.configure.assert_called_once_with()
 
     def test_transition_not_configured(self):
-        self._test_transition_hlpr( event.READ, state.StopVM, vm_manager.DOWN)
+        self._test_transition_hlpr(event.READ, state.StopVM, vm_manager.DOWN)
 
     def test_transition_read_configured(self):
         self._test_transition_hlpr(
@@ -241,6 +247,7 @@ class TestReadStatsState(BaseTestStateCase):
 
     def test_transition(self):
         self._test_transition_hlpr(event.POLL, state.CalcAction)
+
 
 class TestWaitState(BaseTestStateCase):
     state_cls = state.Wait
@@ -280,7 +287,7 @@ class TestAutomaton(unittest.TestCase):
         self.assertEqual(len(self.sm._queue), 1)
 
     def test_has_more_work(self):
-        with mock.patch.object(self.sm, '_queue') as queue:
+        with mock.patch.object(self.sm, '_queue') as queue:  # noqa
             self.assertTrue(self.sm.has_more_work())
 
     def test_update_no_work(self):
