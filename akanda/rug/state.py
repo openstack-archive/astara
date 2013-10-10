@@ -12,6 +12,10 @@ WAIT_PERIOD = 10
 
 
 class State(object):
+
+    def __init__(self, log):
+        self.log = log
+
     def execute(self, action, vm):
         return action
 
@@ -42,15 +46,15 @@ class CalcAction(State):
     def transition(self, action, vm):
         if action == DELETE:
             if vm.state == vm_manager.DOWN:
-                return Exit()
+                return Exit(self.log)
             else:
-                return StopVM()
+                return StopVM(self.log)
         elif vm.state == vm_manager.DOWN:
-            return CreateVM()
+            return CreateVM(self.log)
         elif action == POLL and vm.state == vm_manager.CONFIGURED:
-            return Wait()
+            return Wait(self.log)
         else:
-            return Alive()
+            return Alive(self.log)
 
 
 class Alive(State):
@@ -60,13 +64,13 @@ class Alive(State):
 
     def transition(self, action, vm):
         if vm.state == vm_manager.DOWN:
-            return CreateVM()
+            return CreateVM(self.log)
         elif action == POLL and vm.state == vm_manager.CONFIGURED:
-            return CalcAction()
+            return CalcAction(self.log)
         elif action == READ and vm.state == vm_manager.CONFIGURED:
-            return ReadStats()
+            return ReadStats(self.log)
         else:
-            return ConfigureVM()
+            return ConfigureVM(self.log)
 
 
 class CreateVM(State):
@@ -76,9 +80,9 @@ class CreateVM(State):
 
     def transition(self, action, vm):
         if vm.state == vm_manager.UP:
-            return ConfigureVM()
+            return ConfigureVM(self.log)
         else:
-            return CalcAction()
+            return CalcAction(self.log)
 
 
 class StopVM(State):
@@ -90,9 +94,9 @@ class StopVM(State):
         if vm.state != vm_manager.DOWN:
             return self
         if action == DELETE:
-            return Exit()
+            return Exit(self.log)
         else:
-            return CreateVM()
+            return CreateVM(self.log)
 
 
 class Exit(State):
@@ -112,11 +116,11 @@ class ConfigureVM(State):
 
     def transition(self, action, vm):
         if vm.state != vm_manager.CONFIGURED:
-            return StopVM()
+            return StopVM(self.log)
         elif action == READ:
-            return ReadStats()
+            return ReadStats(self.log)
         else:
-            return CalcAction()
+            return CalcAction(self.log)
 
 
 class ReadStats(State):
@@ -126,7 +130,7 @@ class ReadStats(State):
         return POLL
 
     def transition(self, action, vm):
-        return CalcAction()
+        return CalcAction(self.log)
 
 
 class Wait(State):
@@ -135,7 +139,7 @@ class Wait(State):
         return action
 
     def transition(self, action, vm):
-        return CalcAction()
+        return CalcAction(self.log)
 
 
 class Automaton(object):
@@ -158,7 +162,7 @@ class Automaton(object):
         self._queue = collections.deque()
         self.log = logging.getLogger(__name__ + '.' + router_id)
 
-        self.state = CalcAction()
+        self.state = CalcAction(self.log)
         self.action = POLL
         self.vm = vm_manager.VmManager(router_id, self.log)
 
@@ -181,18 +185,24 @@ class Automaton(object):
                     elif isinstance(self.state, ReadStats):
                         additional_args = (self.bandwidth_callback,)
 
+                    self.log.debug('executing %r for %r', self.action, self.vm)
                     self.action = self.state.execute(
                         self.action,
                         self.vm,
                         *additional_args
                         )
+                    self.log.debug('execute for %r returned next action %r',
+                                   self.vm, self.action)
                 except:
                     self.log.exception(
                         'execute() failed for action: %s',
                         self.action
                     )
 
+                old_state = self.state
                 self.state = self.state.transition(self.action, self.vm)
+                self.log.debug('%s transitioned from %s to %s',
+                               self.vm, old_state, self.state)
 
                 if isinstance(self.state, CalcAction):
                     return  # yield

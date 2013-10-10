@@ -12,7 +12,7 @@ class BaseTestStateCase(unittest.TestCase):
     state_cls = state.State
 
     def setUp(self):
-        self.state = self.state_cls()
+        self.state = self.state_cls(mock.Mock())
         vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
         self.addCleanup(mock.patch.stopall)
         self.vm = vm_mgr_cls.return_value
@@ -299,7 +299,7 @@ class TestAutomaton(unittest.TestCase):
         message = mock.Mock()
         message.crud = event.UPDATE
         self.sm.send_message(message)
-        self.sm.state = state.Exit()
+        self.sm.state = state.Exit(mock.Mock())
 
         self.delete_callback.called_once_with()
 
@@ -310,7 +310,7 @@ class TestAutomaton(unittest.TestCase):
 
         fake_state = mock.Mock()
         fake_state.execute.side_effect = Exception
-        fake_state.transition.return_value = state.Exit()
+        fake_state.transition.return_value = state.Exit(mock.Mock())
         self.sm.action = 'fake'
         self.sm.state = fake_state
 
@@ -333,7 +333,7 @@ class TestAutomaton(unittest.TestCase):
 
         with mock.patch.object(self.sm.state, 'execute') as execute:
             with mock.patch.object(self.sm.state, 'transition') as transition:
-                transition.return_value = state.Exit()
+                transition.return_value = state.Exit(mock.Mock())
                 self.sm.update()
 
                 execute.called_once_with(
@@ -348,9 +348,9 @@ class TestAutomaton(unittest.TestCase):
         message.crud = event.READ
         self.sm.send_message(message)
 
-        self.sm.state = state.ReadStats()
+        self.sm.state = state.ReadStats(mock.Mock())
         with mock.patch.object(self.sm.state, 'execute') as execute:
-            execute.return_value = state.Exit()
+            execute.return_value = state.Exit(mock.Mock())
             self.sm.update()
 
             execute.called_once_with(
