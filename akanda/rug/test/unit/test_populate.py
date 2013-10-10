@@ -4,7 +4,6 @@ import unittest2 as unittest
 from quantumclient.common import exceptions as q_exceptions
 
 from akanda.rug import populate
-from akanda.rug.api import quantum
 
 
 class TestPrePopulateWorkers(unittest.TestCase):
