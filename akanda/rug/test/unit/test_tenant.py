@@ -127,6 +127,20 @@ class TestTenantRouterManager(unittest.TestCase):
         self.trm._delete_router('1234')
         self.assertEqual('abcd', self.trm._default_router_id)
 
+    def test_no_update_deleted_router(self):
+        self.trm._default_router_id = 'abcd'
+        self.trm.state_machines['5678'] = mock.Mock()
+        self.trm._delete_router('5678')
+        msg = event.Event(
+            tenant_id='1234',
+            router_id='5678',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        sms = self.trm.get_state_machines(msg)
+        self.assertEqual(sms, [])
+        self.assertIn('5678', self.trm._deleted)
+
     def test_deleter_callback(self):
         msg = event.Event(
             tenant_id='1234',
@@ -136,7 +150,7 @@ class TestTenantRouterManager(unittest.TestCase):
         )
         sm = self.trm.get_state_machines(msg)[0]
         self.assertIn('5678', self.trm.state_machines)
-        sm.delete_callback()
+        sm._do_delete()
         self.assertNotIn('5678', self.trm.state_machines)
 
     def test_report_bandwidth(self):

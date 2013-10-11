@@ -1,6 +1,7 @@
 """Manage the routers for a given tenant.
 """
 
+import collections
 import logging
 
 from akanda.rug.api import quantum
@@ -22,12 +23,16 @@ class TenantRouterManager(object):
         self.state_machines = {}
         self.quantum = quantum.Quantum(cfg.CONF)
         self._default_router_id = None
+        self._deleted = collections.deque(maxlen=50)
 
     def _delete_router(self, router_id):
         "Called when the Automaton decides the router can be deleted"
         if router_id in self.state_machines:
             LOG.debug('deleting state machine for %s', router_id)
             del self.state_machines[router_id]
+            # Keep track of the router id as belonging to a deleted
+            # router, so we don't send it any more messages.
+            self._deleted.append(router_id)
         if self._default_router_id == router_id:
             self._default_router_id = None
 
@@ -74,6 +79,10 @@ class TenantRouterManager(object):
         elif router_id == '*':
             # All of our routers
             return list(self.state_machines.values())
+
+        # Ignore messages to deleted routers.
+        if router_id in self._deleted:
+            return []
 
         # An individual router by its id.
         if router_id not in self.state_machines:
