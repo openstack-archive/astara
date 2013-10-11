@@ -213,4 +213,4 @@ class Automaton(object):
 
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"
-        return bool(self._queue)
+        return (not isinstance(self.state, Exit)) and bool(self._queue)
