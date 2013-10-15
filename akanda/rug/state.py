@@ -157,7 +157,7 @@ class Automaton(object):
                                   info dict
         """
         self.router_id = router_id
-        self.delete_callback = delete_callback
+        self._delete_callback = delete_callback
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()
         self.log = logging.getLogger(__name__ + '.' + router_id)
@@ -166,15 +166,27 @@ class Automaton(object):
         self.action = POLL
         self.vm = vm_manager.VmManager(router_id, self.log)
 
+    @property
+    def _deleting(self):
+        """Boolean property indicating whether this state machine is stopping.
+        """
+        return isinstance(self.state, Exit)
+
     def service_shutdown(self):
         "Called when the parent process is being stopped"
+
+    def _do_delete(self):
+        if self._delete_callback is not None:
+            self._delete_callback()
+            # Avoid calling the delete callback more than once.
+            self._delete_callback = None
 
     def update(self):
         "Called when the router config should be changed"
         while self._queue:
             while True:
-                if isinstance(self.state, Exit):
-                    self.delete_callback()
+                if self._deleting:
+                    self._do_delete()
                     return
 
                 try:
@@ -209,8 +221,14 @@ class Automaton(object):
 
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"
+        if self._deleting:
+            # Ignore any more incoming messages
+            self.log.debug(
+                'deleting state machine, ignoring incoming message %s',
+                message)
+            return
         self._queue.append(message.crud)
 
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"
-        return bool(self._queue)
+        return (not self._deleting) and bool(self._queue)

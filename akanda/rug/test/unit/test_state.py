@@ -286,9 +286,22 @@ class TestAutomaton(unittest.TestCase):
         self.sm.send_message(message)
         self.assertEqual(len(self.sm._queue), 1)
 
+    def test_send_message_deleting(self):
+        message = mock.Mock()
+        message.crud = 'update'
+        self.sm.state = state.Exit(mock.Mock())
+        self.sm.send_message(message)
+        self.assertEqual(len(self.sm._queue), 0)
+        self.assertFalse(self.sm.has_more_work())
+
     def test_has_more_work(self):
         with mock.patch.object(self.sm, '_queue') as queue:  # noqa
             self.assertTrue(self.sm.has_more_work())
+
+    def test_has_more_work_deleting(self):
+        self.sm.state = state.Exit(mock.Mock())
+        with mock.patch.object(self.sm, '_queue') as queue:  # noqa
+            self.assertFalse(self.sm.has_more_work())
 
     def test_update_no_work(self):
         with mock.patch.object(self.sm, 'state') as state:
@@ -300,7 +313,7 @@ class TestAutomaton(unittest.TestCase):
         message.crud = event.UPDATE
         self.sm.send_message(message)
         self.sm.state = state.Exit(mock.Mock())
-
+        self.sm.update()
         self.delete_callback.called_once_with()
 
     def test_update_exception_during_excute(self):
