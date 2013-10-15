@@ -4,7 +4,7 @@ import uuid
 
 import netaddr
 from oslo.config import cfg
-from quantumclient.v2_0 import client
+from neutronclient.v2_0 import client
 
 from akanda.rug.common.exceptions import AbortTask
 from akanda.rug.common.linux import ip_lib

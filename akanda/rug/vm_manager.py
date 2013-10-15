@@ -14,7 +14,7 @@ CONFIGURED = 'configured'
 RESTART = 'restart'
 
 MAX_RETRIES = 3
-BOOT_WAIT = 120
+BOOT_WAIT = 240
 RETRY_DELAY = 1
 
 
