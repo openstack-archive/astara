@@ -307,9 +307,10 @@ class L3PluginApi(proxy.RpcProxy):
     def get_routers(self, router_id=None):
         """Make a remote process call to retrieve the sync data for routers."""
         router_id = [router_id] if router_id else None
+        # yes the plural is intended for havana compliance
         retval = self.call(context.get_admin_context(),
                            self.make_msg('sync_routers', host=self.host,
-                                         router_id=router_id),
+                                         router_ids=router_id),  # plural
                            topic=self.topic)
         return retval
 

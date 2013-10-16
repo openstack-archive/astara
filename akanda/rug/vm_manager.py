@@ -62,8 +62,13 @@ class VmManager(object):
 
         self.log.info('Booting router')
         nova_client = nova.Nova(cfg.CONF)
-        nova_client.reboot_router_instance(self.router_obj)
         self.state = DOWN
+
+        try:
+            nova_client.reboot_router_instance(self.router_obj)
+        except:
+            self.log.exception('Router failed to start boot')
+            return
 
         start = time.time()
         while time.time() - start < BOOT_WAIT:

@@ -92,7 +92,7 @@ class AkandaL3Manager(notification.NotificationMixin,
             self.quantum.ensure_local_service_port,
             error_msg='Could not ensure local service port',
             ignorable_exceptions=(
-                quantum.client.exceptions.QuantumClientException,
+                quantum.client.exceptions.NeutronClientException,
             ),
         )
 
@@ -189,7 +189,7 @@ class AkandaL3Manager(notification.NotificationMixin,
             self.quantum.get_routers,
             error_msg='Could not fetch routers from quantum',
             ignorable_exceptions=(
-                quantum.client.exceptions.QuantumClientException,
+                quantum.client.exceptions.NeutronClientException,
             ),
         )
         known_routers = set(self.cache.keys())

@@ -56,7 +56,7 @@ class TestPrePopulateWorkers(unittest.TestCase):
         quantum_client = mock.Mock()
         message = mock.Mock(tenant_id='1', router_id='2')
         returned_value = [
-            q_exceptions.QuantumClientException,
+            q_exceptions.NeutronClientException,
             [message]
         ]
         quantum_client.get_routers.side_effect = returned_value
