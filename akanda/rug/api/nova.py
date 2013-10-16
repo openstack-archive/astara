@@ -26,15 +26,11 @@ class Nova(object):
         # We can safely ignore this exception because the failed task is going
         # to be requeued and executed again later when the ports should be
         # finally cleaned up.
-        try:
-            self.client.servers.create(
-                'ak-' + router.id,
-                image=self.conf.router_image_uuid,
-                flavor=self.conf.router_instance_flavor,
-                nics=nics)
-        except ClientException:
-            raise RuntimeWarning('Failed to create an instance for '
-                                 'the router %s' % router.name)
+        self.client.servers.create(
+            'ak-' + router.id,
+            image=self.conf.router_image_uuid,
+            flavor=self.conf.router_instance_flavor,
+            nics=nics)
 
     def get_instance(self, router):
         instances = self.client.servers.list(
