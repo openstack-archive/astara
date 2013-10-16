@@ -1,7 +1,7 @@
 import mock
 import unittest2 as unittest
 
-from quantumclient.common import exceptions as q_exceptions
+from neutronclient.common import exceptions as q_exceptions
 
 from akanda.rug import populate
 

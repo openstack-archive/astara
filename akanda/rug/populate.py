@@ -6,7 +6,7 @@ import threading
 import time
 
 from oslo.config import cfg
-from quantumclient.common import exceptions as q_exceptions
+from neutronclient.common import exceptions as q_exceptions
 
 from akanda.rug import event
 from akanda.rug.api import quantum
