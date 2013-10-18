@@ -197,7 +197,8 @@ class Automaton(object):
                     elif isinstance(self.state, ReadStats):
                         additional_args = (self.bandwidth_callback,)
 
-                    self.log.debug('executing %r for %r', self.action, self.vm)
+                    self.log.debug('executing %r for %r %s',
+                                   self.action, self.vm, self)
                     self.action = self.state.execute(
                         self.action,
                         self.vm,
@@ -221,6 +222,8 @@ class Automaton(object):
 
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"
+        self.log.debug('Message: %s -- deleting method % s', message,
+                       self._deleting)
         if self._deleting:
             # Ignore any more incoming messages
             self.log.debug(

@@ -131,6 +131,7 @@ class TestTenantRouterManager(unittest.TestCase):
         self.trm._default_router_id = 'abcd'
         self.trm.state_machines['5678'] = mock.Mock()
         self.trm._delete_router('5678')
+        self.assertEqual(self.trm.state_machines.values(), [])
         msg = event.Event(
             tenant_id='1234',
             router_id='5678',
@@ -139,7 +140,7 @@ class TestTenantRouterManager(unittest.TestCase):
         )
         sms = self.trm.get_state_machines(msg)
         self.assertEqual(sms, [])
-        self.assertIn('5678', self.trm._deleted)
+        self.assertIn('5678', self.trm.state_machines.deleted)
 
     def test_deleter_callback(self):
         msg = event.Event(
