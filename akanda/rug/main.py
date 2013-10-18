@@ -107,7 +107,8 @@ def main(argv=sys.argv[1:]):
     logging.basicConfig(
         level=logging.DEBUG,
         format=':'.join('%(' + n + ')s'
-                        for n in ['processName',
+                        for n in ['asctime',
+                                  'processName',
                                   'threadName',
                                   'name',
                                   'levelname',
