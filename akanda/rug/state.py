@@ -222,8 +222,6 @@ class Automaton(object):
 
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"
-        self.log.debug('Message: %s -- deleting method % s', message,
-                       self._deleting)
         if self._deleting:
             # Ignore any more incoming messages
             self.log.debug(
