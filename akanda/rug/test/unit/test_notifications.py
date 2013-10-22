@@ -92,6 +92,38 @@ class TestGetTenantID(unittest.TestCase):
         tenant_id = notifications._get_tenant_id_for_message(msg)
         self.assertEqual('c25992581e574b6485dbfdf39a3df46c', tenant_id)
 
+    def test_notification_with_tenant_id_from_router_dict(self):
+        msg = {
+            u'_context_roles': [u'admin', u'_member_'],
+            u'priority': u'INFO',
+            u'_context_read_deleted': u'no',
+            u'event_type': u'router.update.end',
+            u'timestamp': u'2013-10-20 17:07:14.573678',
+            u'_context_tenant_id': u'618cb69189144d4bbabe0aaa678d48c6',
+            u'payload': {
+                u'router': {
+                    u'status': u'ACTIVE',
+                    u'external_gateway_info': {
+                        u'network_id': u'8e163d8b-81a8-4f4f-b622-ecbf452de2e9'
+                    },
+                    u'name': u'r',
+                    u'admin_state_up': True,
+                    u'tenant_id': u'cddd1d8533cc4f828837d4c2dcb7ef96',
+                    u'id': u'64009064-be1e-44e2-9e5d-1c706cef2e34',
+                    u'routes': [],
+                }
+            },
+            u'_unique_id': u'1cc91b54bd2947fb9d513e67795ebb8d',
+            u'_context_is_admin': True,
+            u'_context_project_id': u'618cb69189144d4bbabe0aaa678d48c6',
+            u'_context_timestamp': u'2013-10-20 17:07:14.349210',
+            u'_context_user_id': u'a5b54cb8fb3a4cb49ba6118f3d2e35af',
+            u'publisher_id': u'network.orange.localdomain',
+            u'message_id': u'd8335b96-0fde-461a-af65-3f1aaa73c8af'
+        }
+        tenant_id = notifications._get_tenant_id_for_message(msg)
+        self.assertEqual('cddd1d8533cc4f828837d4c2dcb7ef96', tenant_id)
+
 
 class TestGetCRUD(unittest.TestCase):
 
