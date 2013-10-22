@@ -22,6 +22,13 @@ LOG = logging.getLogger(__name__)
 
 def _get_tenant_id_for_message(message):
     """Find the tenant id in the incoming message."""
+
+    # give priority to the tenant_id in the router dict if one
+    # exists in the message
+    val = message.get('payload', {}).get('router', {}).get('tenant_id')
+    if val:
+        return val
+
     for key in ['_context_tenant_id', '_context_project_id']:
         if key in message:
             val = message[key]

@@ -197,7 +197,8 @@ class Automaton(object):
                     elif isinstance(self.state, ReadStats):
                         additional_args = (self.bandwidth_callback,)
 
-                    self.log.debug('executing %r for %r', self.action, self.vm)
+                    self.log.debug('executing %r for %r %s',
+                                   self.action, self.vm, self)
                     self.action = self.state.execute(
                         self.action,
                         self.vm,

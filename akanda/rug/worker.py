@@ -52,7 +52,7 @@ class Worker(object):
                 continue
             if not sm:
                 break
-            LOG.debug('updating %s', sm.router_id)
+            LOG.debug('updating %s with id %s', sm.router_id, sm)
             try:
                 sm.update()
             except:

@@ -3,6 +3,7 @@
 
 import collections
 import logging
+import threading
 
 from akanda.rug.api import quantum
 from akanda.rug import state
@@ -13,6 +14,43 @@ from oslo.config import cfg
 LOG = logging.getLogger(__name__)
 
 
+class RouterContainer(object):
+
+    def __init__(self):
+        self.state_machines = {}
+        self.deleted = collections.deque(maxlen=50)
+        self.lock = threading.Lock()
+
+    def __delitem__(self, item):
+        with self.lock:
+            del self.state_machines[item]
+            self.deleted.append(item)
+
+    def items(self):
+        with self.lock:
+            return list(self.state_machines.items())
+
+    def values(self):
+        with self.lock:
+            return list(self.state_machines.values())
+
+    def has_been_deleted(self, router_id):
+        with self.lock:
+            return router_id in self.deleted
+
+    def __getitem__(self, item):
+        with self.lock:
+            return self.state_machines[item]
+
+    def __setitem__(self, key, value):
+        with self.lock:
+            self.state_machines[key] = value
+
+    def __contains__(self, item):
+        with self.lock:
+            return item in self.state_machines
+
+
 class TenantRouterManager(object):
     """Keep track of the state machines for the routers for a given tenant.
     """
@@ -20,19 +58,15 @@ class TenantRouterManager(object):
     def __init__(self, tenant_id, notify_callback):
         self.tenant_id = tenant_id
         self.notify = notify_callback
-        self.state_machines = {}
+        self.state_machines = RouterContainer()
         self.quantum = quantum.Quantum(cfg.CONF)
         self._default_router_id = None
-        self._deleted = collections.deque(maxlen=50)
 
     def _delete_router(self, router_id):
         "Called when the Automaton decides the router can be deleted"
         if router_id in self.state_machines:
             LOG.debug('deleting state machine for %s', router_id)
             del self.state_machines[router_id]
-            # Keep track of the router id as belonging to a deleted
-            # router, so we don't send it any more messages.
-            self._deleted.append(router_id)
         if self._default_router_id == router_id:
             self._default_router_id = None
 
@@ -81,7 +115,7 @@ class TenantRouterManager(object):
             return list(self.state_machines.values())
 
         # Ignore messages to deleted routers.
-        if router_id in self._deleted:
+        if self.state_machines.has_been_deleted(router_id):
             return []
 
         # An individual router by its id.
