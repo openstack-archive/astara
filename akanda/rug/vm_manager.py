@@ -14,7 +14,6 @@ CONFIGURED = 'configured'
 RESTART = 'restart'
 
 MAX_RETRIES = 3
-BOOT_WAIT = 240
 RETRY_DELAY = 1
 
 
@@ -71,12 +70,14 @@ class VmManager(object):
             return
 
         start = time.time()
-        while time.time() - start < BOOT_WAIT:
+        while time.time() - start < cfg.CONF.boot_timeout:
             if self.update_state(silent=True) in (UP, CONFIGURED):
                 return
             self.log.debug('Router has not finished booting')
 
-        self.log.error('Router failed to boot within %d secs', BOOT_WAIT)
+        self.log.error(
+            'Router failed to boot within %d secs',
+            cfg.CONF.boot_timeout)
 
     def stop(self):
         self._ensure_cache()
@@ -86,13 +87,15 @@ class VmManager(object):
         nova_client.destroy_router_instance(self.router_obj)
 
         start = time.time()
-        while time.time() - start < BOOT_WAIT:
+        while time.time() - start < cfg.CONF.boot_timeout:
             if not nova_client.get_router_instance_status(self.router_obj):
                 self.state = DOWN
                 return
             self.log.debug('Router has not finished stopping')
             time.sleep(RETRY_DELAY)
-        self.log.error('Router failed to stop within %d secs', BOOT_WAIT)
+        self.log.error(
+            'Router failed to stop within %d secs',
+            cfg.CONF.boot_timeout)
 
     def configure(self):
         self.log.debug('Begin router config')

@@ -63,6 +63,9 @@ def register_and_load_opts(argv):
         cfg.StrOpt('ovs_integration_bridge', default='br-int'),
         cfg.BoolOpt('ovs_use_veth', default=False),
         cfg.IntOpt('network_device_mtu'),
+
+        # needed for boot waiting
+        cfg.IntOpt('boot_timeout', default=240)
     ])
 
     AGENT_OPTIONS = [
