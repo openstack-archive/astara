@@ -11,6 +11,7 @@ class TestVmManager(unittest.TestCase):
         quantum_cls = mock.patch.object(vm_manager.quantum, 'Quantum').start()
         self.quantum = quantum_cls.return_value
         self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
         self.conf.akanda_mgt_service_port = 5000
         self.addCleanup(mock.patch.stopall)
 
