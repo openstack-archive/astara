@@ -41,12 +41,11 @@ metadata_opts = [
     cfg.IntOpt('nova_metadata_port',
                default=8775,
                help="TCP Port used by Nova metadata server."),
-    cfg.StrOpt('quantum_metadata_proxy_shared_secret',
+    cfg.StrOpt('neutron_metadata_proxy_shared_secret',
                default='',
-               help='Shared secret to sign instance-id request')
+               help='Shared secret to sign instance-id request',
+               deprecated_name='quantum_metadata_proxy_shared_secret')
 ]
-
-cfg.CONF.register_opts(metadata_opts)
 
 
 class MetadataProxyHandler(object):
@@ -110,7 +109,7 @@ class MetadataProxyHandler(object):
             raise Exception('Unexpected response code: %s' % resp.status)
 
     def _sign_instance_id(self, instance_id):
-        return hmac.new(cfg.CONF.quantum_metadata_proxy_shared_secret,
+        return hmac.new(cfg.CONF.neutrom_metadata_proxy_shared_secret,
                         instance_id,
                         hashlib.sha256).hexdigest()
 
@@ -145,15 +144,12 @@ class MetadataProxy(object):
                 'Could not establish metadata proxy socket on %s/%s' %
                 (ip_address, RUG_META_PORT)
             )
-        self.pool.spawn_n(
-            eventlet.wsgi.server,
+        eventlet.wsgi.server(
             sock,
             app,
             custom_pool=self.pool,
             log=logging.WritableLogger(LOG))
 
 
-def create_metadata_signing_proxy(ip_address):
-    mdp = MetadataProxy()
-    mdp.run(ip_address)
-    return mdp
+def serve(ip_address):
+    MetadataProxy().run(ip_address)
