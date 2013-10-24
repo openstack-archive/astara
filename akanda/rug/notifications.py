@@ -25,9 +25,11 @@ def _get_tenant_id_for_message(message):
 
     # give priority to the tenant_id in the router dict if one
     # exists in the message
-    val = message.get('payload', {}).get('router', {}).get('tenant_id')
-    if val:
-        return val
+    payload = message.get('payload', {})
+
+    for key in ('router', 'port', 'subnet'):
+        if key in payload and payload[key].get('tenant_id'):
+            return payload[key]['tenant_id']
 
     for key in ['_context_tenant_id', '_context_project_id']:
         if key in message:
