@@ -9,6 +9,7 @@ from oslo.config import cfg
 
 from akanda.rug import event
 from akanda.rug import health
+from akanda.rug import metadata
 from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import populate
@@ -67,6 +68,8 @@ def register_and_load_opts(argv):
         # needed for boot waiting
         cfg.IntOpt('boot_timeout', default=240)
     ])
+
+    cfg.CONF.register_opts(metadata.metadata_opts)
 
     AGENT_OPTIONS = [
         cfg.StrOpt('root_helper', default='sudo'),
@@ -145,6 +148,14 @@ def main(argv=sys.argv[1:]):
     )
     notification_proc.start()
 
+    mgt_ip_address = quantum_api.get_local_service_ip(cfg.CONF).split('/')[0]
+    metadata_proc = multiprocessing.Process(
+        target=metadata.serve,
+        args=(mgt_ip_address,),
+        name='metadata-proxy'
+    )
+    metadata_proc.start()
+
     # Set up the notifications publisher
     publisher = notifications.Publisher(
         cfg.CONF.amqp_url,
@@ -187,5 +198,6 @@ def main(argv=sys.argv[1:]):
 
     # Terminate the listening process
     notification_proc.terminate()
+    metadata_proc.terminate()
 
     LOG.info('exiting')
