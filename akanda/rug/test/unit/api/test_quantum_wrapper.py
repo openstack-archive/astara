@@ -39,7 +39,7 @@ class TestQuantumModels(unittest.TestCase):
             'name': 'name',
             'admin_state_up': True,
             'ports': [p],
-            'floatingips': [fip]
+            '_floatingips': [fip]
         }
 
         r = quantum.Router.from_dict(d)
