@@ -109,7 +109,7 @@ class MetadataProxyHandler(object):
             raise Exception('Unexpected response code: %s' % resp.status)
 
     def _sign_instance_id(self, instance_id):
-        return hmac.new(cfg.CONF.neutrom_metadata_proxy_shared_secret,
+        return hmac.new(cfg.CONF.neutron_metadata_proxy_shared_secret,
                         instance_id,
                         hashlib.sha256).hexdigest()
 
