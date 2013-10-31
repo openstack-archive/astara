@@ -63,7 +63,7 @@ class Router(object):
             elif port.device_owner == DEVICE_OWNER_ROUTER_INT:
                 internal_ports.append(port)
 
-        fips = [FloatingIP.from_dict(fip) for fip in d.get('floatingips', [])]
+        fips = [FloatingIP.from_dict(fip) for fip in d.get('_floatingips', [])]
 
         return cls(
             d['id'],
