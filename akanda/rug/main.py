@@ -104,14 +104,35 @@ def register_and_load_opts(argv):
         cfg.StrOpt('rpc-exchange',
                    default='l3_agent_fanout',
                    help='name of the exchange where we receive RPC calls'),
+
+        # These should stay as cli opts
+        cfg.BoolOpt('debug',
+                    short='d',
+                    default=False,
+                    help='Print debugging output (set logging level to '
+                    'DEBUG instead of default WARNING level).'),
+        cfg.BoolOpt('verbose',
+                    short='v',
+                    default=False,
+                    help='Print more verbose output (set logging level to '
+                    'INFO instead of default WARNING level).'),
     ])
+
     cfg.CONF(argv, project='akanda')
 
 
 def main(argv=sys.argv[1:]):
     register_and_load_opts(argv)
+
+    if cfg.CONF.debug:
+        level = logging.DEBUG
+    elif cfg.CONF.verbose:
+        level = logging.INFO
+    else:
+        level = logging.WARNING
+
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=level,
         format=':'.join('%(' + n + ')s'
                         for n in ['asctime',
                                   'processName',
