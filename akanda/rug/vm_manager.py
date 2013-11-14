@@ -59,7 +59,7 @@ class VmManager(object):
 
         self._ensure_provider_ports(self.router_obj)
 
-        self.log.info('Booting router')
+        self.log.debug('Booting router')
         nova_client = nova.Nova(cfg.CONF)
         self.state = DOWN
 
@@ -81,7 +81,7 @@ class VmManager(object):
 
     def stop(self):
         self._ensure_cache()
-        self.log.info('Destroying router')
+        self.log.debug('Destroying router')
 
         nova_client = nova.Nova(cfg.CONF)
         nova_client.destroy_router_instance(self.router_obj)
@@ -154,12 +154,12 @@ class VmManager(object):
 
     def _ensure_provider_ports(self, router):
         if router.management_port is None:
-            self.log.info('Adding management port to router')
+            self.log.debug('Adding management port to router')
             mgt_port = self.quantum.create_router_management_port(router.id)
             router.management_port = mgt_port
 
         if router.external_port is None:
-            self.log.info('Adding external port to router')
+            self.log.debug('Adding external port to router')
             ext_port = self.quantum.create_router_external_port(router)
             router.external_port = ext_port
         return router
