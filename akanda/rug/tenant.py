@@ -81,7 +81,7 @@ class TenantRouterManager(object):
                 )
 
     def _report_bandwidth(self, router_id, bandwidth):
-        LOG.info('reporting bandwidth for %s', router_id)
+        LOG.debug('reporting bandwidth for %s', router_id)
         msg = {
             'tenant_id': self.tenant_id,
             'timestamp': timeutils.isotime(),
@@ -98,7 +98,6 @@ class TenantRouterManager(object):
         router_id = message.router_id
         if not router_id:
             if self._default_router_id is None:
-                LOG.debug('looking up router for tenant %s', message.tenant_id)
                 #TODO(mark): handle muliple router lookup
                 router = self.quantum.get_router_for_tenant(message.tenant_id)
                 if not router:

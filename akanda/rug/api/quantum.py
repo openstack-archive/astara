@@ -424,9 +424,9 @@ class Quantum(object):
 
         if ports:
             port = Port.from_dict(ports[0])
-            LOG.info('already have ports, using %r', port)
+            LOG.info('already have local service port, using %r', port)
         else:
-            LOG.info('creating a new port')
+            LOG.info('creating a new local service port')
             # create the missing local port
             port_dict = dict(
                 admin_state_up=True,
@@ -441,7 +441,7 @@ class Quantum(object):
 
             port = Port.from_dict(
                 self.api_client.create_port(dict(port=port_dict))['port'])
-            LOG.info('new port: %r', port)
+            LOG.info('new local service port: %r', port)
 
         # create the tap interface if it doesn't already exist
         if not ip_lib.device_exists(driver.get_device_name(port)):
