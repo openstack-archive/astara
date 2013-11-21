@@ -59,7 +59,7 @@ class VmManager(object):
 
         self._ensure_provider_ports(self.router_obj)
 
-        self.log.debug('Booting router')
+        self.log.info('Booting router')
         nova_client = nova.Nova(cfg.CONF)
         self.state = DOWN
 
@@ -81,7 +81,7 @@ class VmManager(object):
 
     def stop(self):
         self._ensure_cache()
-        self.log.debug('Destroying router')
+        self.log.info('Destroying router')
 
         nova_client = nova.Nova(cfg.CONF)
         nova_client.destroy_router_instance(self.router_obj)
@@ -132,7 +132,7 @@ class VmManager(object):
                 time.sleep(i + 1)
             else:
                 self.state = CONFIGURED
-                self.log.debug('Router config updated')
+                self.log.info('Router config updated')
                 return
 
     def _ensure_cache(self):
