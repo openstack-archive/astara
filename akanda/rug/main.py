@@ -9,6 +9,7 @@ from oslo.config import cfg
 
 from akanda.rug import event
 from akanda.rug import health
+from akanda.rug.openstack.common import log
 from akanda.rug import metadata
 from akanda.rug import notifications
 from akanda.rug import scheduler
@@ -16,7 +17,7 @@ from akanda.rug import populate
 from akanda.rug import worker
 from akanda.rug.api import quantum as quantum_api
 
-LOG = logging.getLogger(__name__)
+LOG = log.getLogger(__name__)
 
 
 def shuffle_notifications(notification_queue, sched):
@@ -37,6 +38,31 @@ def shuffle_notifications(notification_queue, sched):
 
 
 def register_and_load_opts(argv):
+
+    # Set the logging format to include the process and thread, since
+    # those aren't included in standard openstack logs but are useful
+    # for the rug
+    log_format = ':'.join('%(' + n + ')s'
+                          for n in ['asctime',
+                                    'levelname',
+                                    'name',
+                                    'processName',
+                                    'threadName',
+                                    'message'])
+    log.set_defaults(log_format)
+
+    # Configure the default log levels for some third-party packages
+    # that are chatty
+    cfg.set_defaults(log.log_opts,
+                     default_log_levels=['amqplib=WARN',
+                                         'qpid.messaging=INFO',
+                                         'sqlalchemy=WARN',
+                                         'keystoneclient=INFO',
+                                         'stevedore=INFO',
+                                         'eventlet.wsgi.server=WARN',
+                                         'requests=WARN',
+                                         ])
+
     cfg.CONF.register_opts([
         cfg.StrOpt('host',
                    default=socket.getfqdn(),
@@ -104,18 +130,6 @@ def register_and_load_opts(argv):
         cfg.StrOpt('rpc-exchange',
                    default='l3_agent_fanout',
                    help='name of the exchange where we receive RPC calls'),
-
-        # These should stay as cli opts
-        cfg.BoolOpt('debug',
-                    short='d',
-                    default=False,
-                    help='Print debugging output (set logging level to '
-                    'DEBUG instead of default WARNING level).'),
-        cfg.BoolOpt('verbose',
-                    short='v',
-                    default=False,
-                    help='Print more verbose output (set logging level to '
-                    'INFO instead of default WARNING level).'),
     ])
 
     cfg.CONF(argv, project='akanda')
@@ -124,23 +138,8 @@ def register_and_load_opts(argv):
 def main(argv=sys.argv[1:]):
     register_and_load_opts(argv)
 
-    if cfg.CONF.debug:
-        level = logging.DEBUG
-    elif cfg.CONF.verbose:
-        level = logging.INFO
-    else:
-        level = logging.WARNING
-
-    logging.basicConfig(
-        level=level,
-        format=':'.join('%(' + n + ')s'
-                        for n in ['asctime',
-                                  'processName',
-                                  'threadName',
-                                  'name',
-                                  'levelname',
-                                  'message']),
-    )
+    log.setup('akanda-rug')
+    cfg.CONF.log_opt_values(LOG, logging.INFO)
 
     # Purge the mgt tap interface on startup
     quantum = quantum_api.Quantum(cfg.CONF)
