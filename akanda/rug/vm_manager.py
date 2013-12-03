@@ -13,8 +13,6 @@ UP = 'up'
 CONFIGURED = 'configured'
 RESTART = 'restart'
 
-MAX_RETRIES = 3
-RETRY_DELAY = 1
 
 
 class VmManager(object):
@@ -35,7 +33,7 @@ class VmManager(object):
             return self.state
 
         addr = _get_management_address(self.router_obj)
-        for i in xrange(MAX_RETRIES):
+        for i in xrange(cfg.CONF.max_retries):
             try:
                 if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
                     if self.state != CONFIGURED:
@@ -46,9 +44,9 @@ class VmManager(object):
                     self.log.exception(
                         'Alive check failed. Attempt %d of %d',
                         i,
-                        MAX_RETRIES
+                        cfg.CONF.max_retries
                     )
-                time.sleep(RETRY_DELAY)
+                time.sleep(cfg.CONF.retry_delay)
         else:
             self.state = DOWN
 
@@ -92,7 +90,7 @@ class VmManager(object):
                 self.state = DOWN
                 return
             self.log.debug('Router has not finished stopping')
-            time.sleep(RETRY_DELAY)
+            time.sleep(cfg.CONF.retry_delay)
         self.log.error(
             'Router failed to stop within %d secs',
             cfg.CONF.boot_timeout)
@@ -120,7 +118,7 @@ class VmManager(object):
             interfaces
         )
 
-        for i in xrange(MAX_RETRIES):
+        for i in xrange(cfg.CONF.max_retries):
             try:
                 router_api.update_config(
                     addr,
