@@ -127,7 +127,7 @@ class VmManager(object):
                 )
             except Exception:
                 self.log.exception('failed to update config')
-                time.sleep(i + 1)
+                time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
                 self.log.info('Router config updated')
