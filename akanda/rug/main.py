@@ -92,7 +92,9 @@ def register_and_load_opts(argv):
         cfg.IntOpt('network_device_mtu'),
 
         # needed for boot waiting
-        cfg.IntOpt('boot_timeout', default=240)
+        cfg.IntOpt('boot_timeout', default=240),
+        cfg.IntOpt('max_retries', default=3),
+        cfg.IntOpt('retry_delay', default=1)
     ])
 
     cfg.CONF.register_opts(metadata.metadata_opts)
