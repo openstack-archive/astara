@@ -13,6 +13,7 @@ class TestVmManager(unittest.TestCase):
         self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
         self.conf.boot_timeout = 1
         self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
         self.addCleanup(mock.patch.stopall)
 
         self.log = mock.Mock()

@@ -4,6 +4,7 @@ import unittest2 as unittest
 
 from akanda.rug import event
 from akanda.rug import notifications
+from akanda.rug import vm_manager
 from akanda.rug import worker
 
 
@@ -12,6 +13,14 @@ class TestWorkerCreatingRouter(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum):
         super(TestWorkerCreatingRouter, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        self.addCleanup(mock.patch.stopall)
+
         self.w = worker.Worker(0, mock.Mock())
         self.tenant_id = '1234'
         self.router_id = '5678'
@@ -46,6 +55,14 @@ class TestWorkerWildcardMessages(unittest.TestCase):
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def setUp(self, quantum):
         super(TestWorkerWildcardMessages, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        self.addCleanup(mock.patch.stopall)
+
         self.w = worker.Worker(0, mock.Mock())
         # Create some tenants
         for msg in [
@@ -105,6 +122,17 @@ class TestWorkerShutdown(unittest.TestCase):
 
 
 class TestWorkerUpdateStateMachine(unittest.TestCase):
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def setUp(self, quantum):
+        super(TestWorkerUpdateStateMachine, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        self.addCleanup(mock.patch.stopall)
 
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def test(self, quantum):
