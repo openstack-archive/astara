@@ -2,6 +2,7 @@
 """
 
 import logging
+import os
 import Queue
 import threading
 
@@ -18,7 +19,8 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads, notifier):
+    def __init__(self, num_threads, notifier, ignore_directory=None):
+        self._ignore_directory = ignore_directory
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -109,6 +111,15 @@ class Worker(object):
             )
         return [self.tenant_managers[target]]
 
+    def _get_routers_to_ignore(self):
+        ignores = []
+        try:
+            if self._ignore_directory:
+                ignores = os.listdir(self._ignore_directory)
+        except OSError:
+            pass
+        return set(ignores)
+
     def handle_message(self, target, message):
         """Callback to be used in main
         """
@@ -120,11 +131,18 @@ class Worker(object):
         if target == 'debug' and message.body['verbose'] == 1:
             self.report_status()
             return
+        to_ignore = self._get_routers_to_ignore()
         with self.lock:
             trms = self._get_trms(target)
             for trm in trms:
                 sms = trm.get_state_machines(message)
                 for sm in sms:
+                    if sm.router_id in to_ignore:
+                        LOG.info(
+                            'Ignoring message intended for %s: %s',
+                            sm.router_id, message,
+                        )
+                        continue
                     if sm.router_id not in self.being_updated:
                         # Queue up the state machine by router id.
                         # No work should be picked up, because we

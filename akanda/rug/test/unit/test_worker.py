@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import mock
 
 import unittest2 as unittest
@@ -173,3 +176,65 @@ class TestWorkerReportStatus(unittest.TestCase):
                 event.Event('debug', '', event.POLL, {'verbose': 1})
             )
             meth.assert_called_once_with()
+
+
+class TestWorkerIgnoreRouters(unittest.TestCase):
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def setUp(self, quantum):
+        super(TestWorkerIgnoreRouters, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        self.addCleanup(mock.patch.stopall)
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def testNoIgnorePath(self, quantum):
+        w = worker.Worker(0, mock.Mock(), ignore_directory=None)
+        ignored = w._get_routers_to_ignore()
+        self.assertEqual(set(), ignored)
+
+    def testWithoutIgnores(self):
+        tmpdir = tempfile.mkdtemp()
+        self.addCleanup(lambda: os.rmdir(tmpdir))
+        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
+        ignored = w._get_routers_to_ignore()
+        self.assertEqual(set(), ignored)
+
+    def testWithIgnores(self):
+        tmpdir = tempfile.mkdtemp()
+        fullname = os.path.join(tmpdir, 'this-router-id')
+        with open(fullname, 'a'):
+            os.utime(fullname, None)
+        self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
+        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
+        ignored = w._get_routers_to_ignore()
+        self.assertEqual(set(['this-router-id']), ignored)
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def testIgnoring(self, quantum):
+        w = worker.Worker(0, mock.Mock())
+        m = mock.Mock()
+        m.return_value = set(['5678'])
+        w._get_routers_to_ignore = m
+
+        tenant_id = '1234'
+        router_id = '5678'
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        # Create the router manager and state machine so we can
+        # replace the send_message() method with a mock.
+        trm = w._get_trms(tenant_id)[0]
+        sm = trm.get_state_machines(msg)[0]
+        with mock.patch.object(sm, 'send_message') as meth:
+            # The router id is being ignored, so the send_message()
+            # method shouldn't ever be invoked.
+            meth.side_effect = AssertionError('send_message was called')
+            w.handle_message(tenant_id, msg)
