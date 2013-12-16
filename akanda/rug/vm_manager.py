@@ -34,19 +34,17 @@ class VmManager(object):
 
         addr = _get_management_address(self.router_obj)
         for i in xrange(cfg.CONF.max_retries):
-            try:
-                if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
-                    if self.state != CONFIGURED:
-                        self.state = UP
-                    break
-            except:
-                if not silent:
-                    self.log.exception(
-                        'Alive check failed. Attempt %d of %d',
-                        i,
-                        cfg.CONF.max_retries
-                    )
-                time.sleep(cfg.CONF.retry_delay)
+            if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
+                if self.state != CONFIGURED:
+                    self.state = UP
+                break
+            if not silent:
+                self.log.debug(
+                    'Alive check failed. Attempt %d of %d',
+                    i,
+                    cfg.CONF.max_retries
+                )
+            time.sleep(cfg.CONF.retry_delay)
         else:
             self.state = DOWN
 
