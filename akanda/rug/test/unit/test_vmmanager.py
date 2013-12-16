@@ -58,6 +58,22 @@ class TestVmManager(unittest.TestCase):
             mock.call('fe80::beef', 5000)
         ])
 
+    @mock.patch('time.sleep')
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_update_state_retry_delay(self, get_mgt_addr, router_api, sleep):
+        self.update_state_p.stop()
+        get_mgt_addr.return_value = 'fe80::beef'
+        router_api.is_alive.side_effect = [False, False, True]
+        max_retries = 5
+        self.conf.max_retries = max_retries
+        self.vm_mgr.update_state(silent=False)
+        self.assertEqual(sleep.call_count, 2)
+        self.log.debug.assert_has_calls([
+            mock.call('Alive check failed. Attempt %d of %d', 0, max_retries),
+            mock.call('Alive check failed. Attempt %d of %d', 1, max_retries)
+        ])
+
     @mock.patch('akanda.rug.vm_manager._get_management_address')
     def test_update_state_no_mgt_port(self, get_mgt_addr):
         self.update_state_p.stop()
