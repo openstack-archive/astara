@@ -14,7 +14,6 @@ CONFIGURED = 'configured'
 RESTART = 'restart'
 
 
-
 class VmManager(object):
     def __init__(self, router_id, log):
         self.router_id = router_id

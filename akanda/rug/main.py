@@ -94,7 +94,14 @@ def register_and_load_opts(argv):
         # needed for boot waiting
         cfg.IntOpt('boot_timeout', default=240),
         cfg.IntOpt('max_retries', default=3),
-        cfg.IntOpt('retry_delay', default=1)
+        cfg.IntOpt('retry_delay', default=1),
+
+        cfg.StrOpt(
+            'ignored_router_directory',
+            default='/etc/akanda-rug/ignored',
+            help='Directory to scan for routers to ignore for debugging',
+        ),
+
     ])
 
     cfg.CONF.register_opts(metadata.metadata_opts)
@@ -191,6 +198,7 @@ def main(argv=sys.argv[1:]):
         worker.Worker,
         num_threads=cfg.CONF.num_worker_threads,
         notifier=publisher,
+        ignore_directory=cfg.CONF.ignored_router_directory,
     )
 
     # Set up the scheduler that knows how to manage the routers and

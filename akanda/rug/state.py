@@ -1,5 +1,9 @@
 """State machine for managing a router.
+
 """
+
+# See state machine diagram and description:
+# https://docs.google.com/a/dreamhost.com/document/d/1Ed5wDqCHW-CUt67ufjOUq4uYj0ECS5PweHxoueUoYUI/edit # noqa
 
 import collections
 import logging
