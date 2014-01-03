@@ -135,7 +135,11 @@ class VmManager(object):
                     config
                 )
             except Exception:
-                self.log.exception('failed to update config')
+                if i == cfg.CONF.max_retries - 1:
+                    # Only log the traceback if we encounter it many times.
+                    self.log.exception('failed to update config')
+                else:
+                    self.log.debug('failed to update config')
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
