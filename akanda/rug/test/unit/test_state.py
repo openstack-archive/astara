@@ -212,8 +212,16 @@ class TestConfigureVMState(BaseTestStateCase):
         )
         self.vm.configure.assert_called_once_with()
 
-    def test_transition_not_configured(self):
+    def test_transition_not_configured_down(self):
         self._test_transition_hlpr(event.READ, state.StopVM, vm_manager.DOWN)
+
+    def test_transition_not_configured_restart(self):
+        self._test_transition_hlpr(event.READ, state.StopVM,
+                                   vm_manager.RESTART)
+
+    def test_transition_not_configured_up(self):
+        self._test_transition_hlpr(event.READ, state.PushUpdate,
+                                   vm_manager.UP)
 
     def test_transition_read_configured(self):
         self._test_transition_hlpr(

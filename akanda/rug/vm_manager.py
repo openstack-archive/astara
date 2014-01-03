@@ -50,6 +50,8 @@ class VmManager(object):
         return self.state
 
     def boot(self):
+        # FIXME: Modify _ensure_cache() so we can call it with a force
+        # flag instead of bypassing it.
         self.router_obj = self.quantum.get_router_detail(self.router_id)
 
         self._ensure_provider_ports(self.router_obj)
@@ -96,19 +98,29 @@ class VmManager(object):
         self.log.debug('Begin router config')
         self.state = UP
 
+        # FIXME: This might raise an error, which doesn't mean the
+        # *router* is broken, but does mean we can't update it.
+        # Change the exception to something the caller can catch
+        # safely.
         self.router_obj = self.quantum.get_router_detail(self.router_id)
 
         addr = _get_management_address(self.router_obj)
 
+        # FIXME: This should raise an explicit exception so the caller
+        # knows that we could not talk to the router (versus the issue
+        # above).
         interfaces = router_api.get_interfaces(
             addr,
             cfg.CONF.akanda_mgt_service_port
         )
 
         if not self._verify_interfaces(self.router_obj, interfaces):
+            # FIXME: Need a REPLUG state when we support hot-plugging
+            # interfaces.
             self.state = RESTART
             return
 
+        # FIXME: Need to catch errors talking to neutron here.
         config = configuration.build_config(
             self.quantum,
             self.router_obj,
@@ -123,12 +135,20 @@ class VmManager(object):
                     config
                 )
             except Exception:
-                self.log.exception('failed to update config')
+                if i == cfg.CONF.max_retries - 1:
+                    # Only log the traceback if we encounter it many times.
+                    self.log.exception('failed to update config')
+                else:
+                    self.log.debug('failed to update config')
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
                 self.log.info('Router config updated')
                 return
+        else:
+            # FIXME: We failed to configure the router too many times,
+            # so restart it.
+            self.state = RESTART
 
     def _ensure_cache(self):
         if self.router_obj:
@@ -154,6 +174,8 @@ class VmManager(object):
             router.management_port = mgt_port
 
         if router.external_port is None:
+            # FIXME: Need to do some work to pick the right external
+            # network for a tenant.
             self.log.debug('Adding external port to router')
             ext_port = self.quantum.create_router_external_port(router)
             router.external_port = ext_port

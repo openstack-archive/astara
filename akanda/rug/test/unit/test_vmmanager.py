@@ -194,7 +194,7 @@ class TestVmManager(unittest.TestCase):
                 mock.call('fe80::beef', 5000, config.return_value),
                 mock.call('fe80::beef', 5000, config.return_value),
             ])
-            self.assertEqual(self.vm_mgr.state, vm_manager.UP)
+            self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
 
     def test_ensure_cache(self):
         rtr = {'id': 'the_id'}
