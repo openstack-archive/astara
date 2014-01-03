@@ -145,6 +145,10 @@ class VmManager(object):
                 self.state = CONFIGURED
                 self.log.info('Router config updated')
                 return
+        else:
+            # FIXME: We failed to configure the router too many times,
+            # so restart it.
+            self.state = RESTART
 
     def _ensure_cache(self):
         if self.router_obj:

@@ -61,6 +61,17 @@ class CalcAction(State):
             return Alive(self.log)
 
 
+class PushUpdate(State):
+    """Put an update instruction on the queue for the state machine.
+    """
+    def execute(self, action, vm, queue):
+        # Put the action back on the front of the queue.
+        queue.appendleft(UPDATE)
+
+    def transition(self, action, vm):
+        return CalcAction(self.log)
+
+
 class Alive(State):
     def execute(self, action, vm):
         vm.update_state()
@@ -119,12 +130,14 @@ class ConfigureVM(State):
             return action
 
     def transition(self, action, vm):
-        if vm.state != vm_manager.CONFIGURED:
+        if vm.state in (vm_manager.RESTART, vm_manager.DOWN):
             return StopVM(self.log)
-        elif action == READ:
+        if vm.state == vm_manager.UP:
+            return PushUpdate(self.log)
+        # Below here, assume vm.state == vm_manager.CONFIGURED
+        if action == READ:
             return ReadStats(self.log)
-        else:
-            return CalcAction(self.log)
+        return CalcAction(self.log)
 
 
 class ReadStats(State):
@@ -196,7 +209,7 @@ class Automaton(object):
                 try:
                     additional_args = ()
 
-                    if isinstance(self.state, CalcAction):
+                    if isinstance(self.state, (CalcAction, PushUpdate)):
                         additional_args = (self._queue,)
                     elif isinstance(self.state, ReadStats):
                         additional_args = (self.bandwidth_callback,)
@@ -207,7 +220,7 @@ class Automaton(object):
                         self.action,
                         self.vm,
                         *additional_args
-                        )
+                    )
                     self.log.debug('execute for %r returned next action %r',
                                    self.vm, self.action)
                 except:
