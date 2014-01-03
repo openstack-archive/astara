@@ -13,7 +13,9 @@ setup(
         'httplib2>=0.7.2',
         'python-neutronclient>=2.1',
         'oslo.config',
-        'kombu>=2.4.8'
+        'kombu>=2.4.8',
+        'webob',
+        'python-novaclient',
     ],
     namespace_packages=['akanda'],
     packages=find_packages(exclude=['test']),
@@ -22,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'akanda-rug-service=akanda.rug.main:main',
+            'akanda-debug-router=akanda.rug.debug:debug_one_router',
         ]
     },
 )

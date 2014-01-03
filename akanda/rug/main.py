@@ -141,11 +141,10 @@ def register_and_load_opts(argv):
                    help='name of the exchange where we receive RPC calls'),
     ])
 
-    cfg.CONF(argv, project='akanda')
-
 
 def main(argv=sys.argv[1:]):
     register_and_load_opts(argv)
+    cfg.CONF(argv, project='akanda')
 
     log.setup('akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
