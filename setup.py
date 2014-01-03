@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'akanda-rug-service=akanda.rug.main:main',
+            'akanda-debug-router=akanda.rug.debug:debug_one_router',
         ]
     },
 )
