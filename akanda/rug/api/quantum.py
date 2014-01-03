@@ -396,6 +396,7 @@ class Quantum(object):
         self.api_client.remove_interface_router(router_id, args)
 
     def create_router_external_port(self, router):
+        # FIXME: Need to make this smarter in case the switch is full.
         network_args = {'network_id': self.conf.external_network_id}
         update_args = {
             'name': router.name,
