@@ -118,16 +118,16 @@ class MetadataProxy(object):
     def __init__(self):
         self.pool = eventlet.GreenPool(1000)
 
-    def run(self, ip_address):
+    def run(self, ip_address, port=RUG_META_PORT):
         app = MetadataProxyHandler()
         for i in xrange(5):
             LOG.info(
                 'Starting the metadata proxy on %s/%s',
-                ip_address, RUG_META_PORT,
+                ip_address, port,
             )
             try:
                 sock = eventlet.listen(
-                    (ip_address, RUG_META_PORT),
+                    (ip_address, port),
                     family=socket.AF_INET6,
                     backlog=128
                 )
@@ -142,7 +142,7 @@ class MetadataProxy(object):
         else:
             raise RuntimeError(
                 'Could not establish metadata proxy socket on %s/%s' %
-                (ip_address, RUG_META_PORT)
+                (ip_address, port)
             )
         eventlet.wsgi.server(
             sock,
