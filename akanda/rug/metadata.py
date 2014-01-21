@@ -74,7 +74,8 @@ class MetadataProxyHandler(object):
         headers = {
             'X-Forwarded-For': req.headers.get('X-Forwarded-For'),
             'X-Instance-ID': instance_id,
-            'X-Instance-ID-Signature': self._sign_instance_id(instance_id)
+            'X-Instance-ID-Signature': self._sign_instance_id(instance_id),
+            'X-Tenant-ID': req.headers.get('X-Tenant-ID')
         }
 
         url = urlparse.urlunsplit((

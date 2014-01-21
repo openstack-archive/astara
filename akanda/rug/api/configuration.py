@@ -35,7 +35,8 @@ def build_config(client, router, interfaces):
         'address_book': generate_address_book_config(client, router),
         'anchors': generate_anchor_config(client, provider_rules, router),
         'labels': provider_rules.get('labels', {}),
-        'floating_ips': generate_floating_config(router)
+        'floating_ips': generate_floating_config(router),
+        'tenant_id': router.tenant_id
     }
 
 
