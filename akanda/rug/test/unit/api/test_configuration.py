@@ -93,7 +93,8 @@ class TestAkandaClient(unittest.TestCase):
                 'labels': {'ext': ['192.168.1.1']},
                 'floating_ips': 'floating_config',
                 'asn': 64512,
-                'neighbor_asn': 64512
+                'neighbor_asn': 64512,
+                'tenant_id': 'tenant_id'
             }
 
             self.assertEqual(config, expected)
