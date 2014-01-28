@@ -1,5 +1,4 @@
 import mock
-import signal
 import unittest2 as unittest
 
 from akanda.rug import main
@@ -13,10 +12,9 @@ from akanda.rug import main
 @mock.patch('akanda.rug.main.populate')
 @mock.patch('akanda.rug.main.health')
 @mock.patch('akanda.rug.main.shuffle_notifications')
-@mock.patch('akanda.rug.main.signal.signal')
 class TestMainPippo(unittest.TestCase):
 
-    def test_shuffle_notifications(self, mock_signal, shuffle_notifications,
+    def test_shuffle_notifications(self, shuffle_notifications,
                                    health, populate, scheduler, notifications,
                                    multiprocessing, quantum_api, cfg):
         queue = mock.Mock()
@@ -29,14 +27,7 @@ class TestMainPippo(unittest.TestCase):
         sched.handle_message.assert_called_once('message')
         sched.stop.assert_called_once()
 
-    def test_sigusr1_handler(self, mock_signal, shuffle_notifications, health,
-                             populate, scheduler, notifications,
-                             multiprocessing, quantum_api, cfg):
-        main.main()
-        mock_signal.assert_called_once_with(signal.SIGUSR1, mock.ANY)
-
-    def test_ensure_local_service_port(self, mock_signal,
-                                       shuffle_notifications, health,
+    def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
                                        multiprocessing, quantum_api, cfg):
         main.main()

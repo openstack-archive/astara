@@ -1,13 +1,11 @@
 import functools
 import logging
 import multiprocessing
-import signal
 import socket
 import sys
 
 from oslo.config import cfg
 
-from akanda.rug import event
 from akanda.rug import health
 from akanda.rug.openstack.common import log
 from akanda.rug import metadata
@@ -95,12 +93,6 @@ def register_and_load_opts():
         cfg.IntOpt('boot_timeout', default=600),
         cfg.IntOpt('max_retries', default=3),
         cfg.IntOpt('retry_delay', default=1),
-
-        cfg.StrOpt(
-            'ignored_router_directory',
-            default='/etc/akanda-rug/ignored',
-            help='Directory to scan for routers to ignore for debugging',
-        ),
 
     ])
 
@@ -197,7 +189,6 @@ def main(argv=sys.argv[1:]):
         worker.Worker,
         num_threads=cfg.CONF.num_worker_threads,
         notifier=publisher,
-        ignore_directory=cfg.CONF.ignored_router_directory,
     )
 
     # Set up the scheduler that knows how to manage the routers and
@@ -206,14 +197,6 @@ def main(argv=sys.argv[1:]):
         num_workers=cfg.CONF.num_worker_processes,
         worker_factory=worker_factory,
     )
-
-    def debug_workers(signum, stack):
-        sched.handle_message(
-            'debug',
-            event.Event('debug', '', event.POLL, {'verbose': 1})
-        )
-
-    signal.signal(signal.SIGUSR1, debug_workers)
 
     # Prepopulate the workers with existing routers on startup
     populate.pre_populate_workers(sched)

@@ -39,7 +39,7 @@ def _get_tenant_id_for_message(message):
             # invalid.
             if val is not None:
                 return val
-    raise ValueError('No tenant id found in message')
+    return None
 
 
 _INTERESTING_NOTIFICATIONS = set([
@@ -77,9 +77,12 @@ def _make_event_from_message(message):
             crud = event.UPDATE
         elif event_type.endswith('.end'):
             crud = event.UPDATE
-        elif event_type.startswith('akanda.'):
-            # Silently ignore notifications we send ourself
-            return None
+        elif event_type.startswith('akanda.rug.command'):
+            LOG.debug('received a command: %r', message.get('payload'))
+            # If the message does not specify a tenant, send it to everyone
+            tenant_id = tenant_id or '*'
+            router_id = message.get('payload', {}).get('router_id')
+            crud = event.COMMAND
         else:
             # LOG.debug('ignoring message %r', message)
             return None
@@ -203,21 +206,79 @@ def listen(host_id, amqp_url,
     connection.release()
 
 
+class Sender(object):
+    "Send notification messages"
+
+    def __init__(self, amqp_url, exchange_name, topic):
+        self.amqp_url = amqp_url
+        self.exchange_name = exchange_name
+        self.topic = topic
+
+    def __enter__(self):
+        LOG.debug('setting up notification sender for %s to %s',
+                  self.topic, self.amqp_url)
+
+        # Pre-pack the context in the format used by
+        # openstack.common.rpc.amqp.pack_context(). Since we always
+        # use the same context, there is no reason to repack it every
+        # time we get a new message.
+        self._context = context.get_admin_context()
+        self._packed_context = dict(
+            ('_context_%s' % key, value)
+            for (key, value) in self._context.to_dict().iteritems()
+        )
+
+        # We expect to be created in one process and then used in
+        # another, so we delay creating any actual AMQP connections or
+        # other resources until we're going to use them.
+        conn_info = urlparse.urlparse(self.amqp_url)
+        self._connection = kombu.connection.BrokerConnection(
+            hostname=conn_info.hostname,
+            userid=conn_info.username,
+            password=conn_info.password,
+            virtual_host=conn_info.path,
+            port=conn_info.port,
+        )
+        self._connection.connect()
+        self._channel = self._connection.channel()
+
+        # Use the same exchange where we're receiving notifications
+        self._notifications_exchange = kombu.entity.Exchange(
+            name=self.exchange_name,
+            type='topic',
+            durable=False,
+            auto_delete=False,
+            internal=False,
+            channel=self._channel,
+        )
+
+        self._producer = kombu.Producer(
+            channel=self._channel,
+            exchange=self._notifications_exchange,
+            routing_key=self.topic,
+        )
+        return self
+
+    def __exit__(self, *args):
+        self._connection.release()
+
+    def send(self, incoming):
+        msg = {}
+        msg.update(incoming)
+        # Do the work of openstack.common.rpc.amqp._add_unique_id()
+        msg['_unique_id'] = uuid.uuid4().hex
+        # Add our context, in the way of
+        # openstack.common.rpc.amqp.pack_context()
+        msg.update(self._packed_context)
+        self._producer.publish(msg)
+
+
 class Publisher(object):
 
     def __init__(self, amqp_url, exchange_name, topic):
         self.amqp_url = amqp_url
         self.exchange_name = exchange_name
         self.topic = topic
-        self._context = context.get_admin_context()
-        # Pre-pack the context in the format used by
-        # openstack.common.rpc.amqp.pack_context(). Since we always
-        # use the same context, there is no reason to repack it every
-        # time we get a new message.
-        self._packed_context = dict(
-            ('_context_%s' % key, value)
-            for (key, value) in self._context.to_dict().iteritems()
-        )
         self._q = Queue.Queue()
         self._t = None
 
@@ -243,64 +304,23 @@ class Publisher(object):
             self._t = None
 
     def publish(self, incoming):
-        msg = {}
-        msg.update(incoming)
-        # Do the work of openstack.common.rpc.amqp._add_unique_id()
-        msg['_unique_id'] = uuid.uuid4().hex
-        # Add our context, in the way of
-        # openstack.common.rpc.amqp.pack_context()
-        msg.update(self._packed_context)
-        self._q.put(msg)
+        self._q.put(incoming)
 
     def _send(self, ready):
         """Deliver notification messages from the in-process queue
         to the appropriate topic via the AMQP service.
         """
-        LOG.debug('setting up notification publisher for %s to %s',
-                  self.topic, self.amqp_url)
+        with Sender(self.amqp_url, self.exchange_name, self.topic) as sender:
+            # Tell the start() method that we have set up the AMQP
+            # communication stuff and are ready to do some work.
+            ready.set()
 
-        # We expect to be created in one process and then used in
-        # another, so we delay creating any actual AMQP connections or
-        # other resources until we're going to use them.
-        conn_info = urlparse.urlparse(self.amqp_url)
-        connection = kombu.connection.BrokerConnection(
-            hostname=conn_info.hostname,
-            userid=conn_info.username,
-            password=conn_info.password,
-            virtual_host=conn_info.path,
-            port=conn_info.port,
-        )
-        connection.connect()
-        channel = connection.channel()
-
-        # Use the same exchange where we're receiving notifications
-        notifications_exchange = kombu.entity.Exchange(
-            name=self.exchange_name,
-            type='topic',
-            durable=False,
-            auto_delete=False,
-            internal=False,
-            channel=channel,
-        )
-
-        producer = kombu.Producer(
-            channel=channel,
-            exchange=notifications_exchange,
-            routing_key=self.topic,
-        )
-
-        # Tell the start() method that we have set up the AMQP
-        # communication stuff and are ready to do some work.
-        ready.set()
-
-        while True:
-            msg = self._q.get()
-            if msg is None:
-                break
-            LOG.debug('sending notification %r', msg)
-            try:
-                producer.publish(msg)
-            except Exception:
-                LOG.exception('could not publish notification')
-
-        connection.release()
+            while True:
+                msg = self._q.get()
+                if msg is None:
+                    break
+                LOG.debug('sending notification %r', msg)
+                try:
+                    sender.send(msg)
+                except Exception:
+                    LOG.exception('could not publish notification')

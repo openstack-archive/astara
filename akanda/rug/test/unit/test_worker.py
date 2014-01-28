@@ -1,10 +1,8 @@
-import os
-import tempfile
-
 import mock
 
 import unittest2 as unittest
 
+from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import notifications
 from akanda.rug import vm_manager
@@ -168,14 +166,23 @@ class TestWorkerUpdateStateMachine(unittest.TestCase):
 
 class TestWorkerReportStatus(unittest.TestCase):
 
-    def test_handle_message_report_status(self):
+    def test_report_status_dispatched(self):
         self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, 'report_status') as meth:
             self.w.handle_message(
                 'debug',
-                event.Event('debug', '', event.POLL, {'verbose': 1})
+                event.Event('*', '', event.COMMAND,
+                            {'payload': {'command': commands.WORKERS_DEBUG}})
             )
             meth.assert_called_once_with()
+
+    def test_handle_message_report_status(self):
+        self.w = worker.Worker(0, mock.Mock())
+        self.w.handle_message(
+            'debug',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.WORKERS_DEBUG}})
+        )
 
 
 class TestWorkerIgnoreRouters(unittest.TestCase):
@@ -191,35 +198,35 @@ class TestWorkerIgnoreRouters(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
         self.addCleanup(mock.patch.stopall)
 
-    @mock.patch('akanda.rug.api.quantum.Quantum')
-    def testNoIgnorePath(self, quantum):
-        w = worker.Worker(0, mock.Mock(), ignore_directory=None)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
-
-    def testWithoutIgnores(self):
-        tmpdir = tempfile.mkdtemp()
-        self.addCleanup(lambda: os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
+    def testNoIgnores(self):
+        w = worker.Worker(0, mock.Mock())
+        self.assertEqual(set(), w._ignore_routers)
 
     def testWithIgnores(self):
-        tmpdir = tempfile.mkdtemp()
-        fullname = os.path.join(tmpdir, 'this-router-id')
-        with open(fullname, 'a'):
-            os.utime(fullname, None)
-        self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(['this-router-id']), ignored)
+        w = worker.Worker(0, mock.Mock())
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.ROUTER_DEBUG,
+                                     'router_id': 'this-router-id'}}),
+        )
+        self.assertEqual(set(['this-router-id']), w._ignore_routers)
+
+    def testManage(self):
+        w = worker.Worker(0, mock.Mock())
+        w._ignore_routers = set(['this-router-id'])
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.ROUTER_MANAGE,
+                                     'router_id': 'this-router-id'}}),
+        )
+        self.assertEqual(set(), w._ignore_routers)
 
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def testIgnoring(self, quantum):
         w = worker.Worker(0, mock.Mock())
-        m = mock.Mock()
-        m.return_value = set(['5678'])
-        w._get_routers_to_ignore = m
+        w._ignore_routers = set(['5678'])
 
         tenant_id = '1234'
         router_id = '5678'
@@ -235,6 +242,68 @@ class TestWorkerIgnoreRouters(unittest.TestCase):
         sm = trm.get_state_machines(msg)[0]
         with mock.patch.object(sm, 'send_message') as meth:
             # The router id is being ignored, so the send_message()
+            # method shouldn't ever be invoked.
+            meth.side_effect = AssertionError('send_message was called')
+            w.handle_message(tenant_id, msg)
+
+
+class TestWorkerIgnoreTenants(unittest.TestCase):
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def setUp(self, quantum):
+        super(TestWorkerIgnoreTenants, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        self.addCleanup(mock.patch.stopall)
+
+    def testNoIgnores(self):
+        w = worker.Worker(0, mock.Mock())
+        self.assertEqual(set(), w._ignore_tenants)
+
+    def testWithIgnores(self):
+        w = worker.Worker(0, mock.Mock())
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.TENANT_DEBUG,
+                                     'tenant_id': 'this-tenant-id'}}),
+        )
+        self.assertEqual(set(['this-tenant-id']), w._ignore_tenants)
+
+    def testManage(self):
+        w = worker.Worker(0, mock.Mock())
+        w._ignore_tenants = set(['this-tenant-id'])
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.TENANT_MANAGE,
+                                     'tenant_id': 'this-tenant-id'}}),
+        )
+        self.assertEqual(set(), w._ignore_tenants)
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def testIgnoring(self, quantum):
+        w = worker.Worker(0, mock.Mock())
+        w._ignore_tenants = set(['1234'])
+
+        tenant_id = '1234'
+        router_id = '5678'
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        # Create the router manager and state machine so we can
+        # replace the send_message() method with a mock.
+        trm = w._get_trms(tenant_id)[0]
+        sm = trm.get_state_machines(msg)[0]
+        with mock.patch.object(sm, 'send_message') as meth:
+            # The tenant id is being ignored, so the send_message()
             # method shouldn't ever be invoked.
             meth.side_effect = AssertionError('send_message was called')
             w.handle_message(tenant_id, msg)

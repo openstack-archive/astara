@@ -16,6 +16,7 @@ setup(
         'kombu>=2.4.8',
         'webob',
         'python-novaclient',
+        'cliff',
     ],
     namespace_packages=['akanda'],
     packages=find_packages(exclude=['test']),
@@ -25,6 +26,14 @@ setup(
         'console_scripts': [
             'akanda-rug-service=akanda.rug.main:main',
             'akanda-debug-router=akanda.rug.debug:debug_one_router',
-        ]
+            'rug-ctl=akanda.rug.cli.main:main',
+        ],
+        'akanda.rug.cli': [
+            'router debug=akanda.rug.cli.router:RouterDebug',
+            'router manage=akanda.rug.cli.router:RouterManage',
+            'tenant debug=akanda.rug.cli.tenant:TenantDebug',
+            'tenant manage=akanda.rug.cli.tenant:TenantManage',
+            'workers debug=akanda.rug.cli.worker:WorkerDebug',
+        ],
     },
 )
