@@ -245,3 +245,65 @@ class TestWorkerIgnoreRouters(unittest.TestCase):
             # method shouldn't ever be invoked.
             meth.side_effect = AssertionError('send_message was called')
             w.handle_message(tenant_id, msg)
+
+
+class TestWorkerIgnoreTenants(unittest.TestCase):
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def setUp(self, quantum):
+        super(TestWorkerIgnoreTenants, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        self.addCleanup(mock.patch.stopall)
+
+    def testNoIgnores(self):
+        w = worker.Worker(0, mock.Mock())
+        self.assertEqual(set(), w._ignore_tenants)
+
+    def testWithIgnores(self):
+        w = worker.Worker(0, mock.Mock())
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.TENANT_DEBUG,
+                                     'tenant_id': 'this-tenant-id'}}),
+        )
+        self.assertEqual(set(['this-tenant-id']), w._ignore_tenants)
+
+    def testManage(self):
+        w = worker.Worker(0, mock.Mock())
+        w._ignore_tenants = set(['this-tenant-id'])
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.TENANT_MANAGE,
+                                     'tenant_id': 'this-tenant-id'}}),
+        )
+        self.assertEqual(set(), w._ignore_tenants)
+
+    @mock.patch('akanda.rug.api.quantum.Quantum')
+    def testIgnoring(self, quantum):
+        w = worker.Worker(0, mock.Mock())
+        w._ignore_tenants = set(['1234'])
+
+        tenant_id = '1234'
+        router_id = '5678'
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        # Create the router manager and state machine so we can
+        # replace the send_message() method with a mock.
+        trm = w._get_trms(tenant_id)[0]
+        sm = trm.get_state_machines(msg)[0]
+        with mock.patch.object(sm, 'send_message') as meth:
+            # The tenant id is being ignored, so the send_message()
+            # method shouldn't ever be invoked.
+            meth.side_effect = AssertionError('send_message was called')
+            w.handle_message(tenant_id, msg)

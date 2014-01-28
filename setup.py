@@ -31,6 +31,8 @@ setup(
         'akanda.rug.cli': [
             'router debug=akanda.rug.cli.router:RouterDebug',
             'router manage=akanda.rug.cli.router:RouterManage',
+            'tenant debug=akanda.rug.cli.tenant:TenantDebug',
+            'tenant manage=akanda.rug.cli.tenant:TenantManage',
             'workers debug=akanda.rug.cli.worker:WorkerDebug',
         ],
     },

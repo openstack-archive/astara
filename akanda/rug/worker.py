@@ -138,20 +138,27 @@ class Worker(object):
 
         elif instructions['command'] == commands.ROUTER_DEBUG:
             router_id = instructions['router_id']
-            LOG.info(
-                'Placing router %s in debug mode',
-                router_id,
-            )
+            LOG.info('Placing router %s in debug mode', router_id)
             self._ignore_routers.add(router_id)
 
         elif instructions['command'] == commands.ROUTER_MANAGE:
             router_id = instructions['router_id']
-            LOG.info(
-                'Resuming management of router %s',
-                router_id,
-            )
             try:
                 self._ignore_routers.remove(router_id)
+                LOG.info('Resuming management of router %s', router_id)
+            except KeyError:
+                pass
+
+        elif instructions['command'] == commands.TENANT_DEBUG:
+            tenant_id = instructions['tenant_id']
+            LOG.info('Placing tenant %s in debug mode', tenant_id)
+            self._ignore_tenants.add(tenant_id)
+
+        elif instructions['command'] == commands.TENANT_MANAGE:
+            tenant_id = instructions['tenant_id']
+            try:
+                self._ignore_tenants.remove(tenant_id)
+                LOG.info('Resuming management of tenant %s', tenant_id)
             except KeyError:
                 pass
 
