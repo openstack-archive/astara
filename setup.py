@@ -28,5 +28,8 @@ setup(
             'akanda-debug-router=akanda.rug.debug:debug_one_router',
             'rug-ctl=akanda.rug.cli.main:main',
         ],
+        'akanda.rug.cli': [
+            'workers debug=akanda.rug.cli.worker:WorkerDebug',
+        ],
     },
 )

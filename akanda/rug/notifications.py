@@ -39,7 +39,7 @@ def _get_tenant_id_for_message(message):
             # invalid.
             if val is not None:
                 return val
-    raise ValueError('No tenant id found in message')
+    return None
 
 
 _INTERESTING_NOTIFICATIONS = set([
@@ -77,9 +77,12 @@ def _make_event_from_message(message):
             crud = event.UPDATE
         elif event_type.endswith('.end'):
             crud = event.UPDATE
-        elif event_type.startswith('akanda.'):
-            # Silently ignore notifications we send ourself
-            return None
+        elif event_type.startswith('akanda.rug.command'):
+            LOG.debug('received a command: %r', message.get('payload'))
+            # If the message does not specify a tenant, send it to everyone
+            tenant_id = tenant_id or '*'
+            router_id = message.get('payload', {}).get('router_id')
+            crud = event.COMMAND
         else:
             # LOG.debug('ignoring message %r', message)
             return None

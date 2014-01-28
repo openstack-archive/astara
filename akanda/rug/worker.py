@@ -6,6 +6,7 @@ import os
 import Queue
 import threading
 
+from akanda.rug import event
 from akanda.rug import tenant
 
 LOG = logging.getLogger(__name__)
@@ -128,8 +129,10 @@ class Worker(object):
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
-        if target == 'debug' and message.body['verbose'] == 1:
-            self.report_status()
+        if message.crud == event.COMMAND:
+            instructions = message.body['payload']
+            if instructions['command'] == 'debug workers':
+                self.report_status()
             return
         to_ignore = self._get_routers_to_ignore()
         with self.lock:

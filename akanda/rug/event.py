@@ -13,3 +13,4 @@ READ = 'read'
 UPDATE = 'update'
 DELETE = 'delete'
 POLL = 'poll'
+COMMAND = 'command'  # an external command to be processed

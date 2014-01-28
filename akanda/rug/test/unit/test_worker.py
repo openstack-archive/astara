@@ -168,14 +168,23 @@ class TestWorkerUpdateStateMachine(unittest.TestCase):
 
 class TestWorkerReportStatus(unittest.TestCase):
 
-    def test_handle_message_report_status(self):
+    def test_report_status_dispatched(self):
         self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, 'report_status') as meth:
             self.w.handle_message(
                 'debug',
-                event.Event('debug', '', event.POLL, {'verbose': 1})
+                event.Event('*', '', event.COMMAND,
+                            {'payload': {'command': 'debug workers'}})
             )
             meth.assert_called_once_with()
+
+    def test_handle_message_report_status(self):
+        self.w = worker.Worker(0, mock.Mock())
+        self.w.handle_message(
+            'debug',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.WORKERS_DEBUG}})
+        )
 
 
 class TestWorkerIgnoreRouters(unittest.TestCase):
