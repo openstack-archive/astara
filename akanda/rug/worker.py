@@ -2,10 +2,10 @@
 """
 
 import logging
-import os
 import Queue
 import threading
 
+from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import tenant
 
@@ -20,8 +20,7 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads, notifier, ignore_directory=None):
-        self._ignore_directory = ignore_directory
+    def __init__(self, num_threads, notifier):
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -41,6 +40,9 @@ class Worker(object):
         # The notifier needs to be started here to ensure that it
         # happens inside the worker process and not the parent.
         self.notifier.start()
+        # Track the routers and tenants we are told to ignore
+        self._ignore_routers = set()
+        self._ignore_tenants = set()
 
     def _thread_target(self):
         """This method runs in each worker thread.
@@ -112,49 +114,76 @@ class Worker(object):
             )
         return [self.tenant_managers[target]]
 
-    def _get_routers_to_ignore(self):
-        ignores = []
-        try:
-            if self._ignore_directory:
-                ignores = os.listdir(self._ignore_directory)
-        except OSError:
-            pass
-        return set(ignores)
-
     def handle_message(self, target, message):
         """Callback to be used in main
         """
-        #LOG.debug('got: %s %r', target, message)
+        LOG.debug('got: %s %r', target, message)
         if target is None:
             # We got the shutdown instruction from our parent process.
             self._shutdown()
             return
         if message.crud == event.COMMAND:
-            instructions = message.body['payload']
-            if instructions['command'] == 'debug workers':
-                self.report_status()
+            self._dispatch_command(target, message)
+        else:
+            # This is an update command for the router, so deliver it
+            # to the state machine.
+            with self.lock:
+                self._deliver_message(target, message)
+
+    def _dispatch_command(self, target, message):
+        instructions = message.body['payload']
+
+        if instructions['command'] == commands.WORKERS_DEBUG:
+            self.report_status()
+
+        elif instructions['command'] == commands.ROUTER_DEBUG:
+            router_id = instructions['router_id']
+            LOG.info(
+                'Placing router %s in debug mode',
+                router_id,
+            )
+            self._ignore_routers.add(router_id)
+
+        elif instructions['command'] == commands.ROUTER_MANAGE:
+            router_id = instructions['router_id']
+            LOG.info(
+                'Resuming management of router %s',
+                router_id,
+            )
+            try:
+                self._ignore_routers.remove(router_id)
+            except KeyError:
+                pass
+
+        else:
+            LOG.warn('unrecognized command: %s', instructions)
+
+    def _deliver_message(self, target, message):
+        if target in self._ignore_tenants:
+            LOG.info(
+                'Ignoring message intended for tenant %s: %s',
+                target, message,
+            )
             return
-        to_ignore = self._get_routers_to_ignore()
-        with self.lock:
-            trms = self._get_trms(target)
-            for trm in trms:
-                sms = trm.get_state_machines(message)
-                for sm in sms:
-                    if sm.router_id in to_ignore:
-                        LOG.info(
-                            'Ignoring message intended for %s: %s',
-                            sm.router_id, message,
-                        )
-                        continue
-                    if sm.router_id not in self.being_updated:
-                        # Queue up the state machine by router id.
-                        # No work should be picked up, because we
-                        # have the lock, so it doesn't matter that
-                        # the queue is empty right now.
-                        self.work_queue.put(sm)
-                        self.being_updated.add(sm.router_id)
-                    # Add the message to the state machine's inbox
-                    sm.send_message(message)
+        trms = self._get_trms(target)
+        for trm in trms:
+            sms = trm.get_state_machines(message)
+            for sm in sms:
+                if sm.router_id in self._ignore_routers:
+                    LOG.info(
+                        'Ignoring message intended for %s: %s',
+                        sm.router_id, message,
+                    )
+                    continue
+                if sm.router_id not in self.being_updated:
+                    # Queue up the state machine by router id.
+                    # No work should be picked up, because we
+                    # have the lock, so it doesn't matter that
+                    # the queue is empty right now.
+                    self.work_queue.put(sm)
+                    self.being_updated.add(sm.router_id)
+                # Add the message to the state machine's inbox
+                sm.send_message(message)
 
     def report_status(self):
         LOG.debug(
@@ -169,3 +198,11 @@ class Worker(object):
             LOG.debug(
                 'Thread %s is %s',
                 thread.name, 'alive' if thread.isAlive() else 'DEAD')
+        for rid in sorted(self._ignore_routers):
+            LOG.debug('Debugging router: %s', rid)
+        if not self._ignore_routers:
+            LOG.debug('No routers in debug mode')
+        for tid in sorted(self._ignore_tenants):
+            LOG.debug('Debugging tenant: %s', tid)
+        if not self._ignore_tenants:
+            LOG.debug('No tenants in debug mode')

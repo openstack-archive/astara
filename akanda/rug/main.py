@@ -94,12 +94,6 @@ def register_and_load_opts(argv):
         cfg.IntOpt('max_retries', default=3),
         cfg.IntOpt('retry_delay', default=1),
 
-        cfg.StrOpt(
-            'ignored_router_directory',
-            default='/etc/akanda-rug/ignored',
-            help='Directory to scan for routers to ignore for debugging',
-        ),
-
     ])
 
     cfg.CONF.register_opts(metadata.metadata_opts)

@@ -2,6 +2,7 @@
 """
 import logging
 
+from akanda.rug import commands
 from akanda.rug.cli import message
 
 
@@ -15,5 +16,5 @@ class WorkerDebug(message.MessageSending):
             'sending worker debug instruction',
         )
         return {
-            'command': 'debug workers',
+            'command': commands.WORKERS_DEBUG,
         }

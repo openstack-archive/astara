@@ -1,10 +1,8 @@
-import os
-import tempfile
-
 import mock
 
 import unittest2 as unittest
 
+from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import notifications
 from akanda.rug import vm_manager
@@ -174,7 +172,7 @@ class TestWorkerReportStatus(unittest.TestCase):
             self.w.handle_message(
                 'debug',
                 event.Event('*', '', event.COMMAND,
-                            {'payload': {'command': 'debug workers'}})
+                            {'payload': {'command': commands.WORKERS_DEBUG}})
             )
             meth.assert_called_once_with()
 
@@ -200,35 +198,35 @@ class TestWorkerIgnoreRouters(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
         self.addCleanup(mock.patch.stopall)
 
-    @mock.patch('akanda.rug.api.quantum.Quantum')
-    def testNoIgnorePath(self, quantum):
-        w = worker.Worker(0, mock.Mock(), ignore_directory=None)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
-
-    def testWithoutIgnores(self):
-        tmpdir = tempfile.mkdtemp()
-        self.addCleanup(lambda: os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
+    def testNoIgnores(self):
+        w = worker.Worker(0, mock.Mock())
+        self.assertEqual(set(), w._ignore_routers)
 
     def testWithIgnores(self):
-        tmpdir = tempfile.mkdtemp()
-        fullname = os.path.join(tmpdir, 'this-router-id')
-        with open(fullname, 'a'):
-            os.utime(fullname, None)
-        self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(['this-router-id']), ignored)
+        w = worker.Worker(0, mock.Mock())
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.ROUTER_DEBUG,
+                                     'router_id': 'this-router-id'}}),
+        )
+        self.assertEqual(set(['this-router-id']), w._ignore_routers)
+
+    def testManage(self):
+        w = worker.Worker(0, mock.Mock())
+        w._ignore_routers = set(['this-router-id'])
+        w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.ROUTER_MANAGE,
+                                     'router_id': 'this-router-id'}}),
+        )
+        self.assertEqual(set(), w._ignore_routers)
 
     @mock.patch('akanda.rug.api.quantum.Quantum')
     def testIgnoring(self, quantum):
         w = worker.Worker(0, mock.Mock())
-        m = mock.Mock()
-        m.return_value = set(['5678'])
-        w._get_routers_to_ignore = m
+        w._ignore_routers = set(['5678'])
 
         tenant_id = '1234'
         router_id = '5678'
