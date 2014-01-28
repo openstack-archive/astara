@@ -49,7 +49,7 @@ def register_and_load_opts(argv):
                                     'processName',
                                     'threadName',
                                     'message'])
-    log.set_defaults(log_format)
+    cfg.set_defaults(log.logging_cli_opts, log_format=log_format)
 
     # Configure the default log levels for some third-party packages
     # that are chatty
