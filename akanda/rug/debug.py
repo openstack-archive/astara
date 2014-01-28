@@ -23,7 +23,7 @@ def bandwidth_callback(self, *args, **kwargs):
 
 def debug_one_router(args=sys.argv[1:]):
 
-    main.register_and_load_opts(args)
+    main.register_and_load_opts()
 
     # Add our extra option for specifying the router-id to debug
     cfg.CONF.register_cli_opts([

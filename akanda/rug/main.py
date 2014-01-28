@@ -37,7 +37,7 @@ def shuffle_notifications(notification_queue, sched):
             break
 
 
-def register_and_load_opts(argv):
+def register_and_load_opts():
 
     # Set the logging format to include the process and thread, since
     # those aren't included in standard openstack logs but are useful
@@ -49,7 +49,7 @@ def register_and_load_opts(argv):
                                     'processName',
                                     'threadName',
                                     'message'])
-    log.set_defaults(log_format)
+    cfg.set_defaults(log.logging_cli_opts, log_format=log_format)
 
     # Configure the default log levels for some third-party packages
     # that are chatty
@@ -143,7 +143,7 @@ def register_and_load_opts(argv):
 
 
 def main(argv=sys.argv[1:]):
-    register_and_load_opts(argv)
+    register_and_load_opts()
     cfg.CONF(argv, project='akanda')
 
     log.setup('akanda-rug')
