@@ -59,12 +59,21 @@ class Worker(object):
                 continue
             if not sm:
                 break
-            LOG.debug('updating %s with id %s', sm.router_id, sm)
+            # Make sure we didn't already have some updates under way
+            # for a router we've been told to ignore for debug mode.
+            if sm.router_id in self._debug_routers:
+                LOG.debug('skipping update of router %s (in debug mode)',
+                          sm.router_id)
+                continue
+            # FIXME(dhellmann): Need to look at the router to see if
+            # it belongs to a tenant which is in debug mode, but we
+            # don't have that data in the sm, yet.
+            LOG.debug('updating router %s', sm.router_id)
             try:
                 sm.update()
             except:
-                LOG.exception('could not complete update for %s'
-                              % sm.router_id)
+                LOG.exception('could not complete update for %s',
+                              sm.router_id)
             finally:
                 self.work_queue.task_done()
                 with self.lock:
