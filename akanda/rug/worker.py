@@ -2,6 +2,7 @@
 """
 
 import logging
+import os
 import Queue
 import threading
 
@@ -20,7 +21,8 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads, notifier):
+    def __init__(self, num_threads, notifier, ignore_directory=None):
+        self._ignore_directory = ignore_directory
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -41,8 +43,8 @@ class Worker(object):
         # happens inside the worker process and not the parent.
         self.notifier.start()
         # Track the routers and tenants we are told to ignore
-        self._ignore_routers = set()
-        self._ignore_tenants = set()
+        self._debug_routers = set()
+        self._debug_tenants = set()
 
     def _thread_target(self):
         """This method runs in each worker thread.
@@ -57,12 +59,21 @@ class Worker(object):
                 continue
             if not sm:
                 break
-            LOG.debug('updating %s with id %s', sm.router_id, sm)
+            # Make sure we didn't already have some updates under way
+            # for a router we've been told to ignore for debug mode.
+            if sm.router_id in self._debug_routers:
+                LOG.debug('skipping update of router %s (in debug mode)',
+                          sm.router_id)
+                continue
+            # FIXME(dhellmann): Need to look at the router to see if
+            # it belongs to a tenant which is in debug mode, but we
+            # don't have that data in the sm, yet.
+            LOG.debug('updating router %s', sm.router_id)
             try:
                 sm.update()
             except:
-                LOG.exception('could not complete update for %s'
-                              % sm.router_id)
+                LOG.exception('could not complete update for %s',
+                              sm.router_id)
             finally:
                 self.work_queue.task_done()
                 with self.lock:
@@ -139,12 +150,12 @@ class Worker(object):
         elif instructions['command'] == commands.ROUTER_DEBUG:
             router_id = instructions['router_id']
             LOG.info('Placing router %s in debug mode', router_id)
-            self._ignore_routers.add(router_id)
+            self._debug_routers.add(router_id)
 
         elif instructions['command'] == commands.ROUTER_MANAGE:
             router_id = instructions['router_id']
             try:
-                self._ignore_routers.remove(router_id)
+                self._debug_routers.remove(router_id)
                 LOG.info('Resuming management of router %s', router_id)
             except KeyError:
                 pass
@@ -152,12 +163,12 @@ class Worker(object):
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
             LOG.info('Placing tenant %s in debug mode', tenant_id)
-            self._ignore_tenants.add(tenant_id)
+            self._debug_tenants.add(tenant_id)
 
         elif instructions['command'] == commands.TENANT_MANAGE:
             tenant_id = instructions['tenant_id']
             try:
-                self._ignore_tenants.remove(tenant_id)
+                self._debug_tenants.remove(tenant_id)
                 LOG.info('Resuming management of tenant %s', tenant_id)
             except KeyError:
                 pass
@@ -165,18 +176,30 @@ class Worker(object):
         else:
             LOG.warn('unrecognized command: %s', instructions)
 
+    def _get_routers_to_ignore(self):
+        ignores = set()
+        try:
+            if self._ignore_directory:
+                ignores = set(os.listdir(self._ignore_directory))
+        except OSError:
+            pass
+        return ignores
+
     def _deliver_message(self, target, message):
-        if target in self._ignore_tenants:
+        if target in self._debug_tenants:
             LOG.info(
                 'Ignoring message intended for tenant %s: %s',
                 target, message,
             )
             return
+        routers_to_ignore = self._debug_routers.union(
+            self._get_routers_to_ignore()
+        )
         trms = self._get_trms(target)
         for trm in trms:
             sms = trm.get_state_machines(message)
             for sm in sms:
-                if sm.router_id in self._ignore_routers:
+                if sm.router_id in routers_to_ignore:
                     LOG.info(
                         'Ignoring message intended for %s: %s',
                         sm.router_id, message,
@@ -205,11 +228,16 @@ class Worker(object):
             LOG.debug(
                 'Thread %s is %s',
                 thread.name, 'alive' if thread.isAlive() else 'DEAD')
-        for rid in sorted(self._ignore_routers):
-            LOG.debug('Debugging router: %s', rid)
-        if not self._ignore_routers:
-            LOG.debug('No routers in debug mode')
-        for tid in sorted(self._ignore_tenants):
+        for tid in sorted(self._debug_tenants):
             LOG.debug('Debugging tenant: %s', tid)
-        if not self._ignore_tenants:
+        if not self._debug_tenants:
             LOG.debug('No tenants in debug mode')
+        for rid in sorted(self._debug_routers):
+            LOG.debug('Debugging router: %s', rid)
+        if not self._debug_routers:
+            LOG.debug('No routers in debug mode')
+        ignored_routers = sorted(self._get_routers_to_ignore())
+        for rid in ignored_routers:
+            LOG.debug('Ignoring router: %s', rid)
+        if not ignored_routers:
+            LOG.debug('No routers being ignored')
