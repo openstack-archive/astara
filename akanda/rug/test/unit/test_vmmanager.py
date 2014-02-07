@@ -2,14 +2,16 @@ import mock
 import unittest2 as unittest
 
 from akanda.rug import vm_manager
+
 vm_manager.RETRY_DELAY = 0.4
 vm_manager.BOOT_WAIT = 1
 
 
 class TestVmManager(unittest.TestCase):
+
     def setUp(self):
-        quantum_cls = mock.patch.object(vm_manager.quantum, 'Quantum').start()
-        self.quantum = quantum_cls.return_value
+        self.ctx = mock.Mock()
+        self.quantum = self.ctx.neutron
         self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
         self.conf.boot_timeout = 1
         self.conf.akanda_mgt_service_port = 5000
@@ -23,7 +25,7 @@ class TestVmManager(unittest.TestCase):
         )
 
         self.mock_update_state = self.update_state_p.start()
-        self.vm_mgr = vm_manager.VmManager('the_id', self.log)
+        self.vm_mgr = vm_manager.VmManager('the_id', self.log, self.ctx)
         self.vm_mgr.router_obj = mock.Mock()
 
         self.next_state = None
@@ -41,7 +43,7 @@ class TestVmManager(unittest.TestCase):
         get_mgt_addr.return_value = 'fe80::beef'
         router_api.is_alive.return_value = True
 
-        self.assertEqual(self.vm_mgr.update_state(), vm_manager.UP)
+        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.UP)
         router_api.is_alive.assert_called_once_with('fe80::beef', 5000)
 
     @mock.patch('time.sleep')
@@ -52,7 +54,7 @@ class TestVmManager(unittest.TestCase):
         get_mgt_addr.return_value = 'fe80::beef'
         router_api.is_alive.return_value = False
 
-        self.assertEqual(self.vm_mgr.update_state(), vm_manager.DOWN)
+        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
         router_api.is_alive.assert_has_calls([
             mock.call('fe80::beef', 5000),
             mock.call('fe80::beef', 5000),
@@ -68,7 +70,7 @@ class TestVmManager(unittest.TestCase):
         router_api.is_alive.side_effect = [False, False, True]
         max_retries = 5
         self.conf.max_retries = max_retries
-        self.vm_mgr.update_state(silent=False)
+        self.vm_mgr.update_state(self.ctx, silent=False)
         self.assertEqual(sleep.call_count, 2)
         self.log.debug.assert_has_calls([
             mock.call('Alive check failed. Attempt %d of %d', 0, max_retries),
@@ -79,49 +81,45 @@ class TestVmManager(unittest.TestCase):
     def test_update_state_no_mgt_port(self, get_mgt_addr):
         self.update_state_p.stop()
         self.vm_mgr.router_obj.management_port = None
-        self.assertEqual(self.vm_mgr.update_state(), vm_manager.DOWN)
+        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
         self.assertFalse(get_mgt_addr.called)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.api.nova.Nova')
-    def test_boot_success(self, nova_cls, sleep):
+    def test_boot_success(self, sleep):
         self.next_state = vm_manager.UP
-        self.vm_mgr.boot()
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
-        nova_cls.return_value.reboot_router_instance.assert_called_once_with(
+        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.api.nova.Nova')
-    def test_boot_fail(self, nova_cls, sleep):
+    def test_boot_fail(self, sleep):
         self.next_state = vm_manager.DOWN
-        self.vm_mgr.boot()
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
-        nova_cls.return_value.reboot_router_instance.assert_called_once_with(
+        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
         self.log.error.assert_called_once_with(mock.ANY, 1)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.api.nova.Nova')
-    def test_stop_success(self, nova_cls, sleep):
+    def test_stop_success(self, sleep):
         self.vm_mgr.state = vm_manager.UP
-        nova_cls.return_value.get_router_instance_status.return_value = None
-        self.vm_mgr.stop()
-        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
-        nova_cls.return_value.destroy_router_instance.assert_called_once_with(
+        self.ctx.nova_client.get_router_instance_status.return_value = None
+        self.vm_mgr.stop(self.ctx)
+        self.ctx.nova_client.destroy_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
+        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.api.nova.Nova')
-    def test_stop_fail(self, nova_cls, sleep):
+    def test_stop_fail(self, sleep):
         self.vm_mgr.state = vm_manager.UP
-        nova_cls.return_value.get_router_instance_status.return_value = 'UP'
-        self.vm_mgr.stop()
+        self.ctx.nova_client.get_router_instance_status.return_value = 'UP'
+        self.vm_mgr.stop(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
-        nova_cls.return_value.destroy_router_instance.assert_called_once_with(
+        self.ctx.nova_client.destroy_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
         self.log.error.assert_called_once_with(mock.ANY, 1)
@@ -133,16 +131,16 @@ class TestVmManager(unittest.TestCase):
         get_mgt_addr.return_value = 'fe80::beef'
         rtr = mock.sentinel.router
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.ctx.neutron.get_router_detail.return_value = rtr
 
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True
-            self.vm_mgr.configure()
+            self.vm_mgr.configure(self.ctx)
 
             interfaces = router_api.get_interfaces.return_value
 
             verify.assert_called_once_with(rtr, interfaces)
-            config.assert_called_once_with(self.quantum, rtr, interfaces)
+            config.assert_called_once_with(self.ctx.neutron, rtr, interfaces)
             router_api.update_config.assert_called_once_with(
                 'fe80::beef',
                 5000,
@@ -160,7 +158,7 @@ class TestVmManager(unittest.TestCase):
 
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = False
-            self.vm_mgr.configure()
+            self.vm_mgr.configure(self.ctx)
 
             interfaces = router_api.get_interfaces.return_value
 
@@ -183,7 +181,7 @@ class TestVmManager(unittest.TestCase):
 
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True
-            self.vm_mgr.configure()
+            self.vm_mgr.configure(self.ctx)
 
             interfaces = router_api.get_interfaces.return_value
 
@@ -201,11 +199,11 @@ class TestVmManager(unittest.TestCase):
 
         self.quantum.get_router_detail.return_value = rtr
 
-        self.vm_mgr._ensure_cache()
+        self.vm_mgr._ensure_cache(self.ctx)
         self.assertFalse(self.quantum.get_router_detail.called)
 
         self.vm_mgr.router_obj = None
-        self.vm_mgr._ensure_cache()
+        self.vm_mgr._ensure_cache(self.ctx)
         self.assertTrue(self.quantum.get_router_detail.called)
 
     def test_verify_interfaces(self):
@@ -230,10 +228,11 @@ class TestVmManager(unittest.TestCase):
         rtr.management_port = None
         rtr.external_port = None
 
-        self.vm_mgr._ensure_provider_ports(rtr)
+        self.vm_mgr._ensure_provider_ports(rtr, self.ctx)
         self.quantum.create_router_management_port.assert_called_once_with(
             'id'
         )
 
-        self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr), rtr)
+        self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr, self.ctx),
+                         rtr)
         self.quantum.create_router_external_port.assert_called_once_with(rtr)

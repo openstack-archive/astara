@@ -12,6 +12,7 @@ class BaseTestStateCase(unittest.TestCase):
     state_cls = state.State
 
     def setUp(self):
+        self.ctx = mock.Mock()  # worker context
         self.state = self.state_cls(mock.Mock())
         vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
         self.addCleanup(mock.patch.stopall)
@@ -21,7 +22,7 @@ class BaseTestStateCase(unittest.TestCase):
                               vm_state=state.vm_manager.UP):
         self.vm.state = vm_state
         self.assertIsInstance(
-            self.state.transition(action, self.vm),
+            self.state.transition(action, self.vm, self.ctx),
             expected_class
         )
 
@@ -29,13 +30,13 @@ class BaseTestStateCase(unittest.TestCase):
 class TestBaseState(BaseTestStateCase):
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('action', self.vm),
+            self.state.execute('action', self.vm, self.ctx),
             'action'
         )
 
     def test_transition(self):
         self.assertEqual(
-            self.state.transition('action', self.vm),
+            self.state.transition('action', self.vm, self.ctx),
             self.state
         )
 
@@ -47,7 +48,7 @@ class TestCalcActionState(BaseTestStateCase):
                    leftover=0, initial_action=event.POLL):
         queue = collections.deque(queue_states)
         self.assertEqual(
-            self.state.execute(initial_action, self.vm, queue),
+            self.state.execute(initial_action, self.vm, self.ctx, queue),
             expected_action
         )
         self.assertEqual(len(queue), leftover)
@@ -109,10 +110,10 @@ class TestAliveState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm),
+            self.state.execute('passthrough', self.vm, self.ctx),
             'passthrough'
         )
-        self.vm.update_state.assert_called_once_with()
+        self.vm.update_state.assert_called_once_with(self.ctx)
 
     def test_transition_vm_down(self):
         for evt in [event.POLL, event.READ, event.UPDATE, event.CREATE]:
@@ -152,10 +153,10 @@ class TestCreateVMState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm),
+            self.state.execute('passthrough', self.vm, self.ctx),
             'passthrough'
         )
-        self.vm.boot.assert_called_once_with()
+        self.vm.boot.assert_called_once_with(self.ctx)
 
     def test_transition_vm_down(self):
         self._test_transition_hlpr(
@@ -173,10 +174,10 @@ class TestStopVMState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm),
+            self.state.execute('passthrough', self.vm, self.ctx),
             'passthrough'
         )
-        self.vm.stop.assert_called_once_with()
+        self.vm.stop.assert_called_once_with(self.ctx)
 
     def test_transition_vm_still_up(self):
         self._test_transition_hlpr(event.DELETE, state.StopVM)
@@ -197,20 +198,22 @@ class TestConfigureVMState(BaseTestStateCase):
 
     def test_execute_read_configure_success(self):
         self.vm.state = vm_manager.CONFIGURED
-        self.assertEqual(self.state.execute(event.READ, self.vm), event.READ)
-        self.vm.configure.assert_called_once_with()
+        self.assertEqual(self.state.execute(event.READ, self.vm, self.ctx),
+                         event.READ)
+        self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_execute_update_configure_success(self):
         self.vm.state = vm_manager.CONFIGURED
-        self.assertEqual(self.state.execute(event.UPDATE, self.vm), event.POLL)
-        self.vm.configure.assert_called_once_with()
+        self.assertEqual(self.state.execute(event.UPDATE, self.vm, self.ctx),
+                         event.POLL)
+        self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_execute_configure_failure(self):
         self.assertEqual(
-            self.state.execute(event.CREATE, self.vm),
+            self.state.execute(event.CREATE, self.vm, self.ctx),
             event.CREATE
         )
-        self.vm.configure.assert_called_once_with()
+        self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_transition_not_configured_down(self):
         self._test_transition_hlpr(event.READ, state.StopVM, vm_manager.DOWN)
@@ -247,7 +250,7 @@ class TestReadStatsState(BaseTestStateCase):
         callback = mock.Mock()
 
         self.assertEqual(
-            self.state.execute(event.READ, self.vm, callback),
+            self.state.execute(event.READ, self.vm, self.ctx, callback),
             event.POLL
         )
         self.vm.read_stats.assert_called_once_with()
@@ -263,7 +266,7 @@ class TestWaitState(BaseTestStateCase):
     def test_execute(self):
         with mock.patch('time.sleep') as sleep:
             self.assertEqual(
-                self.state.execute(event.POLL, self.vm),
+                self.state.execute(event.POLL, self.vm, self.ctx),
                 event.POLL
             )
             sleep.assert_called_once_with(mock.ANY)
@@ -276,6 +279,8 @@ class TestAutomaton(unittest.TestCase):
     def setUp(self):
         super(TestAutomaton, self).setUp()
 
+        self.ctx = mock.Mock()  # worker context
+
         self.vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
         self.addCleanup(mock.patch.stopall)
 
@@ -285,7 +290,8 @@ class TestAutomaton(unittest.TestCase):
         self.sm = state.Automaton(
             router_id='9306bbd8-f3cc-11e2-bd68-080027e60b25',
             delete_callback=self.delete_callback,
-            bandwidth_callback=self.bandwidth_callback
+            bandwidth_callback=self.bandwidth_callback,
+            worker_context=self.ctx,
         )
 
     def test_send_message(self):
@@ -313,7 +319,7 @@ class TestAutomaton(unittest.TestCase):
 
     def test_update_no_work(self):
         with mock.patch.object(self.sm, 'state') as state:
-            self.sm.update()
+            self.sm.update(self.ctx)
             self.assertFalse(state.called)
 
     def test_update_exit(self):
@@ -321,7 +327,7 @@ class TestAutomaton(unittest.TestCase):
         message.crud = event.UPDATE
         self.sm.send_message(message)
         self.sm.state = state.Exit(mock.Mock())
-        self.sm.update()
+        self.sm.update(self.ctx)
         self.delete_callback.called_once_with()
 
     def test_update_exception_during_excute(self):
@@ -336,14 +342,16 @@ class TestAutomaton(unittest.TestCase):
         self.sm.state = fake_state
 
         with mock.patch.object(self.sm, 'log') as log:
-            self.sm.update()
+            self.sm.update(self.ctx)
 
             log.exception.assert_called_once_with(mock.ANY, 'fake')
 
             fake_state.assert_has_calls(
                 [
-                    mock.call.execute('fake', self.vm_mgr_cls.return_value),
-                    mock.call.transition('fake', self.vm_mgr_cls.return_value)
+                    mock.call.execute('fake', self.vm_mgr_cls.return_value,
+                                      self.ctx),
+                    mock.call.transition('fake', self.vm_mgr_cls.return_value,
+                                         self.ctx)
                 ]
             )
 
@@ -352,14 +360,17 @@ class TestAutomaton(unittest.TestCase):
         message.crud = event.UPDATE
         self.sm.send_message(message)
 
-        with mock.patch.object(self.sm.state, 'execute') as execute:
-            with mock.patch.object(self.sm.state, 'transition') as transition:
+        with mock.patch.object(self.sm.state, 'execute',
+                               self.ctx) as execute:
+            with mock.patch.object(self.sm.state, 'transition',
+                                   self.ctx) as transition:
                 transition.return_value = state.Exit(mock.Mock())
-                self.sm.update()
+                self.sm.update(self.ctx)
 
                 execute.called_once_with(
                     event.POLL,
                     self.vm_mgr_cls.return_value,
+                    self.ctx,
                     self.sm._queue
                 )
                 self.delete_callback.called_once_with()
@@ -370,12 +381,13 @@ class TestAutomaton(unittest.TestCase):
         self.sm.send_message(message)
 
         self.sm.state = state.ReadStats(mock.Mock())
-        with mock.patch.object(self.sm.state, 'execute') as execute:
+        with mock.patch.object(self.sm.state, 'execute', self.ctx) as execute:
             execute.return_value = state.Exit(mock.Mock())
-            self.sm.update()
+            self.sm.update(self.ctx)
 
             execute.called_once_with(
                 event.POLL,
                 self.vm_mgr_cls.return_value,
+                self.ctx,
                 self.bandwidth_callback
             )

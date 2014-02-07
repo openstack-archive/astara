@@ -7,8 +7,7 @@ from akanda.rug import tenant
 
 class TestTenantRouterManager(unittest.TestCase):
 
-    @mock.patch('akanda.rug.api.quantum.Quantum')
-    def setUp(self, quantum_client):
+    def setUp(self):
         super(TestTenantRouterManager, self).setUp()
 
         self.vm_mgr = mock.patch('akanda.rug.vm_manager.VmManager').start()
@@ -23,10 +22,11 @@ class TestTenantRouterManager(unittest.TestCase):
         # errors instantiating the client without enough config
         # settings, but we have to attach to the mock instance created
         # when we set the return value for get_router_for_tenant().
-        client = self.trm.quantum
+        self.ctx = mock.Mock()
         self.default_router = mock.MagicMock(name='default_router')
         self.default_router.configure_mock(id='9ABC')
-        client.get_router_for_tenant.return_value = self.default_router
+        grt = self.ctx.neutron.get_router_for_tenant
+        grt.return_value = self.default_router
 
     def test_new_router(self):
         msg = event.Event(
@@ -35,7 +35,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machines(msg)[0]
+        sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertEqual(sm.router_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
 
@@ -46,7 +46,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machines(msg)[0]
+        sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertEqual(sm.router_id, self.default_router.id)
         self.assertIn(self.default_router.id, self.trm.state_machines)
 
@@ -58,7 +58,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sms = self.trm.get_state_machines(msg)
+        sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(5, len(sms))
 
     @mock.patch('akanda.rug.state.Automaton')
@@ -75,9 +75,9 @@ class TestTenantRouterManager(unittest.TestCase):
             body={'key': 'value'},
         )
         # First time creates...
-        sm1 = self.trm.get_state_machines(msg)[0]
+        sm1 = self.trm.get_state_machines(msg, self.ctx)[0]
         # Second time should return the same objects...
-        sm2 = self.trm.get_state_machines(msg)[0]
+        sm2 = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIs(sm1, sm2)
         self.assertIs(sm1.queue, sm2.queue)
 
@@ -97,7 +97,7 @@ class TestTenantRouterManager(unittest.TestCase):
                 body={'key': 'value'},
             )
             # First time creates...
-            sm1 = self.trm.get_state_machines(msg)[0]
+            sm1 = self.trm.get_state_machines(msg, self.ctx)[0]
             sms[router_id] = sm1
         # Second time should return the same objects...
         msg = event.Event(
@@ -106,7 +106,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm2 = self.trm.get_state_machines(msg)[0]
+        sm2 = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIs(sm2, sms['5678'])
 
     def test_delete_router(self):
@@ -138,7 +138,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sms = self.trm.get_state_machines(msg)
+        sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(sms, [])
         self.assertIn('5678', self.trm.state_machines.deleted)
 
@@ -149,7 +149,7 @@ class TestTenantRouterManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machines(msg)[0]
+        sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIn('5678', self.trm.state_machines)
         sm._do_delete()
         self.assertNotIn('5678', self.trm.state_machines)
