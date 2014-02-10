@@ -20,15 +20,15 @@ class State(object):
     def __init__(self, log):
         self.log = log
 
-    def execute(self, action, vm):
+    def execute(self, action, vm, worker_context):
         return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         return self
 
 
 class CalcAction(State):
-    def execute(self, action, vm, queue):
+    def execute(self, action, vm, worker_context, queue):
         if DELETE in queue:
             return DELETE
 
@@ -47,7 +47,7 @@ class CalcAction(State):
             action = queue.popleft()
         return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         if action == DELETE:
             if vm.state == vm_manager.DOWN:
                 return Exit(self.log)
@@ -64,20 +64,20 @@ class CalcAction(State):
 class PushUpdate(State):
     """Put an update instruction on the queue for the state machine.
     """
-    def execute(self, action, vm, queue):
+    def execute(self, action, vm, worker_context, queue):
         # Put the action back on the front of the queue.
         queue.appendleft(UPDATE)
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         return CalcAction(self.log)
 
 
 class Alive(State):
-    def execute(self, action, vm):
-        vm.update_state()
+    def execute(self, action, vm, worker_context):
+        vm.update_state(worker_context)
         return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         if vm.state == vm_manager.DOWN:
             return CreateVM(self.log)
         elif action == POLL and vm.state == vm_manager.CONFIGURED:
@@ -89,11 +89,11 @@ class Alive(State):
 
 
 class CreateVM(State):
-    def execute(self, action, vm):
-        vm.boot()
+    def execute(self, action, vm, worker_context):
+        vm.boot(worker_context)
         return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         if vm.state == vm_manager.UP:
             return ConfigureVM(self.log)
         else:
@@ -101,11 +101,11 @@ class CreateVM(State):
 
 
 class StopVM(State):
-    def execute(self, action, vm):
-        vm.stop()
+    def execute(self, action, vm, worker_context):
+        vm.stop(worker_context)
         return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         if vm.state != vm_manager.DOWN:
             return self
         if action == DELETE:
@@ -119,8 +119,8 @@ class Exit(State):
 
 
 class ConfigureVM(State):
-    def execute(self, action, vm):
-        vm.configure()
+    def execute(self, action, vm, worker_context):
+        vm.configure(worker_context)
         if vm.state == vm_manager.CONFIGURED:
             if action == READ:
                 return READ
@@ -129,7 +129,7 @@ class ConfigureVM(State):
         else:
             return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         if vm.state in (vm_manager.RESTART, vm_manager.DOWN):
             return StopVM(self.log)
         if vm.state == vm_manager.UP:
@@ -141,26 +141,27 @@ class ConfigureVM(State):
 
 
 class ReadStats(State):
-    def execute(self, action, vm, bandwidth_callback):
+    def execute(self, action, vm, worker_context, bandwidth_callback):
         stats = vm.read_stats()
         bandwidth_callback(stats)
         return POLL
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         return CalcAction(self.log)
 
 
 class Wait(State):
-    def execute(self, action, vm):
+    def execute(self, action, vm, worker_context):
         time.sleep(WAIT_PERIOD)
         return action
 
-    def transition(self, action, vm):
+    def transition(self, action, vm, worker_context):
         return CalcAction(self.log)
 
 
 class Automaton(object):
-    def __init__(self, router_id, delete_callback, bandwidth_callback):
+    def __init__(self, router_id, delete_callback, bandwidth_callback,
+                 worker_context):
         """
         :param router_id: UUID of the router being managed
         :type router_id: str
@@ -172,6 +173,8 @@ class Automaton(object):
                                    a router has used.
         :type bandwidth_callback: callable taking router_id and bandwidth
                                   info dict
+        :param worker_context: a WorkerContext
+        :type worker_context: WorkerContext
         """
         self.router_id = router_id
         self._delete_callback = delete_callback
@@ -181,7 +184,7 @@ class Automaton(object):
 
         self.state = CalcAction(self.log)
         self.action = POLL
-        self.vm = vm_manager.VmManager(router_id, self.log)
+        self.vm = vm_manager.VmManager(router_id, self.log, worker_context)
 
     @property
     def _deleting(self):
@@ -198,7 +201,7 @@ class Automaton(object):
             # Avoid calling the delete callback more than once.
             self._delete_callback = None
 
-    def update(self):
+    def update(self, worker_context):
         "Called when the router config should be changed"
         while self._queue:
             while True:
@@ -219,6 +222,7 @@ class Automaton(object):
                     self.action = self.state.execute(
                         self.action,
                         self.vm,
+                        worker_context,
                         *additional_args
                     )
                     self.log.debug('execute for %r returned next action %r',
@@ -230,7 +234,11 @@ class Automaton(object):
                     )
 
                 old_state = self.state
-                self.state = self.state.transition(self.action, self.vm)
+                self.state = self.state.transition(
+                    self.action,
+                    self.vm,
+                    worker_context,
+                )
                 self.log.debug('%s transitioned from %s to %s',
                                self.vm, old_state, self.state)
 

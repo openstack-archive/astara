@@ -6,11 +6,24 @@ import os
 import Queue
 import threading
 
+from oslo.config import cfg
+
 from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug.api import nova
+from akanda.rug.api import quantum
 
 LOG = logging.getLogger(__name__)
+
+
+class WorkerContext(object):
+    """Holds resources owned by the worker and used by the Automaton.
+    """
+
+    def __init__(self):
+        self.neutron = quantum.Quantum(cfg.CONF)
+        self.nova_client = nova.Nova(cfg.CONF)
 
 
 class Worker(object):
@@ -28,6 +41,9 @@ class Worker(object):
         self._keep_going = True
         self.tenant_managers = {}
         self.being_updated = set()
+        # This process-global context should not be used in the
+        # threads, since the clients are not thread-safe.
+        self._context = WorkerContext()
         self.threads = [
             threading.Thread(
                 name='worker-thread-%02d' % i,
@@ -50,6 +66,11 @@ class Worker(object):
         """This method runs in each worker thread.
         """
         LOG.debug('starting thread')
+        # Use a separate context from the one we use when receiving
+        # messages and talking to the tenant router manager because we
+        # are in a different thread and the clients are not
+        # thread-safe.
+        context = WorkerContext()
         while self._keep_going:
             try:
                 # Try to get a state machine from the work queue. If
@@ -70,7 +91,7 @@ class Worker(object):
             # don't have that data in the sm, yet.
             LOG.debug('updating router %s', sm.router_id)
             try:
-                sm.update()
+                sm.update(context)
             except:
                 LOG.exception('could not complete update for %s',
                               sm.router_id)
@@ -85,6 +106,8 @@ class Worker(object):
                         self.work_queue.put(sm)
                     else:
                         self.being_updated.discard(sm.router_id)
+        # Return the context object so tests can look at it
+        return context
 
     def _shutdown(self):
         """Stop the worker.
@@ -197,7 +220,7 @@ class Worker(object):
         )
         trms = self._get_trms(target)
         for trm in trms:
-            sms = trm.get_state_machines(message)
+            sms = trm.get_state_machines(message, self._context)
             for sm in sms:
                 if sm.router_id in routers_to_ignore:
                     LOG.info(

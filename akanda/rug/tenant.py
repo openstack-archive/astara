@@ -5,11 +5,8 @@ import collections
 import logging
 import threading
 
-from akanda.rug.api import quantum
 from akanda.rug import state
 from akanda.rug.openstack.common import timeutils
-
-from oslo.config import cfg
 
 LOG = logging.getLogger(__name__)
 
@@ -59,7 +56,6 @@ class TenantRouterManager(object):
         self.tenant_id = tenant_id
         self.notify = notify_callback
         self.state_machines = RouterContainer()
-        self.quantum = quantum.Quantum(cfg.CONF)
         self._default_router_id = None
 
     def _delete_router(self, router_id):
@@ -91,7 +87,7 @@ class TenantRouterManager(object):
         }
         self.notify(msg)
 
-    def get_state_machines(self, message):
+    def get_state_machines(self, message, worker_context):
         """Return the state machines and the queue for sending it messages for
         the router being addressed by the message.
         """
@@ -99,7 +95,9 @@ class TenantRouterManager(object):
         if not router_id:
             if self._default_router_id is None:
                 #TODO(mark): handle muliple router lookup
-                router = self.quantum.get_router_for_tenant(message.tenant_id)
+                router = worker_context.neutron.get_router_for_tenant(
+                    message.tenant_id,
+                )
                 if not router:
                     LOG.debug(
                         'router not found for tenant %s',
@@ -125,6 +123,7 @@ class TenantRouterManager(object):
                 router_id=router_id,
                 delete_callback=deleter,
                 bandwidth_callback=self._report_bandwidth,
+                worker_context=worker_context,
             )
             self.state_machines[router_id] = sm
         sm = self.state_machines[router_id]

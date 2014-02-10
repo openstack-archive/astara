@@ -4,8 +4,6 @@ import time
 from oslo.config import cfg
 
 from akanda.rug.api import configuration
-from akanda.rug.api import nova
-from akanda.rug.api import quantum
 from akanda.rug.api import akanda_client as router_api
 
 DOWN = 'down'
@@ -15,17 +13,16 @@ RESTART = 'restart'
 
 
 class VmManager(object):
-    def __init__(self, router_id, log):
+    def __init__(self, router_id, log, worker_context):
         self.router_id = router_id
         self.log = log
         self.state = DOWN
         self.router_obj = None
-        self.quantum = quantum.Quantum(cfg.CONF)
+        # FIXME: Probably need to pass context here
+        self.update_state(worker_context, silent=True)
 
-        self.update_state(silent=True)
-
-    def update_state(self, silent=False):
-        self._ensure_cache()
+    def update_state(self, worker_context, silent=False):
+        self._ensure_cache(worker_context)
 
         if self.router_obj.management_port is None:
             self.state = DOWN
@@ -49,26 +46,28 @@ class VmManager(object):
 
         return self.state
 
-    def boot(self):
+    def boot(self, worker_context):
         # FIXME: Modify _ensure_cache() so we can call it with a force
         # flag instead of bypassing it.
-        self.router_obj = self.quantum.get_router_detail(self.router_id)
+        self.router_obj = worker_context.neutron.get_router_detail(
+            self.router_id
+        )
 
-        self._ensure_provider_ports(self.router_obj)
+        self._ensure_provider_ports(self.router_obj, worker_context)
 
         self.log.info('Booting router')
-        nova_client = nova.Nova(cfg.CONF)
         self.state = DOWN
 
         try:
-            nova_client.reboot_router_instance(self.router_obj)
+            worker_context.nova_client.reboot_router_instance(self.router_obj)
         except:
             self.log.exception('Router failed to start boot')
             return
 
+        ready_states = (UP, CONFIGURED)
         start = time.time()
         while time.time() - start < cfg.CONF.boot_timeout:
-            if self.update_state(silent=True) in (UP, CONFIGURED):
+            if self.update_state(worker_context, silent=True) in ready_states:
                 return
             self.log.debug('Router has not finished booting')
 
@@ -76,11 +75,11 @@ class VmManager(object):
             'Router failed to boot within %d secs',
             cfg.CONF.boot_timeout)
 
-    def stop(self):
-        self._ensure_cache()
+    def stop(self, worker_context):
+        self._ensure_cache(worker_context)
         self.log.info('Destroying router')
 
-        nova_client = nova.Nova(cfg.CONF)
+        nova_client = worker_context.nova_client
         nova_client.destroy_router_instance(self.router_obj)
 
         start = time.time()
@@ -94,7 +93,7 @@ class VmManager(object):
             'Router failed to stop within %d secs',
             cfg.CONF.boot_timeout)
 
-    def configure(self):
+    def configure(self, worker_context):
         self.log.debug('Begin router config')
         self.state = UP
 
@@ -102,7 +101,9 @@ class VmManager(object):
         # *router* is broken, but does mean we can't update it.
         # Change the exception to something the caller can catch
         # safely.
-        self.router_obj = self.quantum.get_router_detail(self.router_id)
+        self.router_obj = worker_context.neutron.get_router_detail(
+            self.router_id
+        )
 
         addr = _get_management_address(self.router_obj)
 
@@ -122,7 +123,7 @@ class VmManager(object):
 
         # FIXME: Need to catch errors talking to neutron here.
         config = configuration.build_config(
-            self.quantum,
+            worker_context.neutron,
             self.router_obj,
             interfaces
         )
@@ -150,10 +151,12 @@ class VmManager(object):
             # so restart it.
             self.state = RESTART
 
-    def _ensure_cache(self):
+    def _ensure_cache(self, worker_context):
         if self.router_obj:
             return
-        self.router_obj = self.quantum.get_router_detail(self.router_id)
+        self.router_obj = worker_context.neutron.get_router_detail(
+            self.router_id
+        )
 
     def _verify_interfaces(self, logical_config, interfaces):
         router_macs = set((iface['lladdr'] for iface in interfaces))
@@ -167,17 +170,21 @@ class VmManager(object):
 
         return router_macs == expected_macs
 
-    def _ensure_provider_ports(self, router):
+    def _ensure_provider_ports(self, router, worker_context):
         if router.management_port is None:
             self.log.debug('Adding management port to router')
-            mgt_port = self.quantum.create_router_management_port(router.id)
+            mgt_port = worker_context.neutron.create_router_management_port(
+                router.id
+            )
             router.management_port = mgt_port
 
         if router.external_port is None:
             # FIXME: Need to do some work to pick the right external
             # network for a tenant.
             self.log.debug('Adding external port to router')
-            ext_port = self.quantum.create_router_external_port(router)
+            ext_port = worker_context.neutron.create_router_external_port(
+                router
+            )
             router.external_port = ext_port
         return router
 
