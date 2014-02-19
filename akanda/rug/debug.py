@@ -6,6 +6,7 @@ from oslo.config import cfg
 
 from akanda.rug import main
 from akanda.rug import state
+from akanda.rug import worker
 
 
 class Fake(object):
@@ -50,7 +51,8 @@ def debug_one_router(args=sys.argv[1:]):
     a = state.Automaton(
         cfg.CONF.router_id,
         delete_callback,
-        bandwidth_callback
+        bandwidth_callback,
+        worker.WorkerContext()
     )
 
     a.send_message(Fake('update'))
@@ -58,4 +60,4 @@ def debug_one_router(args=sys.argv[1:]):
     import pdb
     pdb.set_trace()
 
-    a.update()
+    a.update(worker.WorkerContext())
