@@ -87,6 +87,13 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
         self.next_state = vm_manager.UP
+        rtr = mock.sentinel.router
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        rtr.id = 'ROUTER1'
+        rtr.management_port = None
+        rtr.external_port = None
+        rtr.internal_ports = mock.MagicMock()
+        rtr.internal_ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
@@ -96,12 +103,49 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep')
     def test_boot_fail(self, sleep):
         self.next_state = vm_manager.DOWN
+        rtr = mock.sentinel.router
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        rtr.id = 'ROUTER1'
+        rtr.management_port = None
+        rtr.external_port = None
+        rtr.internal_ports = mock.MagicMock()
+        rtr.internal_ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
         self.log.error.assert_called_once_with(mock.ANY, 1)
+
+    @mock.patch('time.sleep')
+    def test_boot_with_port_cleanup(self, sleep):
+        self.next_state = vm_manager.UP
+
+        management_port = mock.Mock(id='mgmt', device_id='INSTANCE1')
+        external_port = mock.Mock(id='ext', device_id='INSTANCE1')
+        internal_port = mock.Mock(id='int', device_id='INSTANCE1')
+
+        rtr = mock.sentinel.router
+        instance = mock.sentinel.instance
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        self.ctx.nova_client.get_instance.return_value = instance
+        rtr.id = 'ROUTER1'
+        instance.id = 'INSTANCE1'
+        rtr.management_port = management_port
+        rtr.external_port = external_port
+        rtr.internal_ports = mock.MagicMock()
+        rtr.internal_ports.__iter__.return_value = [internal_port]
+        self.vm_mgr.boot(self.ctx)
+        self.assertEqual(self.vm_mgr.state, vm_manager.UP)
+        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
+            self.vm_mgr.router_obj
+        )
+        assert self.ctx.neutron.clear_device_id.call_count == 3
+        self.ctx.neutron.clear_device_id.assert_has_calls([
+            mock.call(management_port),
+            mock.call(external_port),
+            mock.call(internal_port)
+        ], any_order=True)
 
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):

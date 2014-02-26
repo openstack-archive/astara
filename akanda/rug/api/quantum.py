@@ -473,6 +473,9 @@ class Quantum(object):
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
 
+    def clear_device_id(self, port):
+        self.api_client.update_port(port.id, {'port': {'device_id': ''}})
+
 
 def get_local_service_ip(conf):
     mgt_net = netaddr.IPNetwork(conf.management_prefix)

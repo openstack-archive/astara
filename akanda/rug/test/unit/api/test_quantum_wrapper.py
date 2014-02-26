@@ -223,3 +223,11 @@ class TestQuantumWrapper(unittest.TestCase):
         quantum_wrapper.purge_management_interface()
         driver.get_device_name.assert_called_once()
         driver.unplug.assert_called_once()
+
+    def test_clear_device_id(self):
+        quantum_wrapper = quantum.Quantum(mock.Mock())
+        quantum_wrapper.api_client.update_port = mock.Mock()
+        quantum_wrapper.clear_device_id(mock.Mock(id='PORT1'))
+        quantum_wrapper.api_client.update_port.assert_called_once_with(
+            'PORT1', {'port': {'device_id': ''}}
+        )
