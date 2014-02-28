@@ -1,6 +1,5 @@
 import netaddr
 import time
-import itertools
 
 from oslo.config import cfg
 
@@ -69,10 +68,7 @@ class VmManager(object):
             router = self.router_obj
             instance = worker_context.nova_client.get_instance(router)
             if instance is not None:
-                for p in itertools.chain(
-                    [router.management_port, router.external_port],
-                    router.internal_ports
-                ):
+                for p in router.ports:
                     if p.device_id == instance.id:
                         worker_context.neutron.clear_device_id(p)
             worker_context.nova_client.reboot_router_instance(router)

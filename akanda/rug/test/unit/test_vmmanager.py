@@ -92,8 +92,8 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'ROUTER1'
         rtr.management_port = None
         rtr.external_port = None
-        rtr.internal_ports = mock.MagicMock()
-        rtr.internal_ports.__iter__.return_value = []
+        rtr.ports = mock.MagicMock()
+        rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
@@ -108,8 +108,8 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'ROUTER1'
         rtr.management_port = None
         rtr.external_port = None
-        rtr.internal_ports = mock.MagicMock()
-        rtr.internal_ports.__iter__.return_value = []
+        rtr.ports = mock.MagicMock()
+        rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
@@ -133,8 +133,9 @@ class TestVmManager(unittest.TestCase):
         instance.id = 'INSTANCE1'
         rtr.management_port = management_port
         rtr.external_port = external_port
-        rtr.internal_ports = mock.MagicMock()
-        rtr.internal_ports.__iter__.return_value = [internal_port]
+        rtr.ports = mock.MagicMock()
+        rtr.ports.__iter__.return_value = [management_port, external_port,
+                                           internal_port]
         self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.UP)
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(

@@ -1,3 +1,4 @@
+import itertools
 import socket
 import time
 import uuid
@@ -104,6 +105,13 @@ class Subnet(object):
             d['enable_dhcp'],
             d['dns_nameservers'],
             d['host_routes'])
+
+    @property
+    def ports(self):
+        return itertools.chain(
+            [self.management_port, self.external_port],
+            self.internal_ports
+        )
 
 
 class Port(object):
