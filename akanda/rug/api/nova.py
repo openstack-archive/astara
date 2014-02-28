@@ -13,10 +13,8 @@ class Nova(object):
             region_name=conf.auth_region)
 
     def create_router_instance(self, router):
-        ports = [router.management_port, router.external_port]
-        ports.extend(router.internal_ports)
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
-                for p in ports]
+                for p in router.ports]
 
         # Sometimes a timing problem makes Nova try to create an akanda
         # instance using some ports that haven't been cleaned up yet from

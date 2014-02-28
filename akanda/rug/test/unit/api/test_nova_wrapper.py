@@ -32,7 +32,8 @@ fake_router = FakeModel(
     tenant_id='tenant_id',
     external_port=fake_ext_port,
     management_port=fake_mgt_port,
-    internal_ports=[fake_int_port])
+    internal_ports=[fake_int_port],
+    ports=[fake_mgt_port, fake_ext_port, fake_int_port])
 
 
 class FakeConf:

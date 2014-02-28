@@ -1,3 +1,4 @@
+import itertools
 import socket
 import time
 import uuid
@@ -104,6 +105,13 @@ class Subnet(object):
             d['enable_dhcp'],
             d['dns_nameservers'],
             d['host_routes'])
+
+    @property
+    def ports(self):
+        return itertools.chain(
+            [self.management_port, self.external_port],
+            self.internal_ports
+        )
 
 
 class Port(object):
@@ -472,6 +480,9 @@ class Quantum(object):
             port = Port.from_dict(ports[0])
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
+
+    def clear_device_id(self, port):
+        self.api_client.update_port(port.id, {'port': {'device_id': ''}})
 
 
 def get_local_service_ip(conf):
