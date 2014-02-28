@@ -33,7 +33,7 @@ def debug_one_router(args=sys.argv[1:]):
                    help='The UUID for the router to debug',
                    ),
     ])
-    cfg.CONF(args, project='akanda')
+    cfg.CONF(args, project='akanda-rug')
 
     logging.basicConfig(
         level=logging.DEBUG,

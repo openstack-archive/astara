@@ -142,7 +142,7 @@ def register_and_load_opts():
 
 def main(argv=sys.argv[1:]):
     register_and_load_opts()
-    cfg.CONF(argv, project='akanda')
+    cfg.CONF(argv, project='akanda-rug')
 
     log.setup('akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
