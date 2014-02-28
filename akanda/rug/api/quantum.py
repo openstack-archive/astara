@@ -77,6 +77,13 @@ class Router(object):
             floating_ips=fips
         )
 
+    @property
+    def ports(self):
+        return itertools.chain(
+            [self.management_port, self.external_port],
+            self.internal_ports
+        )
+
 
 class Subnet(object):
     def __init__(self, id_, name, tenant_id, network_id, ip_version, cidr,
@@ -105,13 +112,6 @@ class Subnet(object):
             d['enable_dhcp'],
             d['dns_nameservers'],
             d['host_routes'])
-
-    @property
-    def ports(self):
-        return itertools.chain(
-            [self.management_port, self.external_port],
-            self.internal_ports
-        )
 
 
 class Port(object):

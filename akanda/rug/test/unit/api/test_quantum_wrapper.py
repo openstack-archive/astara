@@ -16,6 +16,7 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(r.external_port, 'ext')
         self.assertEqual(r.management_port, 'mgt')
         self.assertEqual(r.internal_ports, ['int'])
+        self.assertEqual(set(['ext', 'mgt', 'int']), set(r.ports))
 
     def test_router_from_dict(self):
         p = {
