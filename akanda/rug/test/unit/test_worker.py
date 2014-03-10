@@ -53,9 +53,6 @@ class TestCreatingRouter(unittest.TestCase):
         sm = trm.get_state_machines(self.msg, worker.WorkerContext())[0]
         self.assertEqual(1, len(sm._queue))
 
-    def test_being_updated_set(self):
-        self.assertIn(self.router_id, self.w.being_updated)
-
 
 class TestWildcardMessages(unittest.TestCase):
 
