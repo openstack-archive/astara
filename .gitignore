@@ -28,3 +28,7 @@ pip-log.txt
 
 # Packaging output
 *.deb
+
+# pbr output
+AUTHORS
+ChangeLog
