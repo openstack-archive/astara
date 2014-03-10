@@ -1,39 +1,22 @@
-from setuptools import setup, find_packages
+#!/usr/bin/env python
+# Copyright (c) 2013 Hewlett-Packard Development Company, L.P.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-setup(
-    name='akanda-rug',
-    version='0.1.6',
-    description='Akanda Router Update Generator manages tenant routers',
-    author='DreamHost',
-    author_email='dev-community@dreamhost.com',
-    url='http://github.com/dreamhost/akanda-rug',
-    license='BSD',
-    install_requires=[
-        'netaddr>=0.7.5',
-        'httplib2>=0.7.2',
-        'python-neutronclient>=2.1',
-        'oslo.config',
-        'kombu>=2.4.8',
-        'webob',
-        'python-novaclient',
-        'cliff',
-    ],
-    namespace_packages=['akanda'],
-    packages=find_packages(exclude=['test']),
-    include_package_data=True,
-    zip_safe=False,
-    entry_points={
-        'console_scripts': [
-            'akanda-rug-service=akanda.rug.main:main',
-            'akanda-debug-router=akanda.rug.debug:debug_one_router',
-            'rug-ctl=akanda.rug.cli.main:main',
-        ],
-        'akanda.rug.cli': [
-            'router debug=akanda.rug.cli.router:RouterDebug',
-            'router manage=akanda.rug.cli.router:RouterManage',
-            'tenant debug=akanda.rug.cli.tenant:TenantDebug',
-            'tenant manage=akanda.rug.cli.tenant:TenantManage',
-            'workers debug=akanda.rug.cli.worker:WorkerDebug',
-        ],
-    },
-)
+# THIS FILE IS MANAGED BY THE GLOBAL REQUIREMENTS REPO - DO NOT EDIT
+import setuptools
+
+setuptools.setup(
+    setup_requires=['pbr'],
+    pbr=True)

@@ -1,0 +1,8 @@
+netaddr>=0.7.5
+httplib2>=0.7.2
+python-neutronclient>=2.1
+oslo.config
+kombu>=2.4.8
+webob
+python-novaclient
+cliff
