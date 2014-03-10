@@ -35,14 +35,17 @@ class CalcAction(State):
         while queue:
             if action == UPDATE and queue[0] == CREATE:
                 # upgrade to CREATE from UPDATE
-                pass
+                self.log.debug('upgrading from update to create')
             elif action == CREATE and queue[0] == UPDATE:
                 # CREATE implies an UPDATE so eat the event
+                self.log.debug('merging create and update')
                 queue.popleft()
                 continue
             elif queue[0] == POLL:
-                pass  # a no-op when collapsing events
+                # a no-op when collapsing events
+                self.log.debug('no-op for collapsing poll event')
             elif action != POLL and action != queue[0]:
+                self.log.debug('done collapsing events')
                 break
             action = queue.popleft()
         return action
@@ -152,6 +155,7 @@ class ReadStats(State):
 
 class Wait(State):
     def execute(self, action, vm, worker_context):
+        self.log.debug('sleeping %s', WAIT_PERIOD)
         time.sleep(WAIT_PERIOD)
         return action
 
@@ -206,6 +210,9 @@ class Automaton(object):
         while self._queue:
             while True:
                 if self._deleting:
+                    self.log.debug(
+                        'skipping update because the router is being deleted'
+                    )
                     self._do_delete()
                     return
 

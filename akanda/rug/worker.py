@@ -40,7 +40,6 @@ class Worker(object):
         self.lock = threading.Lock()
         self._keep_going = True
         self.tenant_managers = {}
-        self.being_updated = set()
         # This process-global context should not be used in the
         # threads, since the clients are not thread-safe.
         self._context = WorkerContext()
@@ -103,9 +102,11 @@ class Worker(object):
                     # do, reschedule it by placing it at the end of
                     # the queue.
                     if sm.has_more_work():
+                        LOG.debug('%s has more work, returning to work queue',
+                                  sm.router_id)
                         self.work_queue.put(sm)
                     else:
-                        self.being_updated.discard(sm.router_id)
+                        LOG.debug('%s has no more work', sm.router_id)
         # Return the context object so tests can look at it
         return context
 
@@ -215,6 +216,7 @@ class Worker(object):
                 target, message,
             )
             return
+        LOG.debug('preparing to deliver %r to %r', message, tenant)
         routers_to_ignore = self._debug_routers.union(
             self._get_routers_to_ignore()
         )
@@ -228,19 +230,16 @@ class Worker(object):
                         sm.router_id, message,
                     )
                     continue
-                if sm.router_id not in self.being_updated:
-                    # Queue up the state machine by router id.
-                    # No work should be picked up, because we
-                    # have the lock, so it doesn't matter that
-                    # the queue is empty right now.
-                    self.work_queue.put(sm)
-                    self.being_updated.add(sm.router_id)
+                # Queue up the state machine by router id.  No work
+                # should be picked up, because we have the lock, so it
+                # doesn't matter that the queue is empty right now.
+                self.work_queue.put(sm)
                 # Add the message to the state machine's inbox
                 sm.send_message(message)
 
     def report_status(self):
         LOG.debug(
-            'Number of elements in the queue: %d',
+            'Number of state machines in work queue: %d',
             self.work_queue.qsize()
         )
         LOG.debug(
