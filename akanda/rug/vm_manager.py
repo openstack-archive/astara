@@ -139,6 +139,7 @@ class VmManager(object):
             self.router_obj,
             interfaces
         )
+        self.log.debug('preparing to update config to %r', config)
 
         for i in xrange(cfg.CONF.max_retries):
             try:
