@@ -5,7 +5,7 @@ coverage
 mock>=0.8.0
 pep8
 eventlet==0.12.1
-iso8601==0.1.4
+iso8601
 python-novaclient
 WebOb==1.2.3
 mox==0.5.3
