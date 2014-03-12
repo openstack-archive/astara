@@ -228,7 +228,7 @@ class Worker(object):
                 target, message,
             )
             return
-        LOG.debug('preparing to deliver %r to %r', message, tenant)
+        LOG.debug('preparing to deliver %r to %r', message, target)
         routers_to_ignore = self._debug_routers.union(
             self._get_routers_to_ignore()
         )
