@@ -46,7 +46,7 @@ class Worker(object):
         self._context = WorkerContext()
         self.threads = [
             threading.Thread(
-                name='worker-thread-%02d' % i,
+                name='t%02d' % i,
                 target=self._thread_target,
             )
             for i in xrange(num_threads)

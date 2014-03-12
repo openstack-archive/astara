@@ -17,6 +17,13 @@ class State(object):
     def __init__(self, log):
         self.log = log
 
+    @property
+    def name(self):
+        return self.__class__.__name__
+
+    def __str__(self):
+        return self.name
+
     def execute(self, action, vm, worker_context):
         return action
 
@@ -209,16 +216,14 @@ class Automaton(object):
                     elif isinstance(self.state, ReadStats):
                         additional_args = (self.bandwidth_callback,)
 
-                    self.log.debug('executing %r for %r %s',
-                                   self.action, self.vm, self)
+                    self.log.debug('execute(%s)', self.action)
                     self.action = self.state.execute(
                         self.action,
                         self.vm,
                         worker_context,
                         *additional_args
                     )
-                    self.log.debug('execute for %r returned next action %r',
-                                   self.vm, self.action)
+                    self.log.debug('execute -> %s', self.action)
                 except:
                     self.log.exception(
                         'execute() failed for action: %s',
@@ -231,8 +236,7 @@ class Automaton(object):
                     self.vm,
                     worker_context,
                 )
-                self.log.debug('%s transitioned from %s to %s',
-                               self.vm, old_state, self.state)
+                self.log.debug('state %s -> %s', old_state, self.state)
 
                 if isinstance(self.state, CalcAction):
                     return  # yield

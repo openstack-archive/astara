@@ -82,7 +82,7 @@ class Scheduler(object):
                     'inq': wq,
                     'worker_factory': worker_factory,
                 },
-                name='worker-%02d' % i,
+                name='p%02d' % i,
             )
             worker.start()
             self.workers.append({
