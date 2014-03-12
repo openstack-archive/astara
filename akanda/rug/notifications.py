@@ -80,8 +80,9 @@ def _make_event_from_message(message):
         elif event_type.startswith('akanda.rug.command'):
             LOG.debug('received a command: %r', message.get('payload'))
             # If the message does not specify a tenant, send it to everyone
-            tenant_id = tenant_id or '*'
-            router_id = message.get('payload', {}).get('router_id')
+            pl = message.get('payload', {})
+            tenant_id = pl.get('tenant_id', '*')
+            router_id = pl.get('router_id')
             crud = event.COMMAND
         else:
             # LOG.debug('ignoring message %r', message)

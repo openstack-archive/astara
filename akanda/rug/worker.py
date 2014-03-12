@@ -92,7 +92,8 @@ class Worker(object):
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
-            LOG.debug('updating router %s', sm.router_id)
+            LOG.debug('updating router %s for tenant %s',
+                      sm.router_id, sm.tenant_id)
             try:
                 sm.update(context)
             except:
@@ -195,6 +196,18 @@ class Worker(object):
                 LOG.info('Resuming management of router %s', router_id)
             except KeyError:
                 pass
+
+        elif instructions['command'] == commands.ROUTER_UPDATE:
+            new_msg = event.Event(
+                tenant_id=message.tenant_id,
+                router_id=message.router_id,
+                crud=event.UPDATE,
+                body=instructions,
+            )
+            # Use handle_message() to ensure we acquire the lock
+            LOG.info('sending update instruction to %s', message.tenant_id)
+            self.handle_message(new_msg.tenant_id, new_msg)
+            LOG.info('forced update for %s complete', message.tenant_id)
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
