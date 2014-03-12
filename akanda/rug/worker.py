@@ -1,6 +1,7 @@
 """Worker process parts.
 """
 
+import collections
 import logging
 import os
 import Queue
@@ -60,6 +61,9 @@ class Worker(object):
         # Track the routers and tenants we are told to ignore
         self._debug_routers = set()
         self._debug_tenants = set()
+        # Thread locks for the routers so we only put one copy in the
+        # work queue at a time
+        self._router_locks = collections.defaultdict(threading.Lock)
 
     def _thread_target(self):
         """This method runs in each worker thread.
@@ -97,6 +101,14 @@ class Worker(object):
             finally:
                 self.work_queue.task_done()
                 with self.lock:
+                    # Release the lock that prevents us from adding
+                    # the state machine back into the queue. If we
+                    # find more work, we will re-acquire it. If we do
+                    # not find more work, we hold the primary work
+                    # queue lock so the main thread cannot put the
+                    # state machine back into the queue until we
+                    # release that lock.
+                    self._release_router_lock(sm)
                     # The state machine has indicated that it is done
                     # by returning. If there is more work for it to
                     # do, reschedule it by placing it at the end of
@@ -104,7 +116,7 @@ class Worker(object):
                     if sm.has_more_work():
                         LOG.debug('%s has more work, returning to work queue',
                                   sm.router_id)
-                        self.work_queue.put(sm)
+                        self._add_router_to_work_queue(sm)
                     else:
                         LOG.debug('%s has no more work', sm.router_id)
         # Return the context object so tests can look at it
@@ -230,12 +242,31 @@ class Worker(object):
                         sm.router_id, message,
                     )
                     continue
-                # Queue up the state machine by router id.  No work
-                # should be picked up, because we have the lock, so it
-                # doesn't matter that the queue is empty right now.
-                self.work_queue.put(sm)
-                # Add the message to the state machine's inbox
+                # Add the message to the state machine's inbox. If
+                # there is already a thread working on the router,
+                # that thread will pick up the new work when it is
+                # done with the current job. The work queue lock is
+                # acquired before asking the state machine if it has
+                # more work, so this block of code won't be executed
+                # at the same time as the thread trying to decide if
+                # the router is done.
                 sm.send_message(message)
+                self._add_router_to_work_queue(sm)
+
+    def _add_router_to_work_queue(self, sm):
+        """Queue up the state machine by router id.
+
+        The work queue lock should be held before calling this method.
+        """
+        l = self._router_locks[sm.router_id]
+        locked = l.acquire(False)
+        if locked:
+            self.work_queue.put(sm)
+        else:
+            LOG.debug('%s is already in the work queue', sm.router_id)
+
+    def _release_router_lock(self, sm):
+        self._router_locks[sm.router_id].release()
 
     def report_status(self):
         LOG.debug(
