@@ -12,8 +12,6 @@ import time
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE
 from akanda.rug import vm_manager
 
-WAIT_PERIOD = 10
-
 
 class State(object):
 
@@ -58,8 +56,6 @@ class CalcAction(State):
                 return StopVM(self.log)
         elif vm.state == vm_manager.DOWN:
             return CreateVM(self.log)
-        elif action == POLL and vm.state == vm_manager.CONFIGURED:
-            return Wait(self.log)
         else:
             return Alive(self.log)
 
@@ -148,16 +144,6 @@ class ReadStats(State):
         stats = vm.read_stats()
         bandwidth_callback(stats)
         return POLL
-
-    def transition(self, action, vm, worker_context):
-        return CalcAction(self.log)
-
-
-class Wait(State):
-    def execute(self, action, vm, worker_context):
-        self.log.debug('sleeping %s', WAIT_PERIOD)
-        time.sleep(WAIT_PERIOD)
-        return action
 
     def transition(self, action, vm, worker_context):
         return CalcAction(self.log)
