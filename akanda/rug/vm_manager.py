@@ -153,7 +153,7 @@ class VmManager(object):
                     # Only log the traceback if we encounter it many times.
                     self.log.exception('failed to update config')
                 else:
-                    self.log.debug('failed to update config')
+                    self.log.debug('failed to update config, attempt %d', i)
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
