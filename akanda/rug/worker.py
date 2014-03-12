@@ -238,28 +238,28 @@ class Worker(object):
                 sm.send_message(message)
 
     def report_status(self):
-        LOG.debug(
+        LOG.info(
             'Number of state machines in work queue: %d',
             self.work_queue.qsize()
         )
-        LOG.debug(
+        LOG.info(
             'Number of tenant router managers managed: %d',
             len(self.tenant_managers)
         )
         for thread in self.threads:
-            LOG.debug(
+            LOG.info(
                 'Thread %s is %s',
                 thread.name, 'alive' if thread.isAlive() else 'DEAD')
         for tid in sorted(self._debug_tenants):
-            LOG.debug('Debugging tenant: %s', tid)
+            LOG.info('Debugging tenant: %s', tid)
         if not self._debug_tenants:
-            LOG.debug('No tenants in debug mode')
+            LOG.info('No tenants in debug mode')
         for rid in sorted(self._debug_routers):
-            LOG.debug('Debugging router: %s', rid)
+            LOG.info('Debugging router: %s', rid)
         if not self._debug_routers:
-            LOG.debug('No routers in debug mode')
+            LOG.info('No routers in debug mode')
         ignored_routers = sorted(self._get_routers_to_ignore())
         for rid in ignored_routers:
-            LOG.debug('Ignoring router: %s', rid)
+            LOG.info('Ignoring router: %s', rid)
         if not ignored_routers:
-            LOG.debug('No routers being ignored')
+            LOG.info('No routers being ignored')
