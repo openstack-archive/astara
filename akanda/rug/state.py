@@ -7,7 +7,6 @@
 
 import collections
 import logging
-import time
 
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE
 from akanda.rug import vm_manager
