@@ -96,7 +96,7 @@ class TestCalcActionState(BaseTestStateCase):
     def test_transition_poll_configured_vm(self):
         self._test_transition_hlpr(
             event.POLL,
-            state.Wait,
+            state.Alive,
             vm_manager.CONFIGURED
         )
 
@@ -255,21 +255,6 @@ class TestReadStatsState(BaseTestStateCase):
         )
         self.vm.read_stats.assert_called_once_with()
         callback.assert_called_once_with('foo')
-
-    def test_transition(self):
-        self._test_transition_hlpr(event.POLL, state.CalcAction)
-
-
-class TestWaitState(BaseTestStateCase):
-    state_cls = state.Wait
-
-    def test_execute(self):
-        with mock.patch('time.sleep') as sleep:
-            self.assertEqual(
-                self.state.execute(event.POLL, self.vm, self.ctx),
-                event.POLL
-            )
-            sleep.assert_called_once_with(mock.ANY)
 
     def test_transition(self):
         self._test_transition_hlpr(event.POLL, state.CalcAction)
