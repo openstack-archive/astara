@@ -36,23 +36,43 @@ class CalcAction(State):
         if DELETE in queue:
             return DELETE
 
-        self.log.debug(queue)
         while queue:
+            self.log.debug('action = %s, queue = %s', action, queue)
+
             if action == UPDATE and queue[0] == CREATE:
-                # upgrade to CREATE from UPDATE
+                # upgrade to CREATE from UPDATE by taking the next
+                # item from the queue
                 self.log.debug('upgrading from update to create')
+                action = queue.popleft()
+                continue
+
             elif action == CREATE and queue[0] == UPDATE:
-                # CREATE implies an UPDATE so eat the event
+                # CREATE implies an UPDATE so eat the update event
+                # without changing the action
                 self.log.debug('merging create and update')
                 queue.popleft()
                 continue
+
             elif queue[0] == POLL:
-                # a no-op when collapsing events
-                self.log.debug('no-op for collapsing poll event')
+                # Throw away a poll following any other action,
+                # because a create or update will automatically handle
+                # the poll and repeated polls are not needed.
+                self.log.debug('discarding poll event following action %s',
+                               action)
+                queue.popleft()
+                continue
+
             elif action != POLL and action != queue[0]:
+                # We are not polling and the next action is something
+                # different from what we are doing, so just do the
+                # current action.
                 self.log.debug('done collapsing events')
                 break
+
+            self.log.debug('popping action from queue')
             action = queue.popleft()
+
+        self.log.debug('CalcAction -> %s', action)
         return action
 
     def transition(self, action, vm, worker_context):
