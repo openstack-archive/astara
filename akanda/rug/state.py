@@ -29,6 +29,7 @@ class CalcAction(State):
         if DELETE in queue:
             return DELETE
 
+        self.log.debug(queue)
         while queue:
             if action == UPDATE and queue[0] == CREATE:
                 # upgrade to CREATE from UPDATE
