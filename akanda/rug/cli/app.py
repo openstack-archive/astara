@@ -26,6 +26,7 @@ class RugController(app.App):
         main.register_and_load_opts()
         # Don't pass argv here because cfg.CONF will intercept the
         # help options and exit.
-        cfg.CONF(['--config-file', '/etc/akanda-rug/rug.ini'], project='akanda-rug')
+        cfg.CONF(['--config-file', '/etc/akanda-rug/rug.ini'],
+                 project='akanda-rug')
         self.rug_ini = cfg.CONF
         return super(RugController, self).initialize_app(argv)
