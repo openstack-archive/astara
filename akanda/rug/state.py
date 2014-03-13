@@ -246,6 +246,10 @@ class Automaton(object):
                 message)
             return
         self._queue.append(message.crud)
+        self.log.debug(
+            'incoming message brings queue length to %s',
+            len(self._queue),
+        )
 
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"
