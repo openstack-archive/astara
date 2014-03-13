@@ -1,4 +1,5 @@
 import collections
+import logging
 
 import mock
 import unittest2 as unittest
@@ -13,7 +14,8 @@ class BaseTestStateCase(unittest.TestCase):
 
     def setUp(self):
         self.ctx = mock.Mock()  # worker context
-        self.state = self.state_cls(mock.Mock())
+        log = logging.getLogger(__name__)
+        self.state = self.state_cls(log)
         vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
         self.addCleanup(mock.patch.stopall)
         self.vm = vm_mgr_cls.return_value
@@ -79,6 +81,15 @@ class TestCalcActionState(BaseTestStateCase):
             event.READ,
         ]
         self._test_hlpr(event.UPDATE, events, 1)
+
+    def test_execute_events_ending_with_poll(self):
+        events = [
+            event.UPDATE,
+            event.UPDATE,
+            event.POLL,
+            event.POLL,
+        ]
+        self._test_hlpr(event.UPDATE, events, 0)
 
     def test_transition_delete_down_vm(self):
         self._test_transition_hlpr(event.DELETE, state.Exit, vm_manager.DOWN)
