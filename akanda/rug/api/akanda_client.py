@@ -35,7 +35,7 @@ def is_alive(host, port):
 def get_interfaces(host, port):
     path = AKANDA_BASE_PATH + 'system/interfaces'
     s = _get_proxyless_session()
-    r = s.get(_mgt_url(host, port, path))
+    r = s.get(_mgt_url(host, port, path), timeout=30)
     return r.json().get('interfaces', [])
 
 
@@ -47,7 +47,8 @@ def update_config(host, port, config_dict):
     r = s.put(
         _mgt_url(host, port, path),
         data=jsonutils.dumps(config_dict),
-        headers=headers)
+        headers=headers,
+        timeout=90)
 
     if r.status_code != 200:
         raise Exception('Config update failed: %s' % r.text)
@@ -58,5 +59,5 @@ def update_config(host, port, config_dict):
 def read_labels(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'
     s = _get_proxyless_session()
-    r = s.post(_mgt_url(host, port, path))
+    r = s.post(_mgt_url(host, port, path), timeout=30)
     return r.json().get('labels', [])
