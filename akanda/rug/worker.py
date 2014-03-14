@@ -44,16 +44,6 @@ class Worker(object):
         # This process-global context should not be used in the
         # threads, since the clients are not thread-safe.
         self._context = WorkerContext()
-        self.threads = [
-            threading.Thread(
-                name='t%02d' % i,
-                target=self._thread_target,
-            )
-            for i in xrange(num_threads)
-        ]
-        for t in self.threads:
-            t.setDaemon(True)
-            t.start()
         self.notifier = notifier
         # The notifier needs to be started here to ensure that it
         # happens inside the worker process and not the parent.
@@ -64,10 +54,26 @@ class Worker(object):
         # Thread locks for the routers so we only put one copy in the
         # work queue at a time
         self._router_locks = collections.defaultdict(threading.Lock)
+        # Messages about what each thread is doing, keyed by thread id
+        # and reported by the debug command.
+        self._thread_status = {}
+        # Start the threads last, so they can use the instance
+        # variables created above.
+        self.threads = [
+            threading.Thread(
+                name='t%02d' % i,
+                target=self._thread_target,
+            )
+            for i in xrange(num_threads)
+        ]
+        for t in self.threads:
+            t.setDaemon(True)
+            t.start()
 
     def _thread_target(self):
         """This method runs in each worker thread.
         """
+        my_id = threading.current_thread().name
         LOG.debug('starting thread')
         # Use a separate context from the one we use when receiving
         # messages and talking to the tenant router manager because we
@@ -78,6 +84,7 @@ class Worker(object):
             try:
                 # Try to get a state machine from the work queue. If
                 # there's nothing to do, we will block for a while.
+                self._thread_status[my_id] = 'waiting for task'
                 sm = self.work_queue.get(timeout=10)
             except Queue.Empty:
                 continue
@@ -94,11 +101,15 @@ class Worker(object):
             # don't have that data in the sm, yet.
             LOG.debug('updating router %s', sm.router_id)
             try:
+                self._thread_status[my_id] = 'updating %s' % sm.router_id
                 sm.update(context)
             except:
                 LOG.exception('could not complete update for %s',
                               sm.router_id)
             finally:
+                self._thread_status[my_id] = (
+                    'finalizing task for %s' % sm.router_id
+                )
                 self.work_queue.task_done()
                 with self.lock:
                     # Release the lock that prevents us from adding
@@ -120,6 +131,7 @@ class Worker(object):
                     else:
                         LOG.debug('%s has no more work', sm.router_id)
         # Return the context object so tests can look at it
+        self._thread_status[my_id] = 'exiting'
         return context
 
     def _shutdown(self):
@@ -279,8 +291,11 @@ class Worker(object):
         )
         for thread in self.threads:
             LOG.info(
-                'Thread %s is %s',
-                thread.name, 'alive' if thread.isAlive() else 'DEAD')
+                'Thread %s is %s. Last seen: %s',
+                thread.name,
+                'alive' if thread.isAlive() else 'DEAD',
+                self._thread_status.get(thread.name, 'UNKNOWN'),
+            )
         for tid in sorted(self._debug_tenants):
             LOG.info('Debugging tenant: %s', tid)
         if not self._debug_tenants:
