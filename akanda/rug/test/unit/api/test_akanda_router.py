@@ -58,7 +58,8 @@ class TestAkandaClient(unittest.TestCase):
         self.assertEqual(akanda_client.get_interfaces('fe80::2', 5000),
                          'the_interfaces')
         self.mock_get.assert_called_once_with(
-            'http://[fe80::2]:5000/v1/system/interfaces'
+            'http://[fe80::2]:5000/v1/system/interfaces',
+            timeout=30
         )
 
     def test_update_config(self):
@@ -71,7 +72,8 @@ class TestAkandaClient(unittest.TestCase):
         self.mock_put.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/config',
             data='{"foo": "bar"}',
-            headers={'Content-type': 'application/json'})
+            headers={'Content-type': 'application/json'},
+            timeout=90)
         self.assertEqual(resp, config)
 
     def test_update_config_failure(self):
@@ -86,7 +88,8 @@ class TestAkandaClient(unittest.TestCase):
         self.mock_put.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/config',
             data='{"foo": "bar"}',
-            headers={'Content-type': 'application/json'}
+            headers={'Content-type': 'application/json'},
+            timeout=90
         )
 
     def test_read_labels(self):
@@ -97,7 +100,8 @@ class TestAkandaClient(unittest.TestCase):
         resp = akanda_client.read_labels('fe80::2', 5000)
 
         self.mock_post.assert_called_once_with(
-            'http://[fe80::2]:5000/v1/firewall/labels'
+            'http://[fe80::2]:5000/v1/firewall/labels',
+            timeout=30
         )
 
         self.assertEqual(resp, ['label1', 'label2'])
