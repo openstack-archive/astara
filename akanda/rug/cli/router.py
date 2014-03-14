@@ -61,12 +61,13 @@ class RouterUpdate(_RouterCmd):
 
     def make_message(self, parsed_args):
         tenant_id = parsed_args.tenant_id.replace('-', '')
-        tenant_id = '-'.join([tenant_id[:8],
-                              tenant_id[8:12],
-                              tenant_id[12:16],
-                              tenant_id[16:20],
-                              tenant_id[20:],
-                             ])
+        tenant_id = '-'.join([
+            tenant_id[:8],
+            tenant_id[8:12],
+            tenant_id[12:16],
+            tenant_id[16:20],
+            tenant_id[20:],
+        ])
         self.log.info(
             'sending %s instruction for tenant %r, router with uuid %r',
             self._COMMAND,
