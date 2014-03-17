@@ -197,11 +197,13 @@ class TestReportStatus(unittest.TestCase):
 
     def test_handle_message_report_status(self):
         self.w = worker.Worker(0, mock.Mock())
-        self.w.handle_message(
-            'debug',
-            event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.WORKERS_DEBUG}})
-        )
+        with mock.patch('akanda.rug.worker.cfg.CONF') as conf:
+            self.w.handle_message(
+                'debug',
+                event.Event('*', '', event.COMMAND,
+                            {'payload': {'command': commands.WORKERS_DEBUG}})
+            )
+            self.assertTrue(conf.log_opt_values.called)
 
 
 class TestDebugRouters(unittest.TestCase):
@@ -402,3 +404,37 @@ class TestDebugTenants(unittest.TestCase):
             # method shouldn't ever be invoked.
             meth.side_effect = AssertionError('send_message was called')
             self.w.handle_message(tenant_id, msg)
+
+
+class TestConfigReload(unittest.TestCase):
+
+    def setUp(self):
+        super(TestConfigReload, self).setUp()
+
+        self.conf = mock.patch.object(worker.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 3
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+
+        mock.patch('akanda.rug.worker.nova').start()
+        mock.patch('akanda.rug.worker.quantum').start()
+
+        self.w = worker.Worker(0, mock.Mock())
+
+        self.addCleanup(mock.patch.stopall)
+
+    def test(self):
+        tenant_id = '*'
+        router_id = '*'
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.COMMAND,
+            body={
+                'payload': {'command': commands.CONFIG_RELOAD},
+            },
+        )
+        self.w.handle_message(tenant_id, msg)
+        self.assertTrue(self.conf.called)
+        self.assertTrue(self.conf.log_opt_values.called)

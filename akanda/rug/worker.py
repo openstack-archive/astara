@@ -221,6 +221,14 @@ class Worker(object):
             except KeyError:
                 pass
 
+        elif instructions['command'] == commands.CONFIG_RELOAD:
+            try:
+                cfg.CONF()
+            except Exception:
+                LOG.exception('Could not reload configuration')
+            else:
+                cfg.CONF.log_opt_values(LOG, logging.INFO)
+
         else:
             LOG.warn('unrecognized command: %s', instructions)
 
@@ -281,6 +289,7 @@ class Worker(object):
         self._router_locks[sm.router_id].release()
 
     def report_status(self):
+        cfg.CONF.log_opt_values(LOG, logging.INFO)
         LOG.info(
             'Number of state machines in work queue: %d',
             self.work_queue.qsize()

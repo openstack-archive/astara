@@ -13,3 +13,6 @@ ROUTER_MANAGE = 'router-manage'
 # Expects a 'tenant_id' argument in the payload with the UUID of the tenant
 TENANT_DEBUG = 'tenant-debug'
 TENANT_MANAGE = 'tenant-manage'
+
+# Configuration commands
+CONFIG_RELOAD = 'config-reload'
