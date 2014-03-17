@@ -1,0 +1,30 @@
+digraph rug {
+  rankdir=LR;
+  node [shape = doublecircle]; EXIT;
+  node [shape = circle];
+
+  START -> CALC_ACTION [ label = "vm>D,ACT>P" ];
+
+  CALC_ACTION -> ALIVE [ label = "ACT>[CRUP],vm:[UC]" ];
+  CALC_ACTION -> EXIT [ label = "ACT>D,vm:D" ];
+  CALC_ACTION -> STOP [ label = "ACT>D" ];
+  CALC_ACTION -> CREATE [ label = "ACT>[CRUP],vm:D" ];
+
+  ALIVE -> CREATE [ label = "ACT:[CRU],vm>D" ];
+  ALIVE -> CONFIG [ label = "ACT:[CU],vm:[UC]" ];
+  ALIVE -> STATS [ label = "ACT:R,vm:C" ];
+  ALIVE -> CALC_ACTION [ label = "ACT:P,vm>[UC]" ];
+
+  CREATE -> CALC_ACTION [ label = "vm:D" ];
+  CREATE -> CONFIG [ label = "vm>U" ];
+
+  CONFIG -> STOP [ label = "vm>R" ];
+  CONFIG -> STATS [ label = "ACT:R,vm>C" ];
+  CONFIG -> CALC_ACTION [ label = "ACT>P,vm>C" ];
+
+  STATS -> CALC_ACTION [ label = "ACT>P" ];
+
+  STOP -> EXIT [ label = "ACT:D,vm>D" ];
+  STOP -> CREATE [ label = "vm>D" ];
+
+}
