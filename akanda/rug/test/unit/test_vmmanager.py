@@ -25,7 +25,8 @@ class TestVmManager(unittest.TestCase):
         )
 
         self.mock_update_state = self.update_state_p.start()
-        self.vm_mgr = vm_manager.VmManager('the_id', self.log, self.ctx)
+        self.vm_mgr = vm_manager.VmManager('the_id', 'tenant_id',
+                                           self.log, self.ctx)
         self.vm_mgr.router_obj = mock.Mock()
 
         self.next_state = None

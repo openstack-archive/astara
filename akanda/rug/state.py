@@ -177,11 +177,14 @@ class ReadStats(State):
 
 
 class Automaton(object):
-    def __init__(self, router_id, delete_callback, bandwidth_callback,
+    def __init__(self, router_id, tenant_id,
+                 delete_callback, bandwidth_callback,
                  worker_context):
         """
         :param router_id: UUID of the router being managed
         :type router_id: str
+        :param tenant_id: UUID of the tenant being managed
+        :type tenant_id: str
         :param delete_callback: Invoked when the Automaton decides
                                 the router should be deleted.
         :type delete_callback: callable
@@ -194,6 +197,7 @@ class Automaton(object):
         :type worker_context: WorkerContext
         """
         self.router_id = router_id
+        self.tenant_id = tenant_id
         self._delete_callback = delete_callback
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()
@@ -201,7 +205,8 @@ class Automaton(object):
 
         self.state = CalcAction(self.log)
         self.action = POLL
-        self.vm = vm_manager.VmManager(router_id, self.log, worker_context)
+        self.vm = vm_manager.VmManager(router_id, tenant_id, self.log,
+                                       worker_context)
 
     @property
     def _deleting(self):

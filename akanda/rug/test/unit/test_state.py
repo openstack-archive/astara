@@ -285,6 +285,7 @@ class TestAutomaton(unittest.TestCase):
 
         self.sm = state.Automaton(
             router_id='9306bbd8-f3cc-11e2-bd68-080027e60b25',
+            tenant_id='tenant-id',
             delete_callback=self.delete_callback,
             bandwidth_callback=self.bandwidth_callback,
             worker_context=self.ctx,

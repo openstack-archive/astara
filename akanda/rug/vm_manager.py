@@ -13,8 +13,9 @@ RESTART = 'restart'
 
 
 class VmManager(object):
-    def __init__(self, router_id, log, worker_context):
+    def __init__(self, router_id, tenant_id, log, worker_context):
         self.router_id = router_id
+        self.tenant_id = tenant_id
         self.log = log
         self.state = DOWN
         self.router_obj = None

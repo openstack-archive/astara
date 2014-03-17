@@ -121,6 +121,7 @@ class TenantRouterManager(object):
                 self._delete_router(router_id)
             sm = state.Automaton(
                 router_id=router_id,
+                tenant_id=self.tenant_id,
                 delete_callback=deleter,
                 bandwidth_callback=self._report_bandwidth,
                 worker_context=worker_context,
