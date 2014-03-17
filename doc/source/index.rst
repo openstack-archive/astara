@@ -11,6 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   state_machine
 
 Indices and tables
 ==================
