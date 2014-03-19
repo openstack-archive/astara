@@ -55,6 +55,7 @@ class VmManager(object):
                 else:
                     # If the VM was created more than `boot_timeout` seconds
                     # ago, log an error and leave the state set to DOWN
+                    self.last_boot = None
                     self.log.info(
                         'Router failed to boot within %d secs',
                         cfg.CONF.boot_timeout)

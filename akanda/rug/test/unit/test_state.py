@@ -288,8 +288,11 @@ class TestReadStatsState(BaseTestStateCase):
         callback = mock.Mock()
 
         self.assertEqual(
-            self.state.execute(event.READ, self.vm, self.ctx, deque(),
-                               callback), event.POLL)
+            self.state.execute(
+                event.READ, self.vm, self.ctx, deque(), callback
+            ),
+            event.POLL
+        )
         self.vm.read_stats.assert_called_once_with()
         callback.assert_called_once_with('foo')
 
