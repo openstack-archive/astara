@@ -1,3 +1,4 @@
+from datetime import datetime
 import netaddr
 import time
 
@@ -7,6 +8,7 @@ from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api
 
 DOWN = 'down'
+BOOTING = 'booting'
 UP = 'up'
 CONFIGURED = 'configured'
 RESTART = 'restart'
@@ -19,6 +21,7 @@ class VmManager(object):
         self.log = log
         self.state = DOWN
         self.router_obj = None
+        self.last_boot = None
         # FIXME: Probably need to pass context here
         self.update_state(worker_context, silent=True)
 
@@ -44,6 +47,19 @@ class VmManager(object):
             time.sleep(cfg.CONF.retry_delay)
         else:
             self.state = DOWN
+            if self.last_boot:
+                seconds_since_boot = (
+                    datetime.utcnow() - self.last_boot
+                ).seconds
+                if seconds_since_boot < cfg.CONF.boot_timeout:
+                    self.state = BOOTING
+                else:
+                    # If the VM was created more than `boot_timeout` seconds
+                    # ago, log an error and leave the state set to DOWN
+                    self.last_boot = None
+                    self.log.info(
+                        'Router failed to boot within %d secs',
+                        cfg.CONF.boot_timeout)
 
         return self.state
 
@@ -54,10 +70,10 @@ class VmManager(object):
             self.router_id
         )
 
-        self._ensure_provider_ports(self.router_obj, worker_context)
-
         self.log.info('Booting router')
         self.state = DOWN
+
+        self._ensure_provider_ports(self.router_obj, worker_context)
 
         try:
             # In the event that the current akanda instance isn't deleted
@@ -76,17 +92,15 @@ class VmManager(object):
         except:
             self.log.exception('Router failed to start boot')
             return
+        else:
+            self.last_boot = datetime.utcnow()
 
+    def check_boot(self, worker_context):
         ready_states = (UP, CONFIGURED)
-        start = time.time()
-        while time.time() - start < cfg.CONF.boot_timeout:
-            if self.update_state(worker_context, silent=True) in ready_states:
-                return
-            self.log.debug('Router has not finished booting')
-
-        self.log.error(
-            'Router failed to boot within %d secs',
-            cfg.CONF.boot_timeout)
+        if self.update_state(worker_context, silent=True) in ready_states:
+            return True
+        self.log.info('Router has not finished booting')
+        return False
 
     def stop(self, worker_context):
         self._ensure_cache(worker_context)

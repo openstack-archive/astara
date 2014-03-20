@@ -1,5 +1,5 @@
-import collections
 import logging
+from collections import deque
 
 import mock
 import unittest2 as unittest
@@ -32,7 +32,7 @@ class BaseTestStateCase(unittest.TestCase):
 class TestBaseState(BaseTestStateCase):
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('action', self.vm, self.ctx),
+            self.state.execute('action', self.vm, self.ctx, deque()),
             'action'
         )
 
@@ -48,7 +48,7 @@ class TestCalcActionState(BaseTestStateCase):
 
     def _test_hlpr(self, expected_action, queue_states,
                    leftover=0, initial_action=event.POLL):
-        queue = collections.deque(queue_states)
+        queue = deque(queue_states)
         self.assertEqual(
             self.state.execute(initial_action, self.vm, self.ctx, queue),
             expected_action
@@ -121,7 +121,7 @@ class TestAliveState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx),
+            self.state.execute('passthrough', self.vm, self.ctx, deque()),
             'passthrough'
         )
         self.vm.update_state.assert_called_once_with(self.ctx)
@@ -164,7 +164,7 @@ class TestCreateVMState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx),
+            self.state.execute('passthrough', self.vm, self.ctx, deque()),
             'passthrough'
         )
         self.vm.boot.assert_called_once_with(self.ctx)
@@ -172,12 +172,39 @@ class TestCreateVMState(BaseTestStateCase):
     def test_transition_vm_down(self):
         self._test_transition_hlpr(
             event.READ,
-            state.CalcAction,
+            state.CheckBoot,
             vm_manager.DOWN
         )
 
     def test_transition_vm_up(self):
-        self._test_transition_hlpr(event.READ, state.ConfigureVM)
+        self._test_transition_hlpr(event.READ, state.CheckBoot)
+
+
+class TestCheckBootState(BaseTestStateCase):
+    state_cls = state.CheckBoot
+
+    def test_execute(self):
+        queue = deque()
+        self.assertEqual(
+            self.state.execute('passthrough', self.vm, self.ctx, queue),
+            'passthrough'
+        )
+        self.vm.check_boot.assert_called_once_with(self.ctx)
+        assert list(queue) == ['passthrough']
+
+    def test_transition_vm_configure(self):
+        self._test_transition_hlpr(
+            event.UPDATE,
+            state.ConfigureVM,
+            vm_manager.UP
+        )
+
+    def test_transition_vm_booting(self):
+        self._test_transition_hlpr(
+            event.UPDATE,
+            state.CalcAction,
+            vm_manager.BOOTING
+        )
 
 
 class TestStopVMState(BaseTestStateCase):
@@ -185,7 +212,7 @@ class TestStopVMState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx),
+            self.state.execute('passthrough', self.vm, self.ctx, deque()),
             'passthrough'
         )
         self.vm.stop.assert_called_once_with(self.ctx)
@@ -209,19 +236,19 @@ class TestConfigureVMState(BaseTestStateCase):
 
     def test_execute_read_configure_success(self):
         self.vm.state = vm_manager.CONFIGURED
-        self.assertEqual(self.state.execute(event.READ, self.vm, self.ctx),
-                         event.READ)
+        self.assertEqual(self.state.execute(event.READ, self.vm, self.ctx,
+                         deque()), event.READ)
         self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_execute_update_configure_success(self):
         self.vm.state = vm_manager.CONFIGURED
-        self.assertEqual(self.state.execute(event.UPDATE, self.vm, self.ctx),
-                         event.POLL)
+        self.assertEqual(self.state.execute(event.UPDATE, self.vm, self.ctx,
+                         deque()), event.POLL)
         self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_execute_configure_failure(self):
         self.assertEqual(
-            self.state.execute(event.CREATE, self.vm, self.ctx),
+            self.state.execute(event.CREATE, self.vm, self.ctx, deque()),
             event.CREATE
         )
         self.vm.configure.assert_called_once_with(self.ctx)
@@ -261,7 +288,9 @@ class TestReadStatsState(BaseTestStateCase):
         callback = mock.Mock()
 
         self.assertEqual(
-            self.state.execute(event.READ, self.vm, self.ctx, callback),
+            self.state.execute(
+                event.READ, self.vm, self.ctx, deque(), callback
+            ),
             event.POLL
         )
         self.vm.read_stats.assert_called_once_with()
@@ -341,12 +370,12 @@ class TestAutomaton(unittest.TestCase):
         with mock.patch.object(self.sm, 'log') as log:
             self.sm.update(self.ctx)
 
-            log.exception.assert_called_once_with(mock.ANY, 'fake')
+            log.exception.assert_called_once_with(mock.ANY, fake_state, 'fake')
 
             fake_state.assert_has_calls(
                 [
                     mock.call.execute('fake', self.vm_mgr_cls.return_value,
-                                      self.ctx),
+                                      self.ctx, self.sm._queue),
                     mock.call.transition('fake', self.vm_mgr_cls.return_value,
                                          self.ctx)
                 ]

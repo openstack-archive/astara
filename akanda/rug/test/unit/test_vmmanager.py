@@ -1,5 +1,6 @@
 import mock
 import unittest2 as unittest
+from datetime import datetime, timedelta
 
 from akanda.rug import vm_manager
 
@@ -50,6 +51,45 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_boot_timeout_still_booting(self, get_mgt_addr, router_api, sleep):
+        self.vm_mgr.last_boot = datetime.utcnow()
+        self.update_state_p.stop()
+        get_mgt_addr.return_value = 'fe80::beef'
+        router_api.is_alive.return_value = False
+
+        self.assertEqual(
+            self.vm_mgr.update_state(self.ctx),
+            vm_manager.BOOTING
+        )
+        router_api.is_alive.assert_has_calls([
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000)
+        ])
+
+    @mock.patch('time.sleep')
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_boot_timeout(self, get_mgt_addr, router_api, sleep):
+        self.vm_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
+        self.update_state_p.stop()
+        get_mgt_addr.return_value = 'fe80::beef'
+        router_api.is_alive.return_value = False
+
+        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
+        router_api.is_alive.assert_has_calls([
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000)
+        ])
+        self.vm_mgr.log.info.assert_called_once_with(
+            mock.ANY,
+            self.conf.boot_timeout
+        )
+
+    @mock.patch('time.sleep')
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
     def test_update_state_is_down(self, get_mgt_addr, router_api, sleep):
         self.update_state_p.stop()
         get_mgt_addr.return_value = 'fe80::beef'
@@ -96,7 +136,7 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx)
-        self.assertEqual(self.vm_mgr.state, vm_manager.UP)
+        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)  # async
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
@@ -116,7 +156,6 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
-        self.log.error.assert_called_once_with(mock.ANY, 1)
 
     @mock.patch('time.sleep')
     def test_boot_with_port_cleanup(self, sleep):
@@ -138,7 +177,7 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = [management_port, external_port,
                                            internal_port]
         self.vm_mgr.boot(self.ctx)
-        self.assertEqual(self.vm_mgr.state, vm_manager.UP)
+        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)  # async
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
@@ -148,6 +187,36 @@ class TestVmManager(unittest.TestCase):
             mock.call(external_port),
             mock.call(internal_port)
         ], any_order=True)
+
+    def test_boot_check_up(self):
+        with mock.patch.object(
+            vm_manager.VmManager,
+            'update_state'
+        ) as update_state:
+            update_state.return_value = vm_manager.UP
+            assert self.vm_mgr.check_boot(self.ctx) is True
+            update_state.assert_called_once_with(self.ctx, silent=True)
+            assert self.log.info.call_count == 0
+
+    def test_boot_check_configured(self):
+        with mock.patch.object(
+            vm_manager.VmManager,
+            'update_state'
+        ) as update_state:
+            update_state.return_value = vm_manager.CONFIGURED
+            assert self.vm_mgr.check_boot(self.ctx) is True
+            update_state.assert_called_once_with(self.ctx, silent=True)
+            assert self.log.info.call_count == 0
+
+    def test_boot_check_still_booting(self):
+        with mock.patch.object(
+            vm_manager.VmManager,
+            'update_state'
+        ) as update_state:
+            update_state.return_value = vm_manager.BOOTING
+            assert self.vm_mgr.check_boot(self.ctx) is False
+            update_state.assert_called_once_with(self.ctx, silent=True)
+            assert self.log.info.call_count == 1
 
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):

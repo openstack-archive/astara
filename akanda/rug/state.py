@@ -24,7 +24,7 @@ class State(object):
     def __str__(self):
         return self.name
 
-    def execute(self, action, vm, worker_context):
+    def execute(self, action, vm, worker_context, queue):
         return action
 
     def transition(self, action, vm, worker_context):
@@ -72,7 +72,6 @@ class CalcAction(State):
             self.log.debug('popping action from queue')
             action = queue.popleft()
 
-        self.log.debug('CalcAction -> %s', action)
         return action
 
     def transition(self, action, vm, worker_context):
@@ -81,6 +80,8 @@ class CalcAction(State):
                 return Exit(self.log)
             else:
                 return StopVM(self.log)
+        elif vm.state == vm_manager.BOOTING:
+            return CheckBoot(self.log)
         elif vm.state == vm_manager.DOWN:
             return CreateVM(self.log)
         else:
@@ -99,7 +100,7 @@ class PushUpdate(State):
 
 
 class Alive(State):
-    def execute(self, action, vm, worker_context):
+    def execute(self, action, vm, worker_context, queue):
         vm.update_state(worker_context)
         return action
 
@@ -115,8 +116,21 @@ class Alive(State):
 
 
 class CreateVM(State):
-    def execute(self, action, vm, worker_context):
+    def execute(self, action, vm, worker_context, queue):
         vm.boot(worker_context)
+        return action
+
+    def transition(self, action, vm, worker_context):
+        return CheckBoot(self.log)
+
+
+class CheckBoot(State):
+    def execute(self, action, vm, worker_context, queue):
+        vm.check_boot(worker_context)
+        # Put the action back on the front of the queue so that we can yield
+        # and handle it in another state machine traversal (which will proceed
+        # from CalcAction directly to CheckBoot).
+        queue.appendleft(action)
         return action
 
     def transition(self, action, vm, worker_context):
@@ -127,7 +141,7 @@ class CreateVM(State):
 
 
 class StopVM(State):
-    def execute(self, action, vm, worker_context):
+    def execute(self, action, vm, worker_context, queue):
         vm.stop(worker_context)
         return action
 
@@ -145,7 +159,7 @@ class Exit(State):
 
 
 class ConfigureVM(State):
-    def execute(self, action, vm, worker_context):
+    def execute(self, action, vm, worker_context, queue):
         vm.configure(worker_context)
         if vm.state == vm_manager.CONFIGURED:
             if action == READ:
@@ -167,7 +181,7 @@ class ConfigureVM(State):
 
 
 class ReadStats(State):
-    def execute(self, action, vm, worker_context, bandwidth_callback):
+    def execute(self, action, vm, worker_context, queue, bandwidth_callback):
         stats = vm.read_stats()
         bandwidth_callback(stats)
         return POLL
@@ -237,22 +251,22 @@ class Automaton(object):
                 try:
                     additional_args = ()
 
-                    if isinstance(self.state, (CalcAction, PushUpdate)):
-                        additional_args = (self._queue,)
-                    elif isinstance(self.state, ReadStats):
+                    if isinstance(self.state, ReadStats):
                         additional_args = (self.bandwidth_callback,)
 
-                    self.log.debug('execute(%s)', self.action)
+                    self.log.debug('%s.execute(%s)', self.state, self.action)
                     self.action = self.state.execute(
                         self.action,
                         self.vm,
                         worker_context,
+                        self._queue,
                         *additional_args
                     )
-                    self.log.debug('execute -> %s', self.action)
+                    self.log.debug('%s.execute -> %s', self.state, self.action)
                 except:
                     self.log.exception(
-                        'execute() failed for action: %s',
+                        '%s.execute() failed for action: %s',
+                        self.state,
                         self.action
                     )
 
