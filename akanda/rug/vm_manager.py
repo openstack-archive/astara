@@ -58,7 +58,7 @@ class VmManager(object):
                     # ago, log an error and leave the state set to DOWN
                     self.last_boot = None
                     self.log.info(
-                        'Router failed to boot within %d secs',
+                        'Router is DOWN.  Created over %d secs ago.',
                         cfg.CONF.boot_timeout)
 
         return self.state
