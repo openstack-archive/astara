@@ -7,7 +7,6 @@ import netaddr
 from oslo.config import cfg
 from neutronclient.v2_0 import client
 
-from akanda.rug.common.exceptions import AbortTask
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import context
@@ -23,6 +22,10 @@ DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:akanda"
 PLUGIN_RPC_TOPIC = 'q-plugin'
+
+
+class RouterGone(Exception):
+    pass
 
 
 class Router(object):
@@ -347,7 +350,7 @@ class Quantum(object):
         try:
             return Router.from_dict(router[0])
         except IndexError:
-            raise AbortTask('the router is no longer available')
+            raise RouterGone('the router is no longer available')
 
     def get_router_for_tenant(self, tenant_id):
         response = self.api_client.list_routers(tenant_id=tenant_id)
