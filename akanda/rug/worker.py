@@ -99,7 +99,7 @@ class Worker(object):
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
-            LOG.debug('updating router %s for tenant %s',
+            LOG.debug('performing work on %s for tenant %s',
                       sm.router_id, sm.tenant_id)
             try:
                 self._thread_status[my_id] = 'updating %s' % sm.router_id
