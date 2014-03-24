@@ -4,6 +4,7 @@ import multiprocessing
 import signal
 import socket
 import sys
+import threading
 
 from oslo.config import cfg
 
@@ -147,6 +148,12 @@ def register_and_load_opts():
 
 
 def main(argv=sys.argv[1:]):
+    # Change the process and thread name so the logs are cleaner.
+    p = multiprocessing.current_process()
+    p.name = 'pmain'
+    t = threading.current_thread()
+    t.name = 'tmain'
+
     register_and_load_opts()
     cfg.CONF(argv, project='akanda-rug')
 
