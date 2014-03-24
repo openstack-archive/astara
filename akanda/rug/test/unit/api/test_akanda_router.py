@@ -28,7 +28,7 @@ class TestAkandaClient(unittest.TestCase):
         self.assertTrue(akanda_client.is_alive('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/labels',
-            timeout=1.0
+            timeout=3.0
         )
 
     def test_is_alive_bad_status(self):
@@ -37,7 +37,7 @@ class TestAkandaClient(unittest.TestCase):
         self.assertFalse(akanda_client.is_alive('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/labels',
-            timeout=1.0
+            timeout=3.0
         )
 
     def test_is_alive_exception(self):
@@ -46,7 +46,7 @@ class TestAkandaClient(unittest.TestCase):
         self.assertFalse(akanda_client.is_alive('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/labels',
-            timeout=1.0
+            timeout=3.0
         )
 
     def test_get_interfaces(self):
