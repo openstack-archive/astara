@@ -1,11 +1,13 @@
 import functools
 import logging
 import multiprocessing
+import signal
 import socket
 import sys
 
 from oslo.config import cfg
 
+from akanda.rug import daemon
 from akanda.rug import health
 from akanda.rug.openstack.common import log
 from akanda.rug import metadata
@@ -24,6 +26,10 @@ def shuffle_notifications(notification_queue, sched):
     while True:
         try:
             target, message = notification_queue.get()
+            if target is None:
+                LOG.info('stopping processing')
+                sched.stop()
+                break
             sched.handle_message(target, message)
         # FIXME(rods): if a signal arrive during an IO operation an
         # IOError is raised. We catch the exceptions in meantime
@@ -158,6 +164,14 @@ def main(argv=sys.argv[1:]):
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.
     notification_queue = multiprocessing.Queue()
+
+    # Ignore signals that might interrupt processing.
+    daemon.ignore_signals()
+
+    # If we see a SIGINT, stop processing.
+    def _stop_processing(*args):
+        notification_queue.put((None, None))
+    signal.signal(signal.SIGINT, _stop_processing)
 
     # Listen for notifications.
     notification_proc = multiprocessing.Process(

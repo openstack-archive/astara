@@ -201,7 +201,10 @@ def listen(host_id, amqp_url,
     while True:
         try:
             connection.drain_events()
-        except KeyboardInterrupt:
+        except:  # noqa
+            # FIXME(dhellmann): Make this function a class so we can
+            # control the loop variable and stop draining events
+            # before sending the shutdown to the workers.
             break
 
     connection.release()

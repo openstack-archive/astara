@@ -3,8 +3,9 @@
 
 import logging
 import multiprocessing
-import signal
 import uuid
+
+from akanda.rug import daemon
 
 
 LOG = logging.getLogger(__name__)
@@ -13,14 +14,16 @@ LOG = logging.getLogger(__name__)
 def _worker(inq, worker_factory):
     """Scheduler's worker process main function.
     """
-    # Ignore SIGINT, since the parent will catch it and give us a
-    # chance to exit cleanly.
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+    daemon.ignore_signals()
     LOG.debug('starting worker process')
     worker = worker_factory()
     while True:
-        data = inq.get()
+        try:
+            data = inq.get()
+        except IOError:
+            # NOTE(dhellmann): Likely caused by a signal arriving
+            # during processing, especially SIGCHLD.
+            data = None
         if data is None:
             target, message = None, None
         else:
