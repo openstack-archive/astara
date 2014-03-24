@@ -24,7 +24,7 @@ def is_alive(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'
     try:
         s = _get_proxyless_session()
-        r = s.get(_mgt_url(host, port, path), timeout=1.0)
+        r = s.get(_mgt_url(host, port, path), timeout=3.0)
         if r.status_code == 200:
             return True
     except:
