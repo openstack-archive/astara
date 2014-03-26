@@ -193,20 +193,48 @@ class TestVmManager(unittest.TestCase):
             vm_manager.VmManager,
             'update_state'
         ) as update_state:
-            update_state.return_value = vm_manager.UP
-            assert self.vm_mgr.check_boot(self.ctx) is True
-            update_state.assert_called_once_with(self.ctx, silent=True)
-            assert self.log.info.call_count == 0
+            with mock.patch.object(
+                vm_manager.VmManager,
+                'configure'
+            ) as configure:
+                update_state.return_value = vm_manager.UP
+                configure.side_effect = lambda *a, **kw: setattr(
+                    self.vm_mgr,
+                    'state',
+                    vm_manager.CONFIGURED
+                )
+                assert self.vm_mgr.check_boot(self.ctx) is True
+                update_state.assert_called_once_with(self.ctx, silent=True)
+                configure.assert_called_once_with(
+                    self.ctx,
+                    vm_manager.BOOTING,
+                    attempts=1,
+                    silent=True
+                )
 
     def test_boot_check_configured(self):
         with mock.patch.object(
             vm_manager.VmManager,
             'update_state'
         ) as update_state:
-            update_state.return_value = vm_manager.CONFIGURED
-            assert self.vm_mgr.check_boot(self.ctx) is True
-            update_state.assert_called_once_with(self.ctx, silent=True)
-            assert self.log.info.call_count == 0
+            with mock.patch.object(
+                vm_manager.VmManager,
+                'configure'
+            ) as configure:
+                update_state.return_value = vm_manager.CONFIGURED
+                configure.side_effect = lambda *a, **kw: setattr(
+                    self.vm_mgr,
+                    'state',
+                    vm_manager.CONFIGURED
+                )
+                assert self.vm_mgr.check_boot(self.ctx) is True
+                update_state.assert_called_once_with(self.ctx, silent=True)
+                configure.assert_called_once_with(
+                    self.ctx,
+                    vm_manager.BOOTING,
+                    attempts=1,
+                    silent=True
+                )
 
     def test_boot_check_still_booting(self):
         with mock.patch.object(
@@ -216,7 +244,30 @@ class TestVmManager(unittest.TestCase):
             update_state.return_value = vm_manager.BOOTING
             assert self.vm_mgr.check_boot(self.ctx) is False
             update_state.assert_called_once_with(self.ctx, silent=True)
-            assert self.log.info.call_count == 1
+
+    def test_boot_check_unsuccessful_initial_config_update(self):
+        with mock.patch.object(
+            vm_manager.VmManager,
+            'update_state'
+        ) as update_state:
+            with mock.patch.object(
+                vm_manager.VmManager,
+                'configure'
+            ) as configure:
+                update_state.return_value = vm_manager.CONFIGURED
+                configure.side_effect = lambda *a, **kw: setattr(
+                    self.vm_mgr,
+                    'state',
+                    vm_manager.BOOTING
+                )
+                assert self.vm_mgr.check_boot(self.ctx) is False
+                update_state.assert_called_once_with(self.ctx, silent=True)
+                configure.assert_called_once_with(
+                    self.ctx,
+                    vm_manager.BOOTING,
+                    attempts=1,
+                    silent=True
+                )
 
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):

@@ -98,8 +98,10 @@ class VmManager(object):
     def check_boot(self, worker_context):
         ready_states = (UP, CONFIGURED)
         if self.update_state(worker_context, silent=True) in ready_states:
-            return True
-        self.log.info('Router has not finished booting')
+            self.log.info('Router has booted, attempting initial config')
+            self.configure(worker_context, BOOTING, attempts=1, silent=True)
+            return self.state == CONFIGURED
+        self.log.debug('Router is %s' % self.state.upper())
         return False
 
     def stop(self, worker_context):
@@ -120,9 +122,11 @@ class VmManager(object):
             'Router failed to stop within %d secs',
             cfg.CONF.boot_timeout)
 
-    def configure(self, worker_context):
+    def configure(self, worker_context, failure_state=RESTART, attempts=None,
+                  silent=False):
         self.log.debug('Begin router config')
         self.state = UP
+        attempts = attempts or cfg.CONF.max_retries
 
         # FIXME: This might raise an error, which doesn't mean the
         # *router* is broken, but does mean we can't update it.
@@ -145,7 +149,7 @@ class VmManager(object):
         if not self._verify_interfaces(self.router_obj, interfaces):
             # FIXME: Need a REPLUG state when we support hot-plugging
             # interfaces.
-            self.state = RESTART
+            self.state = failure_state
             return
 
         # FIXME: Need to catch errors talking to neutron here.
@@ -156,7 +160,7 @@ class VmManager(object):
         )
         self.log.debug('preparing to update config to %r', config)
 
-        for i in xrange(cfg.CONF.max_retries):
+        for i in xrange(attempts):
             try:
                 router_api.update_config(
                     addr,
@@ -164,11 +168,15 @@ class VmManager(object):
                     config
                 )
             except Exception:
-                if i == cfg.CONF.max_retries - 1:
-                    # Only log the traceback if we encounter it many times.
-                    self.log.exception('failed to update config')
-                else:
-                    self.log.debug('failed to update config, attempt %d', i)
+                if not silent:
+                    if i == attempts - 1:
+                        # Only log the traceback if we encounter it many times.
+                        self.log.exception('failed to update config')
+                    else:
+                        self.log.debug(
+                            'failed to update config, attempt %d',
+                            i
+                        )
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
@@ -177,7 +185,7 @@ class VmManager(object):
         else:
             # FIXME: We failed to configure the router too many times,
             # so restart it.
-            self.state = RESTART
+            self.state = failure_state
 
     def _ensure_cache(self, worker_context):
         if self.router_obj:
