@@ -28,17 +28,15 @@ def shuffle_notifications(notification_queue, sched):
         try:
             target, message = notification_queue.get()
             if target is None:
-                LOG.info('stopping processing')
-                sched.stop()
                 break
             sched.handle_message(target, message)
-        # FIXME(rods): if a signal arrive during an IO operation an
-        # IOError is raised. We catch the exceptions in meantime
-        # waiting for a better solution.
         except IOError:
+            # FIXME(rods): if a signal arrive during an IO operation
+            # an IOError is raised. We catch the exceptions in
+            # meantime waiting for a better solution.
             pass
         except KeyboardInterrupt:
-            sched.stop()
+            LOG.info('got Ctrl-C')
             break
 
 
@@ -234,10 +232,15 @@ def main(argv=sys.argv[1:]):
 
     # Block the main process, copying messages from the notification
     # listener to the scheduler
-    shuffle_notifications(notification_queue, sched)
-
-    # Terminate the listening process
-    notification_proc.terminate()
-    metadata_proc.terminate()
-
-    LOG.info('exiting')
+    try:
+        shuffle_notifications(notification_queue, sched)
+    finally:
+        # Terminate the scheduler and its workers
+        LOG.info('stopping processing')
+        sched.stop()
+        # Terminate the listening process
+        LOG.debug('stopping %s', notification_proc.name)
+        notification_proc.terminate()
+        LOG.debug('stopping %s', metadata_proc.name)
+        metadata_proc.terminate()
+        LOG.info('exiting')

@@ -104,9 +104,11 @@ class Scheduler(object):
             w['queue'].put(None)
         # Wait for the workers to finish and be ready to exit.
         for w in self.workers:
-            LOG.debug('waiting for %s', w['worker'].name)
+            LOG.debug('waiting for queue for %s', w['worker'].name)
             w['queue'].close()
+            LOG.debug('waiting for worker %s', w['worker'].name)
             w['worker'].join()
+        LOG.info('scheduler shutdown')
 
     def handle_message(self, target, message):
         """Call this method when a new notification message is delivered. The

@@ -88,7 +88,8 @@ class Worker(object):
                 sm = self.work_queue.get(timeout=10)
             except Queue.Empty:
                 continue
-            if not sm:
+            if sm is None:
+                LOG.info('received stop message')
                 break
             # Make sure we didn't already have some updates under way
             # for a router we've been told to ignore for debug mode.
@@ -138,6 +139,7 @@ class Worker(object):
     def _shutdown(self):
         """Stop the worker.
         """
+        self.report_status(show_config=False)
         # Tell the notifier to stop
         if self.notifier:
             self.notifier.stop()
@@ -154,6 +156,7 @@ class Worker(object):
         for t in self.threads:
             LOG.debug('waiting for %s to finish', t.getName())
             t.join(timeout=1)
+            LOG.debug('%s is %s', t.name, 'alive' if t.is_alive() else 'stopped')
         # Shutdown all of the tenant router managers. The lock is
         # probably not necessary, since this should be running in the
         # same thread where new messages are being received (and
@@ -301,8 +304,9 @@ class Worker(object):
     def _release_router_lock(self, sm):
         self._router_locks[sm.router_id].release()
 
-    def report_status(self):
-        cfg.CONF.log_opt_values(LOG, logging.INFO)
+    def report_status(self, show_config=True):
+        if show_config:
+            cfg.CONF.log_opt_values(LOG, logging.INFO)
         LOG.info(
             'Number of state machines in work queue: %d',
             self.work_queue.qsize()
