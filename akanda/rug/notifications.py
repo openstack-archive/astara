@@ -177,7 +177,7 @@ def listen(host_id, amqp_url,
 
     def _process_message(body, message):
         "Send the message through the notification queue"
-        #LOG.debug('received %r', body)
+        # LOG.debug('received %r', body)
         # TODO:
         #  1. Ignore notification messages that we don't care about.
         #  2. Convert notification and rpc messages to a common format

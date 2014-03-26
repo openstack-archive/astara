@@ -160,8 +160,8 @@ def main(argv=sys.argv[1:]):
 
     # Purge the mgt tap interface on startup
     quantum = quantum_api.Quantum(cfg.CONF)
-    #TODO(mark): develop better way restore after machine reboot
-    #quantum.purge_management_interface()
+    # TODO(mark): develop better way restore after machine reboot
+    # quantum.purge_management_interface()
 
     # bring the mgt tap interface up
     quantum.ensure_local_service_port()

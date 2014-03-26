@@ -510,7 +510,7 @@ class MulticallProxyWaiter(object):
             yield result
 
 
-#TODO(pekowski): Remove MulticallWaiter() in Havana.
+# TODO(pekowski): Remove MulticallWaiter() in Havana.
 class MulticallWaiter(object):
     def __init__(self, conf, connection, timeout):
         self._connection = connection
