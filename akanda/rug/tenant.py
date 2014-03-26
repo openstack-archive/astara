@@ -94,7 +94,7 @@ class TenantRouterManager(object):
         router_id = message.router_id
         if not router_id:
             if self._default_router_id is None:
-                #TODO(mark): handle muliple router lookup
+                # TODO(mark): handle muliple router lookup
                 router = worker_context.neutron.get_router_for_tenant(
                     message.tenant_id,
                 )

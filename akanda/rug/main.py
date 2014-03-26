@@ -1,11 +1,14 @@
 import functools
 import logging
 import multiprocessing
+import signal
 import socket
 import sys
+import threading
 
 from oslo.config import cfg
 
+from akanda.rug import daemon
 from akanda.rug import health
 from akanda.rug.openstack.common import log
 from akanda.rug import metadata
@@ -24,14 +27,16 @@ def shuffle_notifications(notification_queue, sched):
     while True:
         try:
             target, message = notification_queue.get()
+            if target is None:
+                break
             sched.handle_message(target, message)
-        # FIXME(rods): if a signal arrive during an IO operation an
-        # IOError is raised. We catch the exceptions in meantime
-        # waiting for a better solution.
         except IOError:
+            # FIXME(rods): if a signal arrive during an IO operation
+            # an IOError is raised. We catch the exceptions in
+            # meantime waiting for a better solution.
             pass
         except KeyboardInterrupt:
-            sched.stop()
+            LOG.info('got Ctrl-C')
             break
 
 
@@ -141,6 +146,12 @@ def register_and_load_opts():
 
 
 def main(argv=sys.argv[1:]):
+    # Change the process and thread name so the logs are cleaner.
+    p = multiprocessing.current_process()
+    p.name = 'pmain'
+    t = threading.current_thread()
+    t.name = 'tmain'
+
     register_and_load_opts()
     cfg.CONF(argv, project='akanda-rug')
 
@@ -149,8 +160,8 @@ def main(argv=sys.argv[1:]):
 
     # Purge the mgt tap interface on startup
     quantum = quantum_api.Quantum(cfg.CONF)
-    #TODO(mark): develop better way restore after machine reboot
-    #quantum.purge_management_interface()
+    # TODO(mark): develop better way restore after machine reboot
+    # quantum.purge_management_interface()
 
     # bring the mgt tap interface up
     quantum.ensure_local_service_port()
@@ -158,6 +169,14 @@ def main(argv=sys.argv[1:]):
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.
     notification_queue = multiprocessing.Queue()
+
+    # Ignore signals that might interrupt processing.
+    daemon.ignore_signals()
+
+    # If we see a SIGINT, stop processing.
+    def _stop_processing(*args):
+        notification_queue.put((None, None))
+    signal.signal(signal.SIGINT, _stop_processing)
 
     # Listen for notifications.
     notification_proc = multiprocessing.Process(
@@ -213,10 +232,15 @@ def main(argv=sys.argv[1:]):
 
     # Block the main process, copying messages from the notification
     # listener to the scheduler
-    shuffle_notifications(notification_queue, sched)
-
-    # Terminate the listening process
-    notification_proc.terminate()
-    metadata_proc.terminate()
-
-    LOG.info('exiting')
+    try:
+        shuffle_notifications(notification_queue, sched)
+    finally:
+        # Terminate the scheduler and its workers
+        LOG.info('stopping processing')
+        sched.stop()
+        # Terminate the listening process
+        LOG.debug('stopping %s', notification_proc.name)
+        notification_proc.terminate()
+        LOG.debug('stopping %s', metadata_proc.name)
+        metadata_proc.terminate()
+        LOG.info('exiting')

@@ -3,8 +3,9 @@
 
 import logging
 import multiprocessing
-import signal
 import uuid
+
+from akanda.rug import daemon
 
 
 LOG = logging.getLogger(__name__)
@@ -13,14 +14,16 @@ LOG = logging.getLogger(__name__)
 def _worker(inq, worker_factory):
     """Scheduler's worker process main function.
     """
-    # Ignore SIGINT, since the parent will catch it and give us a
-    # chance to exit cleanly.
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+    daemon.ignore_signals()
     LOG.debug('starting worker process')
     worker = worker_factory()
     while True:
-        data = inq.get()
+        try:
+            data = inq.get()
+        except IOError:
+            # NOTE(dhellmann): Likely caused by a signal arriving
+            # during processing, especially SIGCHLD.
+            data = None
         if data is None:
             target, message = None, None
         else:
@@ -101,9 +104,11 @@ class Scheduler(object):
             w['queue'].put(None)
         # Wait for the workers to finish and be ready to exit.
         for w in self.workers:
-            LOG.debug('waiting for %s', w['worker'].name)
+            LOG.debug('waiting for queue for %s', w['worker'].name)
             w['queue'].close()
+            LOG.debug('waiting for worker %s', w['worker'].name)
             w['worker'].join()
+        LOG.info('scheduler shutdown')
 
     def handle_message(self, target, message):
         """Call this method when a new notification message is delivered. The

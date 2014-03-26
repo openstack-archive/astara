@@ -114,9 +114,9 @@ class OVSBridge:
         is_delete_expr = kwargs.get('delete', False)
         if not is_delete_expr:
             prefix = ("hard_timeout=%s,idle_timeout=%s,priority=%s" %
-                     (kwargs.get('hard_timeout', '0'),
-                      kwargs.get('idle_timeout', '0'),
-                      kwargs.get('priority', '1')))
+                      (kwargs.get('hard_timeout', '0'),
+                       kwargs.get('idle_timeout', '0'),
+                       kwargs.get('priority', '1')))
             flow_expr_arr.append(prefix)
         elif 'priority' in kwargs:
             raise Exception(_("Cannot match priority on flow deletion"))
@@ -135,7 +135,7 @@ class OVSBridge:
         proto = 'proto' in kwargs and ",%s" % kwargs['proto'] or ''
         ip = ('nw_src' in kwargs or 'nw_dst' in kwargs) and ',ip' or ''
         match = (in_port + dl_type + dl_vlan + dl_src + dl_dst +
-                (ip or proto) + nw_src + nw_dst + tun_id)
+                 (ip or proto) + nw_src + nw_dst + tun_id)
         if match:
             match = match[1:]  # strip leading comma
             flow_expr_arr.append(match)
