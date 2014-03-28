@@ -7,6 +7,7 @@ import unittest2 as unittest
 from akanda.rug import event
 from akanda.rug import state
 from akanda.rug import vm_manager
+from akanda.rug.api.quantum import RouterGone
 
 
 class BaseTestStateCase(unittest.TestCase):
@@ -90,6 +91,15 @@ class TestCalcActionState(BaseTestStateCase):
             event.POLL,
         ]
         self._test_hlpr(event.UPDATE, events, 0)
+
+    def test_transition_missing_router(self):
+        self.ctx.neutron = mock.Mock()
+        self.ctx.neutron.get_router_detail.side_effect = RouterGone
+        self._test_transition_hlpr(
+            event.UPDATE,
+            state.Exit,
+            vm_manager.BOOTING
+        )
 
     def test_transition_delete_down_vm(self):
         self._test_transition_hlpr(event.DELETE, state.Exit, vm_manager.DOWN)
