@@ -10,6 +10,7 @@ import logging
 
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE
 from akanda.rug import vm_manager
+from akanda.rug.api.quantum import RouterGone
 
 
 class State(object):
@@ -75,6 +76,12 @@ class CalcAction(State):
         return action
 
     def transition(self, action, vm, worker_context):
+        try:
+            worker_context.neutron.get_router_detail(vm.router_id)
+        except RouterGone:
+            # If the router doesn't exist, dispose of the state machine.
+            return Exit(self.log)
+
         if action == DELETE:
             if vm.state == vm_manager.DOWN:
                 return Exit(self.log)
