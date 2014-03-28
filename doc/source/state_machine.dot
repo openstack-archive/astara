@@ -16,12 +16,12 @@ digraph rug {
   ALIVE -> STATS [ label = "ACT:R,vm:C" ];
   ALIVE -> CALC_ACTION [ label = "ACT:P,vm>[UC]" ];
 
-  CREATEVM -> CHECKBOOT
+  CREATEVM -> CHECKBOOT [ label = "ACT:[CRUDP],vm:[DBUCR]" ];
 
   CHECKBOOT -> CONFIG [ label = "vm>U" ]
   CHECKBOOT -> CALC_ACTION [ label = "vm:[DBCR]" ]
 
-  CONFIG -> STOP [ label = "vm:[RD]" ];
+  CONFIG -> STOP [ label = "vm>[RD]" ];
   CONFIG -> STATS [ label = "ACT:R,vm>C" ];
   CONFIG -> CALC_ACTION [ label = "ACT>P,vm>C" ];
 
