@@ -48,11 +48,14 @@ def debug_one_router(args=sys.argv[1:]):
     log = logging.getLogger(__name__)
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
+    context = worker.WorkerContext()
+    router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
     a = state.Automaton(
         cfg.CONF.router_id,
+        router_obj.tenant_id,
         delete_callback,
         bandwidth_callback,
-        worker.WorkerContext()
+        context
     )
 
     a.send_message(Fake('update'))
