@@ -6,6 +6,7 @@ from oslo.config import cfg
 
 from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api
+from akanda.rug.api.nova import RouterDeleting
 
 DOWN = 'down'
 BOOTING = 'booting'
@@ -89,6 +90,9 @@ class VmManager(object):
                     if p.device_id == instance.id:
                         worker_context.neutron.clear_device_id(p)
             worker_context.nova_client.reboot_router_instance(router)
+        except RouterDeleting:
+            self.log.info('Previous router is deleting')
+            return
         except:
             self.log.exception('Router failed to start boot')
             return

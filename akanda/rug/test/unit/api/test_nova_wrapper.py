@@ -142,11 +142,13 @@ class TestNovaWrapper(unittest.TestCase):
 
             expected = [
                 mock.call.servers.delete('instance_id'),
-                mock.call.servers.create(mock.ANY, nics=mock.ANY,
-                                         flavor=1, image=mock.ANY)
             ]
 
-            self.nova.reboot_router_instance(fake_router)
+            self.assertRaises(
+                nova.RouterDeleting,
+                self.nova.reboot_router_instance,
+                fake_router
+            )
             self.client.assert_has_calls(expected)
 
     def test_reboot_router_instance_rebooting(self):
