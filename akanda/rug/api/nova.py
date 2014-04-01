@@ -23,11 +23,12 @@ class Nova(object):
         # We can safely ignore this exception because the failed task is going
         # to be requeued and executed again later when the ports should be
         # finally cleaned up.
-        self.client.servers.create(
+        server = self.client.servers.create(
             'ak-' + router.id,
             image=self.conf.router_image_uuid,
             flavor=self.conf.router_instance_flavor,
             nics=nics)
+        assert server and server.created
 
     def get_instance(self, router):
         instances = self.client.servers.list(
