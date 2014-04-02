@@ -35,6 +35,7 @@ class State(object):
 class CalcAction(State):
     def execute(self, action, vm, worker_context, queue):
         if DELETE in queue:
+            self.log.debug('shortcutting to delete')
             return DELETE
 
         while queue:
@@ -240,6 +241,7 @@ class Automaton(object):
 
     def _do_delete(self):
         if self._delete_callback is not None:
+            self.log.debug('calling delete callback')
             self._delete_callback()
             # Avoid calling the delete callback more than once.
             self._delete_callback = None
@@ -283,7 +285,7 @@ class Automaton(object):
                     self.vm,
                     worker_context,
                 )
-                self.log.debug('state %s -> %s', old_state, self.state)
+                self.log.debug('%s.transition -> %s', old_state, self.state)
 
                 if isinstance(self.state, CalcAction):
                     return  # yield
