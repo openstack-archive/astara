@@ -1,3 +1,5 @@
+import logging
+
 import mock
 import unittest2 as unittest
 from datetime import datetime, timedelta
@@ -6,6 +8,8 @@ from akanda.rug import vm_manager
 
 vm_manager.RETRY_DELAY = 0.4
 vm_manager.BOOT_WAIT = 1
+
+LOG = logging.getLogger(__name__)
 
 
 class TestVmManager(unittest.TestCase):
@@ -28,7 +32,7 @@ class TestVmManager(unittest.TestCase):
         self.mock_update_state = self.update_state_p.start()
         self.vm_mgr = vm_manager.VmManager('the_id', 'tenant_id',
                                            self.log, self.ctx)
-        self.vm_mgr.router_obj = mock.Mock()
+        mock.patch.object(self.vm_mgr, '_ensure_cache', mock.Mock)
 
         self.next_state = None
 
@@ -120,10 +124,14 @@ class TestVmManager(unittest.TestCase):
 
     @mock.patch('akanda.rug.vm_manager._get_management_address')
     def test_update_state_no_mgt_port(self, get_mgt_addr):
-        self.update_state_p.stop()
-        self.vm_mgr.router_obj.management_port = None
-        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
-        self.assertFalse(get_mgt_addr.called)
+        with mock.patch.object(self.ctx.neutron, 'get_router_detail') as grd:
+            r = mock.Mock()
+            r.management_port = None
+            grd.return_value = r
+            get_mgt_addr.side_effect = AssertionError('Should never be called')
+            self.update_state_p.stop()
+            self.assertEqual(self.vm_mgr.update_state(self.ctx),
+                             vm_manager.DOWN)
 
     @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
@@ -359,18 +367,6 @@ class TestVmManager(unittest.TestCase):
                 mock.call('fe80::beef', 5000, config.return_value),
             ])
             self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
-
-    def test_ensure_cache(self):
-        rtr = {'id': 'the_id'}
-
-        self.quantum.get_router_detail.return_value = rtr
-
-        self.vm_mgr._ensure_cache(self.ctx)
-        self.assertFalse(self.quantum.get_router_detail.called)
-
-        self.vm_mgr.router_obj = None
-        self.vm_mgr._ensure_cache(self.ctx)
-        self.assertTrue(self.quantum.get_router_detail.called)
 
     def test_verify_interfaces(self):
         rtr = mock.Mock()

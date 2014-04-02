@@ -287,8 +287,8 @@ class Worker(object):
                 # more work, so this block of code won't be executed
                 # at the same time as the thread trying to decide if
                 # the router is done.
-                sm.send_message(message)
-                self._add_router_to_work_queue(sm)
+                if sm.send_message(message):
+                    self._add_router_to_work_queue(sm)
 
     def _add_router_to_work_queue(self, sm):
         """Queue up the state machine by router id.
