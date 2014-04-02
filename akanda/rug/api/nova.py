@@ -1,10 +1,6 @@
 from novaclient.v1_1 import client
 
 
-class RouterDeleting(Exception):
-    pass
-
-
 class Nova(object):
     def __init__(self, conf):
         self.conf = conf
@@ -61,6 +57,6 @@ class Nova(object):
                 return
 
             self.client.servers.delete(instance.id)
-            raise RouterDeleting()
-        else:
-            self.create_router_instance(router)
+            return False
+        self.create_router_instance(router)
+        return True
