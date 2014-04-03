@@ -20,3 +20,6 @@ TENANT_MANAGE = 'tenant-manage'
 
 # Configuration commands
 CONFIG_RELOAD = 'config-reload'
+
+# Force a poll of all routers right now
+POLL = 'poll'

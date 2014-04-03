@@ -12,6 +12,7 @@ import kombu.connection
 import kombu.entity
 import kombu.messaging
 
+from akanda.rug import commands
 from akanda.rug import event
 
 from akanda.rug.openstack.common import context
@@ -84,6 +85,13 @@ def _make_event_from_message(message):
             tenant_id = pl.get('tenant_id', '*')
             router_id = pl.get('router_id')
             crud = event.COMMAND
+            if pl.get('command') == commands.POLL:
+                return event.Event(
+                    tenant_id='*',
+                    router_id='*',
+                    crud=event.POLL,
+                    body={},
+                )
         else:
             # LOG.debug('ignoring message %r', message)
             return None
