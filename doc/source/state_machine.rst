@@ -13,7 +13,7 @@ States
 :CREATE_VM: Makes a new VM instance.
 :CHECKBOOT: Check if a new VM instance has been booted and initially configured.
 :CONFIG: Configures the VM and its services.
-:STOP: Terminates a running VM.
+:STOP_VM: Terminates a running VM.
 :EXIT: Processing stops.
 
 ACT(ion) Variable
@@ -33,3 +33,4 @@ vm Variable
 :Up: VM is known to be up (pingable).
 :Configured: VM is known to be configured.
 :Restart Needed: VM needs to be rebooted.
+:Gone: The router definition has been removed from neutron.
