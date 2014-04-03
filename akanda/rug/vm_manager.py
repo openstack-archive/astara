@@ -89,7 +89,7 @@ class VmManager(object):
                     if p.device_id == instance.id:
                         worker_context.neutron.clear_device_id(p)
             created = worker_context.nova_client.reboot_router_instance(router)
-            if created is False:
+            if not created:
                 self.log.info('Previous router is deleting')
                 return
         except:
