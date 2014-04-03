@@ -68,6 +68,7 @@ def register_and_load_opts():
             'eventlet.wsgi.server=WARN',
             'requests=WARN',
             'akanda.rug.openstack.common.rpc.amqp=INFO',
+            'neutronclient.client=INFO',
         ],
     )
 
