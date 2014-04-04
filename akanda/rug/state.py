@@ -243,8 +243,8 @@ class Automaton(object):
             self._delete_callback()
             # Avoid calling the delete callback more than once.
             self._delete_callback = None
-            # Remember that this router has been deleted
-            self.deleted = True
+        # Remember that this router has been deleted
+        self.deleted = True
 
     def update(self, worker_context):
         "Called when the router config should be changed"
