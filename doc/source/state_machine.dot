@@ -1,10 +1,11 @@
 digraph rug {
-#  rankdir=LR;
+  // rankdir=LR;
 
   node [shape = rectangle];
   START;
 
-  # These nodes enter and exit the state machine.
+  // These nodes enter and exit the state machine.
+
   node [shape = doublecircle];
   EXIT;
   CALC_ACTION;
