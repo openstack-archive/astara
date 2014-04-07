@@ -222,9 +222,10 @@ class VmManager(object):
         router_macs = set((iface['lladdr'] for iface in interfaces))
         self.log.debug('MACs found: %s', ', '.join(sorted(router_macs)))
 
-        for port in logical_config.ports:
-            if not hasattr(port, 'mac_address'):
-                return False
+        if not all(
+            getattr(p, 'mac_address', None) for p in logical_config.ports
+        ):
+            return False
 
         expected_macs = set(p.mac_address
                             for p in logical_config.internal_ports)
