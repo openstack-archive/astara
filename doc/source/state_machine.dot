@@ -1,14 +1,22 @@
 digraph rug {
-  rankdir=LR;
-  node [shape = doublecircle]; EXIT;
+#  rankdir=LR;
+
+  node [shape = rectangle];
+  START;
+
+  # These nodes enter and exit the state machine.
+  node [shape = doublecircle];
+  EXIT;
+  CALC_ACTION;
+
   node [shape = circle];
 
-  START -> CALC_ACTION [ label = "vm>D,ACT>P" ];
+  START -> CALC_ACTION;
 
   CALC_ACTION -> ALIVE [ label = "ACT>[CRUP],vm:[UC]" ];
-  CALC_ACTION -> STOP [ label = "ACT>D or vm:G" ];
   CALC_ACTION -> CREATE_VM [ label = "ACT>[CRUP],vm:D" ];
-  CALC_ACTION -> CHECKBOOT [ label = "ACT>[CRUP],vm:B" ];
+  CALC_ACTION -> CHECK_BOOT [ label = "ACT>[CRUP],vm:B" ];
+  CALC_ACTION -> STOP_VM [ label = "ACT>D or vm:G" ];
 
   ALIVE -> CREATE_VM [ label = "vm>D" ];
   ALIVE -> CONFIG [ label = "ACT:[CU],vm:[UC]" ];
@@ -16,21 +24,20 @@ digraph rug {
   ALIVE -> CALC_ACTION [ label = "ACT:P,vm>[UC]" ];
   ALIVE -> STOP_VM [ label = "vm:G" ];
 
-  CREATE_VM -> CHECKBOOT [ label = "ACT:[CRUDP],vm:[DBUCR]" ];
+  CREATE_VM -> CHECK_BOOT [ label = "ACT:[CRUDP],vm:[DBUCR]" ];
   CREATE_VM -> STOP_VM [ label = "vm:G" ];
 
-  CHECKBOOT -> CONFIG [ label = "vm>U" ]
-  CHECKBOOT -> CALC_ACTION [ label = "vm:[DBCR]" ]
+  CHECK_BOOT -> CONFIG [ label = "vm>U" ];
+  CHECK_BOOT -> CALC_ACTION [ label = "vm:[DBCR]" ];
   CHECK_BOOT -> STOP_VM [ label = "vm:G" ];
 
-  CONFIG -> STOP_VM [ label = "vm>[RDG]" ];
   CONFIG -> STATS [ label = "ACT:R,vm>C" ];
   CONFIG -> CALC_ACTION [ label = "ACT>P,vm>C" ];
+  CONFIG -> STOP_VM [ label = "vm>[RDG]" ];
 
   STATS -> CALC_ACTION [ label = "ACT>P" ];
 
-  STOP_VM -> EXIT [ label = "ACT:D,vm>D or vm:G" ];
   STOP_VM -> CREATE_VM [ label = "vm>D" ];
-  STOP_VM -> STOP_VM [ label = "vm!=D" ];
+  STOP_VM -> EXIT [ label = "ACT:D,vm>D or vm:G" ];
 
 }
