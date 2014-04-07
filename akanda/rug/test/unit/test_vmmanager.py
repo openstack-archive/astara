@@ -375,6 +375,7 @@ class TestVmManager(unittest.TestCase):
         p = mock.Mock()
         p.mac_address = 'a:a:a:a'
         rtr.internal_ports = [p]
+        rtr.ports = [p, rtr.management_port, rtr.external_port]
 
         interfaces = [
             {'lladdr': 'a:b:c:d'},
@@ -383,6 +384,23 @@ class TestVmManager(unittest.TestCase):
         ]
 
         self.assertTrue(self.vm_mgr._verify_interfaces(rtr, interfaces))
+
+    def test_verify_interfaces_with_cleared_gateway(self):
+        rtr = mock.Mock()
+        rtr.management_port = mock.MagicMock(spec=[])
+        rtr.external_port.mac_address = 'd:c:b:a'
+        p = mock.Mock()
+        p.mac_address = 'a:a:a:a'
+        rtr.internal_ports = [p]
+        rtr.ports = [p, rtr.management_port, rtr.external_port]
+
+        interfaces = [
+            {'lladdr': 'a:b:c:d'},
+            {'lladdr': 'd:c:b:a'},
+            {'lladdr': 'a:a:a:a'}
+        ]
+
+        self.assertFalse(self.vm_mgr._verify_interfaces(rtr, interfaces))
 
     def test_ensure_provider_ports(self):
         rtr = mock.Mock()

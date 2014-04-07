@@ -168,7 +168,8 @@ class VmManager(object):
         if not self._verify_interfaces(self.router_obj, interfaces):
             # FIXME: Need a REPLUG state when we support hot-plugging
             # interfaces.
-            self.state = failure_state
+            self.log.debug("Interfaces aren't plugged as expected, rebooting.")
+            self.state = RESTART
             return
 
         # FIXME: Need to catch errors talking to neutron here.
@@ -220,6 +221,10 @@ class VmManager(object):
     def _verify_interfaces(self, logical_config, interfaces):
         router_macs = set((iface['lladdr'] for iface in interfaces))
         self.log.debug('MACs found: %s', ', '.join(sorted(router_macs)))
+
+        for port in logical_config.ports:
+            if not hasattr(port, 'mac_address'):
+                return False
 
         expected_macs = set(p.mac_address
                             for p in logical_config.internal_ports)
