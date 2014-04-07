@@ -3,6 +3,7 @@ import unittest2 as unittest
 
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug import state
 
 
 class TestTenantRouterManager(unittest.TestCase):
@@ -51,7 +52,11 @@ class TestTenantRouterManager(unittest.TestCase):
         self.assertIn(self.default_router.id, self.trm.state_machines)
 
     def test_all_routers(self):
-        self.trm.state_machines = dict((str(i), i) for i in range(5))
+        self.trm.state_machines.state_machines = {
+            str(i): state.Automaton(str(i), '1234',
+                                    None, None, None)
+            for i in range(5)
+        }
         msg = event.Event(
             tenant_id='1234',
             router_id='*',
@@ -61,13 +66,7 @@ class TestTenantRouterManager(unittest.TestCase):
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(5, len(sms))
 
-    @mock.patch('akanda.rug.state.Automaton')
-    def test_existing_router(self, automaton):
-
-        def side_effect(*args, **kwargs):
-            return mock.Mock(*args, **kwargs)
-
-        automaton.side_effect = side_effect
+    def test_existing_router(self):
         msg = event.Event(
             tenant_id='1234',
             router_id='5678',
@@ -79,15 +78,9 @@ class TestTenantRouterManager(unittest.TestCase):
         # Second time should return the same objects...
         sm2 = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIs(sm1, sm2)
-        self.assertIs(sm1.queue, sm2.queue)
+        self.assertIs(sm1._queue, sm2._queue)
 
-    @mock.patch('akanda.rug.state.Automaton')
-    def test_existing_router_of_many(self, automaton):
-
-        def side_effect(*args, **kwargs):
-            return mock.Mock(*args, **kwargs)
-
-        automaton.side_effect = side_effect
+    def test_existing_router_of_many(self):
         sms = {}
         for router_id in ['5678', 'ABCD', 'EFGH']:
             msg = event.Event(

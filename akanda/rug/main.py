@@ -56,15 +56,21 @@ def register_and_load_opts():
 
     # Configure the default log levels for some third-party packages
     # that are chatty
-    cfg.set_defaults(log.log_opts,
-                     default_log_levels=['amqplib=WARN',
-                                         'qpid.messaging=INFO',
-                                         'sqlalchemy=WARN',
-                                         'keystoneclient=INFO',
-                                         'stevedore=INFO',
-                                         'eventlet.wsgi.server=WARN',
-                                         'requests=WARN',
-                                         ])
+    cfg.set_defaults(
+        log.log_opts,
+        default_log_levels=[
+            'amqp=WARN',
+            'amqplib=WARN',
+            'qpid.messaging=INFO',
+            'sqlalchemy=WARN',
+            'keystoneclient=INFO',
+            'stevedore=INFO',
+            'eventlet.wsgi.server=WARN',
+            'requests=WARN',
+            'akanda.rug.openstack.common.rpc.amqp=INFO',
+            'neutronclient.client=INFO',
+        ],
+    )
 
     cfg.CONF.register_opts([
         cfg.StrOpt('host',

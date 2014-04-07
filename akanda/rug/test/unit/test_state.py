@@ -92,17 +92,44 @@ class TestCalcActionState(BaseTestStateCase):
         ]
         self._test_hlpr(event.UPDATE, events, 0)
 
-    def test_transition_missing_router(self):
+    def test_transition_update_missing_router_down(self):
         self.ctx.neutron = mock.Mock()
         self.ctx.neutron.get_router_detail.side_effect = RouterGone
         self._test_transition_hlpr(
             event.UPDATE,
-            state.Exit,
+            state.CheckBoot,
+            vm_manager.BOOTING
+        )
+
+    def test_transition_update_missing_router_not_down(self):
+        self.ctx.neutron = mock.Mock()
+        self.ctx.neutron.get_router_detail.side_effect = RouterGone
+        self._test_transition_hlpr(
+            event.UPDATE,
+            state.CheckBoot,
+            vm_manager.BOOTING
+        )
+
+    def test_transition_delete_missing_router_down(self):
+        self.ctx.neutron = mock.Mock()
+        self.ctx.neutron.get_router_detail.side_effect = RouterGone
+        self._test_transition_hlpr(
+            event.DELETE,
+            state.StopVM,
+            vm_manager.DOWN
+        )
+
+    def test_transition_delete_missing_router_not_down(self):
+        self.ctx.neutron = mock.Mock()
+        self.ctx.neutron.get_router_detail.side_effect = RouterGone
+        self._test_transition_hlpr(
+            event.DELETE,
+            state.StopVM,
             vm_manager.BOOTING
         )
 
     def test_transition_delete_down_vm(self):
-        self._test_transition_hlpr(event.DELETE, state.Exit, vm_manager.DOWN)
+        self._test_transition_hlpr(event.DELETE, state.StopVM, vm_manager.DOWN)
 
     def test_transition_delete_up_vm(self):
         self._test_transition_hlpr(event.DELETE, state.StopVM)
@@ -339,7 +366,7 @@ class TestAutomaton(unittest.TestCase):
     def test_send_message_deleting(self):
         message = mock.Mock()
         message.crud = 'update'
-        self.sm.state = state.Exit(mock.Mock())
+        self.sm.deleted = True
         self.sm.send_message(message)
         self.assertEqual(len(self.sm._queue), 0)
         self.assertFalse(self.sm.has_more_work())
@@ -349,7 +376,7 @@ class TestAutomaton(unittest.TestCase):
             self.assertTrue(self.sm.has_more_work())
 
     def test_has_more_work_deleting(self):
-        self.sm.state = state.Exit(mock.Mock())
+        self.sm.deleted = True
         with mock.patch.object(self.sm, '_queue') as queue:  # noqa
             self.assertFalse(self.sm.has_more_work())
 
