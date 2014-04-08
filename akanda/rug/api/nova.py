@@ -54,7 +54,7 @@ class Nova(object):
         instance = self.get_instance(router)
         if instance:
             if 'BUILD' in instance.status:
-                return
+                return True
 
             self.client.servers.delete(instance.id)
             return False
