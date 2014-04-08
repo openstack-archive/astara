@@ -42,6 +42,10 @@ def _get_tenant_id_for_message(message):
                 return val
     return None
 
+_INTERFACE_NOTIFICATIONS = set([
+    'router.interface.create',
+    'router.interface.delete',
+])
 
 _INTERESTING_NOTIFICATIONS = set([
     'subnet.create.end',
@@ -75,6 +79,11 @@ def _make_event_from_message(message):
         elif event_type == 'router.delete.end':
             crud = event.DELETE
             router_id = message.get('payload', {}).get('router_id')
+        elif event_type in _INTERFACE_NOTIFICATIONS:
+            crud = event.UPDATE
+            router_id = message.get(
+                'payload', {}
+            ).get('router.interface', {}).get('id')
         elif event_type in _INTERESTING_NOTIFICATIONS:
             crud = event.UPDATE
         elif event_type.endswith('.end'):
