@@ -93,7 +93,10 @@ class VmManager(object):
                 for p in router.ports:
                     if p.device_id == instance.id:
                         worker_context.neutron.clear_device_id(p)
-            worker_context.nova_client.reboot_router_instance(router)
+            created = worker_context.nova_client.reboot_router_instance(router)
+            if not created:
+                self.log.info('Previous router is deleting')
+                return
         except:
             self.log.exception('Router failed to start boot')
             return
