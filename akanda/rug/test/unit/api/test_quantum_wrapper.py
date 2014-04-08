@@ -1,3 +1,5 @@
+import copy
+
 import mock
 import netaddr
 import unittest2 as unittest
@@ -232,3 +234,158 @@ class TestQuantumWrapper(unittest.TestCase):
         quantum_wrapper.api_client.update_port.assert_called_once_with(
             'PORT1', {'port': {'device_id': ''}}
         )
+
+
+class TestExternalPort(unittest.TestCase):
+
+    EXTERNAL_PORT_ID = '089ae859-10ec-453c-b264-6c452fc355e5'
+    ROUTER = {
+        u'status': u'ACTIVE',
+        u'external_gateway_info': {
+            u'network_id': u'a0c63b93-2c42-4346-909e-39c690f53ba0',
+            u'enable_snat': True},
+        u'name': u'ak-b81e555336da4bf48886e5b93ac6186d',
+        u'admin_state_up': True,
+        u'tenant_id': u'b81e555336da4bf48886e5b93ac6186d',
+        u'ports': [
+            # This is the external port:
+            {u'status': u'ACTIVE',
+             u'binding:host_id': u'devstack-develop',
+             u'name': u'',
+             u'allowed_address_pairs': [],
+             u'admin_state_up': True,
+             u'network_id': u'a0c63b93-2c42-4346-909e-39c690f53ba0',
+             u'tenant_id': u'',
+             u'extra_dhcp_opts': [],
+             u'binding:vif_type': u'ovs',
+             u'device_owner': u'network:router_gateway',
+             u'binding:capabilities': {u'port_filter': True},
+             u'mac_address': u'fa:16:3e:a1:a6:ac',
+             u'fixed_ips': [
+                 {u'subnet_id': u'ipv4snid',
+                  u'ip_address': u'172.16.77.2'},
+                 {u'subnet_id': u'ipv6snid',
+                  u'ip_address': u'fdee:9f85:83be::0'}],
+             u'id': EXTERNAL_PORT_ID,
+             u'security_groups': [],
+             u'device_id': u'7770b189-1223-4d85-9bf7-4d7bc2a28cd7'},
+            # Some other nice ports you might like:
+            {u'status': u'ACTIVE',
+             u'binding:host_id': u'devstack-develop',
+             u'name': u'',
+             u'allowed_address_pairs': [],
+             u'admin_state_up': True,
+             u'network_id': u'adf190e0-b281-4453-bd87-4ae6fd96d5c1',
+             u'tenant_id': u'a09298ceed154d26b4ea96977e1c7f17',
+             u'extra_dhcp_opts': [],
+             u'binding:vif_type': u'ovs',
+             u'device_owner': u'network:router_management',
+             u'binding:capabilities': {u'port_filter': True},
+             u'mac_address': u'fa:16:3e:e5:dd:55',
+             u'fixed_ips': [
+                 {u'subnet_id': u'ipv6snid2',
+                  u'ip_address': u'fdca:3ba5:a17a:acda::0'}],
+             u'id': u'2f4e41b2-c923-48e5-ad19-59e4d02c26a4',
+             u'security_groups': [],
+             u'device_id': u'7770b189-1223-4d85-9bf7-4d7bc2a28cd7'},
+            {u'status': u'ACTIVE',
+             u'binding:host_id': u'devstack-develop',
+             u'name': u'',
+             u'allowed_address_pairs': [],
+             u'admin_state_up': True,
+             u'network_id': u'0c04f39c-f739-44dd-9e65-dca6ae20e35c',
+             u'tenant_id': u'b81e555336da4bf48886e5b93ac6186d',
+             u'extra_dhcp_opts': [],
+             u'binding:vif_type': u'ovs',
+             u'device_owner': u'network:router_interface',
+             u'binding:capabilities': {u'port_filter': True},
+             u'mac_address': u'fa:16:3e:e7:27:fc',
+             u'fixed_ips': [{u'subnet_id': u'ipv4snid2',
+                             u'ip_address': u'192.168.0.1'},
+                            {u'subnet_id': u'ipv6snid3',
+                             u'ip_address': u'fdd6:a1fa:cfa8:cd70::1'}],
+             u'id': u'b24139b8-a3d0-46cf-bc53-f4b70bb33596',
+             u'security_groups': [],
+             u'device_id': u'7770b189-1223-4d85-9bf7-4d7bc2a28cd7'}],
+        u'routes': [],
+        u'id': u'5366e8ca-b3e4-408a-91d4-e207af48c755',
+    }
+
+    SUBNETS = [
+        quantum.Subnet(u'ipv4snid', u'ipv4snid', None, None, 4,
+                       '172.16.77.0/24', '172.16.77.1', False,
+                       [], []),
+        quantum.Subnet(u'ipv6snid', u'ipv4snid', None, None, 6,
+                       'fdee:9f85:83be::/48', 'fdee:9f85:83be::1',
+                       False, [], []),
+    ]
+
+    def setUp(self):
+        self.conf = mock.Mock()
+        self.conf.external_network_id = 'ext'
+        self.router = quantum.Router.from_dict(self.ROUTER)
+
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    def test_create(self, client_wrapper):
+        mock_client = mock.Mock()
+        mock_client.update_router.return_value = {'router': self.ROUTER}
+        client_wrapper.return_value = mock_client
+        quantum_wrapper = quantum.Quantum(self.conf)
+        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+            gns.return_value = self.SUBNETS
+            port = quantum_wrapper.create_router_external_port(self.router)
+            self.assertEqual(port.id, self.EXTERNAL_PORT_ID)
+
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    def test_missing_v4(self, client_wrapper):
+        mock_client = mock.Mock()
+
+        router = copy.deepcopy(self.ROUTER)
+        del router['ports'][0]['fixed_ips'][0]
+
+        mock_client.update_router.return_value = {'router': router}
+        client_wrapper.return_value = mock_client
+        quantum_wrapper = quantum.Quantum(self.conf)
+        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+            gns.return_value = self.SUBNETS
+            self.assertRaises(
+                quantum.MissingIPAllocation,
+                quantum_wrapper.create_router_external_port,
+                self.router,
+            )
+
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    def test_missing_v6(self, client_wrapper):
+        mock_client = mock.Mock()
+
+        router = copy.deepcopy(self.ROUTER)
+        del router['ports'][0]['fixed_ips'][1]
+
+        mock_client.update_router.return_value = {'router': router}
+        client_wrapper.return_value = mock_client
+        quantum_wrapper = quantum.Quantum(self.conf)
+        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+            gns.return_value = self.SUBNETS
+            self.assertRaises(
+                quantum.MissingIPAllocation,
+                quantum_wrapper.create_router_external_port,
+                self.router,
+            )
+
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    def test_missing_both(self, client_wrapper):
+        mock_client = mock.Mock()
+
+        router = copy.deepcopy(self.ROUTER)
+        router['ports'][0]['fixed_ips'] = []
+
+        mock_client.update_router.return_value = {'router': router}
+        client_wrapper.return_value = mock_client
+        quantum_wrapper = quantum.Quantum(self.conf)
+        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+            gns.return_value = self.SUBNETS
+            self.assertRaises(
+                quantum.MissingIPAllocation,
+                quantum_wrapper.create_router_external_port,
+                self.router,
+            )

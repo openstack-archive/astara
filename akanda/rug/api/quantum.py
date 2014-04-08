@@ -1,3 +1,4 @@
+import collections
 import itertools
 import socket
 import time
@@ -25,6 +26,10 @@ PLUGIN_RPC_TOPIC = 'q-plugin'
 
 
 class RouterGone(Exception):
+    pass
+
+
+class MissingIPAllocation(Exception):
     pass
 
 
@@ -419,7 +424,30 @@ class Quantum(object):
             router.id,
             body=dict(router=update_args)
         )
-        return Router.from_dict(r['router']).external_port
+        new_port = Router.from_dict(r['router']).external_port
+
+        # Make sure the port has enough IPs.
+        subnets = self.get_network_subnets(self.conf.external_network_id)
+        sn_by_id = {
+            sn.id: sn
+            for sn in subnets
+        }
+        sn_by_version = collections.defaultdict(list)
+        for sn in subnets:
+            sn_by_version[sn.ip_version].append(sn)
+        versions_needed = set(sn_by_version.keys())
+        found = set(sn_by_id[fip.subnet_id].ip_version
+                    for fip in new_port.fixed_ips)
+        if found != versions_needed:
+            msg = 'Port %s missing an expected'
+            missing_versions = list(sorted(versions_needed - found))
+            for mv in missing_versions:
+                missing_subnets = [sn.id for sn in sn_by_version[mv]]
+                msg += ' IPv%s address from one of %s and' % \
+                       (mv, missing_subnets)
+            msg = msg[:-4]  # remove extra " and"
+            raise MissingIPAllocation(msg)
+        return new_port
 
     def ensure_local_service_port(self):
         driver = importutils.import_object(self.conf.interface_driver,
