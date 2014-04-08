@@ -6,6 +6,7 @@
 # https://docs.google.com/a/dreamhost.com/document/d/1Ed5wDqCHW-CUt67ufjOUq4uYj0ECS5PweHxoueUoYUI/edit # noqa
 
 import collections
+import itertools
 import logging
 
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE
@@ -38,7 +39,12 @@ class CalcAction(State):
             return DELETE
 
         while queue:
-            self.log.debug('action = %s, queue = %s', action, queue)
+            self.log.debug(
+                'action = %s, len(queue) = %s, queue = %s',
+                action,
+                len(queue),
+                list(itertools.islice(queue, 0, 60))
+            )
 
             if action == UPDATE and queue[0] == CREATE:
                 # upgrade to CREATE from UPDATE by taking the next
