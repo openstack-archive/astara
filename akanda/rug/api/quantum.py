@@ -30,7 +30,17 @@ class RouterGone(Exception):
 
 
 class MissingIPAllocation(Exception):
-    pass
+
+    def __init__(self, port_id, missing):
+        self.port_id = port_id
+        self.missing = missing
+        msg = 'Port %s missing an expected ' % port_id
+        ip_msg = ' and '.join(
+            ('IPv%s address from one of %s' %
+             (mv, missing_subnets))
+            for mv, missing_subnets in missing
+        )
+        super(MissingIPAllocation, self).__init__(msg + ip_msg)
 
 
 class Router(object):
@@ -439,14 +449,12 @@ class Quantum(object):
         found = set(sn_by_id[fip.subnet_id].ip_version
                     for fip in new_port.fixed_ips)
         if found != versions_needed:
-            msg = 'Port %s missing an expected'
             missing_versions = list(sorted(versions_needed - found))
-            for mv in missing_versions:
-                missing_subnets = [sn.id for sn in sn_by_version[mv]]
-                msg += ' IPv%s address from one of %s and' % \
-                       (mv, missing_subnets)
-            msg = msg[:-4]  # remove extra " and"
-            raise MissingIPAllocation(msg)
+            raise MissingIPAllocation(
+                new_port.id,
+                [(mv, [sn.id for sn in sn_by_version[mv]])
+                 for mv in missing_versions]
+            )
         return new_port
 
     def ensure_local_service_port(self):

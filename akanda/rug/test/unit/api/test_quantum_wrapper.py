@@ -348,11 +348,12 @@ class TestExternalPort(unittest.TestCase):
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
-            self.assertRaises(
-                quantum.MissingIPAllocation,
-                quantum_wrapper.create_router_external_port,
-                self.router,
-            )
+            try:
+                quantum_wrapper.create_router_external_port(self.router)
+            except quantum.MissingIPAllocation as e:
+                self.assertEqual(4, e.missing[0][0])
+            else:
+                self.fail('Should have seen MissingIPAllocation')
 
     @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
     def test_missing_v6(self, client_wrapper):
@@ -366,11 +367,12 @@ class TestExternalPort(unittest.TestCase):
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
-            self.assertRaises(
-                quantum.MissingIPAllocation,
-                quantum_wrapper.create_router_external_port,
-                self.router,
-            )
+            try:
+                quantum_wrapper.create_router_external_port(self.router)
+            except quantum.MissingIPAllocation as e:
+                self.assertEqual(6, e.missing[0][0])
+            else:
+                self.fail('Should have seen MissingIPAllocation')
 
     @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
     def test_missing_both(self, client_wrapper):
@@ -384,8 +386,10 @@ class TestExternalPort(unittest.TestCase):
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
-            self.assertRaises(
-                quantum.MissingIPAllocation,
-                quantum_wrapper.create_router_external_port,
-                self.router,
-            )
+            try:
+                quantum_wrapper.create_router_external_port(self.router)
+            except quantum.MissingIPAllocation as e:
+                self.assertEqual(4, e.missing[0][0])
+                self.assertEqual(6, e.missing[1][0])
+            else:
+                self.fail('Should have seen MissingIPAllocation')
