@@ -78,9 +78,9 @@ class VmManager(object):
         self.log.info('Booting router')
         self.state = DOWN
 
-        self._ensure_provider_ports(self.router_obj, worker_context)
-
         try:
+            self._ensure_provider_ports(self.router_obj, worker_context)
+
             # In the event that the current akanda instance isn't deleted
             # cleanly (which we've seen in certain circumstances, like
             # hypervisor failures), be proactive and attempt to clean up the
