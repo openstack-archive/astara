@@ -107,7 +107,7 @@ class VmManager(object):
         ready_states = (UP, CONFIGURED)
         if self.update_state(worker_context, silent=True) in ready_states:
             self.log.info('Router has booted, attempting initial config')
-            self.configure(worker_context, BOOTING, attempts=1, silent=True)
+            self.configure(worker_context, BOOTING, attempts=1)
             return self.state == CONFIGURED
         self.log.debug('Router is %s' % self.state.upper())
         return False
@@ -144,8 +144,7 @@ class VmManager(object):
             'Router failed to stop within %d secs',
             cfg.CONF.boot_timeout)
 
-    def configure(self, worker_context, failure_state=RESTART, attempts=None,
-                  silent=False):
+    def configure(self, worker_context, failure_state=RESTART, attempts=None):
         self.log.debug('Begin router config')
         self.state = UP
         attempts = attempts or cfg.CONF.max_retries
@@ -191,15 +190,14 @@ class VmManager(object):
                     config
                 )
             except Exception:
-                if not silent:
-                    if i == attempts - 1:
-                        # Only log the traceback if we encounter it many times.
-                        self.log.exception('failed to update config')
-                    else:
-                        self.log.debug(
-                            'failed to update config, attempt %d',
-                            i
-                        )
+                if i == attempts - 1:
+                    # Only log the traceback if we encounter it many times.
+                    self.log.exception('failed to update config')
+                else:
+                    self.log.debug(
+                        'failed to update config, attempt %d',
+                        i
+                    )
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED

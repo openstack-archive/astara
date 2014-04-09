@@ -216,8 +216,7 @@ class TestVmManager(unittest.TestCase):
                 configure.assert_called_once_with(
                     self.ctx,
                     vm_manager.BOOTING,
-                    attempts=1,
-                    silent=True
+                    attempts=1
                 )
 
     def test_boot_check_configured(self):
@@ -240,8 +239,7 @@ class TestVmManager(unittest.TestCase):
                 configure.assert_called_once_with(
                     self.ctx,
                     vm_manager.BOOTING,
-                    attempts=1,
-                    silent=True
+                    attempts=1
                 )
 
     def test_boot_check_still_booting(self):
@@ -273,8 +271,7 @@ class TestVmManager(unittest.TestCase):
                 configure.assert_called_once_with(
                     self.ctx,
                     vm_manager.BOOTING,
-                    attempts=1,
-                    silent=True
+                    attempts=1
                 )
 
     @mock.patch('time.sleep')
