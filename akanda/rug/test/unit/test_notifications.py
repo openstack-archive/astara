@@ -239,6 +239,38 @@ class TestGetCRUD(unittest.TestCase):
         e = notifications._make_event_from_message(msg)
         self.assertEqual(e.router_id, u'f95fb32d-0072-4675-b4bd-61d829a46aca')
 
+    def test_interface_create_and_delete(self):
+        for action in ('create', 'delete'):
+            msg = {
+                u'_context_roles': [u'_member_', u'admin'],
+                u'priority': u'INFO',
+                u'_context_read_deleted': u'no',
+                u'event_type': u'router.interface.%s' % action,
+                u'timestamp': u'2014-04-08 17:48:42.917596',
+                u'_context_tenant_id': u'4838397648d946279ad422886aabcf07',
+                u'payload': {
+                    u'router.interface': {
+                        u'subnet_id': u'0535072e-6ef4-4916-b1f5-05fab4da3d0c',
+                        u'tenant_id': u'c2a1399efbed41e5be2115afa5b5ec25',
+                        u'port_id': u'63363e5f-59b7-49ca-b619-96c16883b543',
+                        u'id': u'58868681-4a58-4f69-8dc0-b20955e7923f'
+                    }
+                },
+                u'_unique_id': u'bf7cbac3c964442b841f8a0dfda1b84f',
+                u'_context_is_admin': True,
+                u'_context_project_id': u'4838397648d946279ad422886aabcf07',
+                u'_context_timestamp': u'2014-04-08 17:48:42.838558',
+                u'_context_user_id': u'22a73cb6a5bf493da6a1b0b602b61ed6',
+                u'publisher_id': u'network.akanda',
+                u'message_id': u'c441df90-404a-4b53-a4d6-67f042339ef2'
+            }
+            e = notifications._make_event_from_message(msg)
+            self.assertEqual(event.UPDATE, e.crud)
+            self.assertEqual(
+                u'58868681-4a58-4f69-8dc0-b20955e7923f',
+                e.router_id
+            )
+
     def test_notification_akanda(self):
         e = self._test_notification('akanda.bandwidth.used')
         self.assertIs(None, e)
