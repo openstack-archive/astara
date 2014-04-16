@@ -24,6 +24,7 @@ ACT(ion) Variable
 :Update: Update router configuration.
 :Delete: Delete router.
 :Poll: Poll router alive status.
+:rEbuild: Recreate a router from scratch.
 
 vm Variable
 ===========

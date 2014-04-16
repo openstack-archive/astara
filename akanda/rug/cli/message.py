@@ -31,6 +31,7 @@ class MessageSending(command.Command):
             'event_type': 'akanda.rug.command',
             'payload': payload,
         }
+        self.log.debug('sending %r', msg)
         with notifications.Sender(
                 amqp_url=self.app.rug_ini.amqp_url,
                 exchange_name=self.app.rug_ini.outgoing_notifications_exchange,
