@@ -35,8 +35,13 @@ class Worker(object):
     method of an instance of this class instead of a simple function.
     """
 
-    def __init__(self, num_threads, notifier, ignore_directory=None):
+    def __init__(self,
+                 num_threads,
+                 notifier,
+                 ignore_directory=None,
+                 queue_warning_threshold=100):
         self._ignore_directory = ignore_directory
+        self._queue_warning_threshold = queue_warning_threshold
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -175,6 +180,7 @@ class Worker(object):
             self.tenant_managers[target] = tenant.TenantRouterManager(
                 tenant_id=target,
                 notify_callback=self.notifier.publish,
+                queue_warning_threshold=self._queue_warning_threshold,
             )
         return [self.tenant_managers[target]]
 

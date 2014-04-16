@@ -210,7 +210,7 @@ class ReadStats(State):
 class Automaton(object):
     def __init__(self, router_id, tenant_id,
                  delete_callback, bandwidth_callback,
-                 worker_context):
+                 worker_context, queue_warning_threshold):
         """
         :param router_id: UUID of the router being managed
         :type router_id: str
@@ -226,10 +226,14 @@ class Automaton(object):
                                   info dict
         :param worker_context: a WorkerContext
         :type worker_context: WorkerContext
+        :param queue_warning_threshold: Limit after which adding items
+                                        to the queue triggers a warning.
+        :type queue_warning_threshold: int
         """
         self.router_id = router_id
         self.tenant_id = tenant_id
         self._delete_callback = delete_callback
+        self._queue_warning_threshold = queue_warning_threshold
         self.deleted = False
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()
@@ -316,10 +320,12 @@ class Automaton(object):
                 message)
             return False
         self._queue.append(message.crud)
-        self.log.debug(
-            'incoming message brings queue length to %s',
-            len(self._queue),
-        )
+        queue_len = len(self._queue)
+        if queue_len > self._queue_warning_threshold:
+            logger = self.log.warning
+        else:
+            logger = self.log.debug
+        logger('incoming message brings queue length to %s', queue_len)
         return True
 
     def has_more_work(self):

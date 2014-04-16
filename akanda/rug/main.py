@@ -111,6 +111,12 @@ def register_and_load_opts():
             help='Directory to scan for routers to ignore for debugging',
         ),
 
+        cfg.IntOpt(
+            'queue_warning_threshold',
+            default=100,
+            help='warn if the event backlog for a tenant exceeds this value',
+        )
+
     ])
 
     cfg.CONF.register_opts(metadata.metadata_opts)
@@ -221,6 +227,7 @@ def main(argv=sys.argv[1:]):
         num_threads=cfg.CONF.num_worker_threads,
         notifier=publisher,
         ignore_directory=cfg.CONF.ignored_router_directory,
+        queue_warning_threshold=cfg.CONF.queue_warning_threshold,
     )
 
     # Set up the scheduler that knows how to manage the routers and
