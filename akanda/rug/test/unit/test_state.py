@@ -355,13 +355,31 @@ class TestAutomaton(unittest.TestCase):
             delete_callback=self.delete_callback,
             bandwidth_callback=self.bandwidth_callback,
             worker_context=self.ctx,
+            queue_warning_threshold=3,
         )
 
     def test_send_message(self):
         message = mock.Mock()
         message.crud = 'update'
-        self.sm.send_message(message)
-        self.assertEqual(len(self.sm._queue), 1)
+        with mock.patch.object(self.sm, 'log') as logger:
+            self.sm.send_message(message)
+            self.assertEqual(len(self.sm._queue), 1)
+            logger.debug.assert_called_with(
+                'incoming message brings queue length to %s',
+                1,
+            )
+
+    def test_send_message_over_threshold(self):
+        message = mock.Mock()
+        message.crud = 'update'
+        for i in range(3):
+            self.sm.send_message(message)
+        with mock.patch.object(self.sm, 'log') as logger:
+            self.sm.send_message(message)
+            logger.warning.assert_called_with(
+                'incoming message brings queue length to %s',
+                4,
+            )
 
     def test_send_message_deleting(self):
         message = mock.Mock()
