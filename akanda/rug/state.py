@@ -9,7 +9,7 @@ import collections
 import itertools
 import logging
 
-from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE
+from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
 from akanda.rug import vm_manager
 
 
@@ -53,6 +53,13 @@ class CalcAction(State):
                 action = queue.popleft()
                 continue
 
+            elif action == UPDATE and queue[0] == REBUILD:
+                # upgrade to REBUILD from UPDATE by taking the next
+                # item from the queue
+                self.log.debug('upgrading from update to rebuild')
+                action = queue.popleft()
+                continue
+
             elif action == CREATE and queue[0] == UPDATE:
                 # CREATE implies an UPDATE so eat the update event
                 # without changing the action
@@ -86,6 +93,8 @@ class CalcAction(State):
             return StopVM(self.log)
         elif action == DELETE:
             return StopVM(self.log)
+        elif action == REBUILD:
+            return RebuildVM(self.log)
         elif vm.state == vm_manager.BOOTING:
             return CheckBoot(self.log)
         elif vm.state == vm_manager.DOWN:
@@ -167,6 +176,24 @@ class StopVM(State):
         if vm.state == vm_manager.GONE:
             return Exit(self.log)
         if action == DELETE:
+            return Exit(self.log)
+        return CreateVM(self.log)
+
+
+class RebuildVM(State):
+    def execute(self, action, vm, worker_context, queue):
+        vm.stop(worker_context)
+        if vm.state == vm_manager.GONE:
+            # Force the action to delete since the router isn't there
+            # any more.
+            return DELETE
+        # Re-create the VM
+        return CREATE
+
+    def transition(self, action, vm, worker_context):
+        if vm.state not in (vm_manager.DOWN, vm_manager.GONE):
+            return self
+        if vm.state == vm_manager.GONE:
             return Exit(self.log)
         return CreateVM(self.log)
 

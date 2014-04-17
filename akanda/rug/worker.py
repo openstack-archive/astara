@@ -6,6 +6,7 @@ import logging
 import os
 import Queue
 import threading
+import uuid
 
 from oslo.config import cfg
 
@@ -16,6 +17,10 @@ from akanda.rug.api import nova
 from akanda.rug.api import quantum
 
 LOG = logging.getLogger(__name__)
+
+
+def _normalize_uuid(value):
+    return str(uuid.UUID(value.replace('-', '')))
 
 
 class WorkerContext(object):
@@ -175,14 +180,16 @@ class Worker(object):
     def _get_trms(self, target):
         if target == '*':
             return list(self.tenant_managers.values())
-        if target not in self.tenant_managers:
-            LOG.debug('creating tenant manager for %s', target)
-            self.tenant_managers[target] = tenant.TenantRouterManager(
-                tenant_id=target,
+        # Normalize the tenant id to a dash-separated UUID format.
+        tenant_id = _normalize_uuid(target)
+        if tenant_id not in self.tenant_managers:
+            LOG.debug('creating tenant manager for %s', tenant_id)
+            self.tenant_managers[tenant_id] = tenant.TenantRouterManager(
+                tenant_id=tenant_id,
                 notify_callback=self.notifier.publish,
                 queue_warning_threshold=self._queue_warning_threshold,
             )
-        return [self.tenant_managers[target]]
+        return [self.tenant_managers[tenant_id]]
 
     def handle_message(self, target, message):
         """Callback to be used in main
@@ -199,6 +206,11 @@ class Worker(object):
             # to the state machine.
             with self.lock:
                 self._deliver_message(target, message)
+
+    _EVENT_COMMANDS = {
+        commands.ROUTER_UPDATE: event.UPDATE,
+        commands.ROUTER_REBUILD: event.REBUILD,
+    }
 
     def _dispatch_command(self, target, message):
         instructions = message.body['payload']
@@ -219,17 +231,19 @@ class Worker(object):
             except KeyError:
                 pass
 
-        elif instructions['command'] == commands.ROUTER_UPDATE:
+        elif instructions['command'] in self._EVENT_COMMANDS:
             new_msg = event.Event(
                 tenant_id=message.tenant_id,
                 router_id=message.router_id,
-                crud=event.UPDATE,
+                crud=self._EVENT_COMMANDS[instructions['command']],
                 body=instructions,
             )
             # Use handle_message() to ensure we acquire the lock
-            LOG.info('sending update instruction to %s', message.tenant_id)
+            LOG.info('sending %s instruction to %s',
+                     instructions['command'], message.tenant_id)
             self.handle_message(new_msg.tenant_id, new_msg)
-            LOG.info('forced update for %s complete', message.tenant_id)
+            LOG.info('forced %s for %s complete',
+                     instructions['command'], message.tenant_id)
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']

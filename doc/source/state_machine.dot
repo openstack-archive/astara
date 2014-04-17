@@ -17,6 +17,7 @@ digraph rug {
   CALC_ACTION -> ALIVE [ label = "ACT>[CRUP],vm:[UC]" ];
   CALC_ACTION -> CREATE_VM [ label = "ACT>[CRUP],vm:D" ];
   CALC_ACTION -> CHECK_BOOT [ label = "ACT>[CRUP],vm:B" ];
+  CALC_ACTION -> REBUILD_VM [ label = "ACT:E" ];
   CALC_ACTION -> STOP_VM [ label = "ACT>D or vm:G" ];
 
   ALIVE -> CREATE_VM [ label = "vm>D" ];
@@ -38,7 +39,10 @@ digraph rug {
 
   STATS -> CALC_ACTION [ label = "ACT>P" ];
 
-  STOP_VM -> CREATE_VM [ label = "vm>D" ];
+  REBUILD_VM -> REBUILD_VM [ label = "vm!=[DG]" ];
+  REBUILD_VM -> CREATE_VM [ label = "ACT:E,vm:D" ];
+
+  STOP_VM -> CREATE_VM [ label = "ACT:E or vm>D" ];
   STOP_VM -> EXIT [ label = "ACT:D,vm>D or vm:G" ];
 
 }

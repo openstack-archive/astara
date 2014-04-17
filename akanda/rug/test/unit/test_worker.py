@@ -29,8 +29,8 @@ class TestCreatingRouter(unittest.TestCase):
         self.addCleanup(mock.patch.stopall)
 
         self.w = worker.Worker(0, mock.Mock())
-        self.tenant_id = '1234'
-        self.router_id = '5678'
+        self.tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        self.router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         self.msg = event.Event(
             tenant_id=self.tenant_id,
             router_id=self.router_id,
@@ -74,13 +74,13 @@ class TestWildcardMessages(unittest.TestCase):
         # Create some tenants
         for msg in [
                 event.Event(
-                    tenant_id='1234',
+                    tenant_id='98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
                     router_id='ABCD',
                     crud=event.CREATE,
                     body={'key': 'value'},
                 ),
                 event.Event(
-                    tenant_id='5678',
+                    tenant_id='ac194fc5-f317-412e-8611-fb290629f624',
                     router_id='EFGH',
                     crud=event.CREATE,
                     body={'key': 'value'},
@@ -94,7 +94,9 @@ class TestWildcardMessages(unittest.TestCase):
     def test_wildcard_to_all(self):
         trms = self.w._get_trms('*')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(['1234', '5678'], ids)
+        self.assertEqual(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
+                          'ac194fc5-f317-412e-8611-fb290629f624'],
+                         ids)
 
 
 class TestShutdown(unittest.TestCase):
@@ -151,8 +153,8 @@ class TestUpdateStateMachine(unittest.TestCase):
 
     def test(self):
         w = worker.Worker(0, mock.Mock())
-        tenant_id = '1234'
-        router_id = '5678'
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
             router_id=router_id,
@@ -247,10 +249,10 @@ class TestDebugRouters(unittest.TestCase):
         self.assertEqual(set(), self.w._debug_routers)
 
     def testDebugging(self):
-        self.w._debug_routers = set(['5678'])
+        self.w._debug_routers = set(['ac194fc5-f317-412e-8611-fb290629f624'])
 
-        tenant_id = '1234'
-        router_id = '5678'
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
             router_id=router_id,
@@ -319,14 +321,14 @@ class TestIgnoreRouters(unittest.TestCase):
 
     def testIgnoring(self):
         tmpdir = tempfile.mkdtemp()
-        fullname = os.path.join(tmpdir, '5678')
+        fullname = os.path.join(tmpdir, 'ac194fc5-f317-412e-8611-fb290629f624')
         with open(fullname, 'a'):
             os.utime(fullname, None)
         self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
         w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
 
-        tenant_id = '1234'
-        router_id = '5678'
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
             router_id=router_id,
@@ -385,10 +387,10 @@ class TestDebugTenants(unittest.TestCase):
         self.assertEqual(set(), self.w._debug_tenants)
 
     def testDebugging(self):
-        self.w._debug_tenants = set(['1234'])
+        self.w._debug_tenants = set(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'])
 
-        tenant_id = '1234'
-        router_id = '5678'
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
             router_id=router_id,
@@ -438,3 +440,22 @@ class TestConfigReload(unittest.TestCase):
         self.w.handle_message(tenant_id, msg)
         self.assertTrue(self.conf.called)
         self.assertTrue(self.conf.log_opt_values.called)
+
+
+class TestNormalizeUUID(unittest.TestCase):
+
+    def test_upper(self):
+        self.assertEqual(
+            'ac194fc5-f317-412e-8611-fb290629f624',
+            worker._normalize_uuid(
+                'ac194fc5-f317-412e-8611-fb290629f624'.upper()
+            )
+        )
+
+    def test_no_dashes(self):
+        self.assertEqual(
+            'ac194fc5-f317-412e-8611-fb290629f624',
+            worker._normalize_uuid(
+                'ac194fc5f317412e8611fb290629f624'
+            )
+        )
