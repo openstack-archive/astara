@@ -55,7 +55,8 @@ def debug_one_router(args=sys.argv[1:]):
         router_obj.tenant_id,
         delete_callback,
         bandwidth_callback,
-        context
+        context,
+        100
     )
 
     a.send_message(Fake('update'))
