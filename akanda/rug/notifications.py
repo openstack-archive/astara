@@ -30,7 +30,10 @@ def _get_tenant_id_for_message(message):
 
     for key in ('router', 'port', 'subnet'):
         if key in payload and payload[key].get('tenant_id'):
-            return payload[key]['tenant_id']
+            val = payload[key]['tenant_id']
+            LOG.debug('using tenant id from payload["%s"]["tenant_id"] = %s',
+                      key, val)
+            return val
 
     for key in ['_context_tenant_id', '_context_project_id']:
         if key in message:
@@ -39,6 +42,8 @@ def _get_tenant_id_for_message(message):
             # can't shard on None in the dispatcher, so treat those as
             # invalid.
             if val is not None:
+                LOG.debug('using tenant id from message["%s"] = %s',
+                          key, val)
                 return val
     return None
 
