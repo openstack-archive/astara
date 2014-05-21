@@ -49,6 +49,7 @@ def register_and_load_opts():
                           for n in ['asctime',
                                     'levelname',
                                     'name',
+                                    'process',
                                     'processName',
                                     'threadName',
                                     'message'])
