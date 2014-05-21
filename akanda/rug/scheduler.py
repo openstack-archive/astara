@@ -55,6 +55,7 @@ class Dispatcher(object):
         if target in ['*', 'debug']:
             return self.workers[:]
         idx = uuid.UUID(target).int % len(self.workers)
+        LOG.debug('target %s maps to worker %s', target, idx)
         return [self.workers[idx]]
 
 
