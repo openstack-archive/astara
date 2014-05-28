@@ -93,10 +93,32 @@ class TestAkandaClient(unittest.TestCase):
         mock_client = mock.Mock()
         ifaces = []
         provider_rules = {'labels': {'ext': ['192.168.1.1']}}
+        network_config = [
+            {'interface': 1,
+             'network_id': 2,
+             'v4_conf_service': 'static',
+             'v6_conf_service': 'static',
+             'network_type': 'external',
+             'subnets': [
+                 {'cidr': '192.168.1.0/24',
+                  'dhcp_enabled': True,
+                  'dns_nameservers': [],
+                  'host_routes': [],
+                  'gateway_ip': '192.168.1.1',
+                  },
+                 {'cidr': '10.0.0.0/24',
+                  'dhcp_enabled': True,
+                  'dns_nameservers': [],
+                  'host_routes': [],
+                  'gateway_ip': '10.0.0.1',
+                  },
+                 ],
+             'allocations': []}
+        ]
 
         with mock.patch.multiple(conf_mod, **methods) as mocks:
             mocks['load_provider_rules'].return_value = provider_rules
-            mocks['generate_network_config'].return_value = 'network_config'
+            mocks['generate_network_config'].return_value = network_config
             mocks['generate_address_book_config'].return_value = 'ab_config'
             mocks['generate_anchor_config'].return_value = 'anchor_config'
             mocks['generate_floating_config'].return_value = 'floating_config'
@@ -104,7 +126,8 @@ class TestAkandaClient(unittest.TestCase):
             config = conf_mod.build_config(mock_client, fake_router, ifaces)
 
             expected = {
-                'networks': 'network_config',
+                'default_gateway': '',
+                'networks': network_config,
                 'address_book': 'ab_config',
                 'anchors': 'anchor_config',
                 'labels': {'ext': ['192.168.1.1']},
