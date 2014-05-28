@@ -126,7 +126,7 @@ class TestAkandaClient(unittest.TestCase):
             config = conf_mod.build_config(mock_client, fake_router, ifaces)
 
             expected = {
-                'default_gateway': '',
+                'default_v4_gateway': '',
                 'networks': network_config,
                 'address_book': 'ab_config',
                 'anchors': 'anchor_config',

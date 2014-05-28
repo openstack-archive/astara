@@ -47,12 +47,12 @@ def build_config(client, router, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
     networks = generate_network_config(client, router, interfaces)
-    gateway = get_default_gateway(client, router, interfaces, networks)
+    gateway = get_default_v4_gateway(client, router, interfaces, networks)
 
     return {
         'asn': cfg.CONF.asn,
         'neighbor_asn': cfg.CONF.neighbor_asn,
-        'default_gateway': gateway,
+        'default_v4_gateway': gateway,
         'networks': networks,
         'address_book': generate_address_book_config(client, router),
         'anchors': generate_anchor_config(client, provider_rules, router),
@@ -62,7 +62,7 @@ def build_config(client, router, interfaces):
     }
 
 
-def get_default_gateway(client, router, interfaces, networks):
+def get_default_v4_gateway(client, router, interfaces, networks):
     """Find the IPv4 default gateway for the router.
     """
     # LOG.debug('interfaces = %r', interfaces)
