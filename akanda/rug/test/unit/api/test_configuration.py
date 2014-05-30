@@ -478,7 +478,7 @@ class TestAkandaClientGateway(unittest.TestCase):
                  'gateway_ip': '172.16.77.1',
                  'dns_nameservers': [],
                  'dhcp_enabled': True,
-                 'network_type': 'external',},
+                 'network_type': 'external'},
                 {'host_routes': [],
                  'cidr': 'fdee:9f85:83be::/48',
                  'gateway_ip': 'fdee:9f85:83be::1',
@@ -488,23 +488,28 @@ class TestAkandaClientGateway(unittest.TestCase):
              'network_id': u'1e109e80-4a6a-483e-9dd4-2ff31adf25f5',
              'allocations': [],
              'interface': {'ifname': u'ge1',
-                           'addresses': ['172.16.77.2/24',
-                                         'fdee:9f85:83be:0:f816:3eff:fee5:1742/48']},
+                           'addresses': [
+                               '172.16.77.2/24',
+                               'fdee:9f85:83be:0:f816:3eff:fee5:1742/48',
+                           ]},
              'v4_conf_service': 'static',
              'network_type': 'external'},
             {'subnets': [],
              'v6_conf_service': 'static',
              'network_id': u'698ef1d1-1089-48ab-80b0-f994a962891c',
              'allocations': [],
-             'interface': {u'addresses': [u'fe80::f816:3eff:fe4d:bf12/64',
-                                          u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64'],
-                           u'media': u'Ethernet autoselect',
-                           u'lladdr': u'fa:16:3e:4d:bf:12',
-                           u'state': u'up',
-                           u'groups': [],
-                           u'ifname': u'ge0',
-                           u'mtu': 1500,
-                           u'description': u''},
+             'interface': {
+                 u'addresses': [
+                     u'fe80::f816:3eff:fe4d:bf12/64',
+                     u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+                 ],
+                 u'media': u'Ethernet autoselect',
+                 u'lladdr': u'fa:16:3e:4d:bf:12',
+                 u'state': u'up',
+                 u'groups': [],
+                 u'ifname': u'ge0',
+                 u'mtu': 1500,
+                 u'description': u''},
              'v4_conf_service': 'static',
              'network_type': 'management'},
             {'subnets': [
@@ -522,8 +527,9 @@ class TestAkandaClientGateway(unittest.TestCase):
              'network_id': u'a1ea2256-5e57-4e9e-8b7a-8bf17eb76b73',
              'allocations': [
                  {'mac_address': u'fa:16:3e:1b:93:76',
-                  'ip_addresses': {'fdd6:a1fa:cfa8:6c94::1': False,
-                                   '192.168.0.1': True},
+                  'ip_addresses': {
+                      'fdd6:a1fa:cfa8:6c94::1': False,
+                      '192.168.0.1': True},
                   'hostname': '192-168-0-1.local',
                   'device_id': u'c72a34fb-fb56-4ee7-b9b2-6467eb1c45d6'}],
              'interface': {'ifname': u'ge2',
@@ -543,8 +549,10 @@ class TestAkandaClientGateway(unittest.TestCase):
 
     def test_with_interfaces(self):
         mock_client = mock.Mock()
-        result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
-                                                 self.interfaces, self.networks)
+        result = conf_mod.get_default_v4_gateway(
+            mock_client, fake_router,
+            self.interfaces, self.networks,
+        )
         self.assertEqual(result, '172.16.77.1')
 
     def test_without_ipv4_on_external_port(self):
@@ -555,8 +563,10 @@ class TestAkandaClientGateway(unittest.TestCase):
             u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
         ]
         mock_client = mock.Mock()
-        result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
-                                                 self.interfaces, self.networks)
+        result = conf_mod.get_default_v4_gateway(
+            mock_client, fake_router,
+            self.interfaces, self.networks,
+        )
         self.assertEqual(result, '')
 
     def test_extra_ipv4_on_external_port(self):
@@ -567,6 +577,8 @@ class TestAkandaClientGateway(unittest.TestCase):
             u'192.168.1.1',
         ]
         mock_client = mock.Mock()
-        result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
-                                                 self.interfaces, self.networks)
+        result = conf_mod.get_default_v4_gateway(
+            mock_client, fake_router,
+            self.interfaces, self.networks,
+        )
         self.assertEqual(result, '172.16.77.1')
