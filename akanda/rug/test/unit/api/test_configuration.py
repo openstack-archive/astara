@@ -547,7 +547,7 @@ class TestAkandaClientGateway(unittest.TestCase):
                                                  self.interfaces, self.networks)
         self.assertEqual(result, '172.16.77.1')
 
-    def test_without_ipv4_on_external_net(self):
+    def test_without_ipv4_on_external_port(self):
         # Sometimes we get network info for the router before the IPv4
         # address is properly assigned to a port.
         self.interfaces[0]['addresses'] = [
@@ -558,3 +558,15 @@ class TestAkandaClientGateway(unittest.TestCase):
         result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
                                                  self.interfaces, self.networks)
         self.assertEqual(result, '')
+
+    def test_extra_ipv4_on_external_port(self):
+        self.interfaces[0]['addresses'] = [
+            u'fe80::f816:3eff:fe4d:bf12/64',
+            u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+            u'172.16.77.2',
+            u'192.168.1.1',
+        ]
+        mock_client = mock.Mock()
+        result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
+                                                 self.interfaces, self.networks)
+        self.assertEqual(result, '172.16.77.1')
