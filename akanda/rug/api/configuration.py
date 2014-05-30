@@ -65,8 +65,9 @@ def build_config(client, router, interfaces):
 def get_default_v4_gateway(client, router, interfaces, networks):
     """Find the IPv4 default gateway for the router.
     """
-    # LOG.debug('interfaces = %r', interfaces)
-    # LOG.debug('networks = %r', networks)
+    LOG.debug('interfaces = %r', interfaces)
+    LOG.debug('networks = %r', networks)
+    LOG.debug('external interface = %s', router.external_port.mac_address)
 
     # Build a list of the v4 addresses on the external
     # interface.
@@ -74,6 +75,7 @@ def get_default_v4_gateway(client, router, interfaces, networks):
     for iface in interfaces:
         if iface['lladdr'] != router.external_port.mac_address:
             # Ignore internal interfaces.
+            LOG.debug('ignoring interface %s', iface['lladdr'])
             continue
         LOG.debug('%s: Looking at addresses on %r', router.id, iface)
         for ip in iface['addresses']:
