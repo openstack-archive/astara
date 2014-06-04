@@ -44,6 +44,21 @@ class TestMainPippo(unittest.TestCase):
         sched.handle_message.assert_called_once('message')
         sched.stop.assert_called_once()
 
+    def test_shuffle_notifications_error(
+            self, shuffle_notifications,
+            health, populate, scheduler, notifications,
+            multiprocessing, quantum_api, cfg):
+        queue = mock.Mock()
+        queue.get.side_effect = [
+            ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
+            RuntimeError,
+            KeyboardInterrupt,
+        ]
+        sched = scheduler.Scheduler.return_value
+        main.shuffle_notifications(queue, sched)
+        sched.handle_message.assert_called_once('message')
+        sched.stop.assert_called_once()
+
     def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
                                        multiprocessing, quantum_api, cfg):

@@ -55,6 +55,8 @@ def shuffle_notifications(notification_queue, sched):
         except KeyboardInterrupt:
             LOG.info('got Ctrl-C')
             break
+        except:
+            LOG.exception('unhandled exception processing message')
 
 
 def register_and_load_opts():
