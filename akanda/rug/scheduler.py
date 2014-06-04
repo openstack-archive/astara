@@ -67,12 +67,18 @@ class Dispatcher(object):
     def pick_workers(self, target):
         """Returns the workers that match the target.
         """
+        target = target.strip()
         # If we get the wildcard target, send the message to all of
         # the workers.
         if target in ['*', 'debug']:
             return self.workers[:]
-        idx = uuid.UUID(target).int % len(self.workers)
-        LOG.debug('target %s maps to worker %s', target, idx)
+        try:
+            idx = uuid.UUID(target).int % len(self.workers)
+        except ValueError:
+            LOG.warning('could not determine UUID from %r, ignoring message', target)
+            return []
+        else:
+            LOG.debug('target %s maps to worker %s', target, idx)
         return [self.workers[idx]]
 
 
