@@ -346,7 +346,7 @@ class AkandaExtClientWrapper(client.Client):
     def update_router_status(self, router, status):
         return self.put(
             '%s/%s' % (self.routerstatus_path, router),
-            body={'router': {'status': status}}
+            body={'routerstatus': {'status': status}}
         )
 
 
