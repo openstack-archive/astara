@@ -69,6 +69,14 @@ class TestDispatcher(unittest.TestCase):
                 'Incorrect index for %s' % router_id,
             )
 
+    def test_pick_none(self):
+        router_id = None
+        self.assertEqual(
+            [],
+            self.d.pick_workers(router_id),
+            'Found a router for None',
+        )
+
     def test_pick_with_spaces(self):
         for i in range(len(self.workers)):
             router_id = ' %s ' % self._mk_uuid(i)
