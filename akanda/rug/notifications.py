@@ -48,8 +48,8 @@ def _get_tenant_id_for_message(message):
     for key in ('router', 'port', 'subnet'):
         if key in payload and payload[key].get('tenant_id'):
             val = payload[key]['tenant_id']
-            LOG.debug('using tenant id from payload["%s"]["tenant_id"] = %s',
-                      key, val)
+            # LOG.debug('using tenant id from payload["%s"]["tenant_id"] = %s',
+            #           key, val)
             return val
 
     for key in ['_context_tenant_id', '_context_project_id']:
@@ -59,8 +59,8 @@ def _get_tenant_id_for_message(message):
             # can't shard on None in the dispatcher, so treat those as
             # invalid.
             if val is not None:
-                LOG.debug('using tenant id from message["%s"] = %s',
-                          key, val)
+                # LOG.debug('using tenant id from message["%s"] = %s',
+                #           key, val)
                 return val
     return None
 
@@ -224,10 +224,9 @@ def listen(host_id, amqp_url,
         #     so the lower layer does not have to understand both
         try:
             event = _make_event_from_message(body)
-            if not event:
-                return
-            LOG.debug('received message for %s', event.tenant_id)
-            notification_queue.put((event.tenant_id, event))
+            if event:
+                LOG.debug('received message for %s', event.tenant_id)
+                notification_queue.put((event.tenant_id, event))
         except:
             LOG.exception('could not process message: %s' % unicode(body))
             message.reject()
