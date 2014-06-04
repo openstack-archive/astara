@@ -87,24 +87,49 @@ class TestAkandaClient(unittest.TestCase):
             'generate_network_config': mock.DEFAULT,
             'generate_address_book_config': mock.DEFAULT,
             'generate_anchor_config': mock.DEFAULT,
-            'generate_floating_config': mock.DEFAULT
+            'generate_floating_config': mock.DEFAULT,
+            'get_default_v4_gateway': mock.DEFAULT,
         }
 
         mock_client = mock.Mock()
         ifaces = []
         provider_rules = {'labels': {'ext': ['192.168.1.1']}}
+        network_config = [
+            {'interface': 1,
+             'network_id': 2,
+             'v4_conf_service': 'static',
+             'v6_conf_service': 'static',
+             'network_type': 'external',
+             'subnets': [
+                 {'cidr': '192.168.1.0/24',
+                  'dhcp_enabled': True,
+                  'dns_nameservers': [],
+                  'host_routes': [],
+                  'gateway_ip': '192.168.1.1',
+                  },
+                 {'cidr': '10.0.0.0/24',
+                  'dhcp_enabled': True,
+                  'dns_nameservers': [],
+                  'host_routes': [],
+                  'gateway_ip': '10.0.0.1',
+                  },
+                 ],
+             'allocations': []}
+        ]
 
         with mock.patch.multiple(conf_mod, **methods) as mocks:
             mocks['load_provider_rules'].return_value = provider_rules
-            mocks['generate_network_config'].return_value = 'network_config'
+            mocks['generate_network_config'].return_value = network_config
             mocks['generate_address_book_config'].return_value = 'ab_config'
             mocks['generate_anchor_config'].return_value = 'anchor_config'
             mocks['generate_floating_config'].return_value = 'floating_config'
+            mocks['get_default_v4_gateway'].return_value = 'default_gw'
 
             config = conf_mod.build_config(mock_client, fake_router, ifaces)
 
             expected = {
-                'networks': 'network_config',
+                'default_v4_gateway': 'default_gw',
+                'networks': network_config,
                 'address_book': 'ab_config',
                 'anchors': 'anchor_config',
                 'labels': {'ext': ['192.168.1.1']},
@@ -410,3 +435,150 @@ class TestAkandaClient(unittest.TestCase):
         expected = [{'floating_ip': '9.9.9.9', 'fixed_ip': '192.168.1.1'}]
 
         self.assertEqual(result, expected)
+
+
+class TestAkandaClientGateway(unittest.TestCase):
+
+    def setUp(self):
+        cfg.CONF.set_override('provider_rules_path', '/the/path')
+        # Sample data taken from a real devstack-created system, with
+        # the external MAC address modified to match the fake port in
+        # use for the mocked router.
+        self.interfaces = [
+            {u'addresses': [u'fe80::f816:3eff:fe4d:bf12/64',
+                            u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+                            u'172.16.77.2'],
+             u'media': u'Ethernet autoselect',
+             u'lladdr': fake_ext_port.mac_address,
+             u'state': u'up',
+             u'groups': [],
+             u'ifname': u'ge0',
+             u'mtu': 1500,
+             u'description': u''},
+            {u'addresses': [u'10.0.0.2'],
+             u'media': u'Ethernet autoselect',
+             u'lladdr': u'fa:16:3e:e5:17:42',
+             u'state': u'down',
+             u'groups': [],
+             u'ifname': u'ge1',
+             u'mtu': 1500,
+             u'description': u''},
+            {u'addresses': [],
+             u'media': u'Ethernet autoselect',
+             u'lladdr': u'fa:16:3e:1b:93:76',
+             u'state': u'down',
+             u'groups': [],
+             u'ifname': u'ge2',
+             u'mtu': 1500,
+             u'description': u''}]
+        self.networks = [
+            {'subnets': [
+                {'host_routes': [],
+                 'cidr': '172.16.77.0/24',
+                 'gateway_ip': '172.16.77.1',
+                 'dns_nameservers': [],
+                 'dhcp_enabled': True,
+                 'network_type': 'external'},
+                {'host_routes': [],
+                 'cidr': 'fdee:9f85:83be::/48',
+                 'gateway_ip': 'fdee:9f85:83be::1',
+                 'dns_nameservers': [],
+                 'dhcp_enabled': True}],
+             'v6_conf_service': 'static',
+             'network_id': u'1e109e80-4a6a-483e-9dd4-2ff31adf25f5',
+             'allocations': [],
+             'interface': {'ifname': u'ge1',
+                           'addresses': [
+                               '172.16.77.2/24',
+                               'fdee:9f85:83be:0:f816:3eff:fee5:1742/48',
+                           ]},
+             'v4_conf_service': 'static',
+             'network_type': 'external'},
+            {'subnets': [],
+             'v6_conf_service': 'static',
+             'network_id': u'698ef1d1-1089-48ab-80b0-f994a962891c',
+             'allocations': [],
+             'interface': {
+                 u'addresses': [
+                     u'fe80::f816:3eff:fe4d:bf12/64',
+                     u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+                 ],
+                 u'media': u'Ethernet autoselect',
+                 u'lladdr': u'fa:16:3e:4d:bf:12',
+                 u'state': u'up',
+                 u'groups': [],
+                 u'ifname': u'ge0',
+                 u'mtu': 1500,
+                 u'description': u''},
+             'v4_conf_service': 'static',
+             'network_type': 'management'},
+            {'subnets': [
+                {'host_routes': [],
+                 'cidr': 'fdd6:a1fa:cfa8:6c94::/64',
+                 'gateway_ip': 'fdd6:a1fa:cfa8:6c94::1',
+                 'dns_nameservers': [],
+                 'dhcp_enabled': False},
+                {'host_routes': [],
+                 'cidr': '192.168.0.0/24',
+                 'gateway_ip': '192.168.0.1',
+                 'dns_nameservers': [],
+                 'dhcp_enabled': True}],
+             'v6_conf_service': 'static',
+             'network_id': u'a1ea2256-5e57-4e9e-8b7a-8bf17eb76b73',
+             'allocations': [
+                 {'mac_address': u'fa:16:3e:1b:93:76',
+                  'ip_addresses': {
+                      'fdd6:a1fa:cfa8:6c94::1': False,
+                      '192.168.0.1': True},
+                  'hostname': '192-168-0-1.local',
+                  'device_id': u'c72a34fb-fb56-4ee7-b9b2-6467eb1c45d6'}],
+             'interface': {'ifname': u'ge2',
+                           'addresses': ['192.168.0.1/24',
+                                         'fdd6:a1fa:cfa8:6c94::1/64']},
+             'v4_conf_service': 'static',
+             'network_type': 'internal'}]
+
+    def tearDown(self):
+        cfg.CONF.reset()
+
+    def test_no_interfaces(self):
+        mock_client = mock.Mock()
+        result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
+                                                 [], self.networks)
+        self.assertEqual(result, '')
+
+    def test_with_interfaces(self):
+        mock_client = mock.Mock()
+        result = conf_mod.get_default_v4_gateway(
+            mock_client, fake_router,
+            self.interfaces, self.networks,
+        )
+        self.assertEqual(result, '172.16.77.1')
+
+    def test_without_ipv4_on_external_port(self):
+        # Sometimes we get network info for the router before the IPv4
+        # address is properly assigned to a port.
+        self.interfaces[0]['addresses'] = [
+            u'fe80::f816:3eff:fe4d:bf12/64',
+            u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+        ]
+        mock_client = mock.Mock()
+        result = conf_mod.get_default_v4_gateway(
+            mock_client, fake_router,
+            self.interfaces, self.networks,
+        )
+        self.assertEqual(result, '')
+
+    def test_extra_ipv4_on_external_port(self):
+        self.interfaces[0]['addresses'] = [
+            u'fe80::f816:3eff:fe4d:bf12/64',
+            u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+            u'172.16.77.2',
+            u'192.168.1.1',
+        ]
+        mock_client = mock.Mock()
+        result = conf_mod.get_default_v4_gateway(
+            mock_client, fake_router,
+            self.interfaces, self.networks,
+        )
+        self.assertEqual(result, '172.16.77.1')

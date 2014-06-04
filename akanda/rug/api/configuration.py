@@ -18,6 +18,7 @@
 import logging
 import re
 
+import netaddr
 from oslo.config import cfg
 
 from akanda.rug.openstack.common import jsonutils
@@ -45,16 +46,73 @@ SERVICE_RA = 'ra'
 def build_config(client, router, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
+    networks = generate_network_config(client, router, interfaces)
+    gateway = get_default_v4_gateway(client, router, interfaces, networks)
+
     return {
         'asn': cfg.CONF.asn,
         'neighbor_asn': cfg.CONF.neighbor_asn,
-        'networks': generate_network_config(client, router, interfaces),
+        'default_v4_gateway': gateway,
+        'networks': networks,
         'address_book': generate_address_book_config(client, router),
         'anchors': generate_anchor_config(client, provider_rules, router),
         'labels': provider_rules.get('labels', {}),
         'floating_ips': generate_floating_config(router),
-        'tenant_id': router.tenant_id
+        'tenant_id': router.tenant_id,
     }
+
+
+def get_default_v4_gateway(client, router, interfaces, networks):
+    """Find the IPv4 default gateway for the router.
+    """
+    LOG.debug('interfaces = %r', interfaces)
+    LOG.debug('networks = %r', networks)
+    LOG.debug('external interface = %s', router.external_port.mac_address)
+
+    # Build a list of the v4 addresses on the external
+    # interface.
+    v4_addresses = []
+    for iface in interfaces:
+        if iface['lladdr'] != router.external_port.mac_address:
+            # Ignore internal interfaces.
+            LOG.debug('ignoring interface %s', iface['lladdr'])
+            continue
+        LOG.debug('%s: Looking at addresses on %r', router.id, iface)
+        for ip in iface['addresses']:
+            # The addresses look like CIDR values, but we don't want
+            # networks we want IPs. Strip the subnet length value.
+            addr = netaddr.IPAddress(ip.partition('/')[0])
+            if addr.version == 4:
+                v4_addresses.append(addr)
+
+    # Now find the subnet that our external IP is on, and return its
+    # gateway.
+    for n in networks:
+        if n['network_type'] == EXTERNAL_NET:
+            for s in n['subnets']:
+                subnet = netaddr.IPNetwork(s['cidr'])
+                if subnet.version != 4:
+                    continue
+                LOG.debug(
+                    '%s: checking if subnet %s should have the default route',
+                    router.id, s['cidr'])
+                for addr in v4_addresses:
+                    if addr in subnet:
+                        LOG.debug(
+                            '%s: found gateway %s for subnet %s on network %s',
+                            router.id,
+                            s['gateway_ip'],
+                            s['cidr'],
+                            n['network_id'],
+                        )
+                        return s['gateway_ip']
+
+    # Sometimes we are asked to build a configuration for the server
+    # when the external interface is still marked as "down". We can
+    # report that case, but we don't treat it as an error here because
+    # we'll be asked to do it again when the interface comes up.
+    LOG.info('%s: no default gateway was found', router.id)
+    return ''
 
 
 def load_provider_rules(path):
