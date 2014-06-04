@@ -69,6 +69,45 @@ class TestVmManager(unittest.TestCase):
         self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.UP)
         router_api.is_alive.assert_called_once_with('fe80::beef', 5000)
 
+    @mock.patch('time.sleep', lambda *a: None)
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
+    @mock.patch('akanda.rug.api.configuration.build_config')
+    def test_router_status_sync(self, config, get_mgt_addr, router_api):
+        self.update_state_p.stop()
+        router_api.is_alive.return_value = False
+        rtr = mock.sentinel.router
+        rtr.id = 'R1'
+        rtr.management_port = mock.Mock()
+        rtr.external_port = mock.Mock()
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        n = self.quantum
+
+        # Router state should start down
+        self.vm_mgr.update_state(self.ctx)
+        n.update_router_status.assert_called_once_with('R1', 'DOWN')
+        n.update_router_status.reset_mock()
+
+        # Bring the router to UP with `is_alive = True`
+        router_api.is_alive.return_value = True
+        self.vm_mgr.update_state(self.ctx)
+        n.update_router_status.assert_called_once_with('R1', 'BUILD')
+        n.update_router_status.reset_mock()
+
+        # Configure the router and make sure state is synchronized as ACTIVE
+        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+            verify.return_value = True
+            self.vm_mgr.configure(self.ctx)
+            self.vm_mgr.update_state(self.ctx)
+            n.update_router_status.assert_called_once_with('R1', 'ACTIVE')
+            n.update_router_status.reset_mock()
+
+        # Removing the management port will trigger a reboot
+        rtr.management_port = None
+        self.vm_mgr.update_state(self.ctx)
+        n.update_router_status.assert_called_once_with('R1', 'DOWN')
+        n.update_router_status.reset_mock()
+
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
