@@ -444,33 +444,6 @@ class TestAkandaClientGateway(unittest.TestCase):
         # Sample data taken from a real devstack-created system, with
         # the external MAC address modified to match the fake port in
         # use for the mocked router.
-        self.interfaces = [
-            {u'addresses': [u'fe80::f816:3eff:fe4d:bf12/64',
-                            u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
-                            u'172.16.77.2'],
-             u'media': u'Ethernet autoselect',
-             u'lladdr': fake_ext_port.mac_address,
-             u'state': u'up',
-             u'groups': [],
-             u'ifname': u'ge0',
-             u'mtu': 1500,
-             u'description': u''},
-            {u'addresses': [u'10.0.0.2'],
-             u'media': u'Ethernet autoselect',
-             u'lladdr': u'fa:16:3e:e5:17:42',
-             u'state': u'down',
-             u'groups': [],
-             u'ifname': u'ge1',
-             u'mtu': 1500,
-             u'description': u''},
-            {u'addresses': [],
-             u'media': u'Ethernet autoselect',
-             u'lladdr': u'fa:16:3e:1b:93:76',
-             u'state': u'down',
-             u'groups': [],
-             u'ifname': u'ge2',
-             u'mtu': 1500,
-             u'description': u''}]
         self.networks = [
             {'subnets': [
                 {'host_routes': [],
@@ -541,44 +514,39 @@ class TestAkandaClientGateway(unittest.TestCase):
     def tearDown(self):
         cfg.CONF.reset()
 
-    def test_no_interfaces(self):
-        mock_client = mock.Mock()
-        result = conf_mod.get_default_v4_gateway(mock_client, fake_router,
-                                                 [], self.networks)
-        self.assertEqual(result, '')
-
     def test_with_interfaces(self):
         mock_client = mock.Mock()
         result = conf_mod.get_default_v4_gateway(
-            mock_client, fake_router,
-            self.interfaces, self.networks,
+            mock_client,
+            fake_router,
+            self.networks,
         )
         self.assertEqual(result, '172.16.77.1')
 
     def test_without_ipv4_on_external_port(self):
-        # Sometimes we get network info for the router before the IPv4
-        # address is properly assigned to a port.
-        self.interfaces[0]['addresses'] = [
-            u'fe80::f816:3eff:fe4d:bf12/64',
-            u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
+        # Only set a V6 address
+        self.networks[0]['interface']['addresses'] = [
+            'fdee:9f85:83be:0:f816:3eff:fee5:1742/48',
         ]
         mock_client = mock.Mock()
         result = conf_mod.get_default_v4_gateway(
-            mock_client, fake_router,
-            self.interfaces, self.networks,
+            mock_client,
+            fake_router,
+            self.networks,
         )
         self.assertEqual(result, '')
 
     def test_extra_ipv4_on_external_port(self):
-        self.interfaces[0]['addresses'] = [
+        self.networks[0]['interface']['addresses'] = [
             u'fe80::f816:3eff:fe4d:bf12/64',
             u'fdca:3ba5:a17a:acda:f816:3eff:fe4d:bf12/64',
-            u'172.16.77.2',
             u'192.168.1.1',
+            u'172.16.77.2',
         ]
         mock_client = mock.Mock()
         result = conf_mod.get_default_v4_gateway(
-            mock_client, fake_router,
-            self.interfaces, self.networks,
+            mock_client,
+            fake_router,
+            self.networks,
         )
         self.assertEqual(result, '172.16.77.1')

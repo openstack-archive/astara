@@ -47,7 +47,7 @@ def build_config(client, router, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
     networks = generate_network_config(client, router, interfaces)
-    gateway = get_default_v4_gateway(client, router, interfaces, networks)
+    gateway = get_default_v4_gateway(client, router, networks)
 
     return {
         'asn': cfg.CONF.asn,
@@ -62,33 +62,22 @@ def build_config(client, router, interfaces):
     }
 
 
-def get_default_v4_gateway(client, router, interfaces, networks):
+def get_default_v4_gateway(client, router, networks):
     """Find the IPv4 default gateway for the router.
     """
-    LOG.debug('interfaces = %r', interfaces)
     LOG.debug('networks = %r', networks)
     LOG.debug('external interface = %s', router.external_port.mac_address)
-
-    # Build a list of the v4 addresses on the external
-    # interface.
-    v4_addresses = []
-    for iface in interfaces:
-        if iface['lladdr'] != router.external_port.mac_address:
-            # Ignore internal interfaces.
-            LOG.debug('ignoring interface %s', iface['lladdr'])
-            continue
-        LOG.debug('%s: Looking at addresses on %r', router.id, iface)
-        for ip in iface['addresses']:
-            # The addresses look like CIDR values, but we don't want
-            # networks we want IPs. Strip the subnet length value.
-            addr = netaddr.IPAddress(ip.partition('/')[0])
-            if addr.version == 4:
-                v4_addresses.append(addr)
 
     # Now find the subnet that our external IP is on, and return its
     # gateway.
     for n in networks:
         if n['network_type'] == EXTERNAL_NET:
+            v4_addresses = [
+                addr
+                for addr in (netaddr.IPAddress(ip.partition('/')[0])
+                             for ip in n['interface']['addresses'])
+                if addr.version == 4
+            ]
             for s in n['subnets']:
                 subnet = netaddr.IPNetwork(s['cidr'])
                 if subnet.version != 4:
