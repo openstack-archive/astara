@@ -68,22 +68,6 @@ def get_default_v4_gateway(client, router, networks):
     LOG.debug('networks = %r', networks)
     LOG.debug('external interface = %s', router.external_port.mac_address)
 
-    # Build a list of the v4 addresses on the external
-    # interface.
-    # v4_addresses = []
-    # for iface in interfaces:
-    #     if iface['lladdr'] != router.external_port.mac_address:
-    #         # Ignore internal interfaces.
-    #         LOG.debug('ignoring interface %s', iface['lladdr'])
-    #         continue
-    #     LOG.debug('%s: Looking at addresses on %r', router.id, iface)
-    #     for ip in iface['addresses']:
-    #         # The addresses look like CIDR values, but we don't want
-    #         # networks we want IPs. Strip the subnet length value.
-    #         addr = netaddr.IPAddress(ip.partition('/')[0])
-    #         if addr.version == 4:
-    #             v4_addresses.append(addr)
-
     # Now find the subnet that our external IP is on, and return its
     # gateway.
     for n in networks:
