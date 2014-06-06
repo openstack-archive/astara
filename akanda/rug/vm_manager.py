@@ -16,6 +16,7 @@
 
 
 from datetime import datetime
+from functools import wraps
 import netaddr
 import time
 
@@ -33,7 +34,26 @@ RESTART = 'restart'
 GONE = 'gone'
 
 
+def synchronize_router_status(f):
+    @wraps(f)
+    def wrapper(self, worker_context, silent=False):
+        val = f(self, worker_context, silent)
+        status_map = {
+            DOWN: quantum.STATUS_DOWN,
+            BOOTING: quantum.STATUS_BUILD,
+            UP: quantum.STATUS_BUILD,
+            CONFIGURED: quantum.STATUS_ACTIVE
+        }
+        worker_context.neutron.update_router_status(
+            self.router_obj.id,
+            status_map.get(self.state, quantum.STATUS_ERROR)
+        )
+        return val
+    return wrapper
+
+
 class VmManager(object):
+
     def __init__(self, router_id, tenant_id, log, worker_context):
         self.router_id = router_id
         self.tenant_id = tenant_id
@@ -44,6 +64,7 @@ class VmManager(object):
         # FIXME: Probably need to pass context here
         self.update_state(worker_context, silent=True)
 
+    @synchronize_router_status
     def update_state(self, worker_context, silent=False):
         self._ensure_cache(worker_context)
         if self.state == GONE:

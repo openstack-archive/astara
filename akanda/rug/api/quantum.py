@@ -41,6 +41,11 @@ DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:akanda"
 PLUGIN_RPC_TOPIC = 'q-plugin'
 
+STATUS_ACTIVE = 'ACTIVE'
+STATUS_BUILD = 'BUILD'
+STATUS_DOWN = 'DOWN'
+STATUS_ERROR = 'ERROR'
+
 
 class RouterGone(Exception):
     pass
@@ -283,6 +288,7 @@ class AkandaExtClientWrapper(client.Client):
     filterrule_path = '/dhfilterrule'
     portalias_path = '/dhportalias'
     portforward_path = '/dhportforward'
+    routerstatus_path = '/dhrouterstatus'
 
     # portalias crud
     @client.APIParamsCall
@@ -335,6 +341,13 @@ class AkandaExtClientWrapper(client.Client):
         return self.get('%s/%s' % (self.addressentry_path,
                                    addressentry),
                         params=params)
+
+    @client.APIParamsCall
+    def update_router_status(self, router, status):
+        return self.put(
+            '%s/%s' % (self.routerstatus_path, router),
+            body={'routerstatus': {'status': status}}
+        )
 
 
 class L3PluginApi(proxy.RpcProxy):
@@ -536,6 +549,9 @@ class Quantum(object):
             port = Port.from_dict(ports[0])
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
+
+    def update_router_status(self, router_id, status):
+        self.api_client.update_router_status(router_id, status)
 
     def clear_device_id(self, port):
         self.api_client.update_port(port.id, {'port': {'device_id': ''}})
