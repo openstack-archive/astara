@@ -17,6 +17,7 @@
 
 import os
 import tempfile
+import threading
 
 import mock
 
@@ -257,6 +258,31 @@ class TestDebugRouters(unittest.TestCase):
 
     def testManage(self):
         self.w._debug_routers = set(['this-router-id'])
+        lock = mock.Mock()
+        self.w._router_locks['this-router-id'] = lock
+        self.w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.ROUTER_MANAGE,
+                                     'router_id': 'this-router-id'}}),
+        )
+        self.assertEqual(set(), self.w._debug_routers)
+        lock.release.assert_called_once()
+
+    def testManageNoLock(self):
+        self.w._debug_routers = set(['this-router-id'])
+        self.w.handle_message(
+            '*',
+            event.Event('*', '', event.COMMAND,
+                        {'payload': {'command': commands.ROUTER_MANAGE,
+                                     'router_id': 'this-router-id'}}),
+        )
+        self.assertEqual(set(), self.w._debug_routers)
+
+    def testManageUnlocked(self):
+        self.w._debug_routers = set(['this-router-id'])
+        lock = threading.Lock()
+        self.w._router_locks['this-router-id'] = lock
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
