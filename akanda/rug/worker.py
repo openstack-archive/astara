@@ -247,6 +247,14 @@ class Worker(object):
                 LOG.info('Resuming management of router %s', router_id)
             except KeyError:
                 pass
+            try:
+                self._router_locks[router_id].release()
+                LOG.info('Unlocked router %s', router_id)
+            except KeyError:
+                pass
+            except threading.ThreadError:
+                # Already unlocked, that's OK.
+                pass
 
         elif instructions['command'] in self._EVENT_COMMANDS:
             new_msg = event.Event(
