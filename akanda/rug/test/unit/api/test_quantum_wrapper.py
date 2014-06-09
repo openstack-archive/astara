@@ -252,6 +252,14 @@ class TestQuantumWrapper(unittest.TestCase):
             'PORT1', {'port': {'device_id': ''}}
         )
 
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    def test_neutron_router_status_update_error(self, client_wrapper):
+        urs = client_wrapper.return_value.update_router_status
+        urs.side_effect = RuntimeError('should be caught')
+        conf = mock.Mock()
+        quantum_wrapper = quantum.Quantum(conf)
+        quantum_wrapper.update_router_status('router-id', 'new-status')
+
 
 class TestExternalPort(unittest.TestCase):
 
