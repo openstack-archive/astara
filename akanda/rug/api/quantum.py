@@ -551,7 +551,16 @@ class Quantum(object):
             driver.unplug(device_name)
 
     def update_router_status(self, router_id, status):
-        self.api_client.update_router_status(router_id, status)
+        try:
+            self.api_client.update_router_status(router_id, status)
+        except Exception as e:
+            # We don't want to die just because we can't tell neutron
+            # what the status of the router should be. Log the error
+            # but otherwise ignore it.
+            LOG.info(
+                'ignoring failure to update status for router %s to %s: %s',
+                router_id, status, e,
+            )
 
     def clear_device_id(self, port):
         self.api_client.update_port(port.id, {'port': {'device_id': ''}})
