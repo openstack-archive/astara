@@ -133,8 +133,20 @@ class Subnet(object):
         self.tenant_id = tenant_id
         self.network_id = network_id
         self.ip_version = ip_version
-        self.cidr = netaddr.IPNetwork(cidr)
-        self.gateway_ip = netaddr.IPAddress(gateway_ip)
+        try:
+            self.cidr = netaddr.IPNetwork(cidr)
+        except (TypeError, netaddr.AddrFormatError) as e:
+            raise ValueError(
+                'Invalid CIDR %r for subnet %s of network %s: %s' % (
+                    cidr, id_, network_id, e,
+                )
+            )
+        try:
+            self.gateway_ip = netaddr.IPAddress(gateway_ip)
+        except (TypeError, netaddr.AddrFormatError) as e:
+            self.gateway_ip = None
+            LOG.info('Bad gateway_ip on subnet %s: %r (%s)',
+                     id_, gateway_ip, e)
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers
         self.host_routes = host_routes
@@ -413,8 +425,17 @@ class Quantum(object):
                 self.api_client.list_ports(network_id=network_id)['ports']]
 
     def get_network_subnets(self, network_id):
-        return [Subnet.from_dict(s) for s in
-                self.api_client.list_subnets(network_id=network_id)['subnets']]
+        response = []
+        subnet_response = self.api_client.list_subnets(network_id=network_id)
+        subnets = subnet_response['subnets']
+        for s in subnets:
+            try:
+                response.append(Subnet.from_dict(s))
+            except Exception as e:
+                LOG.info('ignoring subnet %s (%s) on network %s: %s',
+                         s.get('id'), s.get('cidr'),
+                         network_id, e)
+        return response
 
     def get_addressgroups(self, tenant_id):
         return [AddressGroup.from_dict(g) for g in
