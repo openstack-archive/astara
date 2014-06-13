@@ -183,7 +183,9 @@ def _subnet_config(subnet):
         'dhcp_enabled': subnet.enable_dhcp,
         'dns_nameservers': subnet.dns_nameservers,
         'host_routes': subnet.host_routes,
-        'gateway_ip': str(subnet.gateway_ip)
+        'gateway_ip': (str(subnet.gateway_ip)
+                       if subnet.gateway_ip is not None
+                       else ''),
     }
 
 

@@ -113,6 +113,76 @@ class TestQuantumModels(unittest.TestCase):
         self.assertEqual(s.dns_nameservers, ['8.8.8.8', '8.8.4.4'])
         self.assertEqual(s.host_routes, [])
 
+    def test_subnet_gateway_none(self):
+        d = {
+            'id': '1',
+            'tenant_id': 'tenant_id',
+            'name': 'name',
+            'network_id': 'network_id',
+            'ip_version': 6,
+            'cidr': 'fe80::/64',
+            'gateway_ip': None,
+            'enable_dhcp': True,
+            'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'host_routes': []
+        }
+        s = quantum.Subnet.from_dict(d)
+        self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
+        self.assertIs(None, s.gateway_ip)
+
+    def test_subnet_gateway_not_ip(self):
+        d = {
+            'id': '1',
+            'tenant_id': 'tenant_id',
+            'name': 'name',
+            'network_id': 'network_id',
+            'ip_version': 6,
+            'cidr': 'fe80::/64',
+            'gateway_ip': 'something-that-is-not-an-ip',
+            'enable_dhcp': True,
+            'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'host_routes': []
+        }
+        s = quantum.Subnet.from_dict(d)
+        self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
+        self.assertIs(None, s.gateway_ip)
+
+    def test_subnet_cidr_none(self):
+        d = {
+            'id': '1',
+            'tenant_id': 'tenant_id',
+            'name': 'name',
+            'network_id': 'network_id',
+            'ip_version': 6,
+            'cidr': None,
+            'gateway_ip': 'fe80::1',
+            'enable_dhcp': True,
+            'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'host_routes': []
+        }
+        try:
+            quantum.Subnet.from_dict(d)
+        except ValueError as e:
+            self.assertIn('Invalid CIDR', unicode(e))
+
+    def test_subnet_cidr_not_valid(self):
+        d = {
+            'id': '1',
+            'tenant_id': 'tenant_id',
+            'name': 'name',
+            'network_id': 'network_id',
+            'ip_version': 6,
+            'cidr': 'something-that-is-not-an-ip',
+            'gateway_ip': 'fe80::1',
+            'enable_dhcp': True,
+            'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'host_routes': []
+        }
+        try:
+            quantum.Subnet.from_dict(d)
+        except ValueError as e:
+            self.assertIn('Invalid CIDR', unicode(e))
+
     def test_port_model(self):
         d = {
             'id': '1',

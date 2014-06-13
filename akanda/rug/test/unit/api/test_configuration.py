@@ -292,8 +292,41 @@ class TestAkandaClient(unittest.TestCase):
             'gateway_ip': '192.168.1.1',
             'host_routes': {}
         }
-
         self.assertEqual(conf_mod._subnet_config(fake_subnet), expected)
+
+    def test_subnet_config_no_gateway(self):
+        expected = {
+            'cidr': '192.168.1.0/24',
+            'dhcp_enabled': True,
+            'dns_nameservers': ['8.8.8.8'],
+            'gateway_ip': '',
+            'host_routes': {}
+        }
+        sn = FakeModel(
+            's1',
+            cidr=netaddr.IPNetwork('192.168.1.0/24'),
+            gateway_ip='',
+            enable_dhcp=True,
+            dns_nameservers=['8.8.8.8'],
+            host_routes={})
+        self.assertEqual(conf_mod._subnet_config(sn), expected)
+
+    def test_subnet_config_gateway_none(self):
+        expected = {
+            'cidr': '192.168.1.0/24',
+            'dhcp_enabled': True,
+            'dns_nameservers': ['8.8.8.8'],
+            'gateway_ip': '',
+            'host_routes': {}
+        }
+        sn = FakeModel(
+            's1',
+            cidr=netaddr.IPNetwork('192.168.1.0/24'),
+            gateway_ip=None,
+            enable_dhcp=True,
+            dns_nameservers=['8.8.8.8'],
+            host_routes={})
+        self.assertEqual(conf_mod._subnet_config(sn), expected)
 
     def test_allocation_config(self):
         subnets_dict = {fake_subnet.id: fake_subnet}
