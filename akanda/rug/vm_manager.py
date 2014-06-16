@@ -94,7 +94,7 @@ class VmManager(object):
             if self.last_boot:
                 seconds_since_boot = (
                     datetime.utcnow() - self.last_boot
-                ).seconds
+                ).total_seconds()
                 if seconds_since_boot < cfg.CONF.boot_timeout:
                     self.state = BOOTING
                 else:
@@ -105,6 +105,12 @@ class VmManager(object):
                         'Router is DOWN.  Created over %d secs ago.',
                         cfg.CONF.boot_timeout)
 
+        # After the router is all the way up, record how long it took
+        # to boot and accept a configuration.
+        if self.state == CONFIGURED:
+            boot_duration = (datetime.utcnow() - self.last_boot)
+            self.log.info('Router booted in %s seconds',
+                          boot_duration.total_seconds())
         return self.state
 
     def boot(self, worker_context):

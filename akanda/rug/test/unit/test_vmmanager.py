@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
 import logging
 
 import mock
@@ -97,6 +96,7 @@ class TestVmManager(unittest.TestCase):
         # Configure the router and make sure state is synchronized as ACTIVE
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True
+            self.vm_mgr.last_boot = datetime.utcnow()
             self.vm_mgr.configure(self.ctx)
             self.vm_mgr.update_state(self.ctx)
             n.update_router_status.assert_called_once_with('R1', 'ACTIVE')
