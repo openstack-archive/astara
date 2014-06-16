@@ -108,8 +108,9 @@ class VmManager(object):
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
         if self.state == CONFIGURED:
-            boot_duration = (datetime.utcnow() - self.last_boot).total_seconds()
-            self.log.info('Router booted in %s seconds', boot_duration)
+            boot_duration = (datetime.utcnow() - self.last_boot)
+            self.log.info('Router booted in %s seconds',
+                          boot_duration.total_seconds())
         return self.state
 
     def boot(self, worker_context):
