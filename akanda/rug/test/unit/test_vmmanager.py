@@ -469,3 +469,20 @@ class TestVmManager(unittest.TestCase):
         self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr, self.ctx),
                          rtr)
         self.quantum.create_router_external_port.assert_called_once_with(rtr)
+
+
+class TestBootAttemptCounter(unittest.TestCase):
+
+    def setUp(self):
+        self.c = vm_manager.BootAttemptCounter()
+
+    def test_start(self):
+        self.c.start()
+        self.assertEqual(1, self.c._attempts)
+        self.c.start()
+        self.assertEqual(2, self.c._attempts)
+
+    def test_success(self):
+        self.c._attempts = 2
+        self.c.success()
+        self.assertEqual(0, self.c._attempts)

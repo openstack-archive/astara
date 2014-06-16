@@ -53,6 +53,21 @@ def synchronize_router_status(f):
     return wrapper
 
 
+class BootAttemptCounter(object):
+    def __init__(self):
+        self._attempts = 0
+
+    def start(self):
+        self._attempts += 1
+
+    def success(self):
+        self._attempts = 0
+
+    @property
+    def count(self):
+        return self._attempts
+
+
 class VmManager(object):
 
     def __init__(self, router_id, tenant_id, log, worker_context):
@@ -64,6 +79,11 @@ class VmManager(object):
         self.last_boot = None
         # FIXME: Probably need to pass context here
         self.update_state(worker_context, silent=True)
+        self._boot_counter = BootAttemptCounter()
+
+    @property
+    def attempts(self):
+        return self._boot_counter.count
 
     @synchronize_router_status
     def update_state(self, worker_context, silent=False):
@@ -108,10 +128,19 @@ class VmManager(object):
 
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
-        if self.state == CONFIGURED and self.last_boot:
-            boot_duration = (datetime.utcnow() - self.last_boot)
-            self.log.info('Router booted in %s seconds',
-                          boot_duration.total_seconds())
+        if self.state == CONFIGURED:
+            # If we didn't boot the server (because we were restarted
+            # while it remained running, for example), we won't have a
+            # last_boot time to log.
+            if self.last_boot:
+                boot_duration = (datetime.utcnow() - self.last_boot)
+                self.log.info('Router booted in %s seconds after %s attempts',
+                              boot_duration.total_seconds(),
+                              self._boot_counter.count)
+            # Always reset the boot counter, even if we didn't boot
+            # the server ourself, so we don't accidentally think we
+            # have an erroring router.
+            self._boot_counter.success()
         return self.state
 
     def boot(self, worker_context):
@@ -122,6 +151,7 @@ class VmManager(object):
 
         self.log.info('Booting router')
         self.state = DOWN
+        self._boot_counter.start()
 
         try:
             self._ensure_provider_ports(self.router_obj, worker_context)
