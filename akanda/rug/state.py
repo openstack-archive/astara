@@ -84,8 +84,8 @@ class CalcAction(State):
                 queue.popleft()
                 continue
 
-            elif queue[0] == POLL:
-                # Throw away a poll following any other action,
+            elif action and queue[0] == POLL:
+                # Throw away a poll following any other valid action,
                 # because a create or update will automatically handle
                 # the poll and repeated polls are not needed.
                 self.log.debug('discarding poll event following action %s',
@@ -93,7 +93,7 @@ class CalcAction(State):
                 queue.popleft()
                 continue
 
-            elif action != POLL and action != queue[0]:
+            elif action and action != POLL and action != queue[0]:
                 # We are not polling and the next action is something
                 # different from what we are doing, so just do the
                 # current action.
