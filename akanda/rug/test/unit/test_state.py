@@ -79,6 +79,18 @@ class TestCalcActionState(BaseTestStateCase):
     def test_execute_delete_in_queue(self):
         self._test_hlpr(event.DELETE, [event.CREATE, event.DELETE], 2)
 
+    def test_none_start_action_update(self):
+        self._test_hlpr(expected_action=event.UPDATE,
+                        queue_states=[event.UPDATE, event.UPDATE],
+                        leftover=0,
+                        initial_action=None)
+
+    def test_none_start_action_poll(self):
+        self._test_hlpr(expected_action=event.POLL,
+                        queue_states=[event.POLL, event.POLL],
+                        leftover=0,
+                        initial_action=None)
+
     def test_execute_ignore_pending_update_follow_create(self):
         self._test_hlpr(event.CREATE, [event.CREATE, event.UPDATE])
 
