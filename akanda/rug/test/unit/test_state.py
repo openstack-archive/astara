@@ -385,6 +385,7 @@ class TestAutomaton(unittest.TestCase):
             bandwidth_callback=self.bandwidth_callback,
             worker_context=self.ctx,
             queue_warning_threshold=3,
+            reboot_error_threshold=5,
         )
 
     def test_send_message(self):

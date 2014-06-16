@@ -254,7 +254,8 @@ class ReadStats(State):
 class Automaton(object):
     def __init__(self, router_id, tenant_id,
                  delete_callback, bandwidth_callback,
-                 worker_context, queue_warning_threshold):
+                 worker_context, queue_warning_threshold,
+                 reboot_error_threshold):
         """
         :param router_id: UUID of the router being managed
         :type router_id: str
@@ -273,11 +274,15 @@ class Automaton(object):
         :param queue_warning_threshold: Limit after which adding items
                                         to the queue triggers a warning.
         :type queue_warning_threshold: int
+        :param reboot_error_threshold: Limit after which trying to reboot
+                                       the router puts it into an error state.
+        :type reboot_error_threshold: int
         """
         self.router_id = router_id
         self.tenant_id = tenant_id
         self._delete_callback = delete_callback
         self._queue_warning_threshold = queue_warning_threshold
+        self._reboot_error_threshold = reboot_error_threshold
         self.deleted = False
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()

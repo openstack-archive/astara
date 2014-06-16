@@ -69,10 +69,13 @@ class TenantRouterManager(object):
     """Keep track of the state machines for the routers for a given tenant.
     """
 
-    def __init__(self, tenant_id, notify_callback, queue_warning_threshold):
+    def __init__(self, tenant_id, notify_callback,
+                 queue_warning_threshold,
+                 reboot_error_threshold):
         self.tenant_id = tenant_id
         self.notify = notify_callback
         self._queue_warning_threshold = queue_warning_threshold
+        self._reboot_error_threshold = reboot_error_threshold
         self.state_machines = RouterContainer()
         self._default_router_id = None
 
@@ -153,6 +156,7 @@ class TenantRouterManager(object):
                 bandwidth_callback=self._report_bandwidth,
                 worker_context=worker_context,
                 queue_warning_threshold=self._queue_warning_threshold,
+                reboot_error_threshold=self._reboot_error_threshold,
             )
             self.state_machines[router_id] = sm
             state_machines = [sm]

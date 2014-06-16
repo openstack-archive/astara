@@ -133,9 +133,16 @@ def register_and_load_opts():
 
         cfg.IntOpt(
             'queue_warning_threshold',
-            default=100,
+            default=worker.Worker.QUEUE_WARNING_THRESHOLD_DEFAULT,
             help='warn if the event backlog for a tenant exceeds this value',
-        )
+        ),
+
+        cfg.IntOpt(
+            'reboot_error_threshold',
+            default=worker.Worker.REBOOT_ERROR_THRESHOLD_DEFAULT,
+            help=('Number of reboots to allow before assuming '
+                  'a router needs manual intervention'),
+        ),
 
     ])
 
@@ -248,6 +255,7 @@ def main(argv=sys.argv[1:]):
         notifier=publisher,
         ignore_directory=cfg.CONF.ignored_router_directory,
         queue_warning_threshold=cfg.CONF.queue_warning_threshold,
+        reboot_error_threshold=cfg.CONF.reboot_error_threshold,
     )
 
     # Set up the scheduler that knows how to manage the routers and
