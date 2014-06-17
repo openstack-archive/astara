@@ -389,23 +389,6 @@ class TestIgnoreRouters(unittest.TestCase):
             w.handle_message(tenant_id, msg)
 
 
-class TestErrorRouters(unittest.TestCase):
-
-    def setUp(self):
-        super(TestErrorRouters, self).setUp()
-
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 1
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        mock.patch('akanda.rug.worker.nova').start()
-        self.quantum = mock.patch('akanda.rug.worker.quantum').start()
-
-        self.addCleanup(mock.patch.stopall)
-
-
 class TestDebugTenants(unittest.TestCase):
 
     def setUp(self):
