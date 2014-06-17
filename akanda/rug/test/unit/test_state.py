@@ -418,6 +418,25 @@ class TestAutomaton(unittest.TestCase):
         self.assertEqual(len(self.sm._queue), 0)
         self.assertFalse(self.sm.has_more_work())
 
+    def test_send_message_in_error(self):
+        vm = self.vm_mgr_cls.return_value
+        vm.state = state.vm_manager.ERROR
+        message = mock.Mock()
+        message.crud = 'poll'
+        self.sm.send_message(message)
+        self.assertEqual(len(self.sm._queue), 0)
+        self.assertFalse(self.sm.has_more_work())
+
+        # Non-POLL events should *not* be ignored for routers in ERROR state
+        message.crud = 'create'
+        with mock.patch.object(self.sm, 'log') as logger:
+            self.sm.send_message(message)
+            self.assertEqual(len(self.sm._queue), 1)
+            logger.debug.assert_called_with(
+                'incoming message brings queue length to %s',
+                1,
+            )
+
     def test_has_more_work(self):
         with mock.patch.object(self.sm, '_queue') as queue:  # noqa
             self.assertTrue(self.sm.has_more_work())

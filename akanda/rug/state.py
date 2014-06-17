@@ -363,6 +363,15 @@ class Automaton(object):
                 'deleted state machine, ignoring incoming message %s',
                 message)
             return False
+
+        if message.crud == POLL and self.vm.state == vm_manager.ERROR:
+            self.log.info(
+                'Router status is ERROR, ignoring POLL message '
+                'intended for %s: %s',
+                self.router_id, message,
+            )
+            return False
+
         self._queue.append(message.crud)
         queue_len = len(self._queue)
         if queue_len > self._queue_warning_threshold:
