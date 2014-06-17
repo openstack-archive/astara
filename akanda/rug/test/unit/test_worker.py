@@ -389,6 +389,57 @@ class TestIgnoreRouters(unittest.TestCase):
             w.handle_message(tenant_id, msg)
 
 
+class TestErrorRouters(unittest.TestCase):
+
+    def setUp(self):
+        super(TestErrorRouters, self).setUp()
+
+        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf.boot_timeout = 1
+        self.conf.akanda_mgt_service_port = 5000
+        self.conf.max_retries = 1
+        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+
+        mock.patch('akanda.rug.worker.nova').start()
+        self.quantum = mock.patch('akanda.rug.worker.quantum').start()
+
+        self.addCleanup(mock.patch.stopall)
+
+    def test_routers_in_error_skip_polls(self):
+        w = worker.Worker(0, mock.Mock())
+
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.POLL,
+            body={'key': 'value'},
+        )
+        # Create the router manager and state machine so we can
+        # replace the send_message() method with a mock.
+        trm = w._get_trms(tenant_id)[0]
+        ctx = worker.WorkerContext()
+        ctx.neutron.get_router_status.return_value = self.quantum.STATUS_ERROR
+        sm = trm.get_state_machines(msg, ctx)[0]
+        with mock.patch.object(sm, 'send_message') as meth:
+            # The router is in ERROR status, so the send_message()
+            # method shouldn't be invoked for the POLL event
+            meth.side_effect = AssertionError('send_message was called')
+            w.handle_message(tenant_id, msg)
+
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        with mock.patch.object(sm, 'send_message') as meth:
+            # Normal messages should still go through for non-POLL events
+            w.handle_message(tenant_id, msg)
+            meth.assert_called_once_with(msg)
+
+
 class TestDebugTenants(unittest.TestCase):
 
     def setUp(self):

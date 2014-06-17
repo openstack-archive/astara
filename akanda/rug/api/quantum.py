@@ -361,6 +361,11 @@ class AkandaExtClientWrapper(client.Client):
             body={'routerstatus': {'status': status}}
         )
 
+    @client.APIParamsCall
+    def get_router_status(self, router):
+        body = self.get('%s/%s' % (self.routerstatus_path, router))
+        return body['routerstatus']['status']
+
 
 class L3PluginApi(proxy.RpcProxy):
     """Agent side of the Qunatum l3 agent RPC API."""
@@ -582,6 +587,9 @@ class Quantum(object):
                 'ignoring failure to update status for router %s to %s: %s',
                 router_id, status, e,
             )
+
+    def get_router_status(self, router_id):
+        return self.api_client.get_router_status(router_id)
 
     def clear_device_id(self, port):
         self.api_client.update_port(port.id, {'port': {'device_id': ''}})

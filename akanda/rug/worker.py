@@ -324,6 +324,19 @@ class Worker(object):
                         sm.router_id, message,
                     )
                     continue
+
+                if message.crud == event.POLL:
+                    status = self._context.neutron.get_router_status(
+                        sm.router_id
+                    )
+                    if status == quantum.STATUS_ERROR:
+                        LOG.info(
+                            'Router status is ERROR, ignoring POLL message '
+                            'intended for %s: %s',
+                            sm.router_id, message,
+                        )
+                        continue
+
                 # Add the message to the state machine's inbox. If
                 # there is already a thread working on the router,
                 # that thread will pick up the new work when it is
