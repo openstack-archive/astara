@@ -32,6 +32,7 @@ UP = 'up'
 CONFIGURED = 'configured'
 RESTART = 'restart'
 GONE = 'gone'
+ERROR = 'error'
 
 
 def synchronize_router_status(f):
