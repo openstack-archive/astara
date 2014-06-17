@@ -324,7 +324,6 @@ class Worker(object):
                         sm.router_id, message,
                     )
                     continue
-
                 # Add the message to the state machine's inbox. If
                 # there is already a thread working on the router,
                 # that thread will pick up the new work when it is
