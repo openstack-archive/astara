@@ -204,6 +204,24 @@ class VmManager(object):
         self.state = ERROR
         return self.state
 
+    @synchronize_router_status
+    def clear_error(self, worker_context, silent=False):
+        """Clear the internal error state.
+
+        This is called from outside when something wants to force a
+        router rebuild, so that the state machine that checks our
+        status won't think we are broken unless we actually break
+        again.
+        """
+        # Clear the boot counter.
+        self._boot_counter.reset()
+        self._ensure_cache(worker_context)
+        if self.state == GONE:
+            self.log.debug('not updating state of deleted router')
+            return self.state
+        self.state = DOWN
+        return self.state
+
     def stop(self, worker_context):
         self._ensure_cache(worker_context)
         if self.state == GONE:

@@ -492,6 +492,26 @@ class TestVmManager(unittest.TestCase):
                                                                   'ERROR')
         self.assertEqual(vm_manager.ERROR, self.vm_mgr.state)
 
+    def test_clear_error_when_gone(self):
+        self.vm_mgr.state = vm_manager.GONE
+        rtr = mock.sentinel.router
+        rtr.id = 'R1'
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        self.vm_mgr.clear_error(self.ctx)
+        self.quantum.update_router_status.assert_called_once_with('R1',
+                                                                  'ERROR')
+        self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
+
+    def test_set_error_when_error(self):
+        self.vm_mgr.state = vm_manager.ERROR
+        rtr = mock.sentinel.router
+        rtr.id = 'R1'
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        self.vm_mgr.clear_error(self.ctx)
+        self.quantum.update_router_status.assert_called_once_with('R1',
+                                                                  'DOWN')
+        self.assertEqual(vm_manager.DOWN, self.vm_mgr.state)
+
     @mock.patch('time.sleep')
     def test_boot_success_after_error(self, sleep):
         self.next_state = vm_manager.UP
