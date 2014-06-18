@@ -470,6 +470,42 @@ class TestVmManager(unittest.TestCase):
                          rtr)
         self.quantum.create_router_external_port.assert_called_once_with(rtr)
 
+    def test_set_error_when_gone(self):
+        self.vm_mgr.state = vm_manager.GONE
+        rtr = mock.sentinel.router
+        rtr.id = 'R1'
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        self.vm_mgr.set_error(self.ctx)
+        self.quantum.update_router_status.assert_called_once_with('R1', 'ERROR')
+        self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
+
+    def test_set_error_when_booting(self):
+        self.vm_mgr.state = vm_manager.BOOTING
+        rtr = mock.sentinel.router
+        rtr.id = 'R1'
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        self.vm_mgr.set_error(self.ctx)
+        self.quantum.update_router_status.assert_called_once_with('R1', 'ERROR')
+        self.assertEqual(vm_manager.ERROR, self.vm_mgr.state)
+
+    @mock.patch('time.sleep')
+    def test_boot_success_after_error(self, sleep):
+        self.next_state = vm_manager.UP
+        rtr = mock.sentinel.router
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        rtr.id = 'ROUTER1'
+        rtr.management_port = None
+        rtr.external_port = None
+        rtr.ports = mock.MagicMock()
+        rtr.ports.__iter__.return_value = []
+        self.vm_mgr.set_error(self.ctx)
+        self.vm_mgr.boot(self.ctx)
+        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)  # async
+        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
+            self.vm_mgr.router_obj
+        )
+
+
 
 class TestBootAttemptCounter(unittest.TestCase):
 

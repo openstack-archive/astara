@@ -43,7 +43,8 @@ def synchronize_router_status(f):
             DOWN: quantum.STATUS_DOWN,
             BOOTING: quantum.STATUS_BUILD,
             UP: quantum.STATUS_BUILD,
-            CONFIGURED: quantum.STATUS_ACTIVE
+            CONFIGURED: quantum.STATUS_ACTIVE,
+            ERROR: quantum.STATUS_ERROR,
         }
         worker_context.neutron.update_router_status(
             self.router_obj.id,
@@ -186,6 +187,22 @@ class VmManager(object):
             return self.state == CONFIGURED
         self.log.debug('Router is %s' % self.state.upper())
         return False
+
+    @synchronize_router_status
+    def set_error(self, worker_context, silent=False):
+        """Set the internal and neutron status for the router to ERROR.
+
+        This is called from outside when something notices the router
+        is "broken". We don't use it internally because this class is
+        supposed to do what it's told and not make decisions about
+        whether or not the router is fatally broken.
+        """
+        self._ensure_cache(worker_context)
+        if self.state == GONE:
+            self.log.debug('not updating state of deleted router')
+            return self.state
+        self.state = ERROR
+        return self.state
 
     def stop(self, worker_context):
         self._ensure_cache(worker_context)
