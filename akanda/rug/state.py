@@ -31,11 +31,13 @@ from akanda.rug import vm_manager
 
 
 class StateParams(object):
-    def __init__(self, vm, log, queue, bandwidth_callback):
+    def __init__(self, vm, log, queue, bandwidth_callback,
+                 reboot_error_threshold):
         self.vm = vm
         self.log = log
         self.queue = queue
         self.bandwidth_callback = bandwidth_callback
+        self.reboot_error_threshold = reboot_error_threshold
 
 
 class State(object):
@@ -172,12 +174,23 @@ class Alive(State):
 
 class CreateVM(State):
     def execute(self, action, worker_context):
+        # Check for a boot loop.
+        # FIXME(dhellmann): This does not handle the case where we are
+        # trying to force a reboot after fixing the problem that
+        # caused the loop in the first place.
+        if self.vm.attempts >= self.params.reboot_error_threshold:
+            self.log.info('dropping out of boot loop after %s trials',
+                          self.vm.attempts)
+            self.vm.set_error(worker_context)
+            return action
         self.vm.boot(worker_context)
         return action
 
     def transition(self, action, worker_context):
         if self.vm.state == vm_manager.GONE:
             return StopVM(self.params)
+        elif self.vm.state == vm_manager.ERROR:
+            return CalcAction(self.params)
         return CheckBoot(self.params)
 
 
@@ -319,6 +332,7 @@ class Automaton(object):
             self.log,
             self._queue,
             self.bandwidth_callback,
+            self._reboot_error_threshold,
         )
         self.state = CalcAction(self._state_params)
 

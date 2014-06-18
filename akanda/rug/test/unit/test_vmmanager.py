@@ -204,6 +204,7 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
+        self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_fail(self, sleep):
@@ -220,6 +221,7 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
+        self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_with_port_cleanup(self, sleep):
@@ -476,7 +478,8 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.set_error(self.ctx)
-        self.quantum.update_router_status.assert_called_once_with('R1', 'ERROR')
+        self.quantum.update_router_status.assert_called_once_with('R1',
+                                                                  'ERROR')
         self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
 
     def test_set_error_when_booting(self):
@@ -485,7 +488,8 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.set_error(self.ctx)
-        self.quantum.update_router_status.assert_called_once_with('R1', 'ERROR')
+        self.quantum.update_router_status.assert_called_once_with('R1',
+                                                                  'ERROR')
         self.assertEqual(vm_manager.ERROR, self.vm_mgr.state)
 
     @mock.patch('time.sleep')
@@ -504,7 +508,6 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
             self.vm_mgr.router_obj
         )
-
 
 
 class TestBootAttemptCounter(unittest.TestCase):

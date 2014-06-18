@@ -41,6 +41,7 @@ class BaseTestStateCase(unittest.TestCase):
             log=log,
             queue=deque(),
             bandwidth_callback=mock.Mock(),
+            reboot_error_threshold=3,
         )
         self.state = self.state_cls(self.params)
 
@@ -235,11 +236,21 @@ class TestCreateVMState(BaseTestStateCase):
     state_cls = state.CreateVM
 
     def test_execute(self):
+        self.vm.attempts = 0
         self.assertEqual(
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
         self.vm.boot.assert_called_once_with(self.ctx)
+
+    def test_execute_too_many_attempts(self):
+        self.vm.attempts = self.params.reboot_error_threshold
+        self.assertEqual(
+            self.state.execute('passthrough', self.ctx),
+            'passthrough'
+        )
+        self.assertEqual([], self.vm.boot.mock_calls)
+        self.vm.set_error.assert_called_once_with(self.ctx)
 
     def test_transition_vm_down(self):
         self._test_transition_hlpr(
@@ -250,6 +261,10 @@ class TestCreateVMState(BaseTestStateCase):
 
     def test_transition_vm_up(self):
         self._test_transition_hlpr(event.READ, state.CheckBoot)
+
+    def test_transition_vm_error(self):
+        self._test_transition_hlpr(event.READ, state.CalcAction,
+                                   vm_state=state.vm_manager.ERROR)
 
 
 class TestCheckBootState(BaseTestStateCase):

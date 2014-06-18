@@ -28,6 +28,7 @@ digraph rug {
 
   CREATE_VM -> CHECK_BOOT [ label = "ACT:[CRUDP],vm:[DBUCR]" ];
   CREATE_VM -> STOP_VM [ label = "vm:G" ];
+  CREATE_VM -> CALC_ACTION [ label = "vm:E" ];
 
   CHECK_BOOT -> CONFIG [ label = "vm>U" ];
   CHECK_BOOT -> CALC_ACTION [ label = "vm:[DBCR]" ];

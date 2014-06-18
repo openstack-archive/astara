@@ -35,3 +35,5 @@ vm Variable
 :Configured: VM is known to be configured.
 :Restart Needed: VM needs to be rebooted.
 :Gone: The router definition has been removed from neutron.
+:Error: The router has been rebooted too many times, or has had some
+        other error.
