@@ -130,6 +130,46 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_boot_timeout_error(self, get_mgt_addr, router_api, sleep):
+        self.vm_mgr.state = vm_manager.ERROR
+        self.vm_mgr.last_boot = datetime.utcnow()
+        self.update_state_p.stop()
+        get_mgt_addr.return_value = 'fe80::beef'
+        router_api.is_alive.return_value = False
+
+        self.assertEqual(
+            self.vm_mgr.update_state(self.ctx),
+            vm_manager.ERROR,
+        )
+        router_api.is_alive.assert_has_calls([
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000)
+        ])
+
+    @mock.patch('time.sleep')
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_boot_timeout_error_no_last_boot(self, get_mgt_addr, router_api, sleep):
+        self.vm_mgr.state = vm_manager.ERROR
+        self.vm_mgr.last_boot = None
+        self.update_state_p.stop()
+        get_mgt_addr.return_value = 'fe80::beef'
+        router_api.is_alive.return_value = False
+
+        self.assertEqual(
+            self.vm_mgr.update_state(self.ctx),
+            vm_manager.ERROR,
+        )
+        router_api.is_alive.assert_has_calls([
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000),
+            mock.call('fe80::beef', 5000)
+        ])
+
+    @mock.patch('time.sleep')
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
     def test_boot_timeout(self, get_mgt_addr, router_api, sleep):
         self.vm_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
         self.update_state_p.stop()

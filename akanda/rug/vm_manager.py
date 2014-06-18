@@ -112,13 +112,23 @@ class VmManager(object):
                 )
             time.sleep(cfg.CONF.retry_delay)
         else:
-            self.state = DOWN
+            # Do not reset the state if we have an error condition
+            # already. The state will be reset when the router starts
+            # responding again, or when the error is cleared from a
+            # forced rebuild.
+            if self.state != ERROR:
+                self.state = DOWN
             if self.last_boot:
                 seconds_since_boot = (
                     datetime.utcnow() - self.last_boot
                 ).total_seconds()
                 if seconds_since_boot < cfg.CONF.boot_timeout:
-                    self.state = BOOTING
+                    # Do not reset the state if we have an error
+                    # condition already. The state will be reset when
+                    # the router starts responding again, or when the
+                    # error is cleared from a forced rebuild.
+                    if self.state != ERROR:
+                        self.state = BOOTING
                 else:
                     # If the VM was created more than `boot_timeout` seconds
                     # ago, log an error and leave the state set to DOWN
