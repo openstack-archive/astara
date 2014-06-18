@@ -412,9 +412,8 @@ class Automaton(object):
 
         if message.crud == POLL and self.vm.state == vm_manager.ERROR:
             self.log.info(
-                'Router status is ERROR, ignoring POLL message '
-                'intended for %s: %s',
-                self.router_id, message,
+                'Router status is ERROR, ignoring POLL message: %s',
+                message,
             )
             return False
 
