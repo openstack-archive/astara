@@ -521,7 +521,7 @@ class TestBootAttemptCounter(unittest.TestCase):
         self.c.start()
         self.assertEqual(2, self.c._attempts)
 
-    def test_success(self):
+    def test_reset(self):
         self.c._attempts = 2
-        self.c.success()
+        self.c.reset()
         self.assertEqual(0, self.c._attempts)

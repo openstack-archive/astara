@@ -61,7 +61,7 @@ class BootAttemptCounter(object):
     def start(self):
         self._attempts += 1
 
-    def success(self):
+    def reset(self):
         self._attempts = 0
 
     @property
@@ -141,7 +141,7 @@ class VmManager(object):
             # Always reset the boot counter, even if we didn't boot
             # the server ourself, so we don't accidentally think we
             # have an erroring router.
-            self._boot_counter.success()
+            self._boot_counter.reset()
         return self.state
 
     def boot(self, worker_context):
