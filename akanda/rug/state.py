@@ -184,6 +184,9 @@ class CreateVM(State):
             self.vm.set_error(worker_context)
             return action
         self.vm.boot(worker_context)
+        self.log.debug('CreateVM attempt %s/%s',
+                       self.vm.attempts,
+                       self.params.reboot_error_threshold)
         return action
 
     def transition(self, action, worker_context):
