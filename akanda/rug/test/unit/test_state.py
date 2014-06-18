@@ -267,6 +267,34 @@ class TestCreateVMState(BaseTestStateCase):
                                    vm_state=state.vm_manager.ERROR)
 
 
+class TestRebuildVMState(BaseTestStateCase):
+    state_cls = state.RebuildVM
+
+    def test_execute(self):
+        self.assertEqual(
+            self.state.execute('ignored', self.ctx),
+            event.CREATE,
+        )
+        self.vm.stop.assert_called_once_with(self.ctx)
+
+    def test_execute_after_error(self):
+        self.vm.state = vm_manager.ERROR
+        self.assertEqual(
+            self.state.execute('ignored', self.ctx),
+            event.CREATE,
+        )
+        self.vm.stop.assert_called_once_with(self.ctx)
+        self.vm.clear_error.assert_called_once_with(self.ctx)
+
+    def test_execute_gone(self):
+        self.vm.state = vm_manager.GONE
+        self.assertEqual(
+            self.state.execute('ignored', self.ctx),
+            event.DELETE,
+        )
+        self.vm.stop.assert_called_once_with(self.ctx)
+
+
 class TestCheckBootState(BaseTestStateCase):
     state_cls = state.CheckBoot
 

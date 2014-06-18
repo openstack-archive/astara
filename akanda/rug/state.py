@@ -233,6 +233,10 @@ class StopVM(State):
 
 class RebuildVM(State):
     def execute(self, action, worker_context):
+        # If we are being told explicitly to rebuild the VM, we should
+        # ignore any error status and try to do the rebuild.
+        if self.vm.state == vm_manager.ERROR:
+            self.vm.clear_error(worker_context)
         self.vm.stop(worker_context)
         if self.vm.state == vm_manager.GONE:
             # Force the action to delete since the router isn't there
