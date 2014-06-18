@@ -33,16 +33,22 @@ class BaseTestStateCase(unittest.TestCase):
     def setUp(self):
         self.ctx = mock.Mock()  # worker context
         log = logging.getLogger(__name__)
-        self.state = self.state_cls(log)
         vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
         self.addCleanup(mock.patch.stopall)
         self.vm = vm_mgr_cls.return_value
+        self.params = state.StateParams(
+            vm=self.vm,
+            log=log,
+            queue=deque(),
+            bandwidth_callback=mock.Mock(),
+        )
+        self.state = self.state_cls(self.params)
 
     def _test_transition_hlpr(self, action, expected_class,
                               vm_state=state.vm_manager.UP):
         self.vm.state = vm_state
         self.assertIsInstance(
-            self.state.transition(action, self.vm, self.ctx),
+            self.state.transition(action, self.ctx),
             expected_class
         )
 
@@ -50,13 +56,13 @@ class BaseTestStateCase(unittest.TestCase):
 class TestBaseState(BaseTestStateCase):
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('action', self.vm, self.ctx, deque()),
+            self.state.execute('action', self.ctx),
             'action'
         )
 
     def test_transition(self):
         self.assertEqual(
-            self.state.transition('action', self.vm, self.ctx),
+            self.state.transition('action', self.ctx),
             self.state
         )
 
@@ -66,12 +72,12 @@ class TestCalcActionState(BaseTestStateCase):
 
     def _test_hlpr(self, expected_action, queue_states,
                    leftover=0, initial_action=event.POLL):
-        queue = deque(queue_states)
+        self.params.queue = deque(queue_states)
         self.assertEqual(
-            self.state.execute(initial_action, self.vm, self.ctx, queue),
+            self.state.execute(initial_action, self.ctx),
             expected_action
         )
-        self.assertEqual(len(queue), leftover)
+        self.assertEqual(len(self.params.queue), leftover)
 
     def test_execute_empty_queue(self):
         self._test_hlpr('testaction', [], initial_action='testaction')
@@ -187,7 +193,7 @@ class TestAliveState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx, deque()),
+            self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
         self.vm.update_state.assert_called_once_with(self.ctx)
@@ -230,7 +236,7 @@ class TestCreateVMState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx, deque()),
+            self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
         self.vm.boot.assert_called_once_with(self.ctx)
@@ -250,13 +256,12 @@ class TestCheckBootState(BaseTestStateCase):
     state_cls = state.CheckBoot
 
     def test_execute(self):
-        queue = deque()
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx, queue),
+            self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
         self.vm.check_boot.assert_called_once_with(self.ctx)
-        assert list(queue) == ['passthrough']
+        assert list(self.params.queue) == ['passthrough']
 
     def test_transition_vm_configure(self):
         self._test_transition_hlpr(
@@ -278,7 +283,7 @@ class TestStopVMState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.vm, self.ctx, deque()),
+            self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
         self.vm.stop.assert_called_once_with(self.ctx)
@@ -302,19 +307,19 @@ class TestConfigureVMState(BaseTestStateCase):
 
     def test_execute_read_configure_success(self):
         self.vm.state = vm_manager.CONFIGURED
-        self.assertEqual(self.state.execute(event.READ, self.vm, self.ctx,
-                         deque()), event.READ)
+        self.assertEqual(self.state.execute(event.READ, self.ctx),
+                         event.READ)
         self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_execute_update_configure_success(self):
         self.vm.state = vm_manager.CONFIGURED
-        self.assertEqual(self.state.execute(event.UPDATE, self.vm, self.ctx,
-                         deque()), event.POLL)
+        self.assertEqual(self.state.execute(event.UPDATE, self.ctx),
+                         event.POLL)
         self.vm.configure.assert_called_once_with(self.ctx)
 
     def test_execute_configure_failure(self):
         self.assertEqual(
-            self.state.execute(event.CREATE, self.vm, self.ctx, deque()),
+            self.state.execute(event.CREATE, self.ctx),
             event.CREATE
         )
         self.vm.configure.assert_called_once_with(self.ctx)
@@ -351,16 +356,12 @@ class TestReadStatsState(BaseTestStateCase):
     def test_execute(self):
         self.vm.read_stats.return_value = 'foo'
 
-        callback = mock.Mock()
-
         self.assertEqual(
-            self.state.execute(
-                event.READ, self.vm, self.ctx, deque(), callback
-            ),
+            self.state.execute(event.READ, self.ctx),
             event.POLL
         )
         self.vm.read_stats.assert_called_once_with()
-        callback.assert_called_once_with('foo')
+        self.params.bandwidth_callback.assert_called_once_with('foo')
 
     def test_transition(self):
         self._test_transition_hlpr(event.POLL, state.CalcAction)
@@ -478,10 +479,8 @@ class TestAutomaton(unittest.TestCase):
 
             fake_state.assert_has_calls(
                 [
-                    mock.call.execute('fake', self.vm_mgr_cls.return_value,
-                                      self.ctx, self.sm._queue),
-                    mock.call.transition('fake', self.vm_mgr_cls.return_value,
-                                         self.ctx)
+                    mock.call.execute('fake', self.ctx),
+                    mock.call.transition('fake', self.ctx)
                 ]
             )
 
