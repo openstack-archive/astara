@@ -150,7 +150,8 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_boot_timeout_error_no_last_boot(self, get_mgt_addr, router_api, sleep):
+    def test_boot_timeout_error_no_last_boot(self, get_mgt_addr, router_api,
+                                             sleep):
         self.vm_mgr.state = vm_manager.ERROR
         self.vm_mgr.last_boot = None
         self.update_state_p.stop()
