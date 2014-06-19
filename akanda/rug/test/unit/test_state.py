@@ -277,15 +277,6 @@ class TestRebuildVMState(BaseTestStateCase):
         )
         self.vm.stop.assert_called_once_with(self.ctx)
 
-    def test_execute_after_error(self):
-        self.vm.state = vm_manager.ERROR
-        self.assertEqual(
-            self.state.execute('ignored', self.ctx),
-            event.CREATE,
-        )
-        self.vm.stop.assert_called_once_with(self.ctx)
-        self.vm.clear_error.assert_called_once_with(self.ctx)
-
     def test_execute_gone(self):
         self.vm.state = vm_manager.GONE
         self.assertEqual(
@@ -293,6 +284,25 @@ class TestRebuildVMState(BaseTestStateCase):
             event.DELETE,
         )
         self.vm.stop.assert_called_once_with(self.ctx)
+
+
+class TestClearErrorState(BaseTestStateCase):
+    state_cls = state.ClearError
+
+    def test_execute(self):
+        self.assertEqual(
+            self.state.execute('passthrough', self.ctx),
+            'passthrough',
+        )
+        self.vm.clear_error.assert_called_once_with(self.ctx)
+
+    def test_execute_after_error(self):
+        self.vm.state = vm_manager.ERROR
+        self.assertEqual(
+            self.state.execute('passthrough', self.ctx),
+            'passthrough',
+        )
+        self.vm.clear_error.assert_called_once_with(self.ctx)
 
 
 class TestCheckBootState(BaseTestStateCase):
