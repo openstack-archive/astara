@@ -149,6 +149,7 @@ class PushUpdate(State):
     def execute(self, action, worker_context):
         # Put the action back on the front of the queue.
         self.queue.appendleft(UPDATE)
+        return action
 
     def transition(self, action, worker_context):
         return CalcAction(self.params)
