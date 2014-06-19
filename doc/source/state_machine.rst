@@ -9,6 +9,7 @@ States
 
 :CALC_ACTION: Coalesces the pending actions from the queue inside the state machine.
 :ALIVE: Checks whether the instance is alive.
+:CLEAR_ERROR: Clear the error status before attempting any further operation.
 :STATS: Reads traffic data from the router.
 :CREATE_VM: Makes a new VM instance.
 :CHECKBOOT: Check if a new VM instance has been booted and initially configured.

@@ -133,6 +133,8 @@ class CalcAction(State):
             return StopVM(self.params)
         elif action == DELETE:
             return StopVM(self.params)
+        elif self.vm.state == vm_manager.ERROR:
+            return ClearError(self.params)
         elif action == REBUILD:
             return RebuildVM(self.params)
         elif self.vm.state == vm_manager.BOOTING:
@@ -149,6 +151,19 @@ class PushUpdate(State):
     def execute(self, action, worker_context):
         # Put the action back on the front of the queue.
         self.queue.appendleft(UPDATE)
+        return action
+
+    def transition(self, action, worker_context):
+        return CalcAction(self.params)
+
+
+class ClearError(State):
+    """Remove the error state from the VM.
+    """
+    def execute(self, action, worker_context):
+        # If we are being told explicitly to update the VM, we should
+        # ignore any error status.
+        self.vm.clear_error(worker_context)
         return action
 
     def transition(self, action, worker_context):
@@ -237,10 +252,6 @@ class StopVM(State):
 
 class RebuildVM(State):
     def execute(self, action, worker_context):
-        # If we are being told explicitly to rebuild the VM, we should
-        # ignore any error status and try to do the rebuild.
-        if self.vm.state == vm_manager.ERROR:
-            self.vm.clear_error(worker_context)
         self.vm.stop(worker_context)
         if self.vm.state == vm_manager.GONE:
             # Force the action to delete since the router isn't there
