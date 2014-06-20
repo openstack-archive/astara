@@ -78,9 +78,9 @@ class VmManager(object):
         self.state = DOWN
         self.router_obj = None
         self.last_boot = None
-        # FIXME: Probably need to pass context here
-        self.update_state(worker_context, silent=True)
         self._boot_counter = BootAttemptCounter()
+        self._currently_booting = False
+        self.update_state(worker_context, silent=True)
 
     @property
     def attempts(self):
@@ -133,13 +133,14 @@ class VmManager(object):
                     # If the VM was created more than `boot_timeout` seconds
                     # ago, log an error and leave the state set to DOWN
                     self.last_boot = None
+                    self._currently_booting = False
                     self.log.info(
                         'Router is DOWN.  Created over %d secs ago.',
                         cfg.CONF.boot_timeout)
 
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
-        if self.state == CONFIGURED:
+        if self._currently_booting and self.state == CONFIGURED:
             # If we didn't boot the server (because we were restarted
             # while it remained running, for example), we won't have a
             # last_boot time to log.
@@ -152,6 +153,9 @@ class VmManager(object):
             # the server ourself, so we don't accidentally think we
             # have an erroring router.
             self._boot_counter.reset()
+            # We've reported how long it took to boot and reset the
+            # counter, so we are no longer "currently" booting.
+            self._currently_booting = False
         return self.state
 
     def boot(self, worker_context):
@@ -187,7 +191,10 @@ class VmManager(object):
             self.log.exception('Router failed to start boot')
             return
         else:
+            # We have successfully started a (re)boot attempt so
+            # record the timestamp so we can report how long it takes.
             self.last_boot = datetime.utcnow()
+            self._currently_booting = True
 
     def check_boot(self, worker_context):
         ready_states = (UP, CONFIGURED)
