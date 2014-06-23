@@ -51,6 +51,7 @@ def debug_one_router(args=sys.argv[1:]):
                    ),
     ])
     cfg.CONF(args, project='akanda-rug')
+    cfg.CONF.set_override('boot_timeout', 60000)
 
     logging.basicConfig(
         level=logging.DEBUG,
@@ -68,12 +69,13 @@ def debug_one_router(args=sys.argv[1:]):
     context = worker.WorkerContext()
     router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
     a = state.Automaton(
-        cfg.CONF.router_id,
-        router_obj.tenant_id,
-        delete_callback,
-        bandwidth_callback,
-        context,
-        100
+        router_id=cfg.CONF.router_id,
+        tenant_id=router_obj.tenant_id,
+        delete_callback=delete_callback,
+        bandwidth_callback=bandwidth_callback,
+        worker_context=context,
+        queue_warning_threshold=100,
+        reboot_error_threshold=1,
     )
 
     a.send_message(Fake('update'))
@@ -81,4 +83,4 @@ def debug_one_router(args=sys.argv[1:]):
     import pdb
     pdb.set_trace()
 
-    a.update(worker.WorkerContext())
+    a.update(context)

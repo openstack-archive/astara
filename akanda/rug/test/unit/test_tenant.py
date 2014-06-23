@@ -35,6 +35,7 @@ class TestTenantRouterManager(unittest.TestCase):
             '1234',
             notify_callback=self.notifier,
             queue_warning_threshold=10,
+            reboot_error_threshold=5,
         )
         # Establish a fake default router for the tenant for tests
         # that try to use it. We mock out the class above to avoid
@@ -72,7 +73,7 @@ class TestTenantRouterManager(unittest.TestCase):
     def test_all_routers(self):
         self.trm.state_machines.state_machines = {
             str(i): state.Automaton(str(i), '1234',
-                                    None, None, None, 5)
+                                    None, None, None, 5, 5)
             for i in range(5)
         }
         msg = event.Event(

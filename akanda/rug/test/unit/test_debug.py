@@ -35,12 +35,13 @@ class TestDebug(unittest.TestCase):
         ctx.return_value.neutron.get_router_detail.assert_called_once_with('X')
         assert set_trace.called
         automaton.assert_called_once_with(
-            'X',
-            '123',
-            debug.delete_callback,
-            debug.bandwidth_callback,
-            ctx.return_value,
-            100
+            router_id='X',
+            tenant_id='123',
+            delete_callback=debug.delete_callback,
+            bandwidth_callback=debug.bandwidth_callback,
+            worker_context=ctx.return_value,
+            queue_warning_threshold=100,
+            reboot_error_threshold=1,
         )
 
         class CrudMatch(object):

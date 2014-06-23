@@ -96,6 +96,9 @@ def _make_event_from_message(message):
         # Router id is not always present, but look for it as though
         # it is to avoid duplicating this line a few times.
         router_id = message.get('payload', {}).get('router', {}).get('id')
+        if event_type.startswith('routerstatus.update'):
+            # We generate these events ourself, so ignore them.
+            return None
         if event_type == 'router.create.end':
             crud = event.CREATE
         elif event_type == 'router.delete.end':
