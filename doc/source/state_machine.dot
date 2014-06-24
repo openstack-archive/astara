@@ -41,7 +41,7 @@ digraph rug {
 
   STATS -> CALC_ACTION [ label = "ACT>P" ];
 
-  CLEAR_ERROR -> CALC_ACTION;
+  CLEAR_ERROR -> CALC_ACTION [ label = "no pause before next action" ];
 
   REBUILD_VM -> REBUILD_VM [ label = "vm!=[DG]" ];
   REBUILD_VM -> CREATE_VM [ label = "ACT:E,vm:D" ];

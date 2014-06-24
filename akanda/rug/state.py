@@ -130,19 +130,22 @@ class CalcAction(State):
 
     def transition(self, action, worker_context):
         if self.vm.state == vm_manager.GONE:
-            return StopVM(self.params)
+            next_action = StopVM(self.params)
         elif action == DELETE:
-            return StopVM(self.params)
-        elif self.vm.state == vm_manager.ERROR:
-            return ClearError(self.params)
+            next_action = StopVM(self.params)
         elif action == REBUILD:
-            return RebuildVM(self.params)
+            next_action = RebuildVM(self.params)
         elif self.vm.state == vm_manager.BOOTING:
-            return CheckBoot(self.params)
+            next_action = CheckBoot(self.params)
         elif self.vm.state == vm_manager.DOWN:
-            return CreateVM(self.params)
+            next_action = CreateVM(self.params)
         else:
-            return Alive(self.params)
+            next_action = Alive(self.params)
+        # Clear the error status before doing what we really want to
+        # do.
+        if self.vm.state == vm_manager.ERROR:
+            next_action = ClearError(self.params, next_action)
+        return next_action
 
 
 class PushUpdate(State):
@@ -160,6 +163,11 @@ class PushUpdate(State):
 class ClearError(State):
     """Remove the error state from the VM.
     """
+
+    def __init__(self, params, next_state=None):
+        super(ClearError, self).__init__(params)
+        self._next_state = next_state
+
     def execute(self, action, worker_context):
         # If we are being told explicitly to update the VM, we should
         # ignore any error status.
@@ -167,6 +175,8 @@ class ClearError(State):
         return action
 
     def transition(self, action, worker_context):
+        if self._next_state:
+            return self._next_state
         return CalcAction(self.params)
 
 

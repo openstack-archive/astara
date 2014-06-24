@@ -48,10 +48,9 @@ class BaseTestStateCase(unittest.TestCase):
     def _test_transition_hlpr(self, action, expected_class,
                               vm_state=state.vm_manager.UP):
         self.vm.state = vm_state
-        self.assertIsInstance(
-            self.state.transition(action, self.ctx),
-            expected_class
-        )
+        result = self.state.transition(action, self.ctx)
+        self.assertIsInstance(result, expected_class)
+        return result
 
 
 class TestBaseState(BaseTestStateCase):
@@ -188,6 +187,14 @@ class TestCalcActionState(BaseTestStateCase):
         for evt in [event.READ, event.UPDATE, event.CREATE]:
             self._test_transition_hlpr(evt, state.Alive)
 
+    def test_transition_update_error_vm(self):
+        result = self._test_transition_hlpr(
+            event.UPDATE,
+            state.ClearError,
+            vm_manager.ERROR,
+        )
+        self.assertIsInstance(result._next_state, state.Alive)
+
 
 class TestAliveState(BaseTestStateCase):
     state_cls = state.Alive
@@ -303,6 +310,20 @@ class TestClearErrorState(BaseTestStateCase):
             'passthrough',
         )
         self.vm.clear_error.assert_called_once_with(self.ctx)
+
+    def test_transition_default(self):
+        st = self.state_cls(self.params)
+        self.assertIsInstance(
+            st.transition('passthrough', self.ctx),
+            state.CalcAction,
+        )
+
+    def test_transition_override(self):
+        st = self.state_cls(self.params, state.Alive(self.params))
+        self.assertIsInstance(
+            st.transition('passthrough', self.ctx),
+            state.Alive,
+        )
 
 
 class TestCheckBootState(BaseTestStateCase):
