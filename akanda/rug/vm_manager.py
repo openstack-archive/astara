@@ -118,25 +118,7 @@ class VmManager(object):
             # forced rebuild.
             if self.state != ERROR:
                 self.state = DOWN
-            if self.last_boot:
-                seconds_since_boot = (
-                    datetime.utcnow() - self.last_boot
-                ).total_seconds()
-                if seconds_since_boot < cfg.CONF.boot_timeout:
-                    # Do not reset the state if we have an error
-                    # condition already. The state will be reset when
-                    # the router starts responding again, or when the
-                    # error is cleared from a forced rebuild.
-                    if self.state != ERROR:
-                        self.state = BOOTING
-                else:
-                    # If the VM was created more than `boot_timeout` seconds
-                    # ago, log an error and leave the state set to DOWN
-                    self.last_boot = None
-                    self._currently_booting = False
-                    self.log.info(
-                        'Router is DOWN.  Created over %d secs ago.',
-                        cfg.CONF.boot_timeout)
+            self._check_boot_timeout()
 
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
@@ -201,6 +183,8 @@ class VmManager(object):
         if self.update_state(worker_context, silent=True) in ready_states:
             self.log.info('Router has booted, attempting initial config')
             self.configure(worker_context, BOOTING, attempts=1)
+            if self.state != CONFIGURED:
+                self._check_boot_timeout()
             return self.state == CONFIGURED
         self.log.debug('Router is %s' % self.state.upper())
         return False
@@ -345,6 +329,27 @@ class VmManager(object):
             # and return without doing any more work.
             self.state = GONE
             self.router_obj = None
+
+    def _check_boot_timeout(self):
+        if self.last_boot:
+            seconds_since_boot = (
+                datetime.utcnow() - self.last_boot
+            ).total_seconds()
+            if seconds_since_boot < cfg.CONF.boot_timeout:
+                # Do not reset the state if we have an error
+                # condition already. The state will be reset when
+                # the router starts responding again, or when the
+                # error is cleared from a forced rebuild.
+                if self.state != ERROR:
+                    self.state = BOOTING
+            else:
+                # If the VM was created more than `boot_timeout` seconds
+                # ago, log an error and leave the state set to DOWN
+                self.last_boot = None
+                self._currently_booting = False
+                self.log.info(
+                    'Router is DOWN.  Created over %d secs ago.',
+                    cfg.CONF.boot_timeout)
 
     def _verify_interfaces(self, logical_config, interfaces):
         router_macs = set((iface['lladdr'] for iface in interfaces))
