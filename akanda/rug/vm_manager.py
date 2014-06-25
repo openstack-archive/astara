@@ -183,7 +183,8 @@ class VmManager(object):
         if self.update_state(worker_context, silent=True) in ready_states:
             self.log.info('Router has booted, attempting initial config')
             self.configure(worker_context, BOOTING, attempts=1)
-            self._check_boot_timeout()
+            if self.state != CONFIGURED:
+                self._check_boot_timeout()
             return self.state == CONFIGURED
         self.log.debug('Router is %s' % self.state.upper())
         return False
