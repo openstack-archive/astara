@@ -227,7 +227,7 @@ class CheckBoot(State):
         # Put the action back on the front of the queue so that we can yield
         # and handle it in another state machine traversal (which will proceed
         # from CalcAction directly to CheckBoot).
-        if self.vm.state != vm_manager.GONE:
+        if self.vm.state not in (vm_manager.DOWN, vm_manager.GONE):
             self.queue.appendleft(action)
         return action
 
