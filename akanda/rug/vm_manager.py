@@ -112,7 +112,18 @@ class VmManager(object):
                 )
             time.sleep(cfg.CONF.retry_delay)
         else:
+            old_state = self.state
             self._check_boot_timeout()
+            # update_state() is called from Alive() to check the
+            # status of the router. If we can't talk to the API at
+            # that point, the router should be considered missing and
+            # we should reboot it, so mark it down if we think it was
+            # configured before.
+            if old_state == CONFIGURED:
+                self.log.debug(
+                    'Did not find router alive, marking it as down',
+                )
+                self.state = DOWN
 
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
@@ -294,6 +305,7 @@ class VmManager(object):
                     cfg.CONF.akanda_mgt_service_port,
                     config
                 )
+                # raise RuntimeError('testing with fake failure')
             except Exception:
                 if i == attempts - 1:
                     # Only log the traceback if we encounter it many times.
