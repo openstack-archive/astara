@@ -32,8 +32,8 @@ digraph rug {
   CREATE_VM -> CALC_ACTION [ label = "vm:E" ];
 
   CHECK_BOOT -> CONFIG [ label = "vm>U" ];
-  CHECK_BOOT -> CALC_ACTION [ label = "vm:[DBCR]" ];
-  CHECK_BOOT -> STOP_VM [ label = "vm:G" ];
+  CHECK_BOOT -> CALC_ACTION [ label = "vm:[BCR]" ];
+  CHECK_BOOT -> STOP_VM [ label = "vm:[DG]" ];
 
   CONFIG -> STATS [ label = "ACT:R,vm>C" ];
   CONFIG -> CALC_ACTION [ label = "ACT>P,vm>C" ];

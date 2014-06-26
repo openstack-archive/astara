@@ -232,7 +232,8 @@ class CheckBoot(State):
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.GONE:
+        if self.vm.state in (vm_manager.DOWN,
+                             vm_manager.GONE):
             return StopVM(self.params)
         if self.vm.state == vm_manager.UP:
             return ConfigureVM(self.params)
