@@ -200,10 +200,8 @@ class Alive(State):
 
 class CreateVM(State):
     def execute(self, action, worker_context):
-        # Check for a boot loop.
-        # FIXME(dhellmann): This does not handle the case where we are
-        # trying to force a reboot after fixing the problem that
-        # caused the loop in the first place.
+        # Check for a loop where the router keeps failing to boot or
+        # accept the configuration.
         if self.vm.attempts >= self.params.reboot_error_threshold:
             self.log.info('dropping out of boot loop after %s trials',
                           self.vm.attempts)
