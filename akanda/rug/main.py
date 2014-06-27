@@ -207,7 +207,7 @@ def main(argv=sys.argv[1:]):
     quantum.ensure_local_service_port()
 
     # Ask keystone for the UUID for our admin user so we can filter
-    # events we create ourselves.
+    # events generated as a result of operations akanda takes.
     keystone = keystone_client.Client(
         version=(2,),
         username=cfg.CONF.admin_user,

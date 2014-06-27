@@ -119,7 +119,7 @@ class VmManager(object):
             # that point, the router should be considered missing and
             # we should reboot it, so mark it down if we think it was
             # configured before.
-            if old_state == CONFIGURED:
+            if old_state == CONFIGURED and self.state != ERROR:
                 self.log.debug(
                     'Did not find router alive, marking it as down',
                 )
@@ -305,7 +305,6 @@ class VmManager(object):
                     cfg.CONF.akanda_mgt_service_port,
                     config
                 )
-                # raise RuntimeError('testing with fake failure')
             except Exception:
                 if i == attempts - 1:
                     # Only log the traceback if we encounter it many times.
