@@ -79,7 +79,7 @@ _INTERESTING_NOTIFICATIONS = set([
 ])
 
 
-def _make_event_from_message(message, ignore_user):
+def _make_event_from_message(message, ignore_user=None):
     """Turn a raw message from the wire into an event.Event object
     """
     if 'oslo.message' in message:
