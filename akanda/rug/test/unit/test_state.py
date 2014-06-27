@@ -195,6 +195,13 @@ class TestCalcActionState(BaseTestStateCase):
         )
         self.assertIsInstance(result._next_state, state.Alive)
 
+    def test_transition_poll_error_vm(self):
+        self._test_transition_hlpr(
+            event.POLL,
+            state.CalcAction,
+            vm_manager.ERROR,
+        )
+
 
 class TestAliveState(BaseTestStateCase):
     state_cls = state.Alive

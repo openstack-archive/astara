@@ -112,13 +112,18 @@ class VmManager(object):
                 )
             time.sleep(cfg.CONF.retry_delay)
         else:
-            # Do not reset the state if we have an error condition
-            # already. The state will be reset when the router starts
-            # responding again, or when the error is cleared from a
-            # forced rebuild.
-            if self.state != ERROR:
-                self.state = DOWN
+            old_state = self.state
             self._check_boot_timeout()
+            # update_state() is called from Alive() to check the
+            # status of the router. If we can't talk to the API at
+            # that point, the router should be considered missing and
+            # we should reboot it, so mark it down if we think it was
+            # configured before.
+            if old_state == CONFIGURED and self.state != ERROR:
+                self.log.debug(
+                    'Did not find router alive, marking it as down',
+                )
+                self.state = DOWN
 
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
@@ -344,12 +349,18 @@ class VmManager(object):
                     self.state = BOOTING
             else:
                 # If the VM was created more than `boot_timeout` seconds
-                # ago, log an error and leave the state set to DOWN
+                # ago, log an error and set the state set to DOWN
                 self.last_boot = None
                 self._currently_booting = False
                 self.log.info(
                     'Router is DOWN.  Created over %d secs ago.',
                     cfg.CONF.boot_timeout)
+                # Do not reset the state if we have an error condition
+                # already. The state will be reset when the router starts
+                # responding again, or when the error is cleared from a
+                # forced rebuild.
+                if self.state != ERROR:
+                    self.state = DOWN
 
     def _verify_interfaces(self, logical_config, interfaces):
         router_macs = set((iface['lladdr'] for iface in interfaces))

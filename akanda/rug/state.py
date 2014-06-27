@@ -141,10 +141,17 @@ class CalcAction(State):
             next_action = CreateVM(self.params)
         else:
             next_action = Alive(self.params)
-        # Clear the error status before doing what we really want to
-        # do.
         if self.vm.state == vm_manager.ERROR:
-            next_action = ClearError(self.params, next_action)
+            if action == POLL:
+                # If the selected action is to poll, and we are in an
+                # error state, then an event slipped through the
+                # filter in send_message() and we should ignore it
+                # here.
+                next_action = self
+            else:
+                # Clear the error status before doing what we really want to
+                # do.
+                next_action = ClearError(self.params, next_action)
         return next_action
 
 
@@ -227,12 +234,13 @@ class CheckBoot(State):
         # Put the action back on the front of the queue so that we can yield
         # and handle it in another state machine traversal (which will proceed
         # from CalcAction directly to CheckBoot).
-        if self.vm.state != vm_manager.GONE:
+        if self.vm.state not in (vm_manager.DOWN, vm_manager.GONE):
             self.queue.appendleft(action)
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.GONE:
+        if self.vm.state in (vm_manager.DOWN,
+                             vm_manager.GONE):
             return StopVM(self.params)
         if self.vm.state == vm_manager.UP:
             return ConfigureVM(self.params)
@@ -430,6 +438,12 @@ class Automaton(object):
                 message)
             return False
 
+        # NOTE(dhellmann): This check is largely redundant with the
+        # one in CalcAction.transition() but it may allow us to avoid
+        # adding poll events to the queue at all, and therefore cut
+        # down on the number of times a worker thread wakes up to
+        # process something on a router that isn't going to actually
+        # do any work.
         if message.crud == POLL and self.vm.state == vm_manager.ERROR:
             self.log.info(
                 'Router status is ERROR, ignoring POLL message: %s',
