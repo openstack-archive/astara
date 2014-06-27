@@ -23,7 +23,7 @@ import socket
 import sys
 import threading
 
-from keystoneclient import client as keystone_client
+from keystoneclient.v2_0 import client as keystone_client
 from oslo.config import cfg
 
 from akanda.rug import daemon
@@ -209,7 +209,6 @@ def main(argv=sys.argv[1:]):
     # Ask keystone for the UUID for our admin user so we can filter
     # events generated as a result of operations akanda takes.
     keystone = keystone_client.Client(
-        version=(2,),
         username=cfg.CONF.admin_user,
         password=cfg.CONF.admin_password,
         tenant_name=cfg.CONF.admin_tenant_name,

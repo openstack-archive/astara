@@ -21,7 +21,7 @@ import unittest2 as unittest
 from akanda.rug import main
 
 
-@mock.patch('keystoneclient.client.Client')
+@mock.patch('keystoneclient.v2_0.client.Client')
 @mock.patch('akanda.rug.main.cfg')
 @mock.patch('akanda.rug.main.quantum_api')
 @mock.patch('akanda.rug.main.multiprocessing')
