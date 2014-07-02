@@ -233,7 +233,7 @@ class VmManager(object):
     @property
     def error_cooldown(self):
         # Returns True if the router was recently set to ERROR state.
-        if self.last_error:
+        if self.last_error and self.state == ERROR:
             seconds_since_error = (
                 datetime.utcnow() - self.last_error
             ).total_seconds()
