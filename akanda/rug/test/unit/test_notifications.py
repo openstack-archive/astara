@@ -331,32 +331,3 @@ class TestSend(unittest.TestCase):
         self.notifier.stop()  # flushes the queue
         msg1, msg2 = self.messages
         self.assertNotEqual(msg1['_unique_id'], msg2['_unique_id'])
-
-
-class TestIgnore(unittest.TestCase):
-
-    def test_no_ignore_user_arg(self):
-        msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"router_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "_context_user_id": "472511eedebd4322a26c5fb1f52711ee", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
-        e = notifications._make_event_from_message(msg)
-        self.assertIsNotNone(e)
-
-    def test_ignore_user_does_not_match(self):
-        msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"router_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "_context_user_id": "472511eedebd4322a26c5fb1f52711ee", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
-        e = notifications._make_event_from_message(msg, 'no-match')
-        self.assertIsNotNone(e)
-
-    def test_no_context_user_id(self):
-        msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"router_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
-        e = notifications._make_event_from_message(
-            msg,
-            "472511eedebd4322a26c5fb1f52711ee",
-        )
-        self.assertIsNotNone(e)
-
-    def test_ignore_user(self):
-        msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"router_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "_context_user_id": "472511eedebd4322a26c5fb1f52711ee", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
-        e = notifications._make_event_from_message(
-            msg,
-            "472511eedebd4322a26c5fb1f52711ee",
-        )
-        self.assertIsNone(e)

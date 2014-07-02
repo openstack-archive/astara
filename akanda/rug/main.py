@@ -23,7 +23,6 @@ import socket
 import sys
 import threading
 
-from keystoneclient.v2_0 import client as keystone_client
 from oslo.config import cfg
 
 from akanda.rug import daemon
@@ -206,20 +205,6 @@ def main(argv=sys.argv[1:]):
     # bring the mgt tap interface up
     quantum.ensure_local_service_port()
 
-    # Ask keystone for the UUID for our admin user so we can filter
-    # events generated as a result of operations akanda takes.
-    keystone = keystone_client.Client(
-        username=cfg.CONF.admin_user,
-        password=cfg.CONF.admin_password,
-        tenant_name=cfg.CONF.admin_tenant_name,
-        auth_url=cfg.CONF.auth_url,
-        # FIXME(dhellmann): Do we need auth_strategy? The name in
-        # neutron & keystone is different?
-        # auth_strategy=cfg.CONF.auth_strategy,
-        region_name=cfg.CONF.auth_region,
-    )
-    user_info = keystone.users.find(name=cfg.CONF.admin_user)
-
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.
     notification_queue = multiprocessing.Queue()
@@ -241,8 +226,7 @@ def main(argv=sys.argv[1:]):
             'notifications_exchange_name':
             cfg.CONF.incoming_notifications_exchange,
             'rpc_exchange_name': cfg.CONF.rpc_exchange,
-            'notification_queue': notification_queue,
-            'ignore_user': user_info.id,
+            'notification_queue': notification_queue
         },
         name='notification-listener',
     )
