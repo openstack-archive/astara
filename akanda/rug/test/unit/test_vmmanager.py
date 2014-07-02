@@ -570,6 +570,17 @@ class TestVmManager(unittest.TestCase):
             self.vm_mgr.router_obj
         )
 
+    def test_error_cooldown(self):
+        self.conf.error_state_cooldown = 30
+        self.assertIsNone(self.vm_mgr.last_error)
+        self.assertFalse(self.vm_mgr.error_cooldown)
+
+        self.vm_mgr.last_error = datetime.utcnow() - timedelta(seconds=1)
+        self.assertTrue(self.vm_mgr.error_cooldown)
+
+        self.vm_mgr.last_error = datetime.utcnow() - timedelta(minutes=5)
+        self.assertFalse(self.vm_mgr.error_cooldown)
+
 
 class TestBootAttemptCounter(unittest.TestCase):
 

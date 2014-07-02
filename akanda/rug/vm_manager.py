@@ -78,6 +78,7 @@ class VmManager(object):
         self.state = DOWN
         self.router_obj = None
         self.last_boot = None
+        self.last_error = None
         self._boot_counter = BootAttemptCounter()
         self._currently_booting = False
         self.update_state(worker_context, silent=True)
@@ -208,6 +209,7 @@ class VmManager(object):
             self.log.debug('not updating state of deleted router')
             return self.state
         self.state = ERROR
+        self.last_error = datetime.utcnow()
         return self.state
 
     @synchronize_router_status
@@ -227,6 +229,17 @@ class VmManager(object):
             return self.state
         self.state = DOWN
         return self.state
+
+    @property
+    def error_cooldown(self):
+        # Returns True if the router was recently set to ERROR state.
+        if self.last_error:
+            seconds_since_error = (
+                datetime.utcnow() - self.last_error
+            ).total_seconds()
+            if seconds_since_error < cfg.CONF.error_state_cooldown:
+                return True
+        return False
 
     def stop(self, worker_context):
         self._ensure_cache(worker_context)

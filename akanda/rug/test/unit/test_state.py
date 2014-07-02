@@ -17,6 +17,7 @@
 
 import logging
 from collections import deque
+from datetime import datetime, timedelta
 
 import mock
 import unittest2 as unittest
@@ -188,12 +189,21 @@ class TestCalcActionState(BaseTestStateCase):
             self._test_transition_hlpr(evt, state.Alive)
 
     def test_transition_update_error_vm(self):
+        self.vm.error_cooldown = False
         result = self._test_transition_hlpr(
             event.UPDATE,
             state.ClearError,
             vm_manager.ERROR,
         )
         self.assertIsInstance(result._next_state, state.Alive)
+
+    def test_transition_update_error_vm_in_error_cooldown(self):
+        self.vm.error_cooldown = True
+        result = self._test_transition_hlpr(
+            event.UPDATE,
+            state.CalcAction,
+            vm_manager.ERROR,
+        )
 
     def test_transition_poll_error_vm(self):
         self._test_transition_hlpr(

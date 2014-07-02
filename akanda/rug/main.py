@@ -143,6 +143,12 @@ def register_and_load_opts():
             help=('Number of reboots to allow before assuming '
                   'a router needs manual intervention'),
         ),
+        cfg.IntOpt(
+            'error_state_cooldown',
+            default=30,
+            help=('Number of seconds to ignore new events when a router goes '
+                  'into ERROR state'),
+        ),
 
     ])
 
