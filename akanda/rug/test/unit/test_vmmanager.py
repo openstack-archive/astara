@@ -575,6 +575,7 @@ class TestVmManager(unittest.TestCase):
         self.assertIsNone(self.vm_mgr.last_error)
         self.assertFalse(self.vm_mgr.error_cooldown)
 
+        self.vm_mgr.state = vm_manager.ERROR
         self.vm_mgr.last_error = datetime.utcnow() - timedelta(seconds=1)
         self.assertTrue(self.vm_mgr.error_cooldown)
 
