@@ -22,6 +22,7 @@ import logging
 import multiprocessing
 import uuid
 
+from akanda.rug import commands
 from akanda.rug import daemon
 
 
@@ -70,7 +71,7 @@ class Dispatcher(object):
         target = target.strip() if target else None
         # If we get any wildcard target, send the message to all of
         # the workers.
-        if target in ['*', 'debug', 'error']:
+        if target in commands.WILDCARDS:
             return self.workers[:]
         try:
             idx = uuid.UUID(target).int % len(self.workers)

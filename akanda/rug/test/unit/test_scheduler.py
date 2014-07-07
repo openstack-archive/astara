@@ -108,10 +108,3 @@ class TestDispatcher(unittest.TestCase):
             self.d.pick_workers('error'),
             'error dispatch failed',
         )
-
-    def test_debug(self):
-        self.assertEqual(
-            self.workers,
-            self.d.pick_workers('debug'),
-            'debug dispatch failed',
-        )

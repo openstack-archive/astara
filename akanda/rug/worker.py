@@ -200,7 +200,7 @@ class Worker(object):
                 trm.shutdown()
 
     def _get_trms(self, target):
-        if target.lower() in {'*', 'error'}:
+        if target.lower() in commands.WILDCARDS:
             return list(self.tenant_managers.values())
         # Normalize the tenant id to a dash-separated UUID format.
         tenant_id = _normalize_uuid(target)

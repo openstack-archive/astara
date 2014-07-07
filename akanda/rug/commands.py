@@ -18,6 +18,9 @@
 """Constants for the commands
 """
 
+# Special values for dispatching
+WILDCARDS = {'*', 'error'}
+
 # Dump debugging details about the worker processes and threads
 WORKERS_DEBUG = 'workers-debug'
 
