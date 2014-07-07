@@ -142,6 +142,15 @@ class TenantRouterManager(object):
             LOG.debug('routing to all state machines')
             state_machines = self.state_machines.values()
 
+        # Send to routers that have an ERROR status
+        elif router_id == 'error':
+            state_machines = [
+                sm for sm in self.state_machines.values()
+                if sm.has_error()
+            ]
+            LOG.debug('routing to %d errored state machines',
+                      len(state_machines))
+
         # Create a new state machine for this router.
         elif router_id not in self.state_machines:
             LOG.debug('creating state machine for %s', router_id)

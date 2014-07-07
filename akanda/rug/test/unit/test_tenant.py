@@ -21,6 +21,7 @@ import unittest2 as unittest
 from akanda.rug import event
 from akanda.rug import tenant
 from akanda.rug import state
+from akanda.rug import vm_manager
 
 
 class TestTenantRouterManager(unittest.TestCase):
@@ -84,6 +85,29 @@ class TestTenantRouterManager(unittest.TestCase):
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(5, len(sms))
+
+    def test_errored_routers(self):
+        self.trm.state_machines.state_machines = {}
+        for i in range(5):
+            sm = state.Automaton(str(i), '1234',
+                                 None, None, None, 5, 5)
+            # Replace the default mock with one that has 'state' set.
+            if i == 2:
+                status = vm_manager.ERROR
+            else:
+                status = vm_manager.UP
+            sm.vm = mock.Mock(state=status)
+            self.trm.state_machines.state_machines[str(i)] = sm
+        msg = event.Event(
+            tenant_id='1234',
+            router_id='error',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        sms = self.trm.get_state_machines(msg, self.ctx)
+        self.assertEqual(1, len(sms))
+        self.assertEqual('2', sms[0].router_id)
+        self.assertIs(self.trm.state_machines.state_machines['2'], sms[0])
 
     def test_existing_router(self):
         msg = event.Event(

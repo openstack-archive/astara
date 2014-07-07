@@ -469,3 +469,6 @@ class Automaton(object):
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"
         return (not self.deleted) and bool(self._queue)
+
+    def has_error(self):
+        return self.vm.state == vm_manager.ERROR
