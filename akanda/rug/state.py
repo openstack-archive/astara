@@ -148,9 +148,14 @@ class CalcAction(State):
                 # filter in send_message() and we should ignore it
                 # here.
                 next_action = self
+            elif self.vm.error_cooldown:
+                    self.log.debug('Router is in ERROR cooldown, ignoring '
+                                   'event.')
+                    next_action = self
             else:
-                # Clear the error status before doing what we really want to
-                # do.
+                # If this isn't a POLL, and the configured `error_cooldown`
+                # has passed, clear the error status before doing what we
+                # really want to do.
                 next_action = ClearError(self.params, next_action)
         return next_action
 

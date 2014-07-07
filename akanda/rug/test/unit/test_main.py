@@ -21,7 +21,6 @@ import unittest2 as unittest
 from akanda.rug import main
 
 
-@mock.patch('keystoneclient.v2_0.client.Client')
 @mock.patch('akanda.rug.main.cfg')
 @mock.patch('akanda.rug.main.quantum_api')
 @mock.patch('akanda.rug.main.multiprocessing')
@@ -33,9 +32,8 @@ from akanda.rug import main
 class TestMainPippo(unittest.TestCase):
 
     def test_shuffle_notifications(self, shuffle_notifications,
-                                   health, populate, scheduler,
-                                   notifications, multiprocessing,
-                                   quantum_api, cfg, keystone):
+                                   health, populate, scheduler, notifications,
+                                   multiprocessing, quantum_api, cfg):
         queue = mock.Mock()
         queue.get.side_effect = [
             ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
@@ -49,7 +47,7 @@ class TestMainPippo(unittest.TestCase):
     def test_shuffle_notifications_error(
             self, shuffle_notifications,
             health, populate, scheduler, notifications,
-            multiprocessing, quantum_api, cfg, keystone):
+            multiprocessing, quantum_api, cfg):
         queue = mock.Mock()
         queue.get.side_effect = [
             ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
@@ -63,8 +61,7 @@ class TestMainPippo(unittest.TestCase):
 
     def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
-                                       multiprocessing, quantum_api, cfg,
-                                       keystone):
+                                       multiprocessing, quantum_api, cfg):
         main.main()
         quantum = quantum_api.Quantum.return_value
         quantum.ensure_local_service_port.assert_called_once_with()
