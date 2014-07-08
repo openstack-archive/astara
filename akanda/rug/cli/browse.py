@@ -65,7 +65,7 @@ class BrowseRouters(message.MessageSending):
             instance = self.nova.get_instance(router)
             if instance and instance.image:
                 image = self.nova.client.images.get(instance.image['id'])
-                status = self.term.red('OUT-OF-DATE')
+                status = self.term.red('OUT OF DATE')
                 if image.id == cfg.CONF.router_image_uuid:
                     status = self.term.green('LATEST')
                 name = status.ljust(11) + ' ' + image.name
