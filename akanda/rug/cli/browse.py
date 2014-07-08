@@ -104,7 +104,7 @@ class BrowseRouters(message.MessageSending):
 
     def make_message(self, router):
         return {
-            'command': commands.ROUTER_UPDATE,
+            'command': commands.ROUTER_REBUILD,
             'router_id': router.id,
             'tenant_id': router.tenant_id
         }
