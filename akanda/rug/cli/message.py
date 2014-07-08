@@ -43,7 +43,9 @@ class MessageSending(command.Command):
             self.app.rug_ini.amqp_url,
             self.app.rug_ini.outgoing_notifications_exchange,
         )
-        payload = self.make_message(parsed_args)
+        self.send_message(self.make_message(parsed_args))
+
+    def send_message(self, payload):
         msg = {
             'event_type': 'akanda.rug.command',
             'payload': payload,
