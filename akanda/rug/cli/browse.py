@@ -55,10 +55,9 @@ class BrowseRouters(message.MessageSending):
                     elif val == u'k':
                         self.move_up()
                     elif val == u'r':
-                        self.reload_router()
-                        self.fetch_routers()
+                        self.rebuild_router()
                     self.print_routers()
-                    val = self.term.inkey(timeout=5)
+                    val = self.term.inkey(timeout=3)
 
     def fetch_routers(self):
         self.routers = self.quantum.get_routers()
@@ -109,8 +108,9 @@ class BrowseRouters(message.MessageSending):
             'tenant_id': router.tenant_id
         }
 
-    def reload_router(self):
+    def rebuild_router(self):
         router = self.routers[self.position]
+        router.status = 'DOWN'
         self.send_message(self.make_message(router))
 
     def move_up(self):
