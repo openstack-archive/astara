@@ -87,6 +87,9 @@ class VmManager(object):
     def attempts(self):
         return self._boot_counter.count
 
+    def reset_boot_counter(self):
+        self._boot_counter.reset()
+
     @synchronize_router_status
     def update_state(self, worker_context, silent=False):
         self._ensure_cache(worker_context)
