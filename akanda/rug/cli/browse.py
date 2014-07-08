@@ -68,12 +68,12 @@ class BrowseRouters(message.MessageSending):
                 status = self.term.red('OUT-OF-DATE')
                 if image.id == cfg.CONF.router_image_uuid:
                     status = self.term.green('LATEST')
-                    name = status.ljust(11) + ' ' + image.name
-                    setattr(
-                        router,
-                        'image',
-                        name
-                    )
+                name = status.ljust(11) + ' ' + image.name
+                setattr(
+                    router,
+                    'image',
+                    name
+                )
             else:
                 setattr(router, 'image', '<no vm>')
 
