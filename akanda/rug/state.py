@@ -93,10 +93,10 @@ class CalcAction(State):
                 action = queue.popleft()
                 continue
 
-            elif action == UPDATE and queue[0] == REBUILD:
-                # upgrade to REBUILD from UPDATE by taking the next
+            elif action in (CREATE, UPDATE) and queue[0] == REBUILD:
+                # upgrade to REBUILD from CREATE/UPDATE by taking the next
                 # item from the queue
-                self.log.debug('upgrading from update to rebuild')
+                self.log.debug('upgrading from %s to rebuild' % action)
                 action = queue.popleft()
                 continue
 
@@ -279,6 +279,7 @@ class RebuildVM(State):
             # any more.
             return DELETE
         # Re-create the VM
+        self.vm.reset_boot_counter()
         return CREATE
 
     def transition(self, action, worker_context):
