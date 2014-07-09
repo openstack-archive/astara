@@ -36,6 +36,7 @@ class BrowseRouters(message.MessageSending):
         self.nova = nova_api.Nova(cfg.CONF)
         self.quantum = quantum_api.Quantum(cfg.CONF)
         self.position = 0
+        self.image_cache = {}
         super(BrowseRouters, self).__init__(*a, **kw)
 
     def take_action(self, parsed_args):
@@ -61,38 +62,43 @@ class BrowseRouters(message.MessageSending):
 
     def fetch_routers(self):
         self.routers = self.quantum.get_routers()
-        for router in self.routers:
-            instance = self.nova.get_instance(router)
-            if instance and instance.image:
-                image = self.nova.client.images.get(instance.image['id'])
-                status = self.term.red('OUT OF DATE')
-                if image.id == cfg.CONF.router_image_uuid:
-                    status = self.term.green('LATEST')
-                name = status.ljust(11) + ' ' + image.name
-                setattr(
-                    router,
-                    'image',
-                    name
-                )
-            else:
-                setattr(router, 'image', '<no vm>')
 
-    def print_routers(self):
-        visible_height = self.term.height - 2
+    @property
+    def window(self):
         offset = 0
+        visible_height = self.term.height - 2
         if len(self.routers) > visible_height:
             offset = self.position
             offset = min(offset, len(self.routers) - visible_height - 1)
-        routers = self.routers[offset:]
+        routers = self.routers[offset:(offset+visible_height+1)]
+        for router in routers:
+            if router.id not in self.image_cache:
+                try:
+                    instance = self.nova.get_instance(router)
+                except:
+                    instance = None
+                if instance and instance.image:
+                    image = self.nova.client.images.get(instance.image['id'])
+                    status = self.term.red('OUT OF DATE')
+                    if image.id == cfg.CONF.router_image_uuid:
+                        status = self.term.green('LATEST')
+                    name = status.ljust(11) + ' ' + image.name
+                    self.image_cache[router.id] = name
+                else:
+                    self.image_cache[router.id] = '<no vm>'
+            setattr(router, 'image', self.image_cache[router.id])
+
+        return offset, routers
+
+    def print_routers(self):
+        offset, routers = self.window
         with self.term.location():
             for i, r in enumerate(routers):
-                if i > visible_height:
-                    continue
                 formatter = lambda x: x
                 args = [
                     r.id,
                     r.name,
-                    self.router_states[r.status](r.status.ljust(6)),
+                    self.router_states[r.status](r.status.ljust(7)),
                     r.image
                 ]
                 if i + offset == self.position:
@@ -110,7 +116,8 @@ class BrowseRouters(message.MessageSending):
 
     def rebuild_router(self):
         router = self.routers[self.position]
-        router.status = 'DOWN'
+        router.status = 'REBUILD'
+        del self.image_cache[router.id]
         self.send_message(self.make_message(router))
 
     def move_up(self):
@@ -124,6 +131,7 @@ class BrowseRouters(message.MessageSending):
         return {
             'ACTIVE': self.term.green,
             'BUILD': self.term.yellow,
+            'REBUILD': self.term.yellow,
             'DOWN': self.term.red,
             'ERROR': self.term.red
         }
