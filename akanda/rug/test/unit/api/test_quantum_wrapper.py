@@ -27,11 +27,12 @@ from akanda.rug.api import quantum
 class TestQuantumModels(unittest.TestCase):
     def test_router(self):
         r = quantum.Router(
-            '1', 'tenant_id', 'name', True, 'ext', ['int'], 'mgt')
+            '1', 'tenant_id', 'name', True, 'ACTIVE', 'ext', ['int'], 'mgt')
         self.assertEqual(r.id, '1')
         self.assertEqual(r.tenant_id, 'tenant_id')
         self.assertEqual(r.name, 'name')
         self.assertTrue(r.admin_state_up)
+        self.assertEqual(r.status, 'ACTIVE')
         self.assertEqual(r.external_port, 'ext')
         self.assertEqual(r.management_port, 'mgt')
         self.assertEqual(r.internal_ports, ['int'])
@@ -58,6 +59,7 @@ class TestQuantumModels(unittest.TestCase):
             'tenant_id': 'tenant_id',
             'name': 'name',
             'admin_state_up': True,
+            'status': 'ACTIVE',
             'ports': [p],
             '_floatingips': [fip]
         }

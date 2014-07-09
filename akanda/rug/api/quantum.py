@@ -66,13 +66,14 @@ class MissingIPAllocation(Exception):
 
 
 class Router(object):
-    def __init__(self, id_, tenant_id, name, admin_state_up,
+    def __init__(self, id_, tenant_id, name, admin_state_up, status,
                  external_port=None, internal_ports=None,
                  management_port=None, floating_ips=None):
         self.id = id_
         self.tenant_id = tenant_id
         self.name = name
         self.admin_state_up = admin_state_up
+        self.status = status
         self.external_port = external_port
         self.management_port = management_port
         self.internal_ports = internal_ports or []
@@ -111,6 +112,7 @@ class Router(object):
             d['tenant_id'],
             d['name'],
             d['admin_state_up'],
+            d['status'],
             external_port,
             internal_ports,
             management_port,
