@@ -187,7 +187,7 @@ class Worker(object):
         # Wait for our threads to finish
         for t in self.threads:
             LOG.debug('waiting for %s to finish', t.getName())
-            t.join(timeout=1)
+            t.join(timeout=5)
             LOG.debug('%s is %s', t.name,
                       'alive' if t.is_alive() else 'stopped')
         # Shutdown all of the tenant router managers. The lock is
