@@ -14,8 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import logging
 
 from novaclient.v1_1 import client
+
+
+LOG = logging.getLogger(__name__)
 
 
 class Nova(object):
@@ -40,6 +44,8 @@ class Nova(object):
         # We can safely ignore this exception because the failed task is going
         # to be requeued and executed again later when the ports should be
         # finally cleaned up.
+        LOG.debug('creating vm for router %s with image %s',
+                  router.id, self.conf.router_image_uuid)
         server = self.client.servers.create(
             'ak-' + router.id,
             image=self.conf.router_image_uuid,
@@ -66,6 +72,7 @@ class Nova(object):
     def destroy_router_instance(self, router):
         instance = self.get_instance(router)
         if instance:
+            LOG.debug('deleting vm for router %s', router.id)
             self.client.servers.delete(instance.id)
 
     def reboot_router_instance(self, router):
