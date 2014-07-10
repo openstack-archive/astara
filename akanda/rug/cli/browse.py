@@ -19,9 +19,13 @@
 """
 import logging
 import multiprocessing
-import time
+import os
+import Queue
 import sqlite3
 import tempfile
+import threading
+from contextlib import closing
+from datetime import datetime
 
 from akanda.rug import commands
 from akanda.rug.api import nova as nova_api
@@ -31,7 +35,7 @@ from blessed import Terminal
 from oslo.config import cfg
 
 
-class ConfigSub(object):
+class FakeConfig(object):
 
     def __init__(self, admin_user, admin_password, tenant_name, auth_url,
                  auth_strategy, auth_region):
@@ -46,53 +50,121 @@ class ConfigSub(object):
 
 class RouterRow(object):
 
-    def __init__(self, *args):
-        self.id, self.name, self.status, self.latest, self.image_name = args
+    def __init__(self, **kw):
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+        self.image_name = self.image_name or ''
         self.tenant_id = self.name.replace('ak-', '')
-        self.image_name = self.image_name or '<no vm>'
+
+    @classmethod
+    def from_cursor(cls, cursor, row):
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return cls(**d)
 
 
 class RouterFetcher(object):
 
-    def __init__(self, conf, db):
-        self.conn = sqlite3.connect(db)
+    def __init__(self, conf, db, num_threads=8):
+        self.db = db
+        self.conn = sqlite3.connect(self.db)
+        self.conn.row_factory = RouterRow.from_cursor
         self.nova = nova_api.Nova(conf)
         self.quantum = quantum_api.Quantum(conf)
+        self.queue = Queue.Queue()
+
+        # Create X threads to perform Nova calls and put results into a queue
+        threads = [
+            threading.Thread(
+                name='fetcher-t%02d' % i,
+                target=self.fetch_router_metadata,
+            )
+            for i in xrange(num_threads)
+        ]
+        for t in threads:
+            t.setDaemon(True)
+            t.start()
 
     def fetch(self):
         routers = self.quantum.get_routers()
-        c = self.conn.cursor()
         for router in routers:
-            instance = None
-            image = None
-            try:
-                instance = self.nova.get_instance(router)
-            except:
-                pass
-            if instance and instance.image:
-                image = self.nova.client.images.get(instance.image['id'])
             sql = ''.join([
-                "INSERT OR REPLACE INTO routers ",
-                "('id', 'name', 'status', 'latest', 'image_name') VALUES (",
-                ', '.join("?" * 5),
+                "INSERT OR IGNORE INTO routers ",
+                "('id', 'name', 'latest') VALUES (",
+                ', '.join("?" * 3),
                 ");"
             ])
-            c.execute(sql, (
-                router.id,
-                router.name,
-                router.status,
-                image and image.id == cfg.CONF.router_image_uuid,
-                image.name if image else ''
-            ))
-            self.conn.commit()
+            with closing(self.conn.cursor()) as cursor:
+                cursor.execute(sql, (router.id, router.name, None))
+                cursor.execute(
+                    'UPDATE routers SET status=? WHERE id=?',
+                    (router.status, router.id)
+                )
+                self.conn.commit()
+
+        # SQLite databases have global database-wide lock for writes, so
+        # we can't split the writes across threads.  That's okay, though, the
+        # slowness isn't the DB writes, it's the Nova API calls
+        while True:
+            try:
+                router, latest, name = self.queue.get(False)
+                with closing(self.conn.cursor()) as cursor:
+                    cursor.execute(
+                        'UPDATE routers SET latest=?, image_name=?, '
+                        'last_fetch=? WHERE id=?',
+                        (latest, name, datetime.utcnow(), router)
+                    )
+                    self.conn.commit()
+                self.queue.task_done()
+            except Queue.Empty:
+                # the queue *might* be empty, and that's okay
+                break
+
+    def fetch_router_metadata(self):
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = RouterRow.from_cursor
+        while True:
+            with closing(conn.cursor()) as cursor:
+                cursor.execute(
+                    'SELECT * FROM routers WHERE last_fetch = NULL '
+                    'ORDER BY id ASC LIMIT 1;'
+                )
+                router = cursor.fetchone()
+                if router is None:
+                    cursor.execute(
+                        'SELECT * FROM routers '
+                        'ORDER BY last_fetch ASC, RANDOM() LIMIT 1;'
+                    )
+                    router = cursor.fetchone()
+
+            if router:
+                try:
+                    instance = self.nova.get_instance(router)
+                except:
+                    pass
+                if instance and instance.image:
+                    image = self.nova.client.images.get(
+                        instance.image['id']
+                    )
+                    if image:
+                        self.queue.put((
+                            router.id,
+                            image.id == cfg.CONF.router_image_uuid,
+                            image.name
+                        ))
 
 
 def populate_routers(db, *args):
-    conf = ConfigSub(*args)
+    conf = FakeConfig(*args)
     client = RouterFetcher(conf, db)
     while True:
-        client.fetch()
-        time.sleep(.1)
+        try:
+            client.fetch()
+        except (KeyboardInterrupt, SystemExit):
+            print "Killing background worker..."
+            break
 
 
 class BrowseRouters(message.MessageSending):
@@ -103,14 +175,16 @@ class BrowseRouters(message.MessageSending):
         name TEXT,
         status TEXT,
         latest INTEGER,
-        image_name TEXT
+        image_name TEXT,
+        last_fetch TIMESTAMP
     );'''
 
     def __init__(self, *a, **kw):
         self.term = Terminal()
         self.position = 0
+        self.routers = []
         self.init_database()
-        p = multiprocessing.Process(
+        self.process = multiprocessing.Process(
             target=populate_routers,
             args=(
                 self.fh.name,
@@ -122,44 +196,48 @@ class BrowseRouters(message.MessageSending):
                 cfg.CONF.auth_region
             )
         )
-        p.start()
+        self.process.start()
         super(BrowseRouters, self).__init__(*a, **kw)
 
     def init_database(self):
-        self.fh = tempfile.NamedTemporaryFile()
+        self.fh = tempfile.NamedTemporaryFile(delete=False)
         self.conn = sqlite3.connect(self.fh.name)
-        c = self.conn.cursor()
-        c.execute(self.SCHEMA)
-        self.conn.commit()
+        self.conn.row_factory = RouterRow.from_cursor
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(self.SCHEMA)
 
     def take_action(self, parsed_args):
-        with self.term.fullscreen():
-            with self.term.cbreak():
-                val = None
-                while val != u'q':
-                    if val and val.is_sequence:
-                        if val.code == self.term.KEY_DOWN:
+        try:
+            with self.term.fullscreen():
+                with self.term.cbreak():
+                    val = None
+                    while val != u'q':
+                        if not val:
+                            self.fetch_routers()
+                        elif val.is_sequence:
+                            if val.code == self.term.KEY_DOWN:
+                                self.move_down()
+                            if val.code == self.term.KEY_UP:
+                                self.move_up()
+                        elif val == u'j':
                             self.move_down()
-                        if val.code == self.term.KEY_UP:
+                        elif val == u'k':
                             self.move_up()
-                    elif val == u'j':
-                        self.move_down()
-                    elif val == u'k':
-                        self.move_up()
-                    elif val == u'r':
-                        self.rebuild_router()
-                    self.print_routers()
-                    val = self.term.inkey(timeout=1)
+                        elif val == u'r':
+                            self.rebuild_router()
+                        self.print_routers()
+                        val = self.term.inkey(timeout=1)
+                    self.process.terminate()
+                    self._exit()
+        except KeyboardInterrupt:
+            self._exit()
+            raise
 
-    def clean_up(self, cmd, result, err):
-        self.fh.close()
-        return super(BrowseRouters).clean_up(cmd, result, err)
-
-    @property
-    def routers(self):
-        c = self.conn.cursor()
-        c.execute('SELECT * FROM routers ORDER BY id ASC;')
-        return [RouterRow(*row) for row in c.fetchall()]
+    def fetch_routers(self):
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT * FROM routers ORDER BY id ASC;')
+            self.routers = cursor.fetchall()
 
     @property
     def window(self):
@@ -175,18 +253,21 @@ class BrowseRouters(message.MessageSending):
         offset, routers = self.window
         with self.term.location():
             for i, r in enumerate(routers):
-                age = self.term.red('OUT-OF-DATE')
-                if r.latest:
+                if r.latest is None:
+                    age = '<loading>'.ljust(11)
+                elif r.latest:
                     age = self.term.green('LATEST'.ljust(11))
+                elif not r.latest:
+                    age = self.term.red('OUT-OF-DATE')
                 args = [
                     r.id,
                     r.name,
                     self.router_states[r.status](r.status.ljust(7)),
                     age,
-                    r.image_name
+                    r.image_name.ljust(self.term.width)
                 ]
                 if i + offset == self.position:
-                    args = map(self.term.reverse, args)
+                    args = map(self.term.reverse, args[:-2]) + args[-2:]
                 print self.term.move(i, 0) + ' '.join(args).ljust(
                     self.term.width
                 )
@@ -200,9 +281,7 @@ class BrowseRouters(message.MessageSending):
 
     def rebuild_router(self):
         r = self.routers[self.position]
-        c = self.conn.cursor()
-        c.execute('UPDATE routers SET status=? WHERE id=?', ('REBUILD', r.id))
-        self.conn.commit()
+        r.status = 'REBUILD'
         self.send_message(self.make_message(r))
 
     def move_up(self):
@@ -220,3 +299,9 @@ class BrowseRouters(message.MessageSending):
             'DOWN': self.term.red,
             'ERROR': self.term.red
         }
+
+    def _exit(self):
+        print 'Deleting %s...' % self.fh.name
+        self.fh.close()
+        os.remove(self.fh.name)
+        print 'Exiting...'
