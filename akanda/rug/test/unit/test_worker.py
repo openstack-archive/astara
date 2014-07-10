@@ -116,6 +116,13 @@ class TestWildcardMessages(unittest.TestCase):
                           'ac194fc5-f317-412e-8611-fb290629f624'],
                          ids)
 
+    def test_wildcard_to_error(self):
+        trms = self.w._get_trms('error')
+        ids = sorted(trm.tenant_id for trm in trms)
+        self.assertEqual(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
+                          'ac194fc5-f317-412e-8611-fb290629f624'],
+                         ids)
+
 
 class TestShutdown(unittest.TestCase):
 

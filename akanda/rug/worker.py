@@ -200,7 +200,7 @@ class Worker(object):
                 trm.shutdown()
 
     def _get_trms(self, target):
-        if target == '*':
+        if target.lower() in commands.WILDCARDS:
             return list(self.tenant_managers.values())
         # Normalize the tenant id to a dash-separated UUID format.
         tenant_id = _normalize_uuid(target)
@@ -243,8 +243,13 @@ class Worker(object):
 
         elif instructions['command'] == commands.ROUTER_DEBUG:
             router_id = instructions['router_id']
-            LOG.info('Placing router %s in debug mode', router_id)
-            self._debug_routers.add(router_id)
+            if router_id in commands.WILDCARDS:
+                LOG.warning(
+                    'Ignoring instruction to debug all routers with %r',
+                    router_id)
+            else:
+                LOG.info('Placing router %s in debug mode', router_id)
+                self._debug_routers.add(router_id)
 
         elif instructions['command'] == commands.ROUTER_MANAGE:
             router_id = instructions['router_id']
@@ -278,8 +283,13 @@ class Worker(object):
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
-            LOG.info('Placing tenant %s in debug mode', tenant_id)
-            self._debug_tenants.add(tenant_id)
+            if tenant_id in commands.WILDCARDS:
+                LOG.warning(
+                    'Ignoring instruction to debug all tenants with %r',
+                    tenant_id)
+            else:
+                LOG.info('Placing tenant %s in debug mode', tenant_id)
+                self._debug_tenants.add(tenant_id)
 
         elif instructions['command'] == commands.TENANT_MANAGE:
             tenant_id = instructions['tenant_id']

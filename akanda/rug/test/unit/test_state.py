@@ -610,3 +610,13 @@ class TestAutomaton(unittest.TestCase):
                 self.ctx,
                 self.bandwidth_callback
             )
+
+    def test_has_error(self):
+        with mock.patch.object(self.sm, 'vm') as vm:
+            vm.state = vm_manager.ERROR
+            self.assertTrue(self.sm.has_error())
+
+    def test_has_no_error(self):
+        with mock.patch.object(self.sm, 'vm') as vm:
+            vm.state = vm_manager.UP
+            self.assertFalse(self.sm.has_error())
