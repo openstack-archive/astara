@@ -181,8 +181,18 @@ class BrowseRouters(message.MessageSending):
         self.term = Terminal()
         self.position = 0
         self.routers = []
+        super(BrowseRouters, self).__init__(*a, **kw)
+
+    def init_database(self):
+        self.fh = tempfile.NamedTemporaryFile(delete=False)
+        self.conn = sqlite3.connect(self.fh.name)
+        self.conn.row_factory = RouterRow.from_cursor
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(self.SCHEMA)
+
+    def take_action(self, parsed_args):
         self.init_database()
-        self.process = multiprocessing.Process(
+        process = multiprocessing.Process(
             target=populate_routers,
             args=(
                 self.fh.name,
@@ -194,17 +204,7 @@ class BrowseRouters(message.MessageSending):
                 cfg.CONF.auth_region
             )
         )
-        self.process.start()
-        super(BrowseRouters, self).__init__(*a, **kw)
-
-    def init_database(self):
-        self.fh = tempfile.NamedTemporaryFile(delete=False)
-        self.conn = sqlite3.connect(self.fh.name)
-        self.conn.row_factory = RouterRow.from_cursor
-        with closing(self.conn.cursor()) as cursor:
-            cursor.execute(self.SCHEMA)
-
-    def take_action(self, parsed_args):
+        process.start()
         try:
             with self.term.fullscreen():
                 with self.term.cbreak():
@@ -225,7 +225,7 @@ class BrowseRouters(message.MessageSending):
                             self.rebuild_router()
                         self.print_routers()
                         val = self.term.inkey(timeout=1)
-                    self.process.terminate()
+                    process.terminate()
                     self._exit()
         except KeyboardInterrupt:
             self._exit()
