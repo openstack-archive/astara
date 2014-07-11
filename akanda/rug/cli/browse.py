@@ -278,7 +278,8 @@ class BrowseRouters(message.MessageSending):
         }
 
     def rebuild_router(self):
-        r = self.routers[self.position]
+        offset, routers = self.window
+        r = routers[self.position-offset]
         r.status = 'REBUILD'
         self.send_message(self.make_message(r))
 
