@@ -262,7 +262,7 @@ class BrowseRouters(message.MessageSending):
                     r.name,
                     self.router_states[r.status](r.status.ljust(7)),
                     age,
-                    r.image_name.ljust(self.term.width)
+                    r.image_name
                 ]
                 if i + offset == self.position:
                     args = map(self.term.reverse, args[:-2]) + args[-2:]
