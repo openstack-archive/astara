@@ -50,12 +50,20 @@ class FakeConfig(object):
 
 class RouterRow(object):
 
+    id = None
+    name = None
+    status = None
+    latest = None
+    image_name = None
+    last_fetch = None
+
     def __init__(self, **kw):
         for k, v in kw.items():
             setattr(self, k, v)
 
         self.image_name = self.image_name or ''
-        self.tenant_id = self.name.replace('ak-', '')
+        if self.name:
+            self.tenant_id = self.name.replace('ak-', '')
 
     @classmethod
     def from_cursor(cls, cursor, row):
@@ -73,7 +81,8 @@ class RouterFetcher(object):
         self.conn.row_factory = RouterRow.from_cursor
         self.nova = nova_api.Nova(conf)
         self.quantum = quantum_api.Quantum(conf)
-        self.queue = Queue.Queue()
+        self.nova_queue = Queue.Queue()
+        self.save_queue = Queue.Queue()
 
         # Create X threads to perform Nova calls and put results into a queue
         threads = [
@@ -103,13 +112,14 @@ class RouterFetcher(object):
                     (router.status, router.id)
                 )
                 self.conn.commit()
+            self.nova_queue.put(router.id)
 
         # SQLite databases have global database-wide lock for writes, so
         # we can't split the writes across threads.  That's okay, though, the
         # slowness isn't the DB writes, it's the Nova API calls
         while True:
             try:
-                router, latest, name = self.queue.get(False)
+                router, latest, name = self.save_queue.get(False)
                 with closing(self.conn.cursor()) as cursor:
                     cursor.execute(
                         'UPDATE routers SET latest=?, image_name=?, '
@@ -117,7 +127,7 @@ class RouterFetcher(object):
                         (latest, name, datetime.utcnow(), router)
                     )
                     self.conn.commit()
-                self.queue.task_done()
+                self.save_queue.task_done()
             except Queue.Empty:
                 # the queue *might* be empty, and that's okay
                 break
@@ -126,34 +136,22 @@ class RouterFetcher(object):
         conn = sqlite3.connect(self.db)
         conn.row_factory = RouterRow.from_cursor
         while True:
-            with closing(conn.cursor()) as cursor:
-                cursor.execute(
-                    'SELECT * FROM routers WHERE last_fetch = NULL '
-                    'ORDER BY id ASC LIMIT 1;'
+            router = RouterRow(id=self.nova_queue.get())
+            try:
+                instance = self.nova.get_instance(router)
+            except:
+                pass
+            if instance and instance.image:
+                image = self.nova.client.images.get(
+                    instance.image['id']
                 )
-                router = cursor.fetchone()
-                if router is None:
-                    cursor.execute(
-                        'SELECT * FROM routers '
-                        'ORDER BY last_fetch ASC, RANDOM() LIMIT 1;'
-                    )
-                    router = cursor.fetchone()
-
-            if router:
-                try:
-                    instance = self.nova.get_instance(router)
-                except:
-                    pass
-                if instance and instance.image:
-                    image = self.nova.client.images.get(
-                        instance.image['id']
-                    )
-                    if image:
-                        self.queue.put((
-                            router.id,
-                            image.id == cfg.CONF.router_image_uuid,
-                            image.name
-                        ))
+                if image:
+                    self.save_queue.put((
+                        router.id,
+                        image.id == cfg.CONF.router_image_uuid,
+                        image.name
+                    ))
+            self.nova_queue.task_done()
 
 
 def populate_routers(db, *args):
