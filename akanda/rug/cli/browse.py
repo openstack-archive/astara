@@ -137,20 +137,24 @@ class RouterFetcher(object):
         conn.row_factory = RouterRow.from_cursor
         while True:
             router = RouterRow(id=self.nova_queue.get())
+            image = None
             try:
                 instance = self.nova.get_instance(router)
+                image = self.nova.client.images.get(instance.image['id'])
             except:
                 pass
-            if instance and instance.image:
-                image = self.nova.client.images.get(
-                    instance.image['id']
-                )
-                if image:
-                    self.save_queue.put((
-                        router.id,
-                        image.id == cfg.CONF.router_image_uuid,
-                        image.name
-                    ))
+            if image:
+                self.save_queue.put((
+                    router.id,
+                    image.id == cfg.CONF.router_image_uuid,
+                    image.name
+                ))
+            else:
+                self.save_queue.put((
+                    router.id,
+                    None,
+                    None
+                ))
             self.nova_queue.task_done()
 
 
