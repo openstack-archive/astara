@@ -23,6 +23,7 @@ import Queue
 import urlparse
 import threading
 import uuid
+import time
 
 import kombu
 import kombu.connection
@@ -245,10 +246,11 @@ def listen(host_id, amqp_url,
         try:
             connection.drain_events()
         except:  # noqa
+            LOG.exception('exception while draining events from queue')
+            time.sleep(1)
             # FIXME(dhellmann): Make this function a class so we can
             # control the loop variable and stop draining events
             # before sending the shutdown to the workers.
-            break
 
     connection.release()
 
