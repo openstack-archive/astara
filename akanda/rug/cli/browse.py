@@ -181,20 +181,6 @@ class BrowseRouters(message.MessageSending):
         self.term = Terminal()
         self.position = 0
         self.routers = []
-        self.init_database()
-        self.process = multiprocessing.Process(
-            target=populate_routers,
-            args=(
-                self.fh.name,
-                cfg.CONF.admin_user,
-                cfg.CONF.admin_password,
-                cfg.CONF.admin_tenant_name,
-                cfg.CONF.auth_url,
-                cfg.CONF.auth_strategy,
-                cfg.CONF.auth_region
-            )
-        )
-        self.process.start()
         super(BrowseRouters, self).__init__(*a, **kw)
 
     def init_database(self):
@@ -204,7 +190,31 @@ class BrowseRouters(message.MessageSending):
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(self.SCHEMA)
 
+    def get_parser(self, prog_name):
+        parser = super(BrowseRouters, self).get_parser(prog_name)
+        parser.add_argument('--dump', dest='interactive', action='store_false')
+        parser.set_defaults(interactive=True)
+        return parser
+
     def take_action(self, parsed_args):
+        self.interactive = parsed_args.interactive
+        self.init_database()
+        credentials = [
+            cfg.CONF.admin_user,
+            cfg.CONF.admin_password,
+            cfg.CONF.admin_tenant_name,
+            cfg.CONF.auth_url,
+            cfg.CONF.auth_strategy,
+            cfg.CONF.auth_region
+        ]
+        self.process = multiprocessing.Process(
+            target=populate_routers,
+            args=[self.fh.name] + credentials
+        )
+        self.process.start()
+        self.handle_loop()
+
+    def handle_loop(self):
         try:
             with self.term.fullscreen():
                 with self.term.cbreak():
@@ -223,8 +233,14 @@ class BrowseRouters(message.MessageSending):
                             self.move_up()
                         elif val == u'r':
                             self.rebuild_router()
-                        self.print_routers()
-                        val = self.term.inkey(timeout=1)
+                        if self.interactive:
+                            self.print_routers()
+                            val = self.term.inkey(timeout=1)
+                        elif len(self.routers) and all(map(
+                            lambda x: x.last_fetch, self.routers
+                        )):
+                            self.print_routers()
+                            val = u'q'
                     self.process.terminate()
                     self._exit()
         except KeyboardInterrupt:
@@ -262,13 +278,11 @@ class BrowseRouters(message.MessageSending):
                     r.name,
                     self.router_states[r.status](r.status.ljust(7)),
                     age,
-                    r.image_name.ljust(self.term.width)
+                    r.image_name
                 ]
                 if i + offset == self.position:
                     args = map(self.term.reverse, args[:-2]) + args[-2:]
-                print self.term.move(i, 0) + ' '.join(args).ljust(
-                    self.term.width
-                )
+                print self.term.move(i, 0) + ' '.join(args)
 
     def make_message(self, router):
         return {
@@ -278,7 +292,8 @@ class BrowseRouters(message.MessageSending):
         }
 
     def rebuild_router(self):
-        r = self.routers[self.position]
+        offset, routers = self.window
+        r = routers[self.position-offset]
         r.status = 'REBUILD'
         self.send_message(self.make_message(r))
 
@@ -299,7 +314,9 @@ class BrowseRouters(message.MessageSending):
         }
 
     def _exit(self):
-        print 'Deleting %s...' % self.fh.name
+        if self.interactive:
+            print 'Deleting %s...' % self.fh.name
         self.fh.close()
         os.remove(self.fh.name)
-        print 'Exiting...'
+        if self.interactive:
+            print 'Exiting...'
