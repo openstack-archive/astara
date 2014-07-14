@@ -55,6 +55,7 @@ class RouterRow(object):
     status = None
     latest = None
     image_name = None
+    booted_at = None
     last_fetch = None
 
     def __init__(self, **kw):
@@ -62,6 +63,7 @@ class RouterRow(object):
             setattr(self, k, v)
 
         self.image_name = self.image_name or ''
+        self.booted_at = self.booted_at or ''
         if self.name:
             self.tenant_id = self.name.replace('ak-', '')
 
@@ -119,12 +121,12 @@ class RouterFetcher(object):
         # slowness isn't the DB writes, it's the Nova API calls
         while True:
             try:
-                router, latest, name = self.save_queue.get(False)
+                router, latest, name, booted_at = self.save_queue.get(False)
                 with closing(self.conn.cursor()) as cursor:
                     cursor.execute(
                         'UPDATE routers SET latest=?, image_name=?, '
-                        'last_fetch=? WHERE id=?',
-                        (latest, name, datetime.utcnow(), router)
+                        'last_fetch=?, booted_at=? WHERE id=?',
+                        (latest, name, datetime.utcnow(), booted_at, router)
                     )
                     self.conn.commit()
                 self.save_queue.task_done()
@@ -147,11 +149,13 @@ class RouterFetcher(object):
                 self.save_queue.put((
                     router.id,
                     image.id == cfg.CONF.router_image_uuid,
-                    image.name
+                    image.name,
+                    instance.created
                 ))
             else:
                 self.save_queue.put((
                     router.id,
+                    None,
                     None,
                     None
                 ))
@@ -178,7 +182,8 @@ class BrowseRouters(message.MessageSending):
         status TEXT,
         latest INTEGER,
         image_name TEXT,
-        last_fetch TIMESTAMP
+        last_fetch TIMESTAMP,
+        booted_at TIMESTAMP
     );'''
 
     def __init__(self, *a, **kw):
@@ -282,10 +287,12 @@ class BrowseRouters(message.MessageSending):
                     r.name,
                     self.router_states[r.status](r.status.ljust(7)),
                     age,
-                    r.image_name
+                    r.image_name,
+                    'at',
+                    r.booted_at
                 ]
                 if i + offset == self.position:
-                    args = map(self.term.reverse, args[:-2]) + args[-2:]
+                    args = map(self.term.reverse, args[:-3]) + args[-3:]
                 print self.term.move(i, 0) + ' '.join(args)
 
     def make_message(self, router):
