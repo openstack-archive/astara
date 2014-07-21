@@ -34,22 +34,27 @@ RESTART = 'restart'
 GONE = 'gone'
 ERROR = 'error'
 
+STATUS_MAP = {
+    DOWN: quantum.STATUS_DOWN,
+    BOOTING: quantum.STATUS_BUILD,
+    UP: quantum.STATUS_BUILD,
+    CONFIGURED: quantum.STATUS_ACTIVE,
+    ERROR: quantum.STATUS_ERROR,
+}
+
 
 def synchronize_router_status(f):
     @wraps(f)
     def wrapper(self, worker_context, silent=False):
+        old_status = self._last_synced_status
         val = f(self, worker_context, silent)
-        status_map = {
-            DOWN: quantum.STATUS_DOWN,
-            BOOTING: quantum.STATUS_BUILD,
-            UP: quantum.STATUS_BUILD,
-            CONFIGURED: quantum.STATUS_ACTIVE,
-            ERROR: quantum.STATUS_ERROR,
-        }
-        worker_context.neutron.update_router_status(
-            self.router_obj.id,
-            status_map.get(self.state, quantum.STATUS_ERROR)
-        )
+        new_status = STATUS_MAP.get(self.state, quantum.STATUS_ERROR)
+        if not old_status or old_status != new_status:
+            worker_context.neutron.update_router_status(
+                self.router_obj.id,
+                new_status
+            )
+            self._last_synced_status = new_status
         return val
     return wrapper
 
@@ -81,6 +86,7 @@ class VmManager(object):
         self.last_error = None
         self._boot_counter = BootAttemptCounter()
         self._currently_booting = False
+        self._last_synced_status = None
         self.update_state(worker_context, silent=True)
 
     @property
