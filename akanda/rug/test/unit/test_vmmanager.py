@@ -108,6 +108,29 @@ class TestVmManager(unittest.TestCase):
         n.update_router_status.assert_called_once_with('R1', 'DOWN')
         n.update_router_status.reset_mock()
 
+    @mock.patch('time.sleep', lambda *a: None)
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
+    @mock.patch('akanda.rug.api.configuration.build_config')
+    def test_router_status_caching(self, config, get_mgt_addr, router_api):
+        self.update_state_p.stop()
+        router_api.is_alive.return_value = False
+        rtr = mock.sentinel.router
+        rtr.id = 'R1'
+        rtr.management_port = mock.Mock()
+        rtr.external_port = mock.Mock()
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        n = self.quantum
+
+        # Router state should start down
+        self.vm_mgr.update_state(self.ctx)
+        n.update_router_status.assert_called_once_with('R1', 'DOWN')
+        n.update_router_status.reset_mock()
+
+        # Router state should not be updated in neutron if it didn't change
+        self.vm_mgr.update_state(self.ctx)
+        self.assertEqual(n.update_router_status.call_count, 0)
+
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
