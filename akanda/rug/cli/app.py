@@ -40,6 +40,8 @@ class RugController(app.App):
         )
 
     def initialize_app(self, argv):
+        # Quiet logging for some request library
+        logging.getLogger('requests').setLevel(logging.WARN)
         main.register_and_load_opts()
         # Don't pass argv here because cfg.CONF will intercept the
         # help options and exit.
