@@ -370,7 +370,6 @@ class Automaton(object):
         self.deleted = False
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()
-        self._router_image_uuid = cfg.CONF.router_image_uuid
         self.log = logging.getLogger(__name__ + '.' + router_id)
 
         self.action = POLL
@@ -382,7 +381,7 @@ class Automaton(object):
             self._queue,
             self.bandwidth_callback,
             self._reboot_error_threshold,
-            self._router_image_uuid
+            cfg.CONF.router_image_uuid
         )
         self.state = CalcAction(self._state_params)
 
@@ -466,6 +465,16 @@ class Automaton(object):
             )
             return False
 
+        if message.crud == REBUILD:
+            if message.body.get('router_image_uuid'):
+                self.log.info(
+                    'Router is being REBUILT with custom image %s',
+                    message.body['router_image_uuid']
+                )
+                self.router_image_uuid = message.body['router_image_uuid']
+            else:
+                self.router_image_uuid = cfg.CONF.router_image_uuid
+
         self._queue.append(message.crud)
         queue_len = len(self._queue)
         if queue_len > self._queue_warning_threshold:
@@ -474,6 +483,14 @@ class Automaton(object):
             logger = self.log.debug
         logger('incoming message brings queue length to %s', queue_len)
         return True
+
+    @property
+    def router_image_uuid(self):
+        return self.state.params.router_image_uuid
+
+    @router_image_uuid.setter
+    def router_image_uuid(self, value):
+        self.state.params.router_image_uuid = value
 
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"

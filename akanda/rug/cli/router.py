@@ -86,6 +86,19 @@ class RouterRebuild(_TenantRouterCmd):
 
     _COMMAND = commands.ROUTER_REBUILD
 
+    def get_parser(self, prog_name):
+        # Bypass the direct base class to let us put the tenant id
+        # argument first
+        p = super(RouterRebuild, self).get_parser(prog_name)
+        p.add_argument(
+            '--router_image_uuid',
+        )
+        return p
+
+    def make_message(self, parsed_args):
+        message = super(RouterRebuild, self).make_message(parsed_args)
+        message['router_image_uuid'] = parsed_args.router_image_uuid
+        return message
 
 class RouterDebug(_TenantRouterCmd):
     """debug a single router"""
