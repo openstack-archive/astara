@@ -155,7 +155,7 @@ class VmManager(object):
             self._currently_booting = False
         return self.state
 
-    def boot(self, worker_context):
+    def boot(self, worker_context, router_image_uuid):
         self._ensure_cache(worker_context)
         if self.state == GONE:
             self.log.info('not booting deleted router')
@@ -180,7 +180,10 @@ class VmManager(object):
                 for p in router.ports:
                     if p.device_id == instance.id:
                         worker_context.neutron.clear_device_id(p)
-            created = worker_context.nova_client.reboot_router_instance(router)
+            created = worker_context.nova_client.reboot_router_instance(
+                router,
+                router_image_uuid
+            )
             if not created:
                 self.log.info('Previous router is deleting')
                 return

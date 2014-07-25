@@ -33,7 +33,7 @@ class Nova(object):
             auth_system=conf.auth_strategy,
             region_name=conf.auth_region)
 
-    def create_router_instance(self, router):
+    def create_router_instance(self, router, router_image_uuid):
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in router.ports]
 
@@ -45,10 +45,10 @@ class Nova(object):
         # to be requeued and executed again later when the ports should be
         # finally cleaned up.
         LOG.debug('creating vm for router %s with image %s',
-                  router.id, self.conf.router_image_uuid)
+                  router.id, router_image_uuid)
         server = self.client.servers.create(
             'ak-' + router.id,
-            image=self.conf.router_image_uuid,
+            image=router_image_uuid,
             flavor=self.conf.router_instance_flavor,
             nics=nics)
         assert server and server.created
@@ -75,7 +75,7 @@ class Nova(object):
             LOG.debug('deleting vm for router %s', router.id)
             self.client.servers.delete(instance.id)
 
-    def reboot_router_instance(self, router):
+    def reboot_router_instance(self, router, router_image_uuid):
         instance = self.get_instance(router)
         if instance:
             if 'BUILD' in instance.status:
@@ -83,5 +83,5 @@ class Nova(object):
 
             self.client.servers.delete(instance.id)
             return False
-        self.create_router_instance(router)
+        self.create_router_instance(router, router_image_uuid)
         return True

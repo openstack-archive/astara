@@ -87,11 +87,11 @@ class TestNovaWrapper(unittest.TestCase):
                        'net-id': 'int-net',
                        'v4-fixed-ip': ''}],
                 flavor=1,
-                image='akanda-image'
+                image='GLANCE-IMAGE-123'
             )
         ]
 
-        self.nova.create_router_instance(fake_router)
+        self.nova.create_router_instance(fake_router, 'GLANCE-IMAGE-123')
         self.client.assert_has_calls(expected)
 
     def test_get_instance(self):
@@ -161,7 +161,10 @@ class TestNovaWrapper(unittest.TestCase):
                 mock.call.servers.delete('instance_id'),
             ]
 
-            self.assertFalse(self.nova.reboot_router_instance(fake_router))
+            self.assertFalse(self.nova.reboot_router_instance(
+                fake_router,
+                'GLANCE-IMAGE-123'
+            ))
             self.client.assert_has_calls(expected)
 
     def test_reboot_router_instance_rebooting(self):
@@ -169,7 +172,7 @@ class TestNovaWrapper(unittest.TestCase):
             get_instance.return_value.id = 'instance_id'
             get_instance.return_value.status = 'BUILD'
 
-            self.nova.reboot_router_instance(fake_router)
+            self.nova.reboot_router_instance(fake_router, 'GLANCE-IMAGE-123')
             self.assertEqual(self.client.mock_calls, [])
 
     def test_reboot_router_instance_missing(self):
@@ -177,6 +180,9 @@ class TestNovaWrapper(unittest.TestCase):
             with mock.patch.object(self.nova, 'create_router_instance') as cr:
                 get_instance.return_value = None
 
-                self.nova.reboot_router_instance(fake_router)
+                self.nova.reboot_router_instance(
+                    fake_router,
+                    'GLANCE-IMAGE-123'
+                )
                 self.assertEqual(self.client.mock_calls, [])
-                cr.assert_called_once_with(fake_router)
+                cr.assert_called_once_with(fake_router, 'GLANCE-IMAGE-123')

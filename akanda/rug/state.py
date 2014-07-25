@@ -26,18 +26,21 @@ import collections
 import itertools
 import logging
 
+from oslo.config import cfg
+
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
 from akanda.rug import vm_manager
 
 
 class StateParams(object):
     def __init__(self, vm, log, queue, bandwidth_callback,
-                 reboot_error_threshold):
+                 reboot_error_threshold, router_image_uuid):
         self.vm = vm
         self.log = log
         self.queue = queue
         self.bandwidth_callback = bandwidth_callback
         self.reboot_error_threshold = reboot_error_threshold
+        self.router_image_uuid = router_image_uuid
 
 
 class State(object):
@@ -56,6 +59,10 @@ class State(object):
     @property
     def vm(self):
         return self.params.vm
+
+    @property
+    def router_image_uuid(self):
+        return self.params.router_image_uuid
 
     @property
     def name(self):
@@ -219,7 +226,7 @@ class CreateVM(State):
                           self.vm.attempts)
             self.vm.set_error(worker_context)
             return action
-        self.vm.boot(worker_context)
+        self.vm.boot(worker_context, self.router_image_uuid)
         self.log.debug('CreateVM attempt %s/%s',
                        self.vm.attempts,
                        self.params.reboot_error_threshold)
@@ -363,6 +370,7 @@ class Automaton(object):
         self.deleted = False
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()
+        self._router_image_uuid = cfg.CONF.router_image_uuid
         self.log = logging.getLogger(__name__ + '.' + router_id)
 
         self.action = POLL
@@ -374,6 +382,7 @@ class Automaton(object):
             self._queue,
             self.bandwidth_callback,
             self._reboot_error_threshold,
+            self._router_image_uuid
         )
         self.state = CalcAction(self._state_params)
 

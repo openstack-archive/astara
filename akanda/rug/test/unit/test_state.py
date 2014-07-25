@@ -42,6 +42,7 @@ class BaseTestStateCase(unittest.TestCase):
             queue=deque(),
             bandwidth_callback=mock.Mock(),
             reboot_error_threshold=3,
+            router_image_uuid='GLANCE-IMAGE-123'
         )
         self.state = self.state_cls(self.params)
 
@@ -264,7 +265,7 @@ class TestCreateVMState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.vm.boot.assert_called_once_with(self.ctx)
+        self.vm.boot.assert_called_once_with(self.ctx, 'GLANCE-IMAGE-123')
 
     def test_execute_too_many_attempts(self):
         self.vm.attempts = self.params.reboot_error_threshold
