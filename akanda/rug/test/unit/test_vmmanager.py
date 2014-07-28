@@ -263,10 +263,11 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.boot(self.ctx)
+        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)  # async
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj
+            self.vm_mgr.router_obj,
+            'GLANCE-IMAGE-123'
         )
         self.assertEqual(1, self.vm_mgr.attempts)
 
@@ -280,10 +281,11 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.boot(self.ctx)
+        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj
+            self.vm_mgr.router_obj,
+            'GLANCE-IMAGE-123'
         )
         self.assertEqual(1, self.vm_mgr.attempts)
 
@@ -306,10 +308,11 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = [management_port, external_port,
                                            internal_port]
-        self.vm_mgr.boot(self.ctx)
+        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)  # async
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj
+            self.vm_mgr.router_obj,
+            'GLANCE-IMAGE-123'
         )
         assert self.ctx.neutron.clear_device_id.call_count == 3
         self.ctx.neutron.clear_device_id.assert_has_calls([
@@ -587,10 +590,11 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.set_error(self.ctx)
-        self.vm_mgr.boot(self.ctx)
+        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)  # async
         self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj
+            self.vm_mgr.router_obj,
+            'GLANCE-IMAGE-123'
         )
 
     def test_error_cooldown(self):

@@ -42,6 +42,7 @@ class BaseTestStateCase(unittest.TestCase):
             queue=deque(),
             bandwidth_callback=mock.Mock(),
             reboot_error_threshold=3,
+            router_image_uuid='GLANCE-IMAGE-123'
         )
         self.state = self.state_cls(self.params)
 
@@ -264,7 +265,7 @@ class TestCreateVMState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.vm.boot.assert_called_once_with(self.ctx)
+        self.vm.boot.assert_called_once_with(self.ctx, 'GLANCE-IMAGE-123')
 
     def test_execute_too_many_attempts(self):
         self.vm.attempts = self.params.reboot_error_threshold
@@ -528,6 +529,26 @@ class TestAutomaton(unittest.TestCase):
                 'incoming message brings queue length to %s',
                 1,
             )
+
+    def test_send_rebuild_message_with_custom_image(self):
+        vm = self.vm_mgr_cls.return_value
+        vm.state = state.vm_manager.DOWN
+        with mock.patch.object(vm_manager.cfg, 'CONF') as conf:
+            conf.router_image_uuid = 'DEFAULT'
+            self.sm.state.params.router_image_uuid = conf.router_image_uuid
+
+            message = mock.Mock()
+            message.crud = 'rebuild'
+            message.body = {'router_image_uuid': 'ABC123'}
+            self.assertEqual(self.sm.router_image_uuid, conf.router_image_uuid)
+            self.sm.send_message(message)
+            self.assertEqual(self.sm.router_image_uuid, 'ABC123')
+
+            message = mock.Mock()
+            message.crud = 'rebuild'
+            message.body = {}
+            self.sm.send_message(message)
+            self.assertEqual(self.sm.router_image_uuid, 'DEFAULT')
 
     def test_has_more_work(self):
         with mock.patch.object(self.sm, '_queue') as queue:  # noqa
