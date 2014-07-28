@@ -114,6 +114,7 @@ class RouterRebuild(_TenantRouterCmd):
         message['router_image_uuid'] = parsed_args.router_image_uuid
         return message
 
+
 class RouterDebug(_TenantRouterCmd):
     """debug a single router"""
 
