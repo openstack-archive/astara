@@ -58,7 +58,7 @@ class _TenantRouterCmd(message.MessageSending):
                 auth_strategy=self.app.rug_ini.auth_strategy,
                 auth_region=self.app.rug_ini.auth_region,
             )
-            response = n_c.list_routers(router_id=router_id)
+            response = n_c.list_routers(True, id=router_id)
             try:
                 router_details = response['routers'][0]
             except (KeyError, IndexError):
