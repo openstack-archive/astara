@@ -58,12 +58,13 @@ class _TenantRouterCmd(message.MessageSending):
                 auth_strategy=self.app.rug_ini.auth_strategy,
                 auth_region=self.app.rug_ini.auth_region,
             )
-            response = n_c.list_routers(True, id=router_id)
+            response = n_c.list_routers(retrieve_all=True, id=router_id)
             try:
                 router_details = response['routers'][0]
             except (KeyError, IndexError):
                 raise ValueError('No router with id %r found: %s' %
                                  (router_id, response))
+            assert router_details['id'] == router_id
             tenant_id = router_details['tenant_id']
         self.log.info(
             'sending %s instruction for tenant %r, router %r',
