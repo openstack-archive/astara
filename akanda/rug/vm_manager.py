@@ -124,6 +124,13 @@ class VmManager(object):
         else:
             old_state = self.state
             self._check_boot_timeout()
+
+            # If the router isn't responding, make sure Nova knows about it
+            instance = worker_context.nova_client.get_instance(self.router_obj)
+            if instance is None and self.state != ERROR:
+                self.log.info('No router VM was found; rebooting')
+                self.state = DOWN
+
             # update_state() is called from Alive() to check the
             # status of the router. If we can't talk to the API at
             # that point, the router should be considered missing and
@@ -204,12 +211,6 @@ class VmManager(object):
             if self.state != CONFIGURED:
                 self._check_boot_timeout()
             return self.state == CONFIGURED
-
-        # If the router isn't responding, make sure Nova knows about it
-        instance = worker_context.nova_client.get_instance(self.router_obj)
-        if instance is None and self.state != ERROR:
-            self.log.info('No router VM was found; rebooting')
-            self.state = DOWN
 
         self.log.debug('Router is %s' % self.state.upper())
         return False
