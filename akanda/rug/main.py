@@ -127,7 +127,7 @@ def register_and_load_opts():
 
         cfg.StrOpt(
             'ignored_router_directory',
-            default='/etc/akandarug/ignored',
+            default='/etc/akanda-rug/ignored',
             help='Directory to scan for routers to ignore for debugging',
         ),
 
