@@ -394,7 +394,7 @@ class Quantum(object):
             tenant_name=conf.admin_tenant_name,
             auth_url=conf.auth_url,
             auth_strategy=conf.auth_strategy,
-            auth_region=conf.auth_region
+            region_name=conf.auth_region
         )
         self.rpc_client = L3PluginApi(PLUGIN_RPC_TOPIC, cfg.CONF.host)
 
