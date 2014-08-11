@@ -38,7 +38,7 @@ def _get_proxyless_session():
 
 
 def is_alive(host, port):
-    path = AKANDA_BASE_PATH + 'firewall/labels'
+    path = AKANDA_BASE_PATH + 'firewall/rules'
     try:
         s = _get_proxyless_session()
         r = s.get(_mgt_url(host, port, path), timeout=3.0)
