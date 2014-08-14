@@ -259,6 +259,17 @@ class CheckBoot(State):
         return CalcAction(self.params)
 
 
+class ReplugVM(State):
+    def execute(self, action, worker_context):
+        self.vm.replug(worker_context)
+        return action
+
+    def transition(self, action, worker_context):
+        if self.vm.state == vm_manager.RESTART:
+            return StopVM(self.params)
+        return ConfigureVM(self.params)
+
+
 class StopVM(State):
     def execute(self, action, worker_context):
         self.vm.stop(worker_context)
@@ -313,6 +324,8 @@ class ConfigureVM(State):
             return action
 
     def transition(self, action, worker_context):
+        if self.vm.state == vm_manager.REPLUG:
+            return ReplugVM(self.params)
         if self.vm.state in (vm_manager.RESTART,
                              vm_manager.DOWN,
                              vm_manager.GONE):

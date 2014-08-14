@@ -461,7 +461,7 @@ class TestVmManager(unittest.TestCase):
             verify.assert_called_once_with(rtr, interfaces)
 
             self.assertFalse(router_api.update_config.called)
-            self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
+            self.assertEqual(self.vm_mgr.state, vm_manager.REPLUG)
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')

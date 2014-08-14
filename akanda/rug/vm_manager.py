@@ -31,6 +31,7 @@ BOOTING = 'booting'
 UP = 'up'
 CONFIGURED = 'configured'
 RESTART = 'restart'
+REPLUG = 'replug'
 GONE = 'gone'
 ERROR = 'error'
 
@@ -319,8 +320,8 @@ class VmManager(object):
         if not self._verify_interfaces(self.router_obj, interfaces):
             # FIXME: Need a REPLUG state when we support hot-plugging
             # interfaces.
-            self.log.debug("Interfaces aren't plugged as expected, rebooting.")
-            self.state = RESTART
+            self.log.debug("Interfaces aren't plugged as expected.")
+            self.state = REPLUG
             return
 
         # FIXME: Need to catch errors talking to neutron here.
@@ -356,6 +357,85 @@ class VmManager(object):
             # FIXME: We failed to configure the router too many times,
             # so restart it.
             self.state = failure_state
+
+    def replug(self, worker_context):
+        self.log.debug('Attempting to replug...')
+        addr = _get_management_address(self.router_obj)
+        interfaces = router_api.get_interfaces(
+            addr,
+            cfg.CONF.akanda_mgt_service_port
+        )
+        actual_macs = set((iface['lladdr'] for iface in interfaces))
+
+        expected_ports = dict(
+            (p.mac_address, p) for p in self.router_obj.internal_ports
+        )
+        expected_macs = set(expected_ports.keys())
+        expected_macs.add(self.router_obj.management_port.mac_address)
+        expected_macs.add(self.router_obj.external_port.mac_address)
+
+        replug_seconds = 5
+
+        ports_to_delete = []
+        if expected_macs != actual_macs:
+            instance = worker_context.nova_client.get_instance(self.router_obj)
+
+            # For each port that doesn't have a mac address on the VM...
+            for mac in expected_macs - actual_macs:
+                port = expected_ports[mac]
+                self.log.debug(
+                    'New port %s, %s found, plugging...' % (port.id, mac)
+                )
+                instance.interface_attach(port.id, None, None)
+
+            # For each *extra* mac address on the VM...
+            for mac in actual_macs - expected_macs:
+                interface_ports = map(
+                    quantum.Port.from_dict,
+                    worker_context.neutron.api_client.list_ports(
+                        device_id=instance.id,
+                        device_owner=quantum.DEVICE_OWNER_ROUTER_INT
+                    )['ports']
+                )
+                for port in interface_ports:
+                    if port.mac_address == mac:
+                        # If we find a router-interface port attached to the
+                        # device (meaning it's the interface has been removed
+                        # from the neutron router, but not the VM), detach the
+                        # port from the Nova instance and mark the orphaned
+                        # port for deletion
+                        instance.interface_detach(port.id)
+                        ports_to_delete.append(port)
+
+        # The action of attaching/detaching interfaces in Nova happens via the
+        # message bus and is *not* blocking.  We need to wait a few seconds to
+        # see if the list of tap devices on the appliance actually changed.  If
+        # not, assume the hotplug failed, and reboot the VM.
+        replug_seconds = cfg.CONF.hotplug_timeout
+        while replug_seconds > 0:
+            self.log.debug(
+                "Waiting for interface attachments to take effect..."
+            )
+            interfaces = router_api.get_interfaces(
+                addr,
+                cfg.CONF.akanda_mgt_service_port
+            )
+            if self._verify_interfaces(self.router_obj, interfaces):
+                # If the interfaces now match (hotplugging was successful), go
+                # ahead and clean up any orphaned neutron ports that may have
+                # been detached
+                for port in ports_to_delete:
+                    self.log.debug('Deleting orphaned port %s' % port.id)
+                    worker_context.neutron.api_client.update_port(
+                        port.id, {'port': {'device_owner': ''}}
+                    )
+                    worker_context.neutron.api_client.delete_port(port.id)
+                return
+            time.sleep(1)
+            replug_seconds -= 1
+
+        self.log.debug("Interfaces aren't plugged as expected, rebooting.")
+        self.state = RESTART
 
     def _ensure_cache(self, worker_context):
         try:

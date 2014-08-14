@@ -125,6 +125,10 @@ def register_and_load_opts():
         # plug in the external port locally
         cfg.BoolOpt('plug_external_port', default=False),
 
+        # The amount of time to wait for nova to hotplug/unplug networks from
+        # the router VM
+        cfg.IntOpt('hotplug_timeout', default=10),
+
         # needed for boot waiting
         cfg.IntOpt('boot_timeout', default=600),
         cfg.IntOpt('max_retries', default=3),
