@@ -525,7 +525,6 @@ class TestVmManager(unittest.TestCase):
             self.vm_mgr.replug(self.ctx)
             assert self.vm_mgr.state == vm_manager.REPLUG
 
-            interfaces = router_api.get_interfaces.return_value
             get_instance.return_value.interface_attach.assert_called_once_with(
                 p2.id, None, None
             )
@@ -561,11 +560,10 @@ class TestVmManager(unittest.TestCase):
         get_instance = self.ctx.nova_client.get_instance
         get_instance.return_value = mock.Mock()
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
-            verify.return_value = False #  The hotplug didn't work!
+            verify.return_value = False  # The hotplug didn't work!
             self.vm_mgr.replug(self.ctx)
             assert self.vm_mgr.state == vm_manager.RESTART
 
-            interfaces = router_api.get_interfaces.return_value
             get_instance.return_value.interface_attach.assert_called_once_with(
                 p2.id, None, None
             )
@@ -597,7 +595,7 @@ class TestVmManager(unittest.TestCase):
 
         get_instance = self.ctx.nova_client.get_instance
         get_instance.return_value = mock.Mock()
-        list_ports = self.ctx.neutron.api_client.list_ports.return_value = {
+        self.ctx.neutron.api_client.list_ports.return_value = {
             'ports': [{
                 'id': p.id,
                 'device_id': 'INSTANCE123',
@@ -612,7 +610,6 @@ class TestVmManager(unittest.TestCase):
             self.vm_mgr.replug(self.ctx)
             assert self.vm_mgr.state == vm_manager.REPLUG
 
-            interfaces = router_api.get_interfaces.return_value
             get_instance.return_value.interface_detach.assert_called_once_with(
                 p.id
             )
@@ -644,7 +641,7 @@ class TestVmManager(unittest.TestCase):
 
         get_instance = self.ctx.nova_client.get_instance
         get_instance.return_value = mock.Mock()
-        list_ports = self.ctx.neutron.api_client.list_ports.return_value = {
+        self.ctx.neutron.api_client.list_ports.return_value = {
             'ports': [{
                 'id': p.id,
                 'device_id': 'INSTANCE123',
@@ -659,7 +656,6 @@ class TestVmManager(unittest.TestCase):
             self.vm_mgr.replug(self.ctx)
             assert self.vm_mgr.state == vm_manager.RESTART
 
-            interfaces = router_api.get_interfaces.return_value
             get_instance.return_value.interface_detach.assert_called_once_with(
                 p.id
             )
