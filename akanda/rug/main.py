@@ -108,9 +108,11 @@ def register_and_load_opts():
         cfg.StrOpt('management_network_id'),
         cfg.StrOpt('external_network_id'),
         cfg.StrOpt('management_subnet_id'),
+        cfg.StrOpt('external_subnet_id'),
         cfg.StrOpt('router_image_uuid'),
 
         cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
+        cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
         cfg.IntOpt('akanda_mgt_service_port', default=5000),
         cfg.IntOpt('router_instance_flavor', default=1),
 
@@ -119,6 +121,9 @@ def register_and_load_opts():
         cfg.StrOpt('ovs_integration_bridge', default='br-int'),
         cfg.BoolOpt('ovs_use_veth', default=False),
         cfg.IntOpt('network_device_mtu'),
+
+        # plug in the external port locally
+        cfg.BoolOpt('plug_external_port', default=False),
 
         # needed for boot waiting
         cfg.IntOpt('boot_timeout', default=600),
@@ -210,6 +215,10 @@ def main(argv=sys.argv[1:]):
 
     # bring the mgt tap interface up
     quantum.ensure_local_service_port()
+
+    # bring the external port
+    if cfg.CONF.plug_external_port:
+        quantum.ensure_local_external_port()
 
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.
