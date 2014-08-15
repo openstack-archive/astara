@@ -14,6 +14,8 @@ States
 :CREATE_VM: Makes a new VM instance.
 :CHECKBOOT: Check if a new VM instance has been booted and initially configured.
 :CONFIG: Configures the VM and its services.
+:REPLUG_VM: Attempts to replug the VM with a new network (or remove an
+            unplugged one).
 :STOP_VM: Terminates a running VM.
 :EXIT: Processing stops.
 
@@ -35,6 +37,7 @@ vm Variable
 :Up: VM is known to be up (pingable).
 :Configured: VM is known to be configured.
 :Restart Needed: VM needs to be rebooted.
+:Hotplug Needed: VM needs to be replugged.
 :Gone: The router definition has been removed from neutron.
 :Error: The router has been rebooted too many times, or has had some
         other error.

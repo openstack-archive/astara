@@ -37,7 +37,11 @@ digraph rug {
 
   CONFIG -> STATS [ label = "ACT:R,vm>C" ];
   CONFIG -> CALC_ACTION [ label = "ACT>P,vm>C" ];
+  CONFIG -> REPLUG_VM [ label = "vm>[H]" ];
   CONFIG -> STOP_VM [ label = "vm>[RDG]" ];
+
+  REPLUG_VM -> CONFIG [ label = "vm>[H]" ];
+  REPLUG_VM -> STOP_VM [ label = "vm>[R]" ];
 
   STATS -> CALC_ACTION [ label = "ACT>P" ];
 

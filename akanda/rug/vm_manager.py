@@ -374,8 +374,6 @@ class VmManager(object):
         expected_macs.add(self.router_obj.management_port.mac_address)
         expected_macs.add(self.router_obj.external_port.mac_address)
 
-        replug_seconds = 5
-
         ports_to_delete = []
         if expected_macs != actual_macs:
             instance = worker_context.nova_client.get_instance(self.router_obj)
