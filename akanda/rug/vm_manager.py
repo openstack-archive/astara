@@ -402,6 +402,10 @@ class VmManager(object):
                         # from the neutron router, but not the VM), detach the
                         # port from the Nova instance and mark the orphaned
                         # port for deletion
+                        self.log.debug(''.join([
+                            'Port %s, %s is detached from ' % (port.id, mac),
+                            'the neutron router, unplugging...'
+                        ]))
                         instance.interface_detach(port.id)
                         ports_to_delete.append(port)
 
