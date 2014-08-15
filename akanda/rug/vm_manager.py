@@ -398,7 +398,7 @@ class VmManager(object):
                 for port in interface_ports:
                     if port.mac_address == mac:
                         # If we find a router-interface port attached to the
-                        # device (meaning it's the interface has been removed
+                        # device (meaning the interface has been removed
                         # from the neutron router, but not the VM), detach the
                         # port from the Nova instance and mark the orphaned
                         # port for deletion
