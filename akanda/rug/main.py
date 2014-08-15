@@ -122,7 +122,7 @@ def register_and_load_opts():
         cfg.BoolOpt('ovs_use_veth', default=False),
         cfg.IntOpt('network_device_mtu'),
 
-	# plug in the external port locally
+        # plug in the external port locally
         cfg.BoolOpt('plug_external_port', default=False),
 
         # needed for boot waiting

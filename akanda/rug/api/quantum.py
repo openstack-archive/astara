@@ -518,7 +518,7 @@ class Quantum(object):
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
-			  network_id=self.conf.external_network_id,
+                          network_id=self.conf.external_network_id,
 			 )
         ports = self.api_client.list_ports(**query_dict)['ports']
 
@@ -556,7 +556,7 @@ class Quantum(object):
             time.sleep(1)
 
         driver.init_l3(driver.get_device_name(port), [ip_address])
-	return port
+    return port
 
     def ensure_local_service_port(self):
         driver = importutils.import_object(self.conf.interface_driver,
@@ -566,8 +566,7 @@ class Quantum(object):
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
-			  network_id=self.conf.management_network_id,
-			)
+                          network_id=self.conf.management_network_id)
 
         ports = self.api_client.list_ports(**query_dict)['ports']
 
