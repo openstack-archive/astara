@@ -518,8 +518,8 @@ class Quantum(object):
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
-                          network_id=self.conf.external_network_id,
-			 )
+                          network_id=self.conf.external_network_id)
+
         ports = self.api_client.list_ports(**query_dict)['ports']
 
         ip_address = get_local_external_ip(self.conf)
@@ -644,8 +644,9 @@ def get_local_service_ip(conf):
                         mgt_net.prefixlen)
     return rug_ip
 
+
 def get_local_external_ip(conf):
     external_net = netaddr.IPNetwork(conf.external_prefix)
     external_ip = '%s/%s' % (netaddr.IPAddress(external_net.first + 1),
-                        external_net.prefixlen)
+                             external_net.prefixlen)
     return external_ip
