@@ -556,7 +556,7 @@ class Quantum(object):
             time.sleep(1)
 
         driver.init_l3(driver.get_device_name(port), [ip_address])
-    return port
+        return port
 
     def ensure_local_service_port(self):
         driver = importutils.import_object(self.conf.interface_driver,
