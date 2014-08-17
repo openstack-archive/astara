@@ -49,6 +49,7 @@ class TestCreatingRouter(unittest.TestCase):
         self.w = worker.Worker(0, mock.Mock())
         self.tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         self.router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        self.hostname = 'akanda'
         self.msg = event.Event(
             tenant_id=self.tenant_id,
             router_id=self.router_id,
