@@ -69,6 +69,7 @@ fake_subnet = FakeModel(
 fake_router = FakeModel(
     'router_id',
     tenant_id='tenant_id',
+    name='router_name',
     external_port=fake_ext_port,
     management_port=fake_mgt_port,
     internal_ports=[fake_int_port])
@@ -136,7 +137,8 @@ class TestAkandaClient(unittest.TestCase):
                 'floating_ips': 'floating_config',
                 'asn': 64512,
                 'neighbor_asn': 64512,
-                'tenant_id': 'tenant_id'
+                'tenant_id': 'tenant_id',
+                'hostname': 'router_name'
             }
 
             self.assertEqual(config, expected)
