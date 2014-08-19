@@ -389,6 +389,31 @@ class TestStopVMState(BaseTestStateCase):
         self._test_transition_hlpr(event.READ, state.CreateVM, vm_manager.DOWN)
 
 
+class TestReplugState(BaseTestStateCase):
+    state_cls = state.ReplugVM
+
+    def test_execute(self):
+        self.assertEqual(
+            self.state.execute('update', self.ctx),
+            'update'
+        )
+        self.vm.replug.assert_called_once_with(self.ctx)
+
+    def test_transition_hotplug_succeeded(self):
+        self._test_transition_hlpr(
+            event.UPDATE,
+            state.ConfigureVM,
+            vm_manager.REPLUG
+        )
+
+    def test_transition_hotplug_failed(self):
+        self._test_transition_hlpr(
+            event.UPDATE,
+            state.StopVM,
+            vm_manager.RESTART
+        )
+
+
 class TestExitState(TestBaseState):
     state_cls = state.Exit
 
