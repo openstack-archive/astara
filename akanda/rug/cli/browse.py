@@ -119,7 +119,7 @@ class RouterFetcher(object):
                 current_router = cursor.fetchone()
 
                 if router.status not in ('BUILD', 'ACTIVE') and \
-                    current_router.status == 'BOOT':
+                        current_router.status == 'BOOT':
                     continue
 
                 cursor.execute(sql, (router.id, router.name, None))
