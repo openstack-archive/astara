@@ -27,12 +27,13 @@ import threading
 from contextlib import closing
 from datetime import datetime
 
+from blessed import Terminal
+from oslo.config import cfg
+
 from akanda.rug import commands
 from akanda.rug.api import nova as nova_api
 from akanda.rug.api import quantum as quantum_api
 from akanda.rug.cli import message
-from blessed import Terminal
-from oslo.config import cfg
 
 
 class FakeConfig(object):
@@ -57,6 +58,7 @@ class RouterRow(object):
     image_name = None
     booted_at = None
     last_fetch = None
+    nova_status = None
 
     def __init__(self, **kw):
         for k, v in kw.items():
@@ -64,6 +66,7 @@ class RouterRow(object):
 
         self.image_name = self.image_name or ''
         self.booted_at = self.booted_at or ''
+        self.nova_status = self.nova_status or ''
         if self.name:
             self.tenant_id = self.name.replace('ak-', '')
 
@@ -107,7 +110,18 @@ class RouterFetcher(object):
                 ', '.join("?" * 3),
                 ");"
             ])
+
             with closing(self.conn.cursor()) as cursor:
+                cursor.execute(
+                    'SELECT * FROM routers WHERE id=?;',
+                    (router.id,)
+                )
+                current_router = cursor.fetchone()
+
+                if router.status not in ('BUILD', 'ACTIVE') and \
+                        current_router.status == 'BOOT':
+                    continue
+
                 cursor.execute(sql, (router.id, router.name, None))
                 cursor.execute(
                     'UPDATE routers SET status=? WHERE id=?',
@@ -121,13 +135,19 @@ class RouterFetcher(object):
         # slowness isn't the DB writes, it's the Nova API calls
         while True:
             try:
-                router, latest, name, booted_at = self.save_queue.get(False)
+                router, latest, name, booted_at, nova_status = \
+                    self.save_queue.get(False)
                 with closing(self.conn.cursor()) as cursor:
                     cursor.execute(
                         'UPDATE routers SET latest=?, image_name=?, '
                         'last_fetch=?, booted_at=? WHERE id=?',
                         (latest, name, datetime.utcnow(), booted_at, router)
                     )
+                    if nova_status == 'BUILD':
+                        cursor.execute(
+                            'UPDATE routers SET status=? WHERE id=?',
+                            ('BOOT', router)
+                        )
                     self.conn.commit()
                 self.save_queue.task_done()
             except Queue.Empty:
@@ -150,11 +170,13 @@ class RouterFetcher(object):
                     router.id,
                     image.id == cfg.CONF.router_image_uuid,
                     image.name,
-                    instance.created
+                    instance.created,
+                    instance.status
                 ))
             else:
                 self.save_queue.put((
                     router.id,
+                    None,
                     None,
                     None,
                     None
@@ -319,6 +341,7 @@ class BrowseRouters(message.MessageSending):
         return {
             'ACTIVE': self.term.green,
             'BUILD': self.term.yellow,
+            'BOOT': self.term.yellow,
             'REBUILD': self.term.yellow,
             'DOWN': self.term.red,
             'ERROR': self.term.red
