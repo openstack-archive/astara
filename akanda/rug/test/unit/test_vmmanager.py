@@ -571,6 +571,59 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
+    def test_replug_with_missing_external_port(self, get_mgt_addr, router_api):
+        """
+        If the router doesn't have a management or external port, we should
+        attempt to create (and plug) them.
+        """
+        self.vm_mgr.state = vm_manager.REPLUG
+        get_mgt_addr.return_value = 'fe80::beef'
+        rtr = mock.sentinel.router
+        rtr.id = 'SOME-ROUTER-ID'
+        rtr.management_port = None
+        rtr.external_port = None
+        self.ctx.neutron.create_router_management_port.return_value = \
+            mock.Mock(mac_address='a:b:c:d')
+        self.ctx.neutron.create_router_external_port.return_value = mock.Mock(
+            mac_address='d:c:b:a'
+        )
+        p = mock.Mock()
+        p.id = 'ABC'
+        p.mac_address = 'a:a:a:a'
+        p2 = mock.Mock()
+        p2.id = 'DEF'
+        p2.mac_address = 'b:b:b:b'
+        rtr.internal_ports = [p, p2]
+
+        self.quantum.get_router_detail.return_value = rtr
+        self.vm_mgr.router_obj = rtr
+        router_api.get_interfaces.return_value = [
+            {'lladdr': 'd:c:b:a'},
+            {'lladdr': 'a:b:c:d'},
+            {'lladdr': p.mac_address},
+        ]
+        self.conf.hotplug_timeout = 5
+
+        get_instance = self.ctx.nova_client.get_instance
+        get_instance.return_value = mock.Mock()
+        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+            verify.return_value = True  # the hotplug worked!
+            self.vm_mgr.replug(self.ctx)
+            assert self.vm_mgr.state == vm_manager.REPLUG
+
+            self.ctx.neutron.create_router_management_port.assert_called_with(
+                'SOME-ROUTER-ID'
+            )
+            self.ctx.neutron.create_router_external_port.assert_called_with(
+                rtr
+            )
+            get_instance.return_value.interface_attach.assert_called_once_with(
+                p2.id, None, None
+            )
+
+    @mock.patch('time.sleep', lambda *a: None)
+    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.vm_manager._get_management_address')
     def test_replug_remove_port_success(self, get_mgt_addr, router_api):
         self.vm_mgr.state = vm_manager.REPLUG
         get_mgt_addr.return_value = 'fe80::beef'
