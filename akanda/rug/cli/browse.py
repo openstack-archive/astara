@@ -18,7 +18,6 @@
 """Interactive CLI for rebuilding routers
 """
 import logging
-import multiprocessing
 import os
 import Queue
 import sqlite3
@@ -77,7 +76,7 @@ class RouterRow(object):
 
 class RouterFetcher(object):
 
-    def __init__(self, conf, db, num_threads=8):
+    def __init__(self, conf, db, workers):
         self.db = db
         self.conn = sqlite3.connect(self.db)
         self.conn.row_factory = RouterRow.from_cursor
@@ -92,14 +91,15 @@ class RouterFetcher(object):
                 name='fetcher-t%02d' % i,
                 target=self.fetch_router_metadata,
             )
-            for i in xrange(num_threads)
+            for i in xrange(workers)
         ]
         for t in threads:
             t.setDaemon(True)
             t.start()
 
     def fetch(self):
-        routers = self.quantum.get_routers()
+        routers = self.quantum.get_routers(detailed=False)
+        routers.sort(key=lambda x: x.id)
         for router in routers:
             sql = ''.join([
                 "INSERT OR IGNORE INTO routers ",
@@ -162,9 +162,9 @@ class RouterFetcher(object):
             self.nova_queue.task_done()
 
 
-def populate_routers(db, *args):
-    conf = FakeConfig(*args)
-    client = RouterFetcher(conf, db)
+def populate_routers(db, conf, workers):
+    conf = FakeConfig(*conf)
+    client = RouterFetcher(conf, db, workers)
     while True:
         try:
             client.fetch()
@@ -202,6 +202,7 @@ class BrowseRouters(message.MessageSending):
     def get_parser(self, prog_name):
         parser = super(BrowseRouters, self).get_parser(prog_name)
         parser.add_argument('--dump', dest='interactive', action='store_false')
+        parser.add_argument('--threads', type=int, default=16)
         parser.set_defaults(interactive=True)
         return parser
 
@@ -216,11 +217,13 @@ class BrowseRouters(message.MessageSending):
             cfg.CONF.auth_strategy,
             cfg.CONF.auth_region
         ]
-        self.process = multiprocessing.Process(
+        populate = threading.Thread(
+            name='router-populater',
             target=populate_routers,
-            args=[self.fh.name] + credentials
+            args=(self.fh.name, credentials, parsed_args.threads)
         )
-        self.process.start()
+        populate.setDaemon(True)
+        populate.start()
         self.handle_loop()
 
     def handle_loop(self):
@@ -244,7 +247,7 @@ class BrowseRouters(message.MessageSending):
                             self.rebuild_router()
                         if self.interactive:
                             self.print_routers()
-                            val = self.term.inkey(timeout=1)
+                            val = self.term.inkey(timeout=3)
                         elif len(self.routers) and all(map(
                             lambda x: x.last_fetch, self.routers
                         )):

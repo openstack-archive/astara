@@ -96,7 +96,7 @@ class Router(object):
         management_port = None
         internal_ports = []
 
-        for port_dict in d['ports']:
+        for port_dict in d.get('ports', []):
             port = Port.from_dict(port_dict)
             if port.device_owner == DEVICE_OWNER_ROUTER_GW:
                 external_port = port
@@ -398,10 +398,13 @@ class Quantum(object):
         )
         self.rpc_client = L3PluginApi(PLUGIN_RPC_TOPIC, cfg.CONF.host)
 
-    def get_routers(self):
+    def get_routers(self, detailed=True):
         """Return a list of routers."""
-        return [Router.from_dict(r) for r in
-                self.rpc_client.get_routers()]
+        if detailed:
+            return [Router.from_dict(r) for r in
+                    self.rpc_client.get_routers()]
+        routers = self.api_client.list_routers().get('routers', [])
+        return [Router.from_dict(r) for r in routers]
 
     def get_router_detail(self, router_id):
         """Return detailed information about a router and it's networks."""
