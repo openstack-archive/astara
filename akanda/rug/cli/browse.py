@@ -253,7 +253,6 @@ class BrowseRouters(message.MessageSending):
                         )):
                             self.print_routers()
                             val = u'q'
-                    self.process.terminate()
                     self._exit()
         except KeyboardInterrupt:
             self._exit()
