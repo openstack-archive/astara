@@ -382,11 +382,12 @@ class VmManager(object):
 
             # For each port that doesn't have a mac address on the VM...
             for mac in expected_macs - actual_macs:
-                port = expected_ports[mac]
-                self.log.debug(
-                    'New port %s, %s found, plugging...' % (port.id, mac)
-                )
-                instance.interface_attach(port.id, None, None)
+                port = expected_ports.get(mac)
+                if port:
+                    self.log.debug(
+                        'New port %s, %s found, plugging...' % (port.id, mac)
+                    )
+                    instance.interface_attach(port.id, None, None)
 
             # For each *extra* mac address on the VM...
             for mac in actual_macs - expected_macs:
