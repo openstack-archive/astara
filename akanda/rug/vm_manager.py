@@ -360,6 +360,8 @@ class VmManager(object):
 
     def replug(self, worker_context):
         self.log.debug('Attempting to replug...')
+        self._ensure_provider_ports(self.router_obj, worker_context)
+
         addr = _get_management_address(self.router_obj)
         interfaces = router_api.get_interfaces(
             addr,
