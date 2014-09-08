@@ -185,7 +185,8 @@ class VmManager(object):
             # the newly created akanda instance (and fails).
             router = self.router_obj
             for p in router.ports:
-                worker_context.neutron.clear_device_id(p)
+                if p.device_id:
+                    worker_context.neutron.clear_device_id(p)
             created = worker_context.nova_client.reboot_router_instance(
                 router,
                 router_image_uuid
