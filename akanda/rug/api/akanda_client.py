@@ -17,6 +17,7 @@
 
 import requests
 
+from oslo.config import cfg
 from akanda.rug.openstack.common import jsonutils
 
 AKANDA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'
@@ -41,7 +42,7 @@ def is_alive(host, port):
     path = AKANDA_BASE_PATH + 'firewall/rules'
     try:
         s = _get_proxyless_session()
-        r = s.get(_mgt_url(host, port, path), timeout=3.0)
+        r = s.get(_mgt_url(host, port, path), timeout=cfg.CONF.alive_timeout)
         if r.status_code == 200:
             return True
     except:
