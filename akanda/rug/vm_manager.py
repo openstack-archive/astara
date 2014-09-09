@@ -178,16 +178,15 @@ class VmManager(object):
 
             # In the event that the current akanda instance isn't deleted
             # cleanly (which we've seen in certain circumstances, like
-            # hypervisor failures), be proactive and attempt to clean up the
-            # router ports manually.  This helps avoid a situation where the
-            # rug repeatedly attempts to plug stale router ports into the newly
-            # created akanda instance (and fails).
+            # hypervisor failures), or the vm has alredy been deleted but
+            # device_id is still set incorrectly, be proactive and attempt to
+            # clean up the router ports manually.  This helps avoid a situation
+            # where the rug repeatedly attempts to plug stale router ports into
+            # the newly created akanda instance (and fails).
             router = self.router_obj
-            instance = worker_context.nova_client.get_instance(router)
-            if instance is not None:
-                for p in router.ports:
-                    if p.device_id == instance.id:
-                        worker_context.neutron.clear_device_id(p)
+            for p in router.ports:
+                if p.device_id:
+                    worker_context.neutron.clear_device_id(p)
             created = worker_context.nova_client.reboot_router_instance(
                 router,
                 router_image_uuid
