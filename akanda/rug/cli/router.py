@@ -56,7 +56,7 @@ class _TenantRouterCmd(message.MessageSending):
                 tenant_name=self.app.rug_ini.admin_tenant_name,
                 auth_url=self.app.rug_ini.auth_url,
                 auth_strategy=self.app.rug_ini.auth_strategy,
-                auth_region=self.app.rug_ini.auth_region,
+                region_name=self.app.rug_ini.auth_region,
             )
             response = n_c.list_routers(retrieve_all=True, id=router_id)
             try:
