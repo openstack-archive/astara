@@ -27,6 +27,7 @@ AKANDA_BASE_PATH = '/v1/'
 
 LOG = logging.getLogger(__name__)
 
+
 def _mgt_url(host, port, path):
     if ':' in host:
         host = '[%s]' % host
