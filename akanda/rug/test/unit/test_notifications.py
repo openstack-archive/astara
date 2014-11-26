@@ -16,6 +16,7 @@
 
 
 import mock
+import socket
 
 import unittest2 as unittest
 
@@ -331,3 +332,48 @@ class TestSend(unittest.TestCase):
         self.notifier.stop()  # flushes the queue
         msg1, msg2 = self.messages
         self.assertNotEqual(msg1['_unique_id'], msg2['_unique_id'])
+
+
+class TestListen(unittest.TestCase):
+
+    @mock.patch('kombu.connection.BrokerConnection')
+    def test_ensure_connection_is_called(self, mock_broker):
+        broker = mock_broker.return_value
+        broker.ensure_connection = mock.Mock()
+        broker.drain_events = mock.Mock(side_effect=SystemExit())
+        notification_queue = mock.MagicMock()
+
+        notifications.listen('test-host', 'amqp://test.host',
+                             'test-notifications', 'test-rpc',
+                             notification_queue)
+
+        broker.ensure_connection.assert_called_once_with(
+            errback=mock.ANY,
+            max_retries=10,
+            interval_start=2,
+            interval_step=2,
+            interval_max=30)
+
+    @mock.patch('kombu.connection.BrokerConnection')
+    def test_establish_new_connection_after_socket_timeout(self, mock_broker):
+        broker = mock_broker.return_value
+        broker.ensure_connection = mock.Mock()
+        broker.drain_events = mock.Mock(
+            side_effect=(socket.timeout(), SystemExit()))
+        notification_queue = mock.MagicMock()
+
+        notifications.listen('test-host', 'amqp://test.host',
+                             'test-notifications', 'test-rpc',
+                             notification_queue)
+
+        self.assertEqual(broker.ensure_connection.call_args_list,
+                         [mock.call(errback=mock.ANY,
+                                    max_retries=10,
+                                    interval_start=2,
+                                    interval_step=2,
+                                    interval_max=30),
+                          mock.call(errback=mock.ANY,
+                                    max_retries=10,
+                                    interval_start=2,
+                                    interval_step=2,
+                                    interval_max=30)])

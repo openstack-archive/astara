@@ -24,6 +24,7 @@ import urlparse
 import threading
 import uuid
 import time
+import socket
 
 import kombu
 import kombu.connection
@@ -135,6 +136,11 @@ def _make_event_from_message(message):
     return event.Event(tenant_id, router_id, crud, message)
 
 
+def _handle_connection_error(exception, interval):
+    LOG.warn("Error establishing connection: %s", exception)
+    LOG.warn("Retrying in %d seconds", interval)
+
+
 def listen(host_id, amqp_url,
            notifications_exchange_name, rpc_exchange_name,
            notification_queue):
@@ -151,7 +157,18 @@ def listen(host_id, amqp_url,
         virtual_host=conn_info.path,
         port=conn_info.port,
     )
-    connection.connect()
+    try:
+        connection.ensure_connection(
+            errback=_handle_connection_error,
+            max_retries=10,
+            interval_start=2,
+            interval_step=2,
+            interval_max=30
+        )
+    except (connection.connection_errors):
+        LOG.exception('Error establishing connection, '
+                      'shutting down...')
+        raise RunTimeError("Error establishing connection to broker.")
     channel = connection.channel()
 
     # The notifications coming from quantum/neutron.
@@ -245,12 +262,26 @@ def listen(host_id, amqp_url,
     while True:
         try:
             connection.drain_events()
-        except:  # noqa
+        except SystemExit:
+            LOG.info('Caught SystemExit, exiting...')
+            break
+        except socket.timeout:
+            LOG.info('Socket connection timed out, retrying connection')
+            try:
+                connection.ensure_connection(errback=_handle_connection_error,
+                                             max_retries=10,
+                                             interval_start=2,
+                                             interval_step=2,
+                                             interval_max=30)
+            except (connection.connection_errors):
+                LOG.exception('Unable to re-establish connection, '
+                              'shutting down...')
+                break
+            else:
+                continue
+        except:
             LOG.exception('exception while draining events from queue')
             time.sleep(1)
-            # FIXME(dhellmann): Make this function a class so we can
-            # control the loop variable and stop draining events
-            # before sending the shutdown to the workers.
 
     connection.release()
 
