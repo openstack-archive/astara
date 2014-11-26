@@ -137,6 +137,7 @@ def _make_event_from_message(message):
 
 
 def _handle_connection_error(exception, interval):
+    """ Log connection retry attempts."""
     LOG.warn("Error establishing connection: %s", exception)
     LOG.warn("Retrying in %d seconds", interval)
 
@@ -163,12 +164,11 @@ def listen(host_id, amqp_url,
             max_retries=10,
             interval_start=2,
             interval_step=2,
-            interval_max=30
-        )
+            interval_max=30)
     except (connection.connection_errors):
         LOG.exception('Error establishing connection, '
                       'shutting down...')
-        raise RunTimeError("Error establishing connection to broker.")
+        raise RuntimeError("Error establishing connection to broker.")
     channel = connection.channel()
 
     # The notifications coming from quantum/neutron.
@@ -280,7 +280,8 @@ def listen(host_id, amqp_url,
             else:
                 continue
         except:
-            LOG.exception('exception while draining events from queue')
+            LOG.exception('Unhandled exception while draining events from '
+                          'queue')
             time.sleep(1)
 
     connection.release()
