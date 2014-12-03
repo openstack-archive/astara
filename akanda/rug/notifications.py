@@ -262,8 +262,8 @@ def listen(host_id, amqp_url,
     while True:
         try:
             connection.drain_events()
-        except SystemExit:
-            LOG.info('Caught SystemExit, exiting...')
+        except (KeyboardInterrupt, SystemExit):
+            LOG.info('Caught exit signal, exiting...')
             break
         except socket.timeout:
             LOG.info('Socket connection timed out, retrying connection')
