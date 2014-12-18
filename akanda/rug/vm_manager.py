@@ -272,6 +272,7 @@ class VmManager(object):
                 tenant_id=self.tenant_id,
                 name='unnamed',
                 admin_state_up=False,
+                status=quantum.STATUS_DOWN
             )
             self.log.info('Destroying router neutron has deleted')
         else:
