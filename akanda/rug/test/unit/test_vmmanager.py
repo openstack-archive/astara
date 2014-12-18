@@ -420,6 +420,19 @@ class TestVmManager(unittest.TestCase):
         )
         self.log.error.assert_called_once_with(mock.ANY, 1)
 
+    @mock.patch('time.sleep')
+    def test_stop_router_already_deleted_from_neutron(self, sleep):
+        self.vm_mgr.state = vm_manager.GONE
+        self.vm_mgr.stop(self.ctx)
+
+        # Because the Router object is actually deleted from Neutron at this
+        # point, an anonymous "fake" router (with an ID and tenant ID of the
+        # deleted router) is created.  This allows us to pass an expected
+        # object to the Nova API code to cleans up the orphaned router VM.
+        args = self.ctx.nova_client.destroy_router_instance.call_args
+        assert args[0][0].name == 'unnamed'
+        self.assertEqual(self.vm_mgr.state, vm_manager.GONE)
+
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.vm_manager._get_management_address')
     @mock.patch('akanda.rug.api.configuration.build_config')
