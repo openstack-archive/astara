@@ -37,6 +37,28 @@ from akanda.rug import event
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import common as rpc_common
 
+from oslo.config import cfg
+
+
+cfg.CONF.register_group(cfg.OptGroup(name='rabbit',
+                                     title='RabbitMQ options'))
+RABBIT_OPTIONS = [
+    cfg.IntOpt('max_retries', default=0,
+               help='Maximum number of RabbitMQ connection retries. '
+                    'Default is 0 (infinite retry count)'),
+    cfg.IntOpt('interval_start', default=2,
+               help='The starting interval time between connection '
+                    'attempts.'),
+    cfg.IntOpt('interval_step', default=2,
+               help='The amount to increase the re-connection '
+                    'interval by.'),
+    cfg.IntOpt('interval_max', default=30,
+               help='The maximum time interval to try between '
+                    're-connection attempts.'),
+]
+cfg.CONF.register_opts(RABBIT_OPTIONS, group='rabbit')
+
+
 LOG = logging.getLogger(__name__)
 
 
@@ -65,6 +87,7 @@ def _get_tenant_id_for_message(message):
                 #           key, val)
                 return val
     return None
+
 
 _INTERFACE_NOTIFICATIONS = set([
     'router.interface.create',
@@ -142,6 +165,15 @@ def _handle_connection_error(exception, interval):
     LOG.warn("Retrying in %d seconds", interval)
 
 
+def _kombu_configuration(conf):
+    """Return a dict of kombu connection parameters from oslo.config."""
+    cfg_keys = ('max_retries',
+                'interval_start',
+                'interval_step',
+                'interval_max')
+    return {k: getattr(conf.CONF.rabbit, k) for k in cfg_keys}
+
+
 def listen(host_id, amqp_url,
            notifications_exchange_name, rpc_exchange_name,
            notification_queue):
@@ -161,10 +193,7 @@ def listen(host_id, amqp_url,
     try:
         connection.ensure_connection(
             errback=_handle_connection_error,
-            max_retries=10,
-            interval_start=2,
-            interval_step=2,
-            interval_max=30)
+            **_kombu_configuration(cfg))
     except (connection.connection_errors):
         LOG.exception('Error establishing connection, '
                       'shutting down...')
@@ -269,10 +298,7 @@ def listen(host_id, amqp_url,
             LOG.info('Socket connection timed out, retrying connection')
             try:
                 connection.ensure_connection(errback=_handle_connection_error,
-                                             max_retries=10,
-                                             interval_start=2,
-                                             interval_step=2,
-                                             interval_max=30)
+                                             **_kombu_configuration(cfg))
             except (connection.connection_errors):
                 LOG.exception('Unable to re-establish connection, '
                               'shutting down...')

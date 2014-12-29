@@ -349,7 +349,7 @@ class TestListen(unittest.TestCase):
 
         broker.ensure_connection.assert_called_once_with(
             errback=mock.ANY,
-            max_retries=10,
+            max_retries=0,
             interval_start=2,
             interval_step=2,
             interval_max=30)
@@ -368,12 +368,12 @@ class TestListen(unittest.TestCase):
 
         self.assertEqual(broker.ensure_connection.call_args_list,
                          [mock.call(errback=mock.ANY,
-                                    max_retries=10,
+                                    max_retries=0,
                                     interval_start=2,
                                     interval_step=2,
                                     interval_max=30),
                           mock.call(errback=mock.ANY,
-                                    max_retries=10,
+                                    max_retries=0,
                                     interval_start=2,
                                     interval_step=2,
                                     interval_max=30)])
