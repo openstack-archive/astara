@@ -49,6 +49,8 @@ def synchronize_router_status(f):
     def wrapper(self, worker_context, silent=False):
         old_status = self._last_synced_status
         val = f(self, worker_context, silent)
+        if not self.router_obj:
+            return val
         new_status = STATUS_MAP.get(self.state, quantum.STATUS_ERROR)
         if not old_status or old_status != new_status:
             worker_context.neutron.update_router_status(
