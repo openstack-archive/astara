@@ -874,26 +874,32 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
 
     def test_router_is_deleted(self):
         self.test_vm_manager.router_obj = None
-        v = vm_manager.synchronize_router_status(lambda vm_manager_inst, ctx, silent: 1)
+        v = vm_manager.synchronize_router_status(
+            lambda vm_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_vm_manager, {}), 1)
 
     def test_router_status_changed(self):
         self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
         self.test_vm_manager._last_synced_status = quantum.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.DOWN
-        v = vm_manager.synchronize_router_status(lambda vm_manager_inst, ctx, silent: 1)
+        v = vm_manager.synchronize_router_status(
+            lambda vm_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
-        self.test_context.neutron.update_router_status.assert_called_once_with(
-            'ABC123',
-            quantum.STATUS_DOWN
-        )
-        self.assertEqual(self.test_vm_manager._last_synced_status, quantum.STATUS_DOWN)
+        self.test_context.neutron.update_router_status.\
+            assert_called_once_with(
+                'ABC123',
+                quantum.STATUS_DOWN)
+        self.assertEqual(self.test_vm_manager._last_synced_status,
+                         quantum.STATUS_DOWN)
 
     def test_router_status_same(self):
         self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
         self.test_vm_manager._last_synced_status = quantum.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.CONFIGURED
-        v = vm_manager.synchronize_router_status(lambda vm_manager_inst, ctx, silent: 1)
+        v = vm_manager.synchronize_router_status(
+            lambda vm_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
-        self.assertEqual(self.test_context.neutron.update_router_status.call_count, 0)
-        self.assertEqual(self.test_vm_manager._last_synced_status, quantum.STATUS_ACTIVE)
+        self.assertEqual(
+            self.test_context.neutron.update_router_status.call_count, 0)
+        self.assertEqual(
+            self.test_vm_manager._last_synced_status, quantum.STATUS_ACTIVE)
