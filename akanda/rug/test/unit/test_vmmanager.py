@@ -21,6 +21,7 @@ import unittest2 as unittest
 from datetime import datetime, timedelta
 
 from akanda.rug import vm_manager
+from akanda.rug.api import quantum
 
 vm_manager.RETRY_DELAY = 0.4
 vm_manager.BOOT_WAIT = 1
@@ -861,3 +862,38 @@ class TestBootAttemptCounter(unittest.TestCase):
         self.c._attempts = 2
         self.c.reset()
         self.assertEqual(0, self.c._attempts)
+
+
+class TestSynchronizeRouterStatus(unittest.TestCase):
+
+    def setUp(self):
+        self.test_vm_manager = mock.Mock(spec=('router_obj',
+                                               '_last_synced_status',
+                                               'state'))
+        self.test_context = mock.Mock()
+
+    def test_router_is_deleted(self):
+        self.test_vm_manager.router_obj = None
+        v = vm_manager.synchronize_router_status(lambda vm_manager_inst, ctx, silent: 1)
+        self.assertEqual(v(self.test_vm_manager, {}), 1)
+
+    def test_router_status_changed(self):
+        self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
+        self.test_vm_manager._last_synced_status = quantum.STATUS_ACTIVE
+        self.test_vm_manager.state = vm_manager.DOWN
+        v = vm_manager.synchronize_router_status(lambda vm_manager_inst, ctx, silent: 1)
+        self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
+        self.test_context.neutron.update_router_status.assert_called_once_with(
+            'ABC123',
+            quantum.STATUS_DOWN
+        )
+        self.assertEqual(self.test_vm_manager._last_synced_status, quantum.STATUS_DOWN)
+
+    def test_router_status_same(self):
+        self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
+        self.test_vm_manager._last_synced_status = quantum.STATUS_ACTIVE
+        self.test_vm_manager.state = vm_manager.CONFIGURED
+        v = vm_manager.synchronize_router_status(lambda vm_manager_inst, ctx, silent: 1)
+        self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
+        self.assertEqual(self.test_context.neutron.update_router_status.call_count, 0)
+        self.assertEqual(self.test_vm_manager._last_synced_status, quantum.STATUS_ACTIVE)
