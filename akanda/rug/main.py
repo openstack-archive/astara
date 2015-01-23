@@ -261,10 +261,12 @@ def main(argv=sys.argv[1:]):
     metadata_proc.start()
 
     # Set up the notifications publisher
-    publisher = notifications.Publisher(
+    Publisher = (notifications.Publisher if cfg.CONF.ceilometer.enabled
+                 else notifications.NoopPublisher)
+    publisher = Publisher(
         cfg.CONF.amqp_url,
         exchange_name=cfg.CONF.outgoing_notifications_exchange,
-        topic='notifications.info',
+        topic=cfg.CONF.ceilometer.topic,
     )
 
     # Set up a factory to make Workers that know how many threads to

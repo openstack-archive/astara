@@ -431,3 +431,26 @@ class Publisher(object):
                     sender.send(msg)
                 except Exception:
                     LOG.exception('could not publish notification')
+
+
+class NoopPublisher(Publisher):
+    """A Publisher that doesn't do anything.
+
+    The code that publishes notifications is spread across several
+    classes and cannot be easily disabled in configurations that do
+    not require sending metrics to ceilometer.
+
+    This class is used in place of the Publisher class to disable
+    sending metrics without explicitly checking in various places
+    across the code base.
+
+    """
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def publish(self, incoming):
+        pass

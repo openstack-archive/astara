@@ -19,6 +19,7 @@ import mock
 import unittest2 as unittest
 
 from akanda.rug import main
+from akanda.rug import notifications as ak_notifications
 
 
 @mock.patch('akanda.rug.main.cfg')
@@ -65,3 +66,25 @@ class TestMainPippo(unittest.TestCase):
         main.main()
         quantum = quantum_api.Quantum.return_value
         quantum.ensure_local_service_port.assert_called_once_with()
+
+    def test_ceilometer_disabled(self, shuffle_notifications, health,
+                                 populate, scheduler, notifications,
+                                 multiprocessing, quantum_api, cfg):
+        cfg.CONF.ceilometer.enabled = False
+        notifications.Publisher = mock.Mock(spec=ak_notifications.Publisher)
+        notifications.NoopPublisher = mock.Mock(
+            spec=ak_notifications.NoopPublisher)
+        main.main()
+        self.assertEqual(len(notifications.Publisher.mock_calls), 0)
+        self.assertEqual(len(notifications.NoopPublisher.mock_calls), 1)
+
+    def test_ceilometer_enabled(self, shuffle_notifications, health,
+                                populate, scheduler, notifications,
+                                multiprocessing, quantum_api, cfg):
+        cfg.CONF.ceilometer.enabled = True
+        notifications.Publisher = mock.Mock(spec=ak_notifications.Publisher)
+        notifications.NoopPublisher = mock.Mock(
+            spec=ak_notifications.NoopPublisher)
+        main.main()
+        self.assertEqual(len(notifications.Publisher.mock_calls), 1)
+        self.assertEqual(len(notifications.NoopPublisher.mock_calls), 0)
