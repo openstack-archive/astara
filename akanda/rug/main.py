@@ -199,17 +199,6 @@ def register_and_load_opts():
                    help='name of the exchange where we receive RPC calls'),
     ])
 
-    ceilometer_group = cfg.OptGroup(name='ceilometer',
-                                    title='Ceilometer Reporting Options')
-    c_enable_reporting = cfg.BoolOpt('enabled', default=False)
-    c_topic = cfg.StrOpt('notification_topic',
-                         default='notifications.info',
-                         help='The name of the topic queue ceilometer '
-                              'consumes events from.')
-    cfg.CONF.register_group(ceilometer_group)
-    cfg.CONF.register_opt(c_enable_reporting, group=ceilometer_group)
-    cfg.CONF.register_opt(c_topic, group=ceilometer_group)
-
 
 def main(argv=sys.argv[1:]):
     # Change the process and thread name so the logs are cleaner.
@@ -271,13 +260,12 @@ def main(argv=sys.argv[1:]):
     )
     metadata_proc.start()
 
-    if cfg.CONF.ceilometer.enabled:
-        # Set up the notifications publisher
-        publisher = notifications.Publisher(
-            cfg.CONF.amqp_url,
-            exchange_name=cfg.CONF.outgoing_notifications_exchange,
-            topic=cfg.CONF.ceilometer.topic,
-        )
+    # Set up the notifications publisher
+    publisher = notifications.Publisher(
+        cfg.CONF.amqp_url,
+        exchange_name=cfg.CONF.outgoing_notifications_exchange,
+        topic='notifications.info',
+    )
 
     # Set up a factory to make Workers that know how many threads to
     # run.
