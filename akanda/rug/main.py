@@ -202,7 +202,7 @@ def register_and_load_opts():
     ceilometer_group = cfg.OptGroup(name='ceilometer',
                                     title='Ceilometer Reporting Options')
     c_enable_reporting = cfg.BoolOpt('enabled', default=False)
-    c_topic = cfg.StrOpt('notification_topic',
+    c_topic = cfg.StrOpt('topic',
                          default='notifications.info',
                          help='The name of the topic queue ceilometer '
                               'consumes events from.')
@@ -278,7 +278,6 @@ def main(argv=sys.argv[1:]):
         cfg.CONF.amqp_url,
         exchange_name=cfg.CONF.outgoing_notifications_exchange,
         topic=cfg.CONF.ceilometer.topic,
-        enabled=cfg.CONF.ceilometer.enabled
     )
 
     # Set up a factory to make Workers that know how many threads to
