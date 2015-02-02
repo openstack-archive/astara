@@ -39,7 +39,7 @@ DEVICE_OWNER_ROUTER_INT = "network:router_interface"
 DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:akanda"
-PLUGIN_RPC_TOPIC = 'q-plugin'
+PLUGIN_RPC_TOPIC = 'q-l3-plugin'
 
 STATUS_ACTIVE = 'ACTIVE'
 STATUS_BUILD = 'BUILD'
