@@ -513,7 +513,8 @@ class Quantum(object):
             )
         return new_port
 
-    def ensure_local_external_port(self):
+    def _ensure_local_port(self, network_id, subnet_id,
+                           network_type, ip_address):
         driver = importutils.import_object(self.conf.interface_driver,
                                            self.conf)
 
@@ -521,31 +522,30 @@ class Quantum(object):
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
-                          network_id=self.conf.external_network_id)
+                          network_id=network_id)
 
         ports = self.api_client.list_ports(**query_dict)['ports']
 
-        ip_address = get_local_external_ip(self.conf)
-
         if ports:
             port = Port.from_dict(ports[0])
-            LOG.info('already have local external port, using %r', port)
+            LOG.info('already have local %s port, using %r',
+                     network_type, port)
         else:
-            LOG.info('creating a new local external port')
+            LOG.info('creating a new local %s port', network_type)
             port_dict = dict(
                 admin_state_up=True,
-                network_id=self.conf.external_network_id,
+                network_id=network_id,
                 device_owner=DEVICE_OWNER_RUG,
                 device_id=host_id,
                 fixed_ips=[{
                     'ip_address': ip_address.split('/')[0],
-                    'subnet_id': self.conf.external_subnet_id
+                    'subnet_id': subnet_id
                 }]
             )
 
             port = Port.from_dict(
                 self.api_client.create_port(dict(port=port_dict))['port'])
-            LOG.info('new local gateway port: %r', port)
+            LOG.info('new local %s port: %r', network_type, port)
 
         # create the tap interface if it doesn't already exist
         if not ip_lib.device_exists(driver.get_device_name(port)):
@@ -560,56 +560,22 @@ class Quantum(object):
 
         driver.init_l3(driver.get_device_name(port), [ip_address])
         return port
+
+    def ensure_local_external_port(self):
+        return self._ensure_local_port(
+            self.conf.external_network_id,
+            self.conf.external_subnet_id,
+            'external',
+            get_local_external_ip(self.conf)
+        )
 
     def ensure_local_service_port(self):
-        driver = importutils.import_object(self.conf.interface_driver,
-                                           self.conf)
-
-        host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
-
-        query_dict = dict(device_owner=DEVICE_OWNER_RUG,
-                          device_id=host_id,
-                          network_id=self.conf.management_network_id)
-
-        ports = self.api_client.list_ports(**query_dict)['ports']
-
-        ip_address = get_local_service_ip(self.conf)
-
-        if ports:
-            port = Port.from_dict(ports[0])
-            LOG.info('already have local service port, using %r', port)
-        else:
-            LOG.info('creating a new local service port')
-            # create the missing local port
-            port_dict = dict(
-                admin_state_up=True,
-                network_id=self.conf.management_network_id,
-                device_owner=DEVICE_OWNER_RUG,
-                device_id=host_id,
-                fixed_ips=[{
-                    'ip_address': ip_address.split('/')[0],
-                    'subnet_id': self.conf.management_subnet_id
-                }]
-            )
-
-            port = Port.from_dict(
-                self.api_client.create_port(dict(port=port_dict))['port'])
-            LOG.info('new local service port: %r', port)
-
-        # create the tap interface if it doesn't already exist
-        if not ip_lib.device_exists(driver.get_device_name(port)):
-            driver.plug(
-                port.network_id,
-                port.id,
-                driver.get_device_name(port),
-                port.mac_address)
-
-            # add sleep to ensure that port is setup before use
-            time.sleep(1)
-
-        driver.init_l3(driver.get_device_name(port), [ip_address])
-
-        return port
+        return self._ensure_local_port(
+            self.conf.management_network_id,
+            self.conf.management_subnet_id,
+            'service',
+            get_local_service_ip(self.conf)
+        )
 
     def purge_management_interface(self):
         driver = importutils.import_object(
