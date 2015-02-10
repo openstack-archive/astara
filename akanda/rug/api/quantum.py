@@ -532,17 +532,17 @@ class Quantum(object):
                      network_type, port)
         else:
             LOG.info('creating a new local %s port', network_type)
-            port_dict = dict(
-                admin_state_up=True,
-                network_id=network_id,
-                device_owner=DEVICE_OWNER_RUG,
-                device_id=host_id,
-                fixed_ips=[{
+            port_dict = {
+                'admin_state_up': True,
+                'network_id': network_id,
+                'device_owner': DEVICE_OWNER_RUG,
+                'device_id': host_id,
+                'fixed_ips': [{
                     'ip_address': ip_address.split('/')[0],
                     'subnet_id': subnet_id
-                }]
-            )
-
+                }],
+                'binding:host_id': socket.gethostname()
+            }
             port = Port.from_dict(
                 self.api_client.create_port(dict(port=port_dict))['port'])
             LOG.info('new local %s port: %r', network_type, port)
