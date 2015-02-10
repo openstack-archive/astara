@@ -676,7 +676,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
     def test_execute_env_var_prepend(self):
         self.parent.namespace = 'ns'
         with mock.patch('akanda.rug.common.linux.utils.execute') as execute:
-            env = collections.OrderedDict(FOO=1, BAR=2)
+            env = collections.OrderedDict([('FOO', 1), ('BAR', 2)])
             self.netns_cmd.execute(['ip', 'link', 'list'], env)
             execute.assert_called_once_with(
                 ['FOO=1', 'BAR=2', 'ip', 'netns', 'exec', 'ns', 'ip', 'link',
