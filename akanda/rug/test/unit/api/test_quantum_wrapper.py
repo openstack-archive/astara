@@ -335,11 +335,12 @@ class TestQuantumWrapper(unittest.TestCase):
 
 class TestExternalPort(unittest.TestCase):
 
+    EXTERNAL_NET_ID = 'a0c63b93-2c42-4346-909e-39c690f53ba0'
     EXTERNAL_PORT_ID = '089ae859-10ec-453c-b264-6c452fc355e5'
     ROUTER = {
         u'status': u'ACTIVE',
         u'external_gateway_info': {
-            u'network_id': u'a0c63b93-2c42-4346-909e-39c690f53ba0',
+            u'network_id': EXTERNAL_NET_ID,
             u'enable_snat': True},
         u'name': u'ak-b81e555336da4bf48886e5b93ac6186d',
         u'admin_state_up': True,
@@ -351,7 +352,7 @@ class TestExternalPort(unittest.TestCase):
              u'name': u'',
              u'allowed_address_pairs': [],
              u'admin_state_up': True,
-             u'network_id': u'a0c63b93-2c42-4346-909e-39c690f53ba0',
+             u'network_id': EXTERNAL_NET_ID,
              u'tenant_id': u'',
              u'extra_dhcp_opts': [],
              u'binding:vif_type': u'ovs',
@@ -420,12 +421,15 @@ class TestExternalPort(unittest.TestCase):
     def setUp(self):
         self.conf = mock.Mock()
         self.conf.external_network_id = 'ext'
+        self.conf.max_retries = 3
+        self.conf.retry_delay = 1
+        self.conf.external_network_id = self.EXTERNAL_NET_ID
         self.router = quantum.Router.from_dict(self.ROUTER)
 
     @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
     def test_create(self, client_wrapper):
         mock_client = mock.Mock()
-        mock_client.update_router.return_value = {'router': self.ROUTER}
+        mock_client.show_router.return_value = {'router': self.ROUTER}
         client_wrapper.return_value = mock_client
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
@@ -434,13 +438,30 @@ class TestExternalPort(unittest.TestCase):
             self.assertEqual(port.id, self.EXTERNAL_PORT_ID)
 
     @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    def test_create_missing_gateway_port(self, client_wrapper):
+        self.conf.retry_delay = 0
+        mock_client = mock.Mock()
+        router = copy.deepcopy(self.ROUTER)
+        router['ports'] = []
+        mock_client.show_router.return_value = {'router': router}
+        client_wrapper.return_value = mock_client
+        quantum_wrapper = quantum.Quantum(self.conf)
+        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+            gns.return_value = self.SUBNETS
+            self.assertRaises(
+                quantum.RouterGatewayMissing,
+                quantum_wrapper.create_router_external_port,
+                self.router
+            )
+
+    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
     def test_missing_v4(self, client_wrapper):
         mock_client = mock.Mock()
 
         router = copy.deepcopy(self.ROUTER)
         del router['ports'][0]['fixed_ips'][0]
 
-        mock_client.update_router.return_value = {'router': router}
+        mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
@@ -459,7 +480,7 @@ class TestExternalPort(unittest.TestCase):
         router = copy.deepcopy(self.ROUTER)
         del router['ports'][0]['fixed_ips'][1]
 
-        mock_client.update_router.return_value = {'router': router}
+        mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
@@ -478,7 +499,7 @@ class TestExternalPort(unittest.TestCase):
         router = copy.deepcopy(self.ROUTER)
         router['ports'][0]['fixed_ips'] = []
 
-        mock_client.update_router.return_value = {'router': router}
+        mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
         quantum_wrapper = quantum.Quantum(self.conf)
         with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:

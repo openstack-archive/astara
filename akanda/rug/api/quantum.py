@@ -51,6 +51,10 @@ class RouterGone(Exception):
     pass
 
 
+class RouterGatewayMissing(Exception):
+    pass
+
+
 class MissingIPAllocation(Exception):
 
     def __init__(self, port_id, missing):
@@ -486,11 +490,11 @@ class Quantum(object):
             'external_gateway_info': network_args
         }
 
-        r = self.api_client.update_router(
+        self.api_client.update_router(
             router.id,
             body=dict(router=update_args)
         )
-        new_port = Router.from_dict(r['router']).external_port
+        new_port = self.get_router_external_port(router)
 
         # Make sure the port has enough IPs.
         subnets = self.get_network_subnets(self.conf.external_network_id)
@@ -512,6 +516,26 @@ class Quantum(object):
                  for mv in missing_versions]
             )
         return new_port
+
+    def get_router_external_port(self, router):
+        for i in xrange(self.conf.max_retries):
+            LOG.debug(
+                'Looking for router external port. Attempt %d of %d',
+                i,
+                cfg.CONF.max_retries,
+            )
+            ports = [
+                p for p in self.api_client.show_router(
+                    router.id
+                )['router']['ports']
+                if p['network_id'] == self.conf.external_network_id
+            ]
+            if len(ports):
+                port = Port.from_dict(ports[0])
+                LOG.debug('Found router external port: %s' % port.id)
+                return port
+            time.sleep(self.conf.retry_delay)
+        raise RouterGatewayMissing()
 
     def _ensure_local_port(self, network_id, subnet_id,
                            network_type, ip_address):
