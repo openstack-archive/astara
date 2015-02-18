@@ -54,8 +54,6 @@ def build_config(client, router, interfaces):
         'neighbor_asn': cfg.CONF.neighbor_asn,
         'default_v4_gateway': gateway,
         'networks': networks,
-        'address_book': generate_address_book_config(client, router),
-        'anchors': generate_anchor_config(client, provider_rules, router),
         'labels': provider_rules.get('labels', {}),
         'floating_ips': generate_floating_config(router),
         'tenant_id': router.tenant_id,
@@ -213,72 +211,6 @@ def _allocation_config(ports, subnets_dict):
         )
 
     return allocations
-
-
-def generate_address_book_config(client, router):
-    return dict([(g.name, [str(e) for e in g.entries])
-                 for g in client.get_addressgroups(router.tenant_id)])
-
-
-def generate_anchor_config(client, provider_rules, router):
-    retval = provider_rules.get('preanchors', [])
-
-    retval.extend([
-        generate_tenant_port_forward_anchor(client, router),
-        generate_tenant_filter_rule_anchor(client, router)
-    ])
-    retval.extend(provider_rules.get('postanchors', []))
-
-    return retval
-
-
-def generate_tenant_port_forward_anchor(client, router):
-    to_ip = router.external_port.first_v4 or '127.0.0.1'
-
-    rules = [_format_port_forward_rule(to_ip, pf)
-             for pf in client.get_portforwards(router.tenant_id)]
-
-    return {
-        'name': 'tenant_v4_portforwards',
-        'rules': [r for r in rules if r]
-    }
-
-
-def _format_port_forward_rule(to_ip, pf):
-    redirect_ip = pf.port.first_v4
-
-    if not redirect_ip:
-        return
-
-    return {
-        'action': 'pass',
-        'direction': 'in',
-        'family': 'inet',
-        'protocol': pf.protocol,
-        'destination': '%s/32' % to_ip,
-        'destination_port': pf.public_port,
-        'redirect': redirect_ip,
-        'redirect_port': pf.private_port
-    }
-
-
-def generate_tenant_filter_rule_anchor(client, router):
-    return {
-        'name': 'tenant_filterrules',
-        'rules': [_format_filter_rule(r)
-                  for r in client.get_filterrules(router.tenant_id)]
-    }
-
-
-def _format_filter_rule(rule):
-    return {
-        'action': rule.action,
-        'protocol': rule.protocol,
-        'source': rule.source.name if rule.source else None,
-        'source_port': rule.source_port,
-        'destination': rule.destination.name if rule.destination else None,
-        'destination_port': rule.destination_port,
-    }
 
 
 def generate_floating_config(router):
