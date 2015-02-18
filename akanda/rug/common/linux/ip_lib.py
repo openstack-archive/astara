@@ -154,8 +154,8 @@ class IPDevice(SubProcessBase):
         self.route = IpRouteCommand(self)
 
     def __eq__(self, other):
-        return (other is not None and self.name == other.name
-                and self.namespace == other.namespace)
+        return (other is not None and self.name == other.name and
+                self.namespace == other.namespace)
 
     def __str__(self):
         return self.name
