@@ -217,73 +217,6 @@ class FixedIp(object):
         return cls(d['subnet_id'], d['ip_address'])
 
 
-class AddressGroup(object):
-    def __init__(self, id_, name, entries=None):
-        self.id = id_
-        self.name = name
-        self.entries = entries or []
-
-    @classmethod
-    def from_dict(cls, d):
-        return cls(
-            d['id'],
-            d['name'],
-            [netaddr.IPNetwork(e['cidr']) for e in d['entries']])
-
-
-class FilterRule(object):
-    def __init__(self, id_, action, protocol, source, source_port,
-                 destination, destination_port):
-        self.id = id_
-        self.action = action
-        self.protocol = protocol
-        self.source = source
-        self.source_port = source_port
-        self.destination = destination
-        self.destination_port = destination_port
-
-    @classmethod
-    def from_dict(cls, d):
-        if d['source']:
-            source = AddressGroup.from_dict(d['source'])
-        else:
-            source = None
-
-        if d['destination']:
-            destination = AddressGroup.from_dict(d['destination'])
-        else:
-            destination = None
-
-        return cls(
-            d['id'],
-            d['action'],
-            d['protocol'],
-            source,
-            d['source_port'],
-            destination,
-            d['destination_port'])
-
-
-class PortForward(object):
-    def __init__(self, id_, name, protocol, public_port, private_port, port):
-        self.id = id_
-        self.name = name
-        self.protocol = protocol
-        self.public_port = public_port
-        self.private_port = private_port
-        self.port = port
-
-    @classmethod
-    def from_dict(cls, d):
-        return cls(
-            d['id'],
-            d['name'],
-            d['protocol'],
-            d['public_port'],
-            d['private_port'],
-            Port.from_dict(d['port']))
-
-
 class FloatingIP(object):
     def __init__(self, id_, floating_ip, fixed_ip):
         self.id = id_
@@ -301,64 +234,8 @@ class FloatingIP(object):
 
 class AkandaExtClientWrapper(client.Client):
     """Add client support for Akanda Extensions. """
-    addressgroup_path = '/dhaddressgroup'
-    addressentry_path = '/dhaddressentry'
-    filterrule_path = '/dhfilterrule'
-    portalias_path = '/dhportalias'
-    portforward_path = '/dhportforward'
+
     routerstatus_path = '/dhrouterstatus'
-
-    # portalias crud
-    @client.APIParamsCall
-    def list_portalias(self, **params):
-        return self.get(self.portalias_path, params=params)
-
-    @client.APIParamsCall
-    def show_portalias(self, portforward, **params):
-        return self.get('%s/%s' % (self.portalias_path, portforward),
-                        params=params)
-
-    # portforward crud
-    @client.APIParamsCall
-    def list_portforwards(self, **params):
-        return self.get(self.portforward_path, params=params)
-
-    @client.APIParamsCall
-    def show_portforward(self, portforward, **params):
-        return self.get('%s/%s' % (self.portforward_path, portforward),
-                        params=params)
-
-    # filterrule crud
-    @client.APIParamsCall
-    def list_filterrules(self, **params):
-        return self.get(self.filterrule_path, params=params)
-
-    @client.APIParamsCall
-    def show_filterrule(self, filterrule, **params):
-        return self.get('%s/%s' % (self.filterrule_path, filterrule),
-                        params=params)
-
-    # address group crud
-    @client.APIParamsCall
-    def list_addressgroups(self, **params):
-        return self.get(self.addressgroup_path, params=params)
-
-    @client.APIParamsCall
-    def show_addressgroup(self, addressgroup, **params):
-        return self.get('%s/%s' % (self.addressgroup_path,
-                                   addressgroup),
-                        params=params)
-
-    # addressentries crud
-    @client.APIParamsCall
-    def list_addressentries(self, **params):
-        return self.get(self.addressentry_path, params=params)
-
-    @client.APIParamsCall
-    def show_addressentry(self, addressentry, **params):
-        return self.get('%s/%s' % (self.addressentry_path,
-                                   addressentry),
-                        params=params)
 
     @client.APIParamsCall
     def update_router_status(self, router, status):
@@ -445,21 +322,6 @@ class Quantum(object):
                          s.get('id'), s.get('cidr'),
                          network_id, e)
         return response
-
-    def get_addressgroups(self, tenant_id):
-        return [AddressGroup.from_dict(g) for g in
-                self.api_client.list_addressgroups(
-                    tenant_id=tenant_id)['addressgroups']]
-
-    def get_filterrules(self, tenant_id):
-        return [FilterRule.from_dict(r) for r in
-                self.api_client.list_filterrules(
-                    tenant_id=tenant_id)['filterrules']]
-
-    def get_portforwards(self, tenant_id):
-        return [PortForward.from_dict(f) for f in
-                self.api_client.list_portforwards(
-                    tenant_id=tenant_id)['portforwards']]
 
     def create_router_management_port(self, router_id):
         port_dict = dict(admin_state_up=True,

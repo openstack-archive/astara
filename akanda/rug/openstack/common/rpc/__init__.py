@@ -117,8 +117,8 @@ def _check_for_lock():
     if not CONF.debug:
         return None
 
-    if ((hasattr(local.strong_store, 'locks_held')
-         and local.strong_store.locks_held)):
+    if ((hasattr(local.strong_store, 'locks_held') and
+         local.strong_store.locks_held)):
         stack = ' :: '.join([frame[3] for frame in inspect.stack()])
         LOG.warn(_('A RPC is being made while holding a lock. The locks '
                    'currently held are %(locks)s. This is probably a bug. '
