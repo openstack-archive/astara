@@ -34,7 +34,7 @@ cfg.CONF.register_opts([
                help='seconds between periodic task runs (ie health check)'),
     cfg.StrOpt('host',
                default=socket.getfqdn(),
-               help=_("The hostname Quantum is running on")),
+               help=_("The hostname Neutron is running on")),
 ])
 
 
