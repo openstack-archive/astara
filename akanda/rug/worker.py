@@ -31,7 +31,7 @@ from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import tenant
 from akanda.rug.api import nova
-from akanda.rug.api import quantum
+from akanda.rug.api import neutron
 
 LOG = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class WorkerContext(object):
     """
 
     def __init__(self):
-        self.neutron = quantum.Quantum(cfg.CONF)
+        self.neutron = neutron.Neutron(cfg.CONF)
         self.nova_client = nova.Nova(cfg.CONF)
 
 

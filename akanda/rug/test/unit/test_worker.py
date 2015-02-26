@@ -42,7 +42,7 @@ class TestCreatingRouter(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.addCleanup(mock.patch.stopall)
 
@@ -85,7 +85,7 @@ class TestWildcardMessages(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.addCleanup(mock.patch.stopall)
 
@@ -130,7 +130,7 @@ class TestShutdown(unittest.TestCase):
     def setUp(self):
         super(TestShutdown, self).setUp()
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
         self.addCleanup(mock.patch.stopall)
 
     def test_shutdown_on_null_message(self):
@@ -152,7 +152,7 @@ class TestShutdown(unittest.TestCase):
     @mock.patch('kombu.entity.Exchange')
     @mock.patch('kombu.Producer')
     def test_stop_threads_notifier(self, producer, exchange, broker):
-        notifier = notifications.Publisher('url', 'quantum', 'topic')
+        notifier = notifications.Publisher('url', 'neutron', 'topic')
         self.w = worker.Worker(0, notifier)
         self.assertTrue(self.w.notifier._t)
         self.w._shutdown()
@@ -171,7 +171,7 @@ class TestUpdateStateMachine(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.worker_context = worker.WorkerContext()
 
@@ -210,7 +210,7 @@ class TestReportStatus(unittest.TestCase):
     def setUp(self):
         super(TestReportStatus, self).setUp()
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
         self.addCleanup(mock.patch.stopall)
 
     def test_report_status_dispatched(self):
@@ -246,7 +246,7 @@ class TestDebugRouters(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.w = worker.Worker(0, mock.Mock())
 
@@ -333,7 +333,7 @@ class TestIgnoreRouters(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.addCleanup(mock.patch.stopall)
 
@@ -409,7 +409,7 @@ class TestDebugTenants(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.w = worker.Worker(0, mock.Mock())
 
@@ -471,7 +471,7 @@ class TestConfigReload(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.quantum').start()
+        mock.patch('akanda.rug.worker.neutron').start()
 
         self.w = worker.Worker(0, mock.Mock())
 

@@ -21,12 +21,12 @@ import mock
 import netaddr
 import unittest2 as unittest
 
-from akanda.rug.api import quantum
+from akanda.rug.api import neutron
 
 
-class TestQuantumModels(unittest.TestCase):
+class TestuNeutronModels(unittest.TestCase):
     def test_router(self):
-        r = quantum.Router(
+        r = neutron.Router(
             '1', 'tenant_id', 'name', True, 'ACTIVE', 'ext', ['int'], 'mgt')
         self.assertEqual(r.id, '1')
         self.assertEqual(r.tenant_id, 'tenant_id')
@@ -64,7 +64,7 @@ class TestQuantumModels(unittest.TestCase):
             '_floatingips': [fip]
         }
 
-        r = quantum.Router.from_dict(d)
+        r = neutron.Router.from_dict(d)
 
         self.assertEqual(r.id, '1')
         self.assertEqual(r.tenant_id, 'tenant_id')
@@ -73,17 +73,17 @@ class TestQuantumModels(unittest.TestCase):
         self.assertTrue(r.floating_ips)  # just make sure this exists
 
     def test_router_eq(self):
-        r1 = quantum.Router(
+        r1 = neutron.Router(
             '1', 'tenant_id', 'name', True, 'ext', ['int'], 'mgt')
-        r2 = quantum.Router(
+        r2 = neutron.Router(
             '1', 'tenant_id', 'name', True, 'ext', ['int'], 'mgt')
 
         self.assertEqual(r1, r2)
 
     def test_router_ne(self):
-        r1 = quantum.Router(
+        r1 = neutron.Router(
             '1', 'tenant_id', 'name', True, 'ext', ['int'], 'mgt')
-        r2 = quantum.Router(
+        r2 = neutron.Router(
             '2', 'tenant_id', 'name', True, 'ext', ['int'], 'mgt')
 
         self.assertNotEqual(r1, r2)
@@ -103,7 +103,7 @@ class TestQuantumModels(unittest.TestCase):
             'host_routes': []
         }
 
-        s = quantum.Subnet.from_dict(d)
+        s = neutron.Subnet.from_dict(d)
 
         self.assertEqual(s.id, '1')
         self.assertEqual(s.tenant_id, 'tenant_id')
@@ -130,7 +130,7 @@ class TestQuantumModels(unittest.TestCase):
             'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
-        s = quantum.Subnet.from_dict(d)
+        s = neutron.Subnet.from_dict(d)
         self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
         self.assertIs(None, s.gateway_ip)
 
@@ -148,7 +148,7 @@ class TestQuantumModels(unittest.TestCase):
             'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
-        s = quantum.Subnet.from_dict(d)
+        s = neutron.Subnet.from_dict(d)
         self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
         self.assertIs(None, s.gateway_ip)
 
@@ -167,7 +167,7 @@ class TestQuantumModels(unittest.TestCase):
             'host_routes': []
         }
         try:
-            quantum.Subnet.from_dict(d)
+            neutron.Subnet.from_dict(d)
         except ValueError as e:
             self.assertIn('Invalid CIDR', unicode(e))
 
@@ -186,7 +186,7 @@ class TestQuantumModels(unittest.TestCase):
             'host_routes': []
         }
         try:
-            quantum.Subnet.from_dict(d)
+            neutron.Subnet.from_dict(d)
         except ValueError as e:
             self.assertIn('Invalid CIDR', unicode(e))
 
@@ -200,7 +200,7 @@ class TestQuantumModels(unittest.TestCase):
             'device_owner': 'test'
         }
 
-        p = quantum.Port.from_dict(d)
+        p = neutron.Port.from_dict(d)
 
         self.assertEqual(p.id, '1')
         self.assertEqual(p.device_id, 'device_id')
@@ -214,7 +214,7 @@ class TestQuantumModels(unittest.TestCase):
             'ip_address': '192.168.1.1'
         }
 
-        fip = quantum.FixedIp.from_dict(d)
+        fip = neutron.FixedIp.from_dict(d)
 
         self.assertEqual(fip.subnet_id, 'sub1')
         self.assertEqual(fip.ip_address, netaddr.IPAddress('192.168.1.1'))
@@ -226,7 +226,7 @@ class TestQuantumModels(unittest.TestCase):
             'fixed_ip_address': '192.168.1.1'
         }
 
-        fip = quantum.FloatingIP.from_dict(d)
+        fip = neutron.FloatingIP.from_dict(d)
 
         self.assertEqual(fip.id, 'a-b-c-d')
         self.assertEqual(fip.floating_ip, netaddr.IPAddress('9.9.9.9'))
@@ -242,36 +242,36 @@ class FakeConf:
     auth_region = 'RegionOne'
 
 
-class TestQuantumWrapper(unittest.TestCase):
+class TestNeutronWrapper(unittest.TestCase):
 
-    @mock.patch('akanda.rug.api.quantum.cfg')
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
-    @mock.patch('akanda.rug.api.quantum.importutils')
+    @mock.patch('akanda.rug.api.neutron.cfg')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.importutils')
     def test_purge_management_interface(self, import_utils, ak_wrapper, cfg):
         conf = mock.Mock()
         driver = mock.Mock()
         import_utils.import_object.return_value = driver
 
-        quantum_wrapper = quantum.Quantum(conf)
-        quantum_wrapper.purge_management_interface()
+        neutron_wrapper = neutron.Neutron(conf)
+        neutron_wrapper.purge_management_interface()
         driver.get_device_name.assert_called_once()
         driver.unplug.assert_called_once()
 
     def test_clear_device_id(self):
-        quantum_wrapper = quantum.Quantum(mock.Mock())
-        quantum_wrapper.api_client.update_port = mock.Mock()
-        quantum_wrapper.clear_device_id(mock.Mock(id='PORT1'))
-        quantum_wrapper.api_client.update_port.assert_called_once_with(
+        neutron_wrapper = neutron.Neutron(mock.Mock())
+        neutron_wrapper.api_client.update_port = mock.Mock()
+        neutron_wrapper.clear_device_id(mock.Mock(id='PORT1'))
+        neutron_wrapper.api_client.update_port.assert_called_once_with(
             'PORT1', {'port': {'device_id': ''}}
         )
 
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_neutron_router_status_update_error(self, client_wrapper):
         urs = client_wrapper.return_value.update_router_status
         urs.side_effect = RuntimeError('should be caught')
         conf = mock.Mock()
-        quantum_wrapper = quantum.Quantum(conf)
-        quantum_wrapper.update_router_status('router-id', 'new-status')
+        neutron_wrapper = neutron.Neutron(conf)
+        neutron_wrapper.update_router_status('router-id', 'new-status')
 
 
 class TestExternalPort(unittest.TestCase):
@@ -351,10 +351,10 @@ class TestExternalPort(unittest.TestCase):
     }
 
     SUBNETS = [
-        quantum.Subnet(u'ipv4snid', u'ipv4snid', None, None, 4,
+        neutron.Subnet(u'ipv4snid', u'ipv4snid', None, None, 4,
                        '172.16.77.0/24', '172.16.77.1', False,
                        [], [], None),
-        quantum.Subnet(u'ipv6snid', u'ipv4snid', None, None, 6,
+        neutron.Subnet(u'ipv6snid', u'ipv4snid', None, None, 6,
                        'fdee:9f85:83be::/48', 'fdee:9f85:83be::1',
                        False, [], [], None),
     ]
@@ -365,20 +365,20 @@ class TestExternalPort(unittest.TestCase):
         self.conf.max_retries = 3
         self.conf.retry_delay = 1
         self.conf.external_network_id = self.EXTERNAL_NET_ID
-        self.router = quantum.Router.from_dict(self.ROUTER)
+        self.router = neutron.Router.from_dict(self.ROUTER)
 
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_create(self, client_wrapper):
         mock_client = mock.Mock()
         mock_client.show_router.return_value = {'router': self.ROUTER}
         client_wrapper.return_value = mock_client
-        quantum_wrapper = quantum.Quantum(self.conf)
-        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+        neutron_wrapper = neutron.Neutron(self.conf)
+        with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
-            port = quantum_wrapper.create_router_external_port(self.router)
+            port = neutron_wrapper.create_router_external_port(self.router)
             self.assertEqual(port.id, self.EXTERNAL_PORT_ID)
 
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_create_missing_gateway_port(self, client_wrapper):
         self.conf.retry_delay = 0
         mock_client = mock.Mock()
@@ -386,16 +386,16 @@ class TestExternalPort(unittest.TestCase):
         router['ports'] = []
         mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
-        quantum_wrapper = quantum.Quantum(self.conf)
-        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+        neutron_wrapper = neutron.Neutron(self.conf)
+        with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             self.assertRaises(
-                quantum.RouterGatewayMissing,
-                quantum_wrapper.create_router_external_port,
+                neutron.RouterGatewayMissing,
+                neutron_wrapper.create_router_external_port,
                 self.router
             )
 
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_missing_v4(self, client_wrapper):
         mock_client = mock.Mock()
 
@@ -404,17 +404,17 @@ class TestExternalPort(unittest.TestCase):
 
         mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
-        quantum_wrapper = quantum.Quantum(self.conf)
-        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+        neutron_wrapper = neutron.Neutron(self.conf)
+        with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             try:
-                quantum_wrapper.create_router_external_port(self.router)
-            except quantum.MissingIPAllocation as e:
+                neutron_wrapper.create_router_external_port(self.router)
+            except neutron.MissingIPAllocation as e:
                 self.assertEqual(4, e.missing[0][0])
             else:
                 self.fail('Should have seen MissingIPAllocation')
 
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_missing_v6(self, client_wrapper):
         mock_client = mock.Mock()
 
@@ -423,17 +423,17 @@ class TestExternalPort(unittest.TestCase):
 
         mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
-        quantum_wrapper = quantum.Quantum(self.conf)
-        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+        neutron_wrapper = neutron.Neutron(self.conf)
+        with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             try:
-                quantum_wrapper.create_router_external_port(self.router)
-            except quantum.MissingIPAllocation as e:
+                neutron_wrapper.create_router_external_port(self.router)
+            except neutron.MissingIPAllocation as e:
                 self.assertEqual(6, e.missing[0][0])
             else:
                 self.fail('Should have seen MissingIPAllocation')
 
-    @mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_missing_both(self, client_wrapper):
         mock_client = mock.Mock()
 
@@ -442,12 +442,12 @@ class TestExternalPort(unittest.TestCase):
 
         mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
-        quantum_wrapper = quantum.Quantum(self.conf)
-        with mock.patch.object(quantum_wrapper, 'get_network_subnets') as gns:
+        neutron_wrapper = neutron.Neutron(self.conf)
+        with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             try:
-                quantum_wrapper.create_router_external_port(self.router)
-            except quantum.MissingIPAllocation as e:
+                neutron_wrapper.create_router_external_port(self.router)
+            except neutron.MissingIPAllocation as e:
                 self.assertEqual(4, e.missing[0][0])
                 self.assertEqual(6, e.missing[1][0])
             else:

@@ -33,7 +33,7 @@ from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import populate
 from akanda.rug import worker
-from akanda.rug.api import quantum as quantum_api
+from akanda.rug.api import neutron as neutron_api
 
 LOG = log.getLogger(__name__)
 
@@ -229,16 +229,16 @@ def main(argv=sys.argv[1:]):
     cfg.CONF.log_opt_values(LOG, logging.INFO)
 
     # Purge the mgt tap interface on startup
-    quantum = quantum_api.Quantum(cfg.CONF)
+    neutron = neutron_api.Neutron(cfg.CONF)
     # TODO(mark): develop better way restore after machine reboot
-    # quantum.purge_management_interface()
+    # neutron.purge_management_interface()
 
     # bring the mgt tap interface up
-    quantum.ensure_local_service_port()
+    neutron.ensure_local_service_port()
 
     # bring the external port
     if cfg.CONF.plug_external_port:
-        quantum.ensure_local_external_port()
+        neutron.ensure_local_external_port()
 
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.
@@ -267,7 +267,7 @@ def main(argv=sys.argv[1:]):
     )
     notification_proc.start()
 
-    mgt_ip_address = quantum_api.get_local_service_ip(cfg.CONF).split('/')[0]
+    mgt_ip_address = neutron_api.get_local_service_ip(cfg.CONF).split('/')[0]
     metadata_proc = multiprocessing.Process(
         target=metadata.serve,
         args=(mgt_ip_address,),
