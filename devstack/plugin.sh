@@ -5,7 +5,7 @@ AKANDA_NEUTRON_DIR=$DEST/akanda-quantum
 AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-git@github.com:neutron/akanda-neutron.git}
 AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
 
-AKANDA_DEV_APPLIANCE=${AKANDA_DEV_APPLIANCE:-http://markmcclain.objects.dreamhost.com/akanda.qcow2}
+AKANDA_DEV_APPLIANCE=${AKANDA_DEV_APPLIANCE:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
 
 AKANDA_CONF_DIR=/etc/akanda-rug
 AKANDA_RUG_CONF=$AKANDA_CONF_DIR/rug.ini
@@ -116,7 +116,7 @@ function pre_start_akanda() {
 
     upload_image $AKANDA_DEV_APPLIANCE $TOKEN
 
-    typeset image_id=$(glance $auth_args image-show akanda | grep ' id ' | awk '{print $4}')
+    typeset image_id=$(glance $auth_args image-show akanda_cloud | grep ' id ' | awk '{print $4}')
 
     die_if_not_set $LINENO image_id "Failed to find akanda image"
     iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
