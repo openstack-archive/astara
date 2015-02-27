@@ -71,15 +71,13 @@ class MissingIPAllocation(Exception):
 
 class Router(object):
     def __init__(self, id_, tenant_id, name, admin_state_up, status,
-                 external_port=None, internal_ports=None,
-                 management_port=None, floating_ips=None):
+                 external_port=None, internal_ports=None, floating_ips=None):
         self.id = id_
         self.tenant_id = tenant_id
         self.name = name
         self.admin_state_up = admin_state_up
         self.status = status
         self.external_port = external_port
-        self.management_port = management_port
         self.internal_ports = internal_ports or []
         self.floating_ips = floating_ips or []
 
@@ -97,16 +95,14 @@ class Router(object):
     @classmethod
     def from_dict(cls, d):
         external_port = None
-        management_port = None
         internal_ports = []
 
-        for port_dict in d.get('ports', []):
+        if d.get('gw_port'):
+            external_port = Port.from_dict(d.get('gw_port'))
+
+        for port_dict in d.get('_interfaces', []):
             port = Port.from_dict(port_dict)
-            if port.device_owner == DEVICE_OWNER_ROUTER_GW:
-                external_port = port
-            elif port.device_owner == DEVICE_OWNER_ROUTER_MGT:
-                management_port = port
-            elif port.device_owner == DEVICE_OWNER_ROUTER_INT:
+            if port.device_owner == DEVICE_OWNER_ROUTER_INT:
                 internal_ports.append(port)
 
         fips = [FloatingIP.from_dict(fip) for fip in d.get('_floatingips', [])]
@@ -119,14 +115,13 @@ class Router(object):
             d['status'],
             external_port,
             internal_ports,
-            management_port,
             floating_ips=fips
         )
 
     @property
     def ports(self):
         return itertools.chain(
-            [self.management_port, self.external_port],
+            [self.external_port],
             self.internal_ports
         )
 
@@ -177,13 +172,14 @@ class Subnet(object):
 
 class Port(object):
     def __init__(self, id_, device_id='', fixed_ips=None, mac_address='',
-                 network_id='', device_owner=''):
+                 network_id='', device_owner='', name=''):
         self.id = id_
         self.device_id = device_id
         self.fixed_ips = fixed_ips or []
         self.mac_address = mac_address
         self.network_id = network_id
         self.device_owner = device_owner
+        self.name = name
 
     def __eq__(self, other):
         return type(self) == type(other) and vars(self) == vars(other)
@@ -204,7 +200,8 @@ class Port(object):
             fixed_ips=[FixedIp.from_dict(fip) for fip in d['fixed_ips']],
             mac_address=d['mac_address'],
             network_id=d['network_id'],
-            device_owner=d['device_owner'])
+            device_owner=d['device_owner'],
+            name=d['name'])
 
 
 class FixedIp(object):
@@ -326,25 +323,47 @@ class Neutron(object):
                          network_id, e)
         return response
 
-    def create_router_management_port(self, router_id):
-        port_dict = dict(admin_state_up=True,
-                         network_id=self.conf.management_network_id,
-                         device_owner=DEVICE_OWNER_ROUTER_MGT
-                         )
+    def get_ports_for_instance(self, instance_id):
+        ports = self.api_client.list_ports(device_id=instance_id)['ports']
+
+        mgt_port = None
+        intf_ports = []
+
+        for port in (Port.from_dict(p) for p in ports):
+            if port.network_id == self.conf.management_network_id:
+                mgt_port = port
+            else:
+                intf_ports.append(port)
+        return mgt_port, intf_ports
+
+    def create_management_port(self, object_id):
+        return self.create_vrrp_port(
+            object_id,
+            self.conf.management_network_id,
+            'MGT'
+        )
+
+    def create_vrrp_port(self, object_id, network_id, label='VRRP'):
+        port_dict = dict(
+            admin_state_up=True,
+            network_id=network_id,
+            name='AKANDA:%s:%s' % (label, object_id),
+            security_groups=[]
+        )
+
+        if label == 'VRRP':
+            port_dict['fixed_ips'] = []
+
         response = self.api_client.create_port(dict(port=port_dict))
         port_data = response.get('port')
         if not port_data:
-            raise ValueError('No port data found for router %s network %s' %
-                             (router_id, self.conf.management_network_id))
+            raise ValueError(
+                'Unable to create %s port for %s on network %s' %
+                (label, object_id, self.conf.management_network_id)
+            )
         port = Port.from_dict(port_data)
-        args = dict(port_id=port.id, owner=DEVICE_OWNER_ROUTER_MGT)
-        self.api_client.add_interface_router(router_id, args)
 
         return port
-
-    def delete_router_management_port(self, router_id, port_id):
-        args = dict(port_id=port_id, owner=DEVICE_OWNER_ROUTER_MGT)
-        self.api_client.remove_interface_router(router_id, args)
 
     def create_router_external_port(self, router):
         # FIXME: Need to make this smarter in case the switch is full.
@@ -389,12 +408,13 @@ class Neutron(object):
                 i,
                 cfg.CONF.max_retries,
             )
-            ports = [
-                p for p in self.api_client.show_router(
-                    router.id
-                )['router']['ports']
-                if p['network_id'] == self.conf.external_network_id
-            ]
+            query_dict = {
+                'device_owner': DEVICE_OWNER_ROUTER_GW,
+                'device_id': router.id,
+                'network_id': self.conf.external_network_id
+            }
+            ports = self.api_client.list_ports(**query_dict)['ports']
+
             if len(ports):
                 port = Port.from_dict(ports[0])
                 LOG.debug('Found router external port: %s' % port.id)
@@ -409,8 +429,11 @@ class Neutron(object):
 
         host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
 
+        name = 'AKANDA:RUG:%s' % network_type.upper()
+
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
+                          name=name,
                           network_id=network_id)
 
         ports = self.api_client.list_ports(**query_dict)['ports']
@@ -425,6 +448,7 @@ class Neutron(object):
                 'admin_state_up': True,
                 'network_id': network_id,
                 'device_owner': DEVICE_OWNER_ROUTER_INT,  # lying here for IP
+                'name': name,
                 'device_id': host_id,
                 'fixed_ips': [{
                     'ip_address': ip_address.split('/')[0],
@@ -480,7 +504,11 @@ class Neutron(object):
             self.conf
         )
         host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
-        query_dict = dict(device_owner=DEVICE_OWNER_RUG, device_id=host_id)
+        query_dict = dict(
+            device_owner=DEVICE_OWNER_RUG,
+            name='AKANDA:RUG:MANAGEMENT',
+            device_id=host_id
+        )
         ports = self.api_client.list_ports(**query_dict)['ports']
 
         if ports:

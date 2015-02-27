@@ -17,7 +17,6 @@
 
 from datetime import datetime
 from functools import wraps
-import netaddr
 import time
 
 from oslo.config import cfg
@@ -85,10 +84,9 @@ class VmManager(object):
         self.log = log
         self.state = DOWN
         self.router_obj = None
-        self.last_boot = None
+        self.instance_info = None
         self.last_error = None
         self._boot_counter = BootAttemptCounter()
-        self._currently_booting = False
         self._last_synced_status = None
         self.update_state(worker_context, silent=True)
 
@@ -106,12 +104,12 @@ class VmManager(object):
             self.log.debug('not updating state of deleted router')
             return self.state
 
-        if self.router_obj.management_port is None:
-            self.log.debug('no management port, marking router as down')
+        if self.instance_info is None:
+            self.log.debug('no backing instance, marking router as down')
             self.state = DOWN
             return self.state
 
-        addr = _get_management_address(self.router_obj)
+        addr = self.instance_info.management_address
         for i in xrange(cfg.CONF.max_retries):
             if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
                 if self.state != CONFIGURED:
@@ -129,10 +127,13 @@ class VmManager(object):
             self._check_boot_timeout()
 
             # If the router isn't responding, make sure Nova knows about it
-            instance = worker_context.nova_client.get_instance(self.router_obj)
+            instance = worker_context.nova_client.get_instance_for_obj(
+                self.router_id
+            )
             if instance is None and self.state != ERROR:
                 self.log.info('No router VM was found; rebooting')
                 self.state = DOWN
+                self.instance_info = None
 
             # update_state() is called from Alive() to check the
             # status of the router. If we can't talk to the API at
@@ -147,22 +148,19 @@ class VmManager(object):
 
         # After the router is all the way up, record how long it took
         # to boot and accept a configuration.
-        if self._currently_booting and self.state == CONFIGURED:
+        if self.instance_info.booting and self.state == CONFIGURED:
             # If we didn't boot the server (because we were restarted
             # while it remained running, for example), we won't have a
-            # last_boot time to log.
-            if self.last_boot:
-                boot_duration = (datetime.utcnow() - self.last_boot)
+            # duration to log.
+            self.instance_info.confirm_up()
+            if self.instance_info.boot_duration:
                 self.log.info('Router booted in %s seconds after %s attempts',
-                              boot_duration.total_seconds(),
+                              self.instance_info.boot_duration.total_seconds(),
                               self._boot_counter.count)
             # Always reset the boot counter, even if we didn't boot
             # the server ourself, so we don't accidentally think we
             # have an erroring router.
             self._boot_counter.reset()
-            # We've reported how long it took to boot and reset the
-            # counter, so we are no longer "currently" booting.
-            self._currently_booting = False
         return self.state
 
     def boot(self, worker_context, router_image_uuid):
@@ -175,36 +173,43 @@ class VmManager(object):
         self.state = DOWN
         self._boot_counter.start()
 
+        def make_vrrp_ports():
+            mgt_port = worker_context.neutron.create_management_port(
+                self.router_obj.id
+            )
+
+            # FIXME(mark): ideally this should be ordered and de-duped
+            instance_ports = [
+                worker_context.neutron.create_vrrp_port(self.router_obj.id, n)
+                for n in (p.network_id for p in self.router_obj.ports)
+            ]
+
+            return mgt_port, instance_ports
+
         try:
+            # TODO(mark): make this pluggable
             self._ensure_provider_ports(self.router_obj, worker_context)
 
-            # In the event that the current akanda instance isn't deleted
-            # cleanly (which we've seen in certain circumstances, like
-            # hypervisor failures), or the vm has alredy been deleted but
-            # device_id is still set incorrectly, be proactive and attempt to
-            # clean up the router ports manually.  This helps avoid a situation
-            # where the rug repeatedly attempts to plug stale router ports into
-            # the newly created akanda instance (and fails).
-            router = self.router_obj
-            for p in router.ports:
-                if p.device_id:
-                    worker_context.neutron.clear_device_id(p)
-            created = worker_context.nova_client.reboot_router_instance(
-                router,
-                router_image_uuid
+            # TODO(mark): make this handle errors more gracefully on cb fail
+            # TODO(mark): checkout from a pool - boot on demand for now
+            instance_info = worker_context.nova_client.boot_instance(
+                self.instance_info,
+                self.router_obj.id,
+                router_image_uuid,
+                make_vrrp_ports
             )
-            if not created:
+            if not instance_info:
                 self.log.info('Previous router is deleting')
                 return
         except:
             self.log.exception('Router failed to start boot')
+            # TODO(mark): attempt clean-up of failed ports
             return
         else:
             # We have successfully started a (re)boot attempt so
             # record the timestamp so we can report how long it takes.
             self.state = BOOTING
-            self.last_boot = datetime.utcnow()
-            self._currently_booting = True
+            self.instance_info = instance_info
 
     def check_boot(self, worker_context):
         ready_states = (UP, CONFIGURED)
@@ -267,27 +272,19 @@ class VmManager(object):
     def stop(self, worker_context):
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            # We are being told to delete a router that neutron has
-            # already removed. Make a fake router object to use in
-            # this method.
-            router_obj = neutron.Router(
-                id_=self.router_id,
-                tenant_id=self.tenant_id,
-                name='unnamed',
-                admin_state_up=False,
-                status=neutron.STATUS_DOWN
-            )
             self.log.info('Destroying router neutron has deleted')
         else:
-            router_obj = self.router_obj
             self.log.info('Destroying router')
 
-        nova_client = worker_context.nova_client
-        nova_client.destroy_router_instance(router_obj)
+        try:
+            nova_client = worker_context.nova_client
+            nova_client.destroy_instance(self.instance_info)
+        except Exception:
+            self.log.exception('Error deleting router instance')
 
         start = time.time()
         while time.time() - start < cfg.CONF.boot_timeout:
-            if not nova_client.get_router_instance_status(router_obj):
+            if not nova_client.get_instance_by_id(self.instance_info.id_):
                 if self.state != GONE:
                     self.state = DOWN
                 return
@@ -310,13 +307,12 @@ class VmManager(object):
         if self.state == GONE:
             return
 
-        addr = _get_management_address(self.router_obj)
-
         # FIXME: This should raise an explicit exception so the caller
+
         # knows that we could not talk to the router (versus the issue
         # above).
         interfaces = router_api.get_interfaces(
-            addr,
+            self.instance_info.management_address,
             cfg.CONF.akanda_mgt_service_port
         )
 
@@ -327,18 +323,36 @@ class VmManager(object):
             self.state = REPLUG
             return
 
+        # TODO(mark): We're in the first phase of VRRP, so we need
+        # map the interface to the network ID.
+        # Eventually we'll send VRRP data and real interface data
+        port_mac_to_net = {
+            p.mac_address: p.network_id
+            for p in self.instance_info.ports
+        }
+        # Add in the management port
+        mgt_port = self.instance_info.management_port
+        port_mac_to_net[mgt_port.mac_address] = mgt_port.network_id
+
+        # this is a network to logical interface id
+        iface_map = {
+            port_mac_to_net[i['lladdr']]: i['ifname']
+            for i in interfaces if i['lladdr'] in port_mac_to_net
+        }
+
         # FIXME: Need to catch errors talking to neutron here.
         config = configuration.build_config(
             worker_context.neutron,
             self.router_obj,
-            interfaces
+            mgt_port,
+            iface_map
         )
         self.log.debug('preparing to update config to %r', config)
 
         for i in xrange(attempts):
             try:
                 router_api.update_config(
-                    addr,
+                    self.instance_info.management_address,
                     cfg.CONF.akanda_mgt_service_port,
                     config
                 )
@@ -365,55 +379,58 @@ class VmManager(object):
         self.log.debug('Attempting to replug...')
         self._ensure_provider_ports(self.router_obj, worker_context)
 
-        addr = _get_management_address(self.router_obj)
         interfaces = router_api.get_interfaces(
-            addr,
+            self.instance_info.management_address,
             cfg.CONF.akanda_mgt_service_port
         )
         actual_macs = set((iface['lladdr'] for iface in interfaces))
+        instance_macs = set(p.mac_address for p in self.instance_info.ports)
+        instance_macs.add(self.instance_info.management_port.mac_address)
 
-        expected_ports = dict(
-            (p.mac_address, p) for p in self.router_obj.internal_ports
-        )
-        expected_macs = set(expected_ports.keys())
-        expected_macs.add(self.router_obj.management_port.mac_address)
-        expected_macs.add(self.router_obj.external_port.mac_address)
+        if instance_macs != actual_macs:
+            # our cached copy of the ports is wrong reboot and clean up
+            self.log.warning(
+                ('Instance macs(%s) do not match actual macs (%s). Instance '
+                 'cache appears out-of-sync'),
+                instance_macs, actual_macs
+            )
+            self.state = RESTART
+            return
 
-        ports_to_delete = []
-        if expected_macs != actual_macs:
-            instance = worker_context.nova_client.get_instance(self.router_obj)
+        instance_ports = {p.network_id: p for p in self.instance_info.ports}
+        instance_networks = set(instance_ports.keys())
+
+        logical_networks = set(p.network_id for p in self.router_obj.ports)
+
+        if logical_networks != instance_networks:
+            instance = worker_context.nova_client.get_instance_by_id(
+                self.instance_info.id_
+            )
 
             # For each port that doesn't have a mac address on the VM...
-            for mac in expected_macs - actual_macs:
-                port = expected_ports.get(mac)
-                if port:
-                    self.log.debug(
-                        'New port %s, %s found, plugging...' % (port.id, mac)
-                    )
-                    instance.interface_attach(port.id, None, None)
-
-            # For each *extra* mac address on the VM...
-            for mac in actual_macs - expected_macs:
-                interface_ports = map(
-                    neutron.Port.from_dict,
-                    worker_context.neutron.api_client.list_ports(
-                        device_id=instance.id,
-                        device_owner=neutron.DEVICE_OWNER_ROUTER_INT
-                    )['ports']
+            for network_id in logical_networks - instance_networks:
+                port = worker_context.neutron.create_vrrp_port(
+                    self.router_obj.id,
+                    network_id
                 )
-                for port in interface_ports:
-                    if port.mac_address == mac:
-                        # If we find a router-interface port attached to the
-                        # device (meaning the interface has been removed
-                        # from the neutron router, but not the VM), detach the
-                        # port from the Nova instance and mark the orphaned
-                        # port for deletion
-                        self.log.debug(''.join([
-                            'Port %s, %s is detached from ' % (port.id, mac),
-                            'the neutron router, unplugging...'
-                        ]))
-                        instance.interface_detach(port.id)
-                        ports_to_delete.append(port)
+                self.log.debug(
+                    'Net %s is missing from the router, plugging: %s',
+                    network_id, port.id
+                )
+
+                instance.interface_attach(port.id, None, None)
+                self.instance_info.ports.append(port)
+
+            for network_id in instance_networks - logical_networks:
+                port = instance_ports[network_id]
+                self.log.debug(
+                    'Net %s is detached from the router, unplugging: %s',
+                    network_id, port.id
+                )
+
+                instance.interface_detach(port.id)
+
+                self.instance_info.ports.remove(port)
 
         # The action of attaching/detaching interfaces in Nova happens via the
         # message bus and is *not* blocking.  We need to wait a few seconds to
@@ -425,19 +442,12 @@ class VmManager(object):
                 "Waiting for interface attachments to take effect..."
             )
             interfaces = router_api.get_interfaces(
-                addr,
+                self.instance_info.management_address,
                 cfg.CONF.akanda_mgt_service_port
             )
             if self._verify_interfaces(self.router_obj, interfaces):
-                # If the interfaces now match (hotplugging was successful), go
-                # ahead and clean up any orphaned neutron ports that may have
-                # been detached
-                for port in ports_to_delete:
-                    self.log.debug('Deleting orphaned port %s' % port.id)
-                    worker_context.neutron.api_client.update_port(
-                        port.id, {'port': {'device_owner': ''}}
-                    )
-                    worker_context.neutron.api_client.delete_port(port.id)
+                # replugging was successful
+                # TODO(mark) update port states
                 return
             time.sleep(1)
             replug_seconds -= 1
@@ -456,12 +466,26 @@ class VmManager(object):
             self.state = GONE
             self.router_obj = None
 
+        if not self.instance_info:
+            self.instance_info = (
+                worker_context.nova_client.get_instance_info_for_obj(
+                    self.router_id
+                )
+            )
+
+            if self.instance_info:
+                (
+                    self.instance_info.management_port,
+                    self.instance_info.ports
+                ) = worker_context.neutron.get_ports_for_instance(
+                    self.instance_info.id_
+                )
+
     def _check_boot_timeout(self):
-        if self.last_boot:
-            seconds_since_boot = (
-                datetime.utcnow() - self.last_boot
-            ).total_seconds()
-            if seconds_since_boot < cfg.CONF.boot_timeout:
+        time_since_boot = self.instance_info.time_since_boot
+
+        if time_since_boot:
+            if time_since_boot.seconds < cfg.CONF.boot_timeout:
                 # Do not reset the state if we have an error
                 # condition already. The state will be reset when
                 # the router starts responding again, or when the
@@ -471,8 +495,6 @@ class VmManager(object):
             else:
                 # If the VM was created more than `boot_timeout` seconds
                 # ago, log an error and set the state set to DOWN
-                self.last_boot = None
-                self._currently_booting = False
                 self.log.info(
                     'Router is DOWN.  Created over %d secs ago.',
                     cfg.CONF.boot_timeout)
@@ -492,22 +514,19 @@ class VmManager(object):
         ):
             return False
 
+        num_logical_ports = len(list(logical_config.ports))
+        num_instance_ports = len(list(self.instance_info.ports))
+        if num_logical_ports != num_instance_ports:
+            return False
+
         expected_macs = set(p.mac_address
-                            for p in logical_config.internal_ports)
-        expected_macs.add(logical_config.management_port.mac_address)
-        expected_macs.add(logical_config.external_port.mac_address)
+                            for p in self.instance_info.ports)
+        expected_macs.add(self.instance_info.management_port.mac_address)
         self.log.debug('MACs expected: %s', ', '.join(sorted(expected_macs)))
 
         return router_macs == expected_macs
 
     def _ensure_provider_ports(self, router, worker_context):
-        if router.management_port is None:
-            self.log.debug('Adding management port to router')
-            mgt_port = worker_context.neutron.create_router_management_port(
-                router.id
-            )
-            router.management_port = mgt_port
-
         if router.external_port is None:
             # FIXME: Need to do some work to pick the right external
             # network for a tenant.
@@ -517,14 +536,3 @@ class VmManager(object):
             )
             router.external_port = ext_port
         return router
-
-
-def _get_management_address(router):
-    network = netaddr.IPNetwork(cfg.CONF.management_prefix)
-
-    tokens = ['%02x' % int(t, 16)
-              for t in router.management_port.mac_address.split(':')]
-    eui64 = int(''.join(tokens[0:3] + ['ff', 'fe'] + tokens[3:6]), 16)
-
-    # the bit inversion is required by the RFC
-    return str(netaddr.IPAddress(network.value + (eui64 ^ 0x0200000000000000)))
