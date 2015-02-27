@@ -15,6 +15,7 @@
 # under the License.
 
 
+import datetime
 import mock
 import unittest2 as unittest
 
@@ -64,6 +65,10 @@ class FakeConf:
     router_instance_flavor = 1
 
 
+def fake_make_ports_callback():
+    return (fake_mgt_port, [fake_ext_port, fake_int_port])
+
+
 class TestNovaWrapper(unittest.TestCase):
     def setUp(self):
         self.addCleanup(mock.patch.stopall)
@@ -73,7 +78,19 @@ class TestNovaWrapper(unittest.TestCase):
         self.client_cls.return_value = self.client
         self.nova = nova.Nova(FakeConf)
 
-    def test_create_router_instance(self):
+        self.INSTANCE_INFO = nova.InstanceInfo(
+            instance_id='fake_instance_id',
+            name='fake_name',
+            image_uuid='fake_image_id',
+            booting=False,
+            last_boot=datetime.datetime.utcnow(),
+            ports=(fake_ext_port, fake_int_port),
+            management_port=fake_mgt_port,
+        )
+
+    @mock.patch.object(nova, '_format_userdata')
+    def test_create_instance(self, mock_userdata):
+        mock_userdata.return_value = 'fake_userdata'
         expected = [
             mock.call.servers.create(
                 'ak-router_id',
@@ -87,14 +104,17 @@ class TestNovaWrapper(unittest.TestCase):
                        'net-id': 'int-net',
                        'v4-fixed-ip': ''}],
                 flavor=1,
-                image='GLANCE-IMAGE-123'
+                image='GLANCE-IMAGE-123',
+                config_drive=True,
+                userdata='fake_userdata',
             )
         ]
 
-        self.nova.create_router_instance(fake_router, 'GLANCE-IMAGE-123')
+        self.nova.create_instance(
+            'router_id', 'GLANCE-IMAGE-123', fake_make_ports_callback)
         self.client.assert_has_calls(expected)
 
-    def test_get_instance(self):
+    def test_get_instance_for_obj(self):
         instance = mock.Mock()
         self.client.servers.list.return_value = [instance]
 
@@ -102,87 +122,30 @@ class TestNovaWrapper(unittest.TestCase):
             mock.call.servers.list(search_opts={'name': 'ak-router_id'})
         ]
 
-        result = self.nova.get_instance(fake_router)
+        result = self.nova.get_instance_for_obj('router_id')
         self.client.assert_has_calls(expected)
         self.assertEqual(result, instance)
 
-    def test_get_instance_not_found(self):
+    def test_get_instance_for_obj_not_found(self):
         self.client.servers.list.return_value = []
 
         expected = [
             mock.call.servers.list(search_opts={'name': 'ak-router_id'})
         ]
 
-        result = self.nova.get_instance(fake_router)
+        result = self.nova.get_instance_for_obj('router_id')
         self.client.assert_has_calls(expected)
         self.assertIsNone(result)
 
-    def test_get_router_instance_status(self):
-        instance = mock.Mock()
-        instance.status = 'ACTIVE'
-        self.client.servers.list.return_value = [instance]
-
+    def test_get_instance_by_id(self):
+        self.client.servers.get.return_value = 'fake_instance'
         expected = [
-            mock.call.servers.list(search_opts={'name': 'ak-router_id'})
+            mock.call.servers.get('instance_id')
         ]
-
-        result = self.nova.get_router_instance_status(fake_router)
-        self.client.assert_has_calls(expected)
-        self.assertEqual(result, 'ACTIVE')
-
-    def test_get_router_instance_status_not_found(self):
-        self.client.servers.list.return_value = []
-
-        expected = [
-            mock.call.servers.list(search_opts={'name': 'ak-router_id'})
-        ]
-
-        result = self.nova.get_router_instance_status(fake_router)
-        self.client.assert_has_calls(expected)
-        self.assertIsNone(result)
+        result = self.nova.get_instance_by_id('instance_id')
+        self.client.servers.get.assert_has_calls(expected)
+        self.assertEquals(result, 'fake_instance')
 
     def test_destroy_router_instance(self):
-        with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            get_instance.return_value.id = 'instance_id'
-
-            expected = [
-                mock.call.servers.delete('instance_id')
-            ]
-
-            self.nova.destroy_router_instance(fake_router)
-            self.client.assert_has_calls(expected)
-
-    def test_reboot_router_instance_exists(self):
-        with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            get_instance.return_value.id = 'instance_id'
-            get_instance.return_value.status = 'ACTIVE'
-
-            expected = [
-                mock.call.servers.delete('instance_id'),
-            ]
-
-            self.assertFalse(self.nova.reboot_router_instance(
-                fake_router,
-                'GLANCE-IMAGE-123'
-            ))
-            self.client.assert_has_calls(expected)
-
-    def test_reboot_router_instance_rebooting(self):
-        with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            get_instance.return_value.id = 'instance_id'
-            get_instance.return_value.status = 'BUILD'
-
-            self.nova.reboot_router_instance(fake_router, 'GLANCE-IMAGE-123')
-            self.assertEqual(self.client.mock_calls, [])
-
-    def test_reboot_router_instance_missing(self):
-        with mock.patch.object(self.nova, 'get_instance') as get_instance:
-            with mock.patch.object(self.nova, 'create_router_instance') as cr:
-                get_instance.return_value = None
-
-                self.nova.reboot_router_instance(
-                    fake_router,
-                    'GLANCE-IMAGE-123'
-                )
-                self.assertEqual(self.client.mock_calls, [])
-                cr.assert_called_once_with(fake_router, 'GLANCE-IMAGE-123')
+        self.nova.destroy_instance(self.INSTANCE_INFO)
+        self.client.servers.delete.assert_called_with(self.INSTANCE_INFO.id_)
