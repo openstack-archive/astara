@@ -43,10 +43,15 @@ SERVICE_DHCP = 'dhcp'
 SERVICE_RA = 'ra'
 
 
-def build_config(client, router, interfaces):
+def build_config(client, router, management_port, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
-    networks = generate_network_config(client, router, interfaces)
+    networks = generate_network_config(
+        client,
+        router,
+        management_port,
+        interfaces
+    )
     gateway = get_default_v4_gateway(client, router, networks)
 
     return {
@@ -110,26 +115,26 @@ def load_provider_rules(path):
         LOG.exception('unable to open provider rules: %s' % path)
 
 
-def generate_network_config(client, router, interfaces):
-    iface_map = dict((i['lladdr'], i['ifname']) for i in interfaces)
-
+def generate_network_config(client, router, management_port, iface_map):
     retval = [
         _network_config(
             client,
             router.external_port,
-            iface_map[router.external_port.mac_address],
+            iface_map[router.external_port.network_id],
             EXTERNAL_NET),
-        _management_network_config(
-            router.management_port,
-            iface_map[router.management_port.mac_address],
-            interfaces,
-        )]
+        _network_config(
+            client,
+            management_port,
+            iface_map[management_port.network_id],
+            MANAGEMENT_NET
+        )
+    ]
 
     retval.extend(
         _network_config(
             client,
             p,
-            iface_map[p.mac_address],
+            iface_map[p.network_id],
             INTERNAL_NET,
             client.get_network_ports(p.network_id))
         for p in router.internal_ports)
@@ -193,6 +198,9 @@ def _allocation_config(ports, subnets_dict):
     allocations = []
 
     for port in ports:
+        if port.name.startswith('AKANDA:VRRP:'):
+            continue
+
         addrs = {
             str(fixed.ip_address): subnets_dict[fixed.subnet_id].enable_dhcp
             for fixed in port.fixed_ips

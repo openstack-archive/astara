@@ -186,7 +186,7 @@ class TestAkandaClient(unittest.TestCase):
             mocks['_management_network_config'].return_value = 'mgt_net'
 
             result = conf_mod.generate_network_config(
-                mock_client, fake_router, ifaces)
+                mock_client, fake_router, fake_mgt_port, ifaces)
 
             expected = [
                 'configured_network',
