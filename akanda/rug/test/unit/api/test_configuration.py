@@ -40,12 +40,14 @@ fake_ext_port = FakeModel(
 
 fake_mgt_port = FakeModel(
     '2',
+    name='AKANDA:MGT:foo',
     mac_address='aa:bb:cc:cc:bb:aa',
     network_id='mgt-net',
     device_id='m-m-m-m')
 
 fake_int_port = FakeModel(
     '3',
+    name='AKANDA:RUG:foo',
     mac_address='aa:aa:aa:aa:aa:aa',
     network_id='int-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')],
@@ -53,6 +55,25 @@ fake_int_port = FakeModel(
 
 fake_vm_port = FakeModel(
     '4',
+    name='foo',
+    mac_address='aa:aa:aa:aa:aa:bb',
+    network_id='int-net',
+    fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],
+    first_v4='192.168.1.2',
+    device_id='v-v-v-v')
+
+fake_vm_mgt_port = FakeModel(
+    '4',
+    name='AKANDA:MGT:foo',
+    mac_address='aa:aa:aa:aa:aa:bb',
+    network_id='int-net',
+    fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],
+    first_v4='192.168.1.2',
+    device_id='v-v-v-v')
+
+fake_vm_vrrp_port = FakeModel(
+    '4',
+    name='AKANDA:VRRP:foo',
     mac_address='aa:aa:aa:aa:aa:bb',
     network_id='int-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],
@@ -137,7 +158,8 @@ class TestAkandaClient(unittest.TestCase):
             mocks['generate_floating_config'].return_value = 'floating_config'
             mocks['get_default_v4_gateway'].return_value = 'default_gw'
 
-            config = conf_mod.build_config(mock_client, fake_router, ifaces)
+            config = conf_mod.build_config(mock_client, fake_router,
+                                           fake_mgt_port, ifaces)
 
             expected = {
                 'default_v4_gateway': 'default_gw',
@@ -154,7 +176,7 @@ class TestAkandaClient(unittest.TestCase):
 
             mocks['load_provider_rules'].assert_called_once_with('/the/path')
             mocks['generate_network_config'].assert_called_once_with(
-                mock_client, fake_router, ifaces)
+                mock_client, fake_router, fake_mgt_port, ifaces)
 
     def test_load_provider_rules(self):
         rules_dict = {'labels': {}, 'preanchors': [], 'postanchors': []}
@@ -175,42 +197,38 @@ class TestAkandaClient(unittest.TestCase):
 
         mock_client = mock.Mock()
 
-        ifaces = [
-            {'ifname': 'ge0', 'lladdr': fake_mgt_port.mac_address},
-            {'ifname': 'ge1', 'lladdr': fake_ext_port.mac_address},
-            {'ifname': 'ge2', 'lladdr': fake_int_port.mac_address}
-        ]
+        iface_map = {
+            fake_mgt_port.network_id: 'ge0',
+            fake_ext_port.network_id: 'ge1',
+            fake_int_port.network_id: 'ge2'
+        }
 
         with mock.patch.multiple(conf_mod, **methods) as mocks:
             mocks['_network_config'].return_value = 'configured_network'
             mocks['_management_network_config'].return_value = 'mgt_net'
 
             result = conf_mod.generate_network_config(
-                mock_client, fake_router, ifaces)
+                mock_client, fake_router, fake_mgt_port, iface_map)
 
             expected = [
                 'configured_network',
-                'mgt_net',
+                'configured_network',
                 'configured_network'
             ]
 
             self.assertEqual(result, expected)
 
-            mocks['_network_config'].assert_has_calls([
+            expected_calls = [
                 mock.call(
-                    mock_client,
-                    fake_router.external_port,
-                    'ge1',
-                    'external'),
+                    mock_client, fake_router.external_port,
+                    'ge1', 'external'),
                 mock.call(
-                    mock_client,
-                    fake_int_port,
-                    'ge2',
-                    'internal',
-                    mock.ANY)])
-
-            mocks['_management_network_config'].assert_called_once_with(
-                fake_router.management_port, 'ge0', ifaces)
+                    mock_client, fake_router.management_port,
+                    'ge0', 'management'),
+                mock.call(
+                    mock_client, fake_int_port,
+                    'ge2', 'internal', mock.ANY)]
+            mocks['_network_config'].assert_has_calls(expected_calls)
 
     def test_managment_network_config(self):
         with mock.patch.object(conf_mod, '_make_network_config_dict') as nc:
@@ -348,7 +366,14 @@ class TestAkandaClient(unittest.TestCase):
             host_routes={})
         self.assertEqual(conf_mod._subnet_config(sn), expected)
 
-    def test_allocation_config(self):
+    def test_allocation_config_vrrp(self):
+        subnets_dict = {fake_subnet.id: fake_subnet}
+        self.assertEqual(
+            conf_mod._allocation_config([fake_vm_vrrp_port], subnets_dict),
+            []
+        )
+
+    def test_allocation_config_mgt(self):
         subnets_dict = {fake_subnet.id: fake_subnet}
         expected = [
             {'mac_address': 'aa:aa:aa:aa:aa:bb',
@@ -356,9 +381,8 @@ class TestAkandaClient(unittest.TestCase):
              'hostname': '192-168-1-2.local',
              'device_id': 'v-v-v-v'}
         ]
-
         self.assertEqual(
-            conf_mod._allocation_config([fake_vm_port], subnets_dict),
+            conf_mod._allocation_config([fake_vm_mgt_port], subnets_dict),
             expected
         )
 
