@@ -421,7 +421,7 @@ class Quantum(object):
             port_dict = {
                 'admin_state_up': True,
                 'network_id': network_id,
-                'device_owner': DEVICE_OWNER_RUG,
+                'device_owner': DEVICE_OWNER_ROUTER_INT,  # lying here for IP
                 'device_id': host_id,
                 'fixed_ips': [{
                     'ip_address': ip_address.split('/')[0],
@@ -431,6 +431,14 @@ class Quantum(object):
             }
             port = Port.from_dict(
                 self.api_client.create_port(dict(port=port_dict))['port'])
+
+            # remove lie that enabled us pick IP on slaac subnet
+            self.api_client.update_port(
+                port.id,
+                {'port': {'device_owner': DEVICE_OWNER_RUG}}
+            )
+            port.device_owner = DEVICE_OWNER_RUG
+
             LOG.info('new local %s port: %r', network_type, port)
 
         # create the tap interface if it doesn't already exist
