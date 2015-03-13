@@ -47,7 +47,7 @@ def _pre_populate_workers(scheduler):
 
     while True:
         try:
-            quantum_routers = quantum_client.get_routers()
+            quantum_routers = quantum_client.get_routers(detailed=False)
             break
         except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
             LOG.warning('PrePopulateWorkers thread failed: %s', err)
