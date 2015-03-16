@@ -46,6 +46,8 @@ class Nova(object):
         # finally cleaned up.
         LOG.debug('creating vm for router %s with image %s',
                   router.id, router_image_uuid)
+        self.client.client.unauthenticate()
+        self.client.client.authenticate()
         server = self.client.servers.create(
             'ak-' + router.id,
             image=router_image_uuid,
