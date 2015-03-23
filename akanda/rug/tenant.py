@@ -179,7 +179,6 @@ class TenantRouterManager(object):
         return [
             machine
             for machine in state_machines
-            if (not machine.deleted
-                and
+            if (not machine.deleted and
                 not self.state_machines.has_been_deleted(machine.router_id))
         ]

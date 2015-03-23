@@ -92,8 +92,6 @@ class TestNovaWrapper(unittest.TestCase):
         ]
 
         self.nova.create_router_instance(fake_router, 'GLANCE-IMAGE-123')
-        self.client.client.unauthenticate.assert_called_once()
-        self.client.client.authenticate.assert_called_once()
         self.client.assert_has_calls(expected)
 
     def test_get_instance(self):

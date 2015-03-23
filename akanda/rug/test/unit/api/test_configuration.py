@@ -86,8 +86,6 @@ class TestAkandaClient(unittest.TestCase):
         methods = {
             'load_provider_rules': mock.DEFAULT,
             'generate_network_config': mock.DEFAULT,
-            'generate_address_book_config': mock.DEFAULT,
-            'generate_anchor_config': mock.DEFAULT,
             'generate_floating_config': mock.DEFAULT,
             'get_default_v4_gateway': mock.DEFAULT,
         }
@@ -121,8 +119,6 @@ class TestAkandaClient(unittest.TestCase):
         with mock.patch.multiple(conf_mod, **methods) as mocks:
             mocks['load_provider_rules'].return_value = provider_rules
             mocks['generate_network_config'].return_value = network_config
-            mocks['generate_address_book_config'].return_value = 'ab_config'
-            mocks['generate_anchor_config'].return_value = 'anchor_config'
             mocks['generate_floating_config'].return_value = 'floating_config'
             mocks['get_default_v4_gateway'].return_value = 'default_gw'
 
@@ -131,8 +127,6 @@ class TestAkandaClient(unittest.TestCase):
             expected = {
                 'default_v4_gateway': 'default_gw',
                 'networks': network_config,
-                'address_book': 'ab_config',
-                'anchors': 'anchor_config',
                 'labels': {'ext': ['192.168.1.1']},
                 'floating_ips': 'floating_config',
                 'asn': 64512,
@@ -146,10 +140,6 @@ class TestAkandaClient(unittest.TestCase):
             mocks['load_provider_rules'].assert_called_once_with('/the/path')
             mocks['generate_network_config'].assert_called_once_with(
                 mock_client, fake_router, ifaces)
-            mocks['generate_address_book_config'].assert_called_once_with(
-                mock_client, fake_router)
-            mocks['generate_anchor_config'].assert_called_once_with(
-                mock_client, provider_rules, fake_router)
 
     def test_load_provider_rules(self):
         rules_dict = {'labels': {}, 'preanchors': [], 'postanchors': []}
@@ -343,119 +333,6 @@ class TestAkandaClient(unittest.TestCase):
             conf_mod._allocation_config([fake_vm_port], subnets_dict),
             expected
         )
-
-    def test_generate_address_book_config(self):
-        fake_address_group = FakeModel(
-            'g1',
-            name='local_net',
-            entries=[netaddr.IPNetwork('10.0.0.0/8')])
-
-        mock_client = mock.Mock()
-        mock_client.get_addressgroups.return_value = [fake_address_group]
-
-        result = conf_mod.generate_address_book_config(mock_client,
-                                                       fake_router)
-
-        expected = {'local_net': ['10.0.0.0/8']}
-        self.assertEqual(result, expected)
-
-    def test_generate_anchor_config(self):
-        mock_client = mock.Mock()
-        provider_rules = {
-            'preanchors': ['pre'],
-            'postanchors': ['post']
-        }
-
-        methods = {
-            'generate_tenant_port_forward_anchor': mock.DEFAULT,
-            'generate_tenant_filter_rule_anchor': mock.DEFAULT
-        }
-
-        with mock.patch.multiple(conf_mod, **methods) as mocks:
-            mocks['generate_tenant_port_forward_anchor'].return_value = 'fwd'
-            mocks['generate_tenant_filter_rule_anchor'].return_value = 'filter'
-
-            result = conf_mod.generate_anchor_config(
-                mock_client, provider_rules, fake_router)
-
-        expected = ['pre', 'fwd', 'filter', 'post']
-        self.assertEqual(result, expected)
-
-    def test_generate_port_forward_anchor(self):
-        port_forward = FakeModel(
-            'pf1',
-            protocol='tcp',
-            public_port=8080,
-            private_port=80,
-            port=fake_vm_port)
-
-        mock_client = mock.Mock()
-        mock_client.get_portforwards.return_value = [port_forward]
-
-        result = conf_mod.generate_tenant_port_forward_anchor(
-            mock_client, fake_router)
-
-        expected = {
-            'name': 'tenant_v4_portforwards',
-            'rules': [
-                {
-                    'action': 'pass',
-                    'direction': 'in',
-                    'family': 'inet',
-                    'protocol': 'tcp',
-                    'redirect': '192.168.1.2',
-                    'redirect_port': 80,
-                    'destination': '9.9.9.9/32',
-                    'destination_port': 8080
-                }
-            ]
-        }
-
-        self.assertEqual(result, expected)
-
-    def test_generate_filter_rule_anchor(self):
-        dest_rule = FakeModel(
-            'fr1',
-            action='pass',
-            protocol='tcp',
-            source=None,
-            source_port=None,
-            destination=FakeModel('d1', name='webservers'),
-            destination_port=80)
-
-        source_rule = FakeModel(
-            'fr1',
-            action='pass',
-            protocol='tcp',
-            source=FakeModel('s1', name='home'),
-            source_port=None,
-            destination=None,
-            destination_port=22)
-
-        mock_client = mock.Mock()
-        mock_client.get_filterrules.return_value = [dest_rule, source_rule]
-
-        result = conf_mod.generate_tenant_filter_rule_anchor(
-            mock_client, fake_router)
-
-        expected = {
-            'name': 'tenant_filterrules',
-            'rules': [{'action': 'pass',
-                       'destination': 'webservers',
-                       'destination_port': 80,
-                       'protocol': 'tcp',
-                       'source': None,
-                       'source_port': None},
-                      {'action': 'pass',
-                       'destination': None,
-                       'destination_port': 22,
-                       'protocol': 'tcp',
-                       'source': 'home',
-                       'source_port': None}
-                      ]
-        }
-
-        self.assertEqual(result, expected)
 
     def test_generate_floating_config(self):
         fip = FakeModel(

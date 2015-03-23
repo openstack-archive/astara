@@ -39,7 +39,7 @@ DEVICE_OWNER_ROUTER_INT = "network:router_interface"
 DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:akanda"
-PLUGIN_RPC_TOPIC = 'q-plugin'
+PLUGIN_RPC_TOPIC = 'q-l3-plugin'
 
 STATUS_ACTIVE = 'ACTIVE'
 STATUS_BUILD = 'BUILD'
@@ -217,73 +217,6 @@ class FixedIp(object):
         return cls(d['subnet_id'], d['ip_address'])
 
 
-class AddressGroup(object):
-    def __init__(self, id_, name, entries=None):
-        self.id = id_
-        self.name = name
-        self.entries = entries or []
-
-    @classmethod
-    def from_dict(cls, d):
-        return cls(
-            d['id'],
-            d['name'],
-            [netaddr.IPNetwork(e['cidr']) for e in d['entries']])
-
-
-class FilterRule(object):
-    def __init__(self, id_, action, protocol, source, source_port,
-                 destination, destination_port):
-        self.id = id_
-        self.action = action
-        self.protocol = protocol
-        self.source = source
-        self.source_port = source_port
-        self.destination = destination
-        self.destination_port = destination_port
-
-    @classmethod
-    def from_dict(cls, d):
-        if d['source']:
-            source = AddressGroup.from_dict(d['source'])
-        else:
-            source = None
-
-        if d['destination']:
-            destination = AddressGroup.from_dict(d['destination'])
-        else:
-            destination = None
-
-        return cls(
-            d['id'],
-            d['action'],
-            d['protocol'],
-            source,
-            d['source_port'],
-            destination,
-            d['destination_port'])
-
-
-class PortForward(object):
-    def __init__(self, id_, name, protocol, public_port, private_port, port):
-        self.id = id_
-        self.name = name
-        self.protocol = protocol
-        self.public_port = public_port
-        self.private_port = private_port
-        self.port = port
-
-    @classmethod
-    def from_dict(cls, d):
-        return cls(
-            d['id'],
-            d['name'],
-            d['protocol'],
-            d['public_port'],
-            d['private_port'],
-            Port.from_dict(d['port']))
-
-
 class FloatingIP(object):
     def __init__(self, id_, floating_ip, fixed_ip):
         self.id = id_
@@ -301,64 +234,8 @@ class FloatingIP(object):
 
 class AkandaExtClientWrapper(client.Client):
     """Add client support for Akanda Extensions. """
-    addressgroup_path = '/dhaddressgroup'
-    addressentry_path = '/dhaddressentry'
-    filterrule_path = '/dhfilterrule'
-    portalias_path = '/dhportalias'
-    portforward_path = '/dhportforward'
+
     routerstatus_path = '/dhrouterstatus'
-
-    # portalias crud
-    @client.APIParamsCall
-    def list_portalias(self, **params):
-        return self.get(self.portalias_path, params=params)
-
-    @client.APIParamsCall
-    def show_portalias(self, portforward, **params):
-        return self.get('%s/%s' % (self.portalias_path, portforward),
-                        params=params)
-
-    # portforward crud
-    @client.APIParamsCall
-    def list_portforwards(self, **params):
-        return self.get(self.portforward_path, params=params)
-
-    @client.APIParamsCall
-    def show_portforward(self, portforward, **params):
-        return self.get('%s/%s' % (self.portforward_path, portforward),
-                        params=params)
-
-    # filterrule crud
-    @client.APIParamsCall
-    def list_filterrules(self, **params):
-        return self.get(self.filterrule_path, params=params)
-
-    @client.APIParamsCall
-    def show_filterrule(self, filterrule, **params):
-        return self.get('%s/%s' % (self.filterrule_path, filterrule),
-                        params=params)
-
-    # address group crud
-    @client.APIParamsCall
-    def list_addressgroups(self, **params):
-        return self.get(self.addressgroup_path, params=params)
-
-    @client.APIParamsCall
-    def show_addressgroup(self, addressgroup, **params):
-        return self.get('%s/%s' % (self.addressgroup_path,
-                                   addressgroup),
-                        params=params)
-
-    # addressentries crud
-    @client.APIParamsCall
-    def list_addressentries(self, **params):
-        return self.get(self.addressentry_path, params=params)
-
-    @client.APIParamsCall
-    def show_addressentry(self, addressentry, **params):
-        return self.get('%s/%s' % (self.addressentry_path,
-                                   addressentry),
-                        params=params)
 
     @client.APIParamsCall
     def update_router_status(self, router, status):
@@ -446,21 +323,6 @@ class Quantum(object):
                          network_id, e)
         return response
 
-    def get_addressgroups(self, tenant_id):
-        return [AddressGroup.from_dict(g) for g in
-                self.api_client.list_addressgroups(
-                    tenant_id=tenant_id)['addressgroups']]
-
-    def get_filterrules(self, tenant_id):
-        return [FilterRule.from_dict(r) for r in
-                self.api_client.list_filterrules(
-                    tenant_id=tenant_id)['filterrules']]
-
-    def get_portforwards(self, tenant_id):
-        return [PortForward.from_dict(f) for f in
-                self.api_client.list_portforwards(
-                    tenant_id=tenant_id)['portforwards']]
-
     def create_router_management_port(self, router_id):
         port_dict = dict(admin_state_up=True,
                          network_id=self.conf.management_network_id,
@@ -537,7 +399,8 @@ class Quantum(object):
             time.sleep(self.conf.retry_delay)
         raise RouterGatewayMissing()
 
-    def ensure_local_external_port(self):
+    def _ensure_local_port(self, network_id, subnet_id,
+                           network_type, ip_address):
         driver = importutils.import_object(self.conf.interface_driver,
                                            self.conf)
 
@@ -545,31 +408,38 @@ class Quantum(object):
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
-                          network_id=self.conf.external_network_id)
+                          network_id=network_id)
 
         ports = self.api_client.list_ports(**query_dict)['ports']
 
-        ip_address = get_local_external_ip(self.conf)
-
         if ports:
             port = Port.from_dict(ports[0])
-            LOG.info('already have local external port, using %r', port)
+            LOG.info('already have local %s port, using %r',
+                     network_type, port)
         else:
-            LOG.info('creating a new local external port')
-            port_dict = dict(
-                admin_state_up=True,
-                network_id=self.conf.external_network_id,
-                device_owner=DEVICE_OWNER_RUG,
-                device_id=host_id,
-                fixed_ips=[{
+            LOG.info('creating a new local %s port', network_type)
+            port_dict = {
+                'admin_state_up': True,
+                'network_id': network_id,
+                'device_owner': DEVICE_OWNER_ROUTER_INT,  # lying here for IP
+                'device_id': host_id,
+                'fixed_ips': [{
                     'ip_address': ip_address.split('/')[0],
-                    'subnet_id': self.conf.external_subnet_id
-                }]
-            )
-
+                    'subnet_id': subnet_id
+                }],
+                'binding:host_id': socket.gethostname()
+            }
             port = Port.from_dict(
                 self.api_client.create_port(dict(port=port_dict))['port'])
-            LOG.info('new local gateway port: %r', port)
+
+            # remove lie that enabled us pick IP on slaac subnet
+            self.api_client.update_port(
+                port.id,
+                {'port': {'device_owner': DEVICE_OWNER_RUG}}
+            )
+            port.device_owner = DEVICE_OWNER_RUG
+
+            LOG.info('new local %s port: %r', network_type, port)
 
         # create the tap interface if it doesn't already exist
         if not ip_lib.device_exists(driver.get_device_name(port)):
@@ -584,56 +454,22 @@ class Quantum(object):
 
         driver.init_l3(driver.get_device_name(port), [ip_address])
         return port
+
+    def ensure_local_external_port(self):
+        return self._ensure_local_port(
+            self.conf.external_network_id,
+            self.conf.external_subnet_id,
+            'external',
+            get_local_external_ip(self.conf)
+        )
 
     def ensure_local_service_port(self):
-        driver = importutils.import_object(self.conf.interface_driver,
-                                           self.conf)
-
-        host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
-
-        query_dict = dict(device_owner=DEVICE_OWNER_RUG,
-                          device_id=host_id,
-                          network_id=self.conf.management_network_id)
-
-        ports = self.api_client.list_ports(**query_dict)['ports']
-
-        ip_address = get_local_service_ip(self.conf)
-
-        if ports:
-            port = Port.from_dict(ports[0])
-            LOG.info('already have local service port, using %r', port)
-        else:
-            LOG.info('creating a new local service port')
-            # create the missing local port
-            port_dict = dict(
-                admin_state_up=True,
-                network_id=self.conf.management_network_id,
-                device_owner=DEVICE_OWNER_RUG,
-                device_id=host_id,
-                fixed_ips=[{
-                    'ip_address': ip_address.split('/')[0],
-                    'subnet_id': self.conf.management_subnet_id
-                }]
-            )
-
-            port = Port.from_dict(
-                self.api_client.create_port(dict(port=port_dict))['port'])
-            LOG.info('new local service port: %r', port)
-
-        # create the tap interface if it doesn't already exist
-        if not ip_lib.device_exists(driver.get_device_name(port)):
-            driver.plug(
-                port.network_id,
-                port.id,
-                driver.get_device_name(port),
-                port.mac_address)
-
-            # add sleep to ensure that port is setup before use
-            time.sleep(1)
-
-        driver.init_l3(driver.get_device_name(port), [ip_address])
-
-        return port
+        return self._ensure_local_port(
+            self.conf.management_network_id,
+            self.conf.management_subnet_id,
+            'service',
+            get_local_service_ip(self.conf)
+        )
 
     def purge_management_interface(self):
         driver = importutils.import_object(
