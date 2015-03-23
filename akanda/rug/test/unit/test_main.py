@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import socket
 
 import mock
 import unittest2 as unittest
@@ -88,3 +89,33 @@ class TestMainPippo(unittest.TestCase):
         main.main()
         self.assertEqual(len(notifications.Publisher.mock_calls), 1)
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 0)
+
+
+@mock.patch('akanda.rug.main.cfg')
+@mock.patch('akanda.rug.api.quantum.importutils')
+@mock.patch('akanda.rug.api.quantum.AkandaExtClientWrapper')
+@mock.patch('akanda.rug.main.multiprocessing')
+@mock.patch('akanda.rug.main.notifications')
+@mock.patch('akanda.rug.main.scheduler')
+@mock.patch('akanda.rug.main.populate')
+@mock.patch('akanda.rug.main.health')
+@mock.patch('akanda.rug.main.shuffle_notifications')
+@mock.patch('akanda.rug.api.quantum.get_local_service_ip')
+class TestMainExtPortBinding(unittest.TestCase):
+
+    def test_ensure_local_port_host_binding(
+            self, get_local_service_ip, shuffle_notifications, health,
+            populate, scheduler, notifications, multiprocessing,
+            akanda_wrapper, importutils, cfg):
+
+        cfg.CONF.plug_external_port = False
+
+        def side_effect(**kwarg):
+            return {'ports': {}}
+        akanda_wrapper.return_value.list_ports.side_effect = side_effect
+
+        main.main()
+        args, kwargs = akanda_wrapper.return_value.create_port.call_args
+        port = args[0]['port']
+        self.assertIn('binding:host_id', port)
+        self.assertEqual(port['binding:host_id'], socket.gethostname())
