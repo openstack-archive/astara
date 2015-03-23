@@ -37,7 +37,10 @@ class TestPrePopulateWorkers(unittest.TestCase):
         populate._pre_populate_workers(sched)
         self.assertEqual(
             quantum_client.get_routers.call_args_list,
-            [mock.call() for value in xrange(len(returned_value))]
+            [
+                mock.call(detailed=False)
+                for value in xrange(len(returned_value))
+            ]
         )
         self.assertEqual(
             quantum_client.get_routers.call_count,

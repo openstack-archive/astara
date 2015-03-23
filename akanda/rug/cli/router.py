@@ -17,9 +17,13 @@
 
 """Commands related to routers.
 """
+import argparse
+import subprocess
+import sys
+
 from akanda.rug import commands
 from akanda.rug.cli import message
-from akanda.rug.api import nova
+from akanda.rug.api import nova, quantum
 
 from novaclient import exceptions
 from oslo.config import cfg
@@ -128,3 +132,33 @@ class RouterManage(_TenantRouterCmd):
     """manage a single router"""
 
     _COMMAND = commands.ROUTER_MANAGE
+
+
+class RouterSSH(_TenantRouterCmd):
+    """ssh into a router over the management network"""
+
+    def get_parser(self, prog_name):
+        p = super(RouterSSH, self).get_parser(prog_name)
+        p.add_argument('remainder', nargs=argparse.REMAINDER)
+        return p
+
+    def take_action(self, parsed_args):
+        n_c = client.Client(
+            username=self.app.rug_ini.admin_user,
+            password=self.app.rug_ini.admin_password,
+            tenant_name=self.app.rug_ini.admin_tenant_name,
+            auth_url=self.app.rug_ini.auth_url,
+            auth_strategy=self.app.rug_ini.auth_strategy,
+            region_name=self.app.rug_ini.auth_region,
+        )
+        router_id = parsed_args.router_id.lower()
+        ports = n_c.show_router(router_id).get('router', {}).get('ports', {})
+        for port in ports:
+            if port['fixed_ips'] and \
+               port['device_owner'] == quantum.DEVICE_OWNER_ROUTER_MGT:
+                v6_addr = port['fixed_ips'].pop()['ip_address']
+                try:
+                    cmd = ["ssh", "root@%s" % v6_addr] + parsed_args.remainder
+                    subprocess.check_call(cmd)
+                except subprocess.CalledProcessError as e:
+                    sys.exit(e.returncode)
