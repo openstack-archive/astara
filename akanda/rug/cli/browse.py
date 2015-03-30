@@ -34,6 +34,8 @@ from akanda.rug.api import nova as nova_api
 from akanda.rug.api import quantum as quantum_api
 from akanda.rug.cli import message
 
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+
 
 class FakeConfig(object):
 
