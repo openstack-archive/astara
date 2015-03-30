@@ -237,6 +237,8 @@ class CreateVM(State):
             return StopVM(self.params)
         elif self.vm.state == vm_manager.ERROR:
             return CalcAction(self.params)
+        elif self.vm.state == vm_manager.DOWN:
+            return CreateVM(self.params)
         return CheckBoot(self.params)
 
 
