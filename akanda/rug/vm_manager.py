@@ -202,6 +202,7 @@ class VmManager(object):
         else:
             # We have successfully started a (re)boot attempt so
             # record the timestamp so we can report how long it takes.
+            self.state = BOOTING
             self.last_boot = datetime.utcnow()
             self._currently_booting = True
 
