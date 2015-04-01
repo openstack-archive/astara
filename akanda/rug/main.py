@@ -134,6 +134,7 @@ def register_and_load_opts():
         cfg.IntOpt('max_retries', default=3),
         cfg.IntOpt('retry_delay', default=1),
         cfg.IntOpt('alive_timeout', default=3),
+        cfg.IntOpt('config_timeout', default=90),
 
         cfg.StrOpt(
             'ignored_router_directory',

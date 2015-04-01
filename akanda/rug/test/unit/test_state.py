@@ -280,11 +280,22 @@ class TestCreateVMState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.READ,
             state.CheckBoot,
-            vm_manager.DOWN
+            vm_manager.BOOTING
         )
 
     def test_transition_vm_up(self):
-        self._test_transition_hlpr(event.READ, state.CheckBoot)
+        self._test_transition_hlpr(
+            event.READ,
+            state.CheckBoot,
+            vm_state=state.vm_manager.BOOTING
+        )
+
+    def test_transition_vm_missing(self):
+        self._test_transition_hlpr(
+            event.READ,
+            state.CreateVM,
+            vm_state=state.vm_manager.DOWN
+        )
 
     def test_transition_vm_error(self):
         self._test_transition_hlpr(event.READ, state.CalcAction,
