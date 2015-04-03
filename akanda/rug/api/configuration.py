@@ -179,7 +179,7 @@ def _interface_config(ifname, port, subnets_dict):
 def _subnet_config(subnet):
     return {
         'cidr': str(subnet.cidr),
-        'dhcp_enabled': subnet.enable_dhcp,
+        'dhcp_enabled': subnet.enable_dhcp and subnet.ipv6_ra_mode != 'slaac',
         'dns_nameservers': subnet.dns_nameservers,
         'host_routes': subnet.host_routes,
         'gateway_ip': (str(subnet.gateway_ip)

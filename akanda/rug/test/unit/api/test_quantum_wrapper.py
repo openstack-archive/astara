@@ -99,6 +99,7 @@ class TestQuantumModels(unittest.TestCase):
             'gateway_ip': 'fe80::1',
             'enable_dhcp': True,
             'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
 
@@ -126,6 +127,7 @@ class TestQuantumModels(unittest.TestCase):
             'gateway_ip': None,
             'enable_dhcp': True,
             'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
         s = quantum.Subnet.from_dict(d)
@@ -143,6 +145,7 @@ class TestQuantumModels(unittest.TestCase):
             'gateway_ip': 'something-that-is-not-an-ip',
             'enable_dhcp': True,
             'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
         s = quantum.Subnet.from_dict(d)
@@ -160,6 +163,7 @@ class TestQuantumModels(unittest.TestCase):
             'gateway_ip': 'fe80::1',
             'enable_dhcp': True,
             'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
         try:
@@ -178,6 +182,7 @@ class TestQuantumModels(unittest.TestCase):
             'gateway_ip': 'fe80::1',
             'enable_dhcp': True,
             'dns_nameservers': ['8.8.8.8', '8.8.4.4'],
+            'ipv6_ra_mode': 'slaac',
             'host_routes': []
         }
         try:
@@ -348,10 +353,10 @@ class TestExternalPort(unittest.TestCase):
     SUBNETS = [
         quantum.Subnet(u'ipv4snid', u'ipv4snid', None, None, 4,
                        '172.16.77.0/24', '172.16.77.1', False,
-                       [], []),
+                       [], [], None),
         quantum.Subnet(u'ipv6snid', u'ipv4snid', None, None, 6,
                        'fdee:9f85:83be::/48', 'fdee:9f85:83be::1',
-                       False, [], []),
+                       False, [], [], None),
     ]
 
     def setUp(self):
