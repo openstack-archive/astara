@@ -133,7 +133,8 @@ class Router(object):
 
 class Subnet(object):
     def __init__(self, id_, name, tenant_id, network_id, ip_version, cidr,
-                 gateway_ip, enable_dhcp, dns_nameservers, host_routes):
+                 gateway_ip, enable_dhcp, dns_nameservers, host_routes,
+                 ipv6_ra_mode):
         self.id = id_
         self.name = name
         self.tenant_id = tenant_id
@@ -156,6 +157,7 @@ class Subnet(object):
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers
         self.host_routes = host_routes
+        self.ipv6_ra_mode = ipv6_ra_mode
 
     @classmethod
     def from_dict(cls, d):
@@ -169,7 +171,8 @@ class Subnet(object):
             d['gateway_ip'],
             d['enable_dhcp'],
             d['dns_nameservers'],
-            d['host_routes'])
+            d['host_routes'],
+            d['ipv6_ra_mode'])
 
 
 class Port(object):

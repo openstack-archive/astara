@@ -93,6 +93,22 @@ class TestAkandaClient(unittest.TestCase):
             timeout=90)
         self.assertEqual(resp, config)
 
+    def test_update_config_with_custom_config(self):
+        config = {'foo': 'bar'}
+        self.mock_put.return_value.status_code = 200
+        self.mock_put.return_value.json.return_value = config
+
+        with mock.patch.object(akanda_client.cfg, 'CONF') as cfg:
+            cfg.config_timeout = 5
+            resp = akanda_client.update_config('fe80::2', 5000, config)
+
+            self.mock_put.assert_called_once_with(
+                'http://[fe80::2]:5000/v1/system/config',
+                data='{"foo": "bar"}',
+                headers={'Content-type': 'application/json'},
+                timeout=5)
+            self.assertEqual(resp, config)
+
     def test_update_config_failure(self):
         config = {'foo': 'bar'}
 

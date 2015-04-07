@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import sys
 import socket
 
 import mock
@@ -103,6 +104,10 @@ class TestMainPippo(unittest.TestCase):
 @mock.patch('akanda.rug.api.quantum.get_local_service_ip')
 class TestMainExtPortBinding(unittest.TestCase):
 
+    @unittest.skipIf(
+        sys.platform != 'linux2',
+        'unsupported platform'
+    )
     def test_ensure_local_port_host_binding(
             self, get_local_service_ip, shuffle_notifications, health,
             populate, scheduler, notifications, multiprocessing,
