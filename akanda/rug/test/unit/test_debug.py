@@ -42,6 +42,7 @@ class TestDebug(unittest.TestCase):
             worker_context=ctx.return_value,
             queue_warning_threshold=100,
             reboot_error_threshold=1,
+            lbaas=False,
         )
 
         class CrudMatch(object):
