@@ -103,6 +103,22 @@ _INTERESTING_NOTIFICATIONS = set([
     'port.delete.end',
 ])
 
+_INTERESTING_NOTIFICATIONS.update(set([
+    'member.create.end',
+    'member.change.end',
+    'member.delete.end',
+    'listener.create.end',
+    'listener.change.end',
+    'listener.delete.end',
+    'pool.create.end',
+    'pool.change.end',
+    'pool.delete.end'
+]))
+
+    #'loadbalancer.create.end',
+    #'loadbalancer.change.end',
+    #'loadbalancer.delete.end'
+
 
 def _make_event_from_message(message):
     """Turn a raw message from the wire into an event.Event object
@@ -113,6 +129,7 @@ def _make_event_from_message(message):
     tenant_id = _get_tenant_id_for_message(message)
     crud = event.UPDATE
     router_id = None
+    loadbalancer_id = None
     if message.get('method') == 'router_deleted':
         crud = event.DELETE
         router_id = message.get('args', {}).get('router_id')
@@ -121,6 +138,7 @@ def _make_event_from_message(message):
         # Router id is not always present, but look for it as though
         # it is to avoid duplicating this line a few times.
         router_id = message.get('payload', {}).get('router', {}).get('id')
+        loadbalancer_id = message.get('payload', {}).get('loadbalancer', {}).get('id')
         if event_type.startswith('routerstatus.update'):
             # We generate these events ourself, so ignore them.
             return None
@@ -129,6 +147,11 @@ def _make_event_from_message(message):
         elif event_type == 'router.delete.end':
             crud = event.DELETE
             router_id = message.get('payload', {}).get('router_id')
+        elif event_type == 'loadbalancer.create.end':
+            crud = event.CREATE
+        elif event_type == 'loadbalancer.delete.end':
+            crud = event.DELETE
+            loadbalancer_id = message.get('payload', {}).get('loadbalancer_id')
         elif event_type in _INTERFACE_NOTIFICATIONS:
             crud = event.UPDATE
             router_id = message.get(
@@ -137,6 +160,9 @@ def _make_event_from_message(message):
         elif event_type in _INTERESTING_NOTIFICATIONS:
             crud = event.UPDATE
         elif event_type.endswith('.end'):
+            LOG.debug('*' * 80)
+            LOG.debug('ignoring message %r', message)
+            LOG.debug('*' * 80)
             crud = event.UPDATE
         elif event_type.startswith('akanda.rug.command'):
             LOG.debug('received a command: %r', message.get('payload'))
@@ -153,10 +179,19 @@ def _make_event_from_message(message):
                     body={},
                 )
         else:
-            # LOG.debug('ignoring message %r', message)
+            LOG.debug('*' * 80)
+            LOG.debug('ignoring message %r', message)
+            LOG.debug('*' * 80)
             return None
 
-    return event.Event(tenant_id, router_id, crud, message)
+    if loadbalancer_id:
+        obj_id = loadbalancer_id
+        lbaas=True
+    else:
+        obj_id = router_id
+        lbaas=False
+
+    return event.Event(tenant_id, obj_id, crud, message, lbaas)
 
 
 def _handle_connection_error(exception, interval):

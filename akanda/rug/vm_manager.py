@@ -14,12 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
 from datetime import datetime
 from functools import wraps
 import time
 
 from oslo.config import cfg
+import six
 
 from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api
@@ -52,8 +52,9 @@ def synchronize_router_status(f):
             return val
         new_status = STATUS_MAP.get(self.state, neutron.STATUS_ERROR)
         if not old_status or old_status != new_status:
-            worker_context.neutron.update_router_status(
-                self.router_obj.id,
+            self.driver.update_status(
+                worker_context,
+                self.router_obj,
                 new_status
             )
             self._last_synced_status = new_status
@@ -76,12 +77,95 @@ class BootAttemptCounter(object):
         return self._attempts
 
 
-class VmManager(object):
+class InstanceDriver(object):
+    RESOURCE_NAME = 'unknown'
+    def __init__(self, image_uuid, log):
+        self.image_uuid = image_uuid
+        self.log = log
 
-    def __init__(self, router_id, tenant_id, log, worker_context):
+    def get_logical_config(self, worker_context, logical_id):
+        return None
+
+    def preboot(self, worker_context, logical_obj):
+        pass
+
+    def preplug(self, worker_context, logical_obj):
+        pass
+
+    def update_status(self, worker_context, logical_obj, status):
+        pass
+
+    def build_config(self, worker_context, logical_obj, instance_info, if_map):
+        pass
+
+    @property
+    def default_image_uuid(self):
+        return None
+
+
+class RouterDriver(InstanceDriver):
+    RESOURCE_NAME = 'Router'
+    def get_logical_config(self, worker_context, logical_id):
+        return worker_context.neutron.get_router_detail(logical_id)
+
+    def preplug(self, worker_context, logical_obj):
+        if logical_obj.external_port is None:
+            # FIXME: Need to do some work to pick the right external
+            # network for a tenant.
+            self.log.debug('Adding external port to router')
+            ext_port = worker_context.neutron.create_router_external_port(
+                logical_obj
+            )
+            logical_obj.external_port = ext_port
+
+    preboot = preplug
+
+    def update_status(self, worker_context, logical_obj, status):
+        worker_context.neutron.update_router_status(logical_obj.id, status)
+
+    def build_config(self, worker_context, logical_obj, instance_info, if_map):
+        return configuration.build_config(
+            worker_context.neutron,
+            logical_obj,
+            instance_info.management_port,
+            if_map
+        )
+
+    @property
+    def default_image_uuid(self):
+        return cfg.CONF.router_image_uuid
+
+
+class LbaasDriver(InstanceDriver):
+    RESOURCE_NAME = 'Load Balancer'
+    def get_logical_config(self, worker_context, logical_id):
+        return worker_context.neutron.get_loadbalancer_detail(logical_id)
+
+    def update_status(self, worker_context, logical_obj, status):
+        #TODO (mark): add this
+        pass
+
+    def build_config(self, worker_context, logical_obj, instance_info, if_map):
+        return configuration.build_lb_config(
+            worker_context.neutron,
+            logical_obj,
+            instance_info.management_port,
+            if_map
+        )
+
+    @property
+    def default_image_uuid(self):
+        return cfg.CONF.lbaas_image_uuid
+
+    DONTSTOP = True
+
+
+class VmManager(object):
+    def __init__(self, router_id, tenant_id, log, driver, worker_context):
         self.router_id = router_id
         self.tenant_id = tenant_id
         self.log = log
+        self.driver = driver
         self.state = DOWN
         self.router_obj = None
         self.instance_info = None
@@ -154,7 +238,8 @@ class VmManager(object):
             # duration to log.
             self.instance_info.confirm_up()
             if self.instance_info.boot_duration:
-                self.log.info('Router booted in %s seconds after %s attempts',
+                self.log.info('%s booted in %s seconds after %s attempts',
+                              self.driver.RESOURCE_NAME,
                               self.instance_info.boot_duration.total_seconds(),
                               self._boot_counter.count)
             # Always reset the boot counter, even if we didn't boot
@@ -163,13 +248,13 @@ class VmManager(object):
             self._boot_counter.reset()
         return self.state
 
-    def boot(self, worker_context, router_image_uuid):
+    def boot(self, worker_context):
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.info('not booting deleted router')
+            self.log.info('not booting deleted %s', self.driver.RESOURCE_NAME)
             return
 
-        self.log.info('Booting router')
+        self.log.info('Booting %s', self.driver.RESOURCE_NAME)
         self.state = DOWN
         self._boot_counter.start()
 
@@ -187,23 +272,28 @@ class VmManager(object):
             return mgt_port, instance_ports
 
         try:
-            # TODO(mark): make this pluggable
-            self._ensure_provider_ports(self.router_obj, worker_context)
+            self.driver.preboot(worker_context, self.router_obj)
 
             # TODO(mark): make this handle errors more gracefully on cb fail
             # TODO(mark): checkout from a pool - boot on demand for now
             instance_info = worker_context.nova_client.boot_instance(
                 self.instance_info,
                 self.router_obj.id,
-                router_image_uuid,
+                self.driver.image_uuid,
                 make_vrrp_ports
             )
             if not instance_info:
-                self.log.info('Previous router is deleting')
+                self.log.info(
+                    'Previous %s is deleting',
+                    self.driver.RESOURCE_NAME
+                )
                 return
         except:
-            self.log.exception('Router failed to start boot')
-            # TODO(mark): attempt clean-up of failed ports
+            self.log.exception(
+                '%s failed to start boot',
+                self.driver.RESOURCE_NAME
+            )
+            #TODO(mark): attempt clean-up of failed ports
             return
         else:
             # We have successfully started a (re)boot attempt so
@@ -214,13 +304,20 @@ class VmManager(object):
     def check_boot(self, worker_context):
         ready_states = (UP, CONFIGURED)
         if self.update_state(worker_context, silent=True) in ready_states:
-            self.log.info('Router has booted, attempting initial config')
+            self.log.info(
+                '%s has booted, attempting initial config',
+                self.driver.RESOURCE_NAME
+            )
             self.configure(worker_context, BOOTING, attempts=1)
             if self.state != CONFIGURED:
                 self._check_boot_timeout()
             return self.state == CONFIGURED
 
-        self.log.debug('Router is %s' % self.state.upper())
+        self.log.debug(
+            '%s is %s',
+            self.driver.RESOURCE_NAME,
+            self.state.upper()
+        )
         return False
 
     @synchronize_router_status
@@ -234,7 +331,10 @@ class VmManager(object):
         """
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.debug('not updating state of deleted router')
+            self.log.debug(
+                'not updating state of deleted %s',
+                self.driver.RESOURCE_NAME
+            )
             return self.state
         self.state = ERROR
         self.last_error = datetime.utcnow()
@@ -253,7 +353,10 @@ class VmManager(object):
         self._boot_counter.reset()
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.debug('not updating state of deleted router')
+            self.log.debug(
+                'not updating state of deleted %s',
+                self.driver.RESOURCE_NAME
+            )
             return self.state
         self.state = DOWN
         return self.state
@@ -272,15 +375,28 @@ class VmManager(object):
     def stop(self, worker_context):
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.info('Destroying router neutron has deleted')
+            # We are being told to delete an instance that neutron has
+            # already removed.
+            self.log.info(
+                'Destroying %s neutron has deleted',
+                self.driver.RESOURCE_NAME
+            )
         else:
-            self.log.info('Destroying router')
+            self.log.info('Destroying %s', self.driver.RESOURCE_NAME)
+
+        # TODO(mark): remove this dev hook or make it real
+        if hasattr(self.driver, 'DONTSTOP'):
+            self.state = ERROR
+            return
 
         try:
             nova_client = worker_context.nova_client
             nova_client.destroy_instance(self.instance_info)
         except Exception:
-            self.log.exception('Error deleting router instance')
+            self.log.exception(
+                'Error deleting %s instance',
+                self.driver.RESOURCE_NAME
+            )
 
         start = time.time()
         while time.time() - start < cfg.CONF.boot_timeout:
@@ -288,14 +404,18 @@ class VmManager(object):
                 if self.state != GONE:
                     self.state = DOWN
                 return
-            self.log.debug('Router has not finished stopping')
+            self.log.debug(
+                '%s has not finished stopping',
+                self.driver.RESOURCE_NAME
+            )
             time.sleep(cfg.CONF.retry_delay)
         self.log.error(
-            'Router failed to stop within %d secs',
+            '%sfailed to stop within %d secs',
+            self.driver.RESOURCE_NAME,
             cfg.CONF.boot_timeout)
 
     def configure(self, worker_context, failure_state=RESTART, attempts=None):
-        self.log.debug('Begin router config')
+        self.log.debug('Begin %s config', self.driver.RESOURCE_NAME)
         self.state = UP
         attempts = attempts or cfg.CONF.max_retries
 
@@ -341,12 +461,13 @@ class VmManager(object):
         }
 
         # FIXME: Need to catch errors talking to neutron here.
-        config = configuration.build_config(
-            worker_context.neutron,
+        config = self.driver.build_config(
+            worker_context,
             self.router_obj,
-            mgt_port,
+            self.instance_info,
             iface_map
         )
+
         self.log.debug('preparing to update config to %r', config)
 
         for i in xrange(attempts):
@@ -377,7 +498,7 @@ class VmManager(object):
 
     def replug(self, worker_context):
         self.log.debug('Attempting to replug...')
-        self._ensure_provider_ports(self.router_obj, worker_context)
+        self.driver.preplug(worker_context, self.router_obj)
 
         interfaces = router_api.get_interfaces(
             self.instance_info.management_address,
@@ -457,10 +578,11 @@ class VmManager(object):
 
     def _ensure_cache(self, worker_context):
         try:
-            self.router_obj = worker_context.neutron.get_router_detail(
+            self.router_obj = self.driver.get_logical_config(
+                worker_context,
                 self.router_id
             )
-        except neutron.RouterGone:
+        except neutron.LogicalResourceGone:
             # The router has been deleted, set our state accordingly
             # and return without doing any more work.
             self.state = GONE
@@ -526,13 +648,3 @@ class VmManager(object):
 
         return router_macs == expected_macs
 
-    def _ensure_provider_ports(self, router, worker_context):
-        if router.external_port is None:
-            # FIXME: Need to do some work to pick the right external
-            # network for a tenant.
-            self.log.debug('Adding external port to router')
-            ext_port = worker_context.neutron.create_router_external_port(
-                router
-            )
-            router.external_port = ext_port
-        return router
