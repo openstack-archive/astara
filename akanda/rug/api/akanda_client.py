@@ -69,7 +69,7 @@ def update_config(host, port, config_dict):
         _mgt_url(host, port, path),
         data=jsonutils.dumps(config_dict),
         headers=headers,
-        timeout=90)
+        timeout=cfg.CONF.config_timeout)
 
     if r.status_code != 200:
         raise Exception('Config update failed: %s' % r.text)

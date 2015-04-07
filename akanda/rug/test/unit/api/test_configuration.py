@@ -21,6 +21,7 @@ from oslo.config import cfg
 import unittest2 as unittest
 
 from akanda.rug.api import configuration as conf_mod
+from akanda.rug.api.quantum import Subnet
 
 
 class FakeModel(object):
@@ -64,6 +65,20 @@ fake_subnet = FakeModel(
     gateway_ip='192.168.1.1',
     enable_dhcp=True,
     dns_nameservers=['8.8.8.8'],
+    ipv6_ra_mode=None,
+    host_routes={})
+
+fake_subnet_with_slaac = Subnet(
+    id_='fake_id',
+    name='s1',
+    tenant_id='fake_tenant_id',
+    network_id='fake_network_id',
+    ip_version=6,
+    cidr='fdee:9f85:83be::/48',
+    gateway_ip='fdee:9f85:83be::1',
+    enable_dhcp=True,
+    dns_nameservers=['8.8.8.8'],
+    ipv6_ra_mode='slaac',
     host_routes={})
 
 fake_router = FakeModel(
@@ -286,6 +301,17 @@ class TestAkandaClient(unittest.TestCase):
         }
         self.assertEqual(conf_mod._subnet_config(fake_subnet), expected)
 
+    def test_subnet_config_with_slaac_enabled(self):
+        expected = {
+            'cidr': 'fdee:9f85:83be::/48',
+            'dhcp_enabled': False,
+            'dns_nameservers': ['8.8.8.8'],
+            'gateway_ip': 'fdee:9f85:83be::1',
+            'host_routes': {}
+        }
+        self.assertEqual(
+            conf_mod._subnet_config(fake_subnet_with_slaac), expected)
+
     def test_subnet_config_no_gateway(self):
         expected = {
             'cidr': '192.168.1.0/24',
@@ -300,6 +326,7 @@ class TestAkandaClient(unittest.TestCase):
             gateway_ip='',
             enable_dhcp=True,
             dns_nameservers=['8.8.8.8'],
+            ipv6_ra_mode='',
             host_routes={})
         self.assertEqual(conf_mod._subnet_config(sn), expected)
 
@@ -317,6 +344,7 @@ class TestAkandaClient(unittest.TestCase):
             gateway_ip=None,
             enable_dhcp=True,
             dns_nameservers=['8.8.8.8'],
+            ipv6_ra_mode='',
             host_routes={})
         self.assertEqual(conf_mod._subnet_config(sn), expected)
 
