@@ -46,8 +46,12 @@ def debug_one_router(args=sys.argv[1:]):
     # Add our extra option for specifying the router-id to debug
     cfg.CONF.register_cli_opts([
         cfg.StrOpt('router-id',
-                   required=True,
+                   required=False,
                    help='The UUID for the router to debug',
+                   ),
+        cfg.StrOpt('loadbalancer-id',
+                   required=False,
+                   help='The UUID for the loadbalancer to debug',
                    ),
     ])
     cfg.CONF(args, project='akanda-rug')
@@ -67,15 +71,25 @@ def debug_one_router(args=sys.argv[1:]):
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
     context = worker.WorkerContext()
-    router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
+    if cfg.CONF.router_id:
+        obj_id = cfg.CONF.router_id
+        router_obj = context.neutron.get_router_detail(obj_id)
+        lbaas = False
+
+    elif cfg.CONF.loadbalancer_id:
+        obj_id = cfg.CONF.loadbalancer_id
+        router_obj = context.neutron.get_loadbalancer_detail(obj_id)
+        lbaas = True
+
     a = state.Automaton(
-        router_id=cfg.CONF.router_id,
+        router_id=obj_id,
         tenant_id=router_obj.tenant_id,
         delete_callback=delete_callback,
         bandwidth_callback=bandwidth_callback,
         worker_context=context,
         queue_warning_threshold=100,
         reboot_error_threshold=1,
+        lbaas=lbaas
     )
 
     a.send_message(Fake('update'))

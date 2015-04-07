@@ -66,6 +66,7 @@ class TestCreatingRouter(WorkerTestBase):
             router_id=self.router_id,
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         self.w.handle_message(self.tenant_id, self.msg)
 
@@ -97,12 +98,14 @@ class TestWildcardMessages(WorkerTestBase):
                     router_id='ABCD',
                     crud=event.CREATE,
                     body={'key': 'value'},
+                    lbaas=False,
                 ),
                 event.Event(
                     tenant_id='ac194fc5-f317-412e-8611-fb290629f624',
                     router_id='EFGH',
                     crud=event.CREATE,
                     body={'key': 'value'},
+                    lbaas=False,
                 )]:
             self.w.handle_message(msg.tenant_id, msg)
 
@@ -166,6 +169,7 @@ class TestUpdateStateMachine(WorkerTestBase):
             router_id=router_id,
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         # Create the router manager and state machine so we can
         # replace the update() method with a mock.
@@ -191,8 +195,11 @@ class TestReportStatus(WorkerTestBase):
         with mock.patch.object(self.w, 'report_status') as meth:
             self.w.handle_message(
                 'debug',
-                event.Event('*', '', event.COMMAND,
-                            {'payload': {'command': commands.WORKERS_DEBUG}})
+                event.Event('*',
+                            '',
+                            event.COMMAND,
+                            {'payload': {'command': commands.WORKERS_DEBUG}},
+                            False)
             )
             meth.assert_called_once_with()
 
@@ -201,8 +208,11 @@ class TestReportStatus(WorkerTestBase):
         with mock.patch('akanda.rug.worker.cfg.CONF') as conf:
             self.w.handle_message(
                 'debug',
-                event.Event('*', '', event.COMMAND,
-                            {'payload': {'command': commands.WORKERS_DEBUG}})
+                event.Event('*',
+                            '',
+                            event.COMMAND,
+                            {'payload': {'command': commands.WORKERS_DEBUG}},
+                            False)
             )
             self.assertTrue(conf.log_opt_values.called)
 
@@ -230,7 +240,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_DEBUG,
-                                     'router_id': 'this-router-id'}}),
+                                     'router_id': 'this-router-id'}}, False),
         )
         self.assertEqual(set(['this-router-id']), self.w._debug_routers)
 
@@ -242,7 +252,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'router_id': 'this-router-id'}}, False),
         )
         self.assertEqual(set(), self.w._debug_routers)
         lock.release.assert_called_once()
@@ -253,7 +263,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'router_id': 'this-router-id'}}, False),
         )
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -265,7 +275,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'router_id': 'this-router-id'}}, False),
         )
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -279,6 +289,7 @@ class TestDebugRouters(WorkerTestBase):
             router_id=router_id,
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
@@ -331,7 +342,7 @@ class TestIgnoreRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'router_id': 'this-router-id'}}, False),
         )
         self.assertEqual(set(), w._debug_routers)
 
@@ -350,6 +361,7 @@ class TestIgnoreRouters(WorkerTestBase):
             router_id=router_id,
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
@@ -383,7 +395,7 @@ class TestDebugTenants(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.TENANT_DEBUG,
-                                     'tenant_id': 'this-tenant-id'}}),
+                                     'tenant_id': 'this-tenant-id'}}, False),
         )
         self.assertEqual(set(['this-tenant-id']), self.w._debug_tenants)
 
@@ -393,7 +405,7 @@ class TestDebugTenants(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.TENANT_MANAGE,
-                                     'tenant_id': 'this-tenant-id'}}),
+                                     'tenant_id': 'this-tenant-id'}}, False),
         )
         self.assertEqual(set(), self.w._debug_tenants)
 
@@ -407,6 +419,7 @@ class TestDebugTenants(WorkerTestBase):
             router_id=router_id,
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
@@ -430,6 +443,7 @@ class TestConfigReload(WorkerTestBase):
             body={
                 'payload': {'command': commands.CONFIG_RELOAD},
             },
+            lbaas=False,
         )
         self.w.handle_message(tenant_id, msg)
         self.assertTrue(self.conf.called)
