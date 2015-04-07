@@ -47,7 +47,11 @@ STATUS_DOWN = 'DOWN'
 STATUS_ERROR = 'ERROR'
 
 
-class RouterGone(Exception):
+class LogicalResourceGone(Exception):
+    pass
+
+
+class RouterGone(LogicalResourceGone):
     pass
 
 
@@ -67,6 +71,113 @@ class MissingIPAllocation(Exception):
             for mv, missing_subnets in missing
         )
         super(MissingIPAllocation, self).__init__(msg + ip_msg)
+
+class LoadBalancer(object):
+    def __init__(self, id_, tenant_id, name, admin_state_up, status,
+                 vip_port=None, listeners=()):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.admin_state_up = admin_state_up
+        self.status = status
+        self.vip_port = vip_port
+        self.listeners = listeners
+
+    def __repr__(self):
+        return '<%s (%s:%s)>' % (self.__class__.__name__,
+                                 self.name,
+                                 self.tenant_id)
+
+    def __eq__(self, other):
+        return type(self) == type(other) and vars(self) == vars(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def ports(self):
+        if self.vip_port:
+            return [self.vip_port]
+        else:
+            return []
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            d['provisioning_status']
+        )
+
+
+class Listener(object):
+    def __init__(self, id_, tenant_id, name, admin_state_up, protocol, protocol_port):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.admin_state_up = admin_state_up
+        self.protocol = protocol
+        self.protocol_port = protocol_port
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            d['protocol'],
+            d['protocol_port']
+        )
+
+
+class Pool(object):
+    def __init__(self, id_, tenant_id, name, admin_state_up, lb_algorithm,
+                 protocol, healthmonitor=None, session_persistence=None,
+                 members=()):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.admin_state_up = admin_state_up
+        self.lb_algorithm = lb_algorithm
+        self.protocol = protocol
+        self.healthmonitor = healthmonitor
+        self.session_persistence = session_persistence
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            d['lb_algorithm'],
+            d['protocol'],
+        )
+
+class Member(object):
+    def __init__(self, id_, tenant_id, admin_state_up, address, protocol_port,
+                 weight, subnet=None):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.admin_state_up = admin_state_up
+        self.address = netaddr.IPAddress(address)
+        self.protocol_port = protocol_port
+        self.weight = weight
+        self.subnet = subnet
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['admin_state_up'],
+            d['address'],
+            d['protocol_port'],
+            d['weight'],
+        )
 
 
 class Router(object):
@@ -278,6 +389,52 @@ class Neutron(object):
             region_name=conf.auth_region
         )
         self.rpc_client = L3PluginApi(PLUGIN_RPC_TOPIC, cfg.CONF.host)
+
+    def get_ready_loadbalancers(self):
+        retval = [
+            lb['id'] for lb in
+            self.api_client.list_loadbalancers().get('loadbalancers', [])
+        ]
+        return retval
+
+    def get_loadbalancer_detail(self, lb_id):
+        lb_data = self.api_client.show_loadbalancer(lb_id)['loadbalancer']
+        lb = LoadBalancer.from_dict(lb_data)
+
+        lb.vip_port = Port.from_dict(
+            self.api_client.show_port(lb_data['vip_port_id'])['port']
+        )
+
+        lb.listeners = [
+            self.get_listener_detail(l['id']) for l in lb_data['listeners']
+        ]
+
+        return lb
+
+    def get_listener_detail(self, listener_id):
+        data = self.api_client.show_listener(listener_id)['listener']
+        listener = Listener.from_dict(data)
+        if data.get('default_pool_id'):
+            listener.default_pool = self.get_pool_detail(data['default_pool_id'])
+        return listener
+
+    def get_pool_detail(self, pool_id):
+        data = self.api_client.show_lbaas_pool(pool_id)['pool']
+        pool = Pool.from_dict(data)
+        if data.get('members'):
+            pool.members = [
+                Member.from_dict(m) for m in
+                self.api_client.list_lbaas_members(pool_id)['members']
+            ]
+        return pool
+
+    def get_member_detail(self, pool_id, member_id):
+        import pdb;pdb.set_trace()
+        data = self.api_client.show_lbaas_member(member_id, pool_id)['member']
+        member = Member.from_dict(data)
+
+        return member
+
 
     def get_routers(self, detailed=True):
         """Return a list of routers."""

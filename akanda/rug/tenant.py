@@ -113,7 +113,7 @@ class TenantRouterManager(object):
         the router being addressed by the message.
         """
         router_id = message.router_id
-        if not router_id:
+        if not router_id and not message.lbaas:
             LOG.debug('looking for router for %s', message.tenant_id)
             if self._default_router_id is None:
                 # TODO(mark): handle muliple router lookup
@@ -166,6 +166,7 @@ class TenantRouterManager(object):
                 worker_context=worker_context,
                 queue_warning_threshold=self._queue_warning_threshold,
                 reboot_error_threshold=self._reboot_error_threshold,
+                lbaas=message.lbaas
             )
             self.state_machines[router_id] = sm
             state_machines = [sm]
