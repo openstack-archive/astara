@@ -34,13 +34,13 @@ from akanda.rug import vm_manager
 
 class StateParams(object):
     def __init__(self, vm, log, queue, bandwidth_callback,
-                 reboot_error_threshold, router_image_uuid):
+                 reboot_error_threshold, driver):
         self.vm = vm
         self.log = log
         self.queue = queue
         self.bandwidth_callback = bandwidth_callback
         self.reboot_error_threshold = reboot_error_threshold
-        self.router_image_uuid = router_image_uuid
+        self.driver = driver
 
 
 class State(object):
@@ -61,8 +61,8 @@ class State(object):
         return self.params.vm
 
     @property
-    def router_image_uuid(self):
-        return self.params.router_image_uuid
+    def image_uuid(self):
+        return self.params.driver.image_uuid
 
     @property
     def name(self):
@@ -226,7 +226,7 @@ class CreateVM(State):
                           self.vm.attempts)
             self.vm.set_error(worker_context)
             return action
-        self.vm.boot(worker_context, self.router_image_uuid)
+        self.vm.boot(worker_context)
         self.log.debug('CreateVM attempt %s/%s',
                        self.vm.attempts,
                        self.params.reboot_error_threshold)
@@ -354,7 +354,7 @@ class Automaton(object):
     def __init__(self, router_id, tenant_id,
                  delete_callback, bandwidth_callback,
                  worker_context, queue_warning_threshold,
-                 reboot_error_threshold):
+                 reboot_error_threshold, lbaas=False):
         """
         :param router_id: UUID of the router being managed
         :type router_id: str
@@ -388,15 +388,34 @@ class Automaton(object):
         self.log = logging.getLogger(__name__ + '.' + router_id)
 
         self.action = POLL
-        self.vm = vm_manager.VmManager(router_id, tenant_id, self.log,
-                                       worker_context)
+
+        if lbaas:
+            driver = vm_manager.LbaasDriver(
+                cfg.CONF.lbaas_image_uuid,
+                self.log
+            )
+
+        else:
+            driver = vm_manager.RouterDriver(
+                cfg.CONF.router_image_uuid,
+                self.log
+            )
+
+        self.vm = vm_manager.VmManager(
+            router_id,
+            tenant_id,
+            self.log,
+            driver,
+            worker_context
+        )
+
         self._state_params = StateParams(
             self.vm,
             self.log,
             self._queue,
             self.bandwidth_callback,
             self._reboot_error_threshold,
-            cfg.CONF.router_image_uuid
+            driver
         )
         self.state = CalcAction(self._state_params)
 
@@ -488,7 +507,7 @@ class Automaton(object):
                 )
                 self.router_image_uuid = message.body['router_image_uuid']
             else:
-                self.router_image_uuid = cfg.CONF.router_image_uuid
+                self.router_image_uuid = self.default_image_uuid
 
         self._queue.append(message.crud)
         queue_len = len(self._queue)
@@ -501,11 +520,15 @@ class Automaton(object):
 
     @property
     def router_image_uuid(self):
-        return self.state.params.router_image_uuid
+        return self.state.params.driver.image_uuid
 
     @router_image_uuid.setter
     def router_image_uuid(self, value):
-        self.state.params.router_image_uuid = value
+        self.state.params.driver.image_uuid = value
+
+    @property
+    def default_image_uuid(self):
+        return self.state.params.driver.default_image_uuid
 
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"

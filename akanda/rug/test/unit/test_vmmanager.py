@@ -87,9 +87,14 @@ class TestVmManager(unittest.TestCase):
             management_port=fake_mgt_port,
         )
 
+        self.driver = vm_manager.RouterDriver(
+            'fake_image_id',
+            self.log
+        )
+
         self.mock_update_state = self.update_state_p.start()
         self.vm_mgr = vm_manager.VmManager('the_id', 'tenant_id',
-                                           self.log, self.ctx)
+                                           self.log, self.driver, self.ctx)
         self.vm_mgr.instance_info = self.INSTANCE_INFO
         mock.patch.object(self.vm_mgr, '_ensure_cache', mock.Mock)
 
@@ -276,10 +281,10 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
+            self.INSTANCE_INFO, rtr.id, 'fake_image_id', mock.ANY)
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -292,10 +297,10 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
+            self.INSTANCE_INFO, rtr.id, 'fake_image_id', mock.ANY)
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -309,10 +314,10 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = []
 
         self.ctx.nova_client.boot_instance.side_effect = RuntimeError
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
+            self.INSTANCE_INFO, rtr.id, 'fake_image_id', mock.ANY)
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -327,6 +332,7 @@ class TestVmManager(unittest.TestCase):
         instance = mock.sentinel.instance
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.ctx.nova_client.get_instance.return_value = instance
+
         rtr.id = 'ROUTER1'
         instance.id = 'INSTANCE1'
         rtr.management_port = management_port
@@ -334,12 +340,12 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = [management_port, external_port,
                                            internal_port]
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             self.INSTANCE_INFO,
             rtr.id,
-            'GLANCE-IMAGE-123',
+            'fake_image_id',
             mock.ANY,  # TODO(adam_g): actually test make_vrrp_ports()
         )
 
@@ -440,7 +446,7 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO
         )
-        self.log.error.assert_called_once_with(mock.ANY, 1)
+        self.log.error.assert_called_once_with(mock.ANY, mock.ANY, 1)
 
     @mock.patch('time.sleep')
     def test_stop_router_already_deleted_from_neutron(self, sleep):
@@ -685,13 +691,6 @@ class TestVmManager(unittest.TestCase):
 
         self.assertFalse(self.vm_mgr._verify_interfaces(rtr, interfaces))
 
-    def test_ensure_provider_ports(self):
-        rtr = mock.Mock()
-        rtr.external_port = None
-        self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr, self.ctx),
-                         rtr)
-        self.neutron.create_router_external_port.assert_called_once_with(rtr)
-
     def test_set_error_when_gone(self):
         self.vm_mgr.state = vm_manager.GONE
         rtr = mock.sentinel.router
@@ -743,10 +742,10 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.set_error(self.ctx)
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.vm_mgr.boot(self.ctx)
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
+            self.INSTANCE_INFO, rtr.id, 'fake_image_id', mock.ANY)
 
     def test_error_cooldown(self):
         self.conf.error_state_cooldown = 30
@@ -783,8 +782,10 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
     def setUp(self):
         self.test_vm_manager = mock.Mock(spec=('router_obj',
                                                '_last_synced_status',
-                                               'state'))
+                                               'state',
+                                               'driver'))
         self.test_context = mock.Mock()
+        self.log = mock.Mock()
 
     def test_router_is_deleted(self):
         self.test_vm_manager.router_obj = None
@@ -796,13 +797,17 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
         self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
         self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.DOWN
+        self.test_vm_manager.driver = vm_manager.RouterDriver(
+            'fake_image_id',
+            self.log
+        )
         v = vm_manager.synchronize_router_status(
             lambda vm_manager_inst, ctx, silent: 1)
-        self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
-        self.test_context.neutron.update_router_status.\
-            assert_called_once_with(
-                'ABC123',
-                neutron.STATUS_DOWN)
+        v(self.test_vm_manager, self.test_context)
+        self.test_vm_manager.driver.update_status(
+            self.test_context,
+            self.test_vm_manager.router_obj,
+            neutron.STATUS_DOWN)
         self.assertEqual(self.test_vm_manager._last_synced_status,
                          neutron.STATUS_DOWN)
 
@@ -814,6 +819,6 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
             lambda vm_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
         self.assertEqual(
-            self.test_context.neutron.update_router_status.call_count, 0)
+            self.test_context.driver.update_status.call_count, 0)
         self.assertEqual(
             self.test_vm_manager._last_synced_status, neutron.STATUS_ACTIVE)

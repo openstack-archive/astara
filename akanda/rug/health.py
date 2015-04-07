@@ -38,6 +38,7 @@ def _health_inspector(period, scheduler):
             router_id='*',
             crud=event.POLL,
             body={},
+            lbaas=False,
         )
         scheduler.handle_message('*', e)
 

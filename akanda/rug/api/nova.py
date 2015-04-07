@@ -162,7 +162,7 @@ class Nova(object):
         )
         return instance_info
 
-# TODO(mark): Convert this to dynamic yaml, proper network prefix and ssh-keys
+# TODO(david): Convert this to dynamic yaml, proper network prefix and ssh-keys
 
 TEMPLATE = """#cloud-config
 
@@ -189,7 +189,7 @@ users:
     groups: users
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
-    passwd: $6$rounds=4096$zxaBh6omTayBSA$rI1.FNliuUl7R2SMdkj7zWv.FBhqGVd1lLYDatJd6MiE9WqEQx0M.o7bLyp5nA0CxV6ahoDb0m8Y5OQMDHx1V/
+    passwd:
     lock-passwd: false
 
 final_message: "Akanda appliance is running"
