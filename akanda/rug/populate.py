@@ -48,13 +48,14 @@ def _pre_populate_workers(scheduler):
     while True:
         try:
             neutron_routers = neutron_client.get_routers(detailed=False)
+            neutron_loadbalancers = neutron_client.get_ready_loadbalancers()
             break
         except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
             LOG.warning('PrePopulateWorkers thread failed: %s', err)
             return
         except Exception as err:
             LOG.warning(
-                '%s: %s' % ('Could not fetch routers from neutron', err))
+                '%s: %s' % ('Could not fetch routers/lbs from neutron', err))
             LOG.warning('sleeping %s seconds before retrying' % nap_time)
             time.sleep(nap_time)
             # FIXME(rods): should we get max_sleep from the config file?
@@ -68,7 +69,18 @@ def _pre_populate_workers(scheduler):
             tenant_id=router.tenant_id,
             router_id=router.id,
             crud=event.POLL,
-            body={}
+            body={},
+            lbaas=False
+        )
+        scheduler.handle_message(router.tenant_id, message)
+
+    for lb in neutron_loadbalancers:
+        message = event.Event(
+            tenant_id=lb.tenant_id,
+            router_id=lb.id,
+            crud=event.POLL,
+            body={},
+            lbaas=True
         )
         scheduler.handle_message(router.tenant_id, message)
 

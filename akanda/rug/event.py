@@ -22,7 +22,7 @@ import collections
 
 Event = collections.namedtuple(
     'Event',
-    ['tenant_id', 'router_id', 'crud', 'body'],
+    ['tenant_id', 'router_id', 'crud', 'body', 'lbaas'],
 )
 
 CREATE = 'create'

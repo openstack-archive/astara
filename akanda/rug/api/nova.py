@@ -176,7 +176,7 @@ class Nova(object):
         )
         return instance_info
 
-# TODO(mark): Convert this to dynamic yaml, proper network prefix and ssh-keys
+# TODO(david): Convert this to dynamic yaml, proper network prefix and ssh-keys
 
 TEMPLATE = """#cloud-config
 

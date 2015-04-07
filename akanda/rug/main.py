@@ -110,6 +110,7 @@ def register_and_load_opts():
         cfg.StrOpt('management_subnet_id'),
         cfg.StrOpt('external_subnet_id'),
         cfg.StrOpt('router_image_uuid'),
+        cfg.StrOpt('lbaas_image_uuid'),
 
         cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
         cfg.StrOpt('external_prefix', default='172.16.77.0/24'),

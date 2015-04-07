@@ -66,6 +66,35 @@ def build_config(client, router, management_port, interfaces):
     }
 
 
+def build_lb_config(client, router, management_port, interfaces):
+    """builds lb config."""
+    networks = generate_network_config2(
+        client,
+        router,
+        management_port,
+        interfaces
+    )
+
+    lb_conf = {}
+    if router.listeners and router.listeners[0].default_pool.members:
+        lb_conf['listen_port'] = router.listeners[0].protocol_port
+        lb_conf['members'] = [
+            (str(m.address), m.protocol_port)
+            for m in router.listeners[0].default_pool.members
+        ]
+
+    d = {
+        'networks': networks,
+        'labels': {},
+        'floating_ips': [],
+        'tenant_id': router.tenant_id,
+        'hostname': router.name,
+        'loadbalancer': lb_conf
+    }
+
+    return d
+
+
 def get_default_v4_gateway(client, router, networks):
     """Find the IPv4 default gateway for the router.
     """
@@ -139,6 +168,29 @@ def generate_network_config(client, router, management_port, iface_map):
             INTERNAL_NET,
             client.get_network_ports(p.network_id))
         for p in router.internal_ports)
+
+    return retval
+
+
+def generate_network_config2(client, router, management_port, iface_map):
+
+    retval = [
+        _network_config(
+            client,
+            management_port,
+            iface_map[management_port.network_id],
+            MANAGEMENT_NET
+        )
+    ]
+
+    retval.extend(
+        _network_config(
+            client,
+            p,
+            iface_map[p.network_id],
+            INTERNAL_NET,
+            client.get_network_ports(p.network_id))
+        for p in router.ports)
 
     return retval
 

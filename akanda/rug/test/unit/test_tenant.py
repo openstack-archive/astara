@@ -55,6 +55,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='5678',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertEqual(sm.router_id, '5678')
@@ -66,6 +67,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id=None,
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertEqual(sm.router_id, self.default_router.id)
@@ -73,8 +75,7 @@ class TestTenantRouterManager(unittest.TestCase):
 
     def test_all_routers(self):
         self.trm.state_machines.state_machines = {
-            str(i): state.Automaton(str(i), '1234',
-                                    None, None, None, 5, 5)
+            str(i): state.Automaton(str(i), '1234', None, None, None, 5, 5)
             for i in range(5)
         }
         msg = event.Event(
@@ -82,6 +83,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='*',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(5, len(sms))
@@ -89,8 +91,7 @@ class TestTenantRouterManager(unittest.TestCase):
     def test_errored_routers(self):
         self.trm.state_machines.state_machines = {}
         for i in range(5):
-            sm = state.Automaton(str(i), '1234',
-                                 None, None, None, 5, 5)
+            sm = state.Automaton(str(i), '1234', None, None, None, 5, 5)
             # Replace the default mock with one that has 'state' set.
             if i == 2:
                 status = vm_manager.ERROR
@@ -103,6 +104,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='error',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(1, len(sms))
@@ -115,6 +117,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='5678',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         # First time creates...
         sm1 = self.trm.get_state_machines(msg, self.ctx)[0]
@@ -131,6 +134,7 @@ class TestTenantRouterManager(unittest.TestCase):
                 router_id=router_id,
                 crud=event.CREATE,
                 body={'key': 'value'},
+                lbaas=False,
             )
             # First time creates...
             sm1 = self.trm.get_state_machines(msg, self.ctx)[0]
@@ -141,6 +145,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='5678',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sm2 = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIs(sm2, sms['5678'])
@@ -173,6 +178,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='5678',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(sms, [])
@@ -184,6 +190,7 @@ class TestTenantRouterManager(unittest.TestCase):
             router_id='5678',
             crud=event.CREATE,
             body={'key': 'value'},
+            lbaas=False,
         )
         sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIn('5678', self.trm.state_machines)
