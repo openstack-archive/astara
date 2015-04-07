@@ -24,7 +24,7 @@ from oslo.config import cfg
 
 from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api
-from akanda.rug.api import quantum
+from akanda.rug.api import neutron
 
 DOWN = 'down'
 BOOTING = 'booting'
@@ -36,11 +36,11 @@ GONE = 'gone'
 ERROR = 'error'
 
 STATUS_MAP = {
-    DOWN: quantum.STATUS_DOWN,
-    BOOTING: quantum.STATUS_BUILD,
-    UP: quantum.STATUS_BUILD,
-    CONFIGURED: quantum.STATUS_ACTIVE,
-    ERROR: quantum.STATUS_ERROR,
+    DOWN: neutron.STATUS_DOWN,
+    BOOTING: neutron.STATUS_BUILD,
+    UP: neutron.STATUS_BUILD,
+    CONFIGURED: neutron.STATUS_ACTIVE,
+    ERROR: neutron.STATUS_ERROR,
 }
 
 
@@ -51,7 +51,7 @@ def synchronize_router_status(f):
         val = f(self, worker_context, silent)
         if not self.router_obj:
             return val
-        new_status = STATUS_MAP.get(self.state, quantum.STATUS_ERROR)
+        new_status = STATUS_MAP.get(self.state, neutron.STATUS_ERROR)
         if not old_status or old_status != new_status:
             worker_context.neutron.update_router_status(
                 self.router_obj.id,
@@ -270,12 +270,12 @@ class VmManager(object):
             # We are being told to delete a router that neutron has
             # already removed. Make a fake router object to use in
             # this method.
-            router_obj = quantum.Router(
+            router_obj = neutron.Router(
                 id_=self.router_id,
                 tenant_id=self.tenant_id,
                 name='unnamed',
                 admin_state_up=False,
-                status=quantum.STATUS_DOWN
+                status=neutron.STATUS_DOWN
             )
             self.log.info('Destroying router neutron has deleted')
         else:
@@ -395,10 +395,10 @@ class VmManager(object):
             # For each *extra* mac address on the VM...
             for mac in actual_macs - expected_macs:
                 interface_ports = map(
-                    quantum.Port.from_dict,
+                    neutron.Port.from_dict,
                     worker_context.neutron.api_client.list_ports(
                         device_id=instance.id,
-                        device_owner=quantum.DEVICE_OWNER_ROUTER_INT
+                        device_owner=neutron.DEVICE_OWNER_ROUTER_INT
                     )['ports']
                 )
                 for port in interface_ports:
@@ -450,7 +450,7 @@ class VmManager(object):
             self.router_obj = worker_context.neutron.get_router_detail(
                 self.router_id
             )
-        except quantum.RouterGone:
+        except neutron.RouterGone:
             # The router has been deleted, set our state accordingly
             # and return without doing any more work.
             self.state = GONE

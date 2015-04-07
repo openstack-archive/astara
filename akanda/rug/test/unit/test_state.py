@@ -24,7 +24,7 @@ import unittest2 as unittest
 from akanda.rug import event
 from akanda.rug import state
 from akanda.rug import vm_manager
-from akanda.rug.api.quantum import RouterGone
+from akanda.rug.api.neutron import RouterGone
 
 
 class BaseTestStateCase(unittest.TestCase):

@@ -200,7 +200,7 @@ def listen(host_id, amqp_url,
         raise RuntimeError("Error establishing connection to broker.")
     channel = connection.channel()
 
-    # The notifications coming from quantum/neutron.
+    # The notifications coming from neutron.
     notifications_exchange = kombu.entity.Exchange(
         name=notifications_exchange_name,
         type='topic',
@@ -210,7 +210,7 @@ def listen(host_id, amqp_url,
         channel=channel,
     )
 
-    # The RPC instructions coming from quantum/neutron.
+    # The RPC instructions coming from neutron.
     agent_exchange = kombu.entity.Exchange(
         name=rpc_exchange_name,
         type='fanout',

@@ -21,7 +21,7 @@ import unittest2 as unittest
 from datetime import datetime, timedelta
 
 from akanda.rug import vm_manager
-from akanda.rug.api import quantum
+from akanda.rug.api import neutron
 
 vm_manager.RETRY_DELAY = 0.4
 vm_manager.BOOT_WAIT = 1
@@ -33,7 +33,7 @@ class TestVmManager(unittest.TestCase):
 
     def setUp(self):
         self.ctx = mock.Mock()
-        self.quantum = self.ctx.neutron
+        self.neutron = self.ctx.neutron
         self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
         self.conf.boot_timeout = 1
         self.conf.akanda_mgt_service_port = 5000
@@ -81,7 +81,7 @@ class TestVmManager(unittest.TestCase):
         rtr.management_port = mock.Mock()
         rtr.external_port = mock.Mock()
         self.ctx.neutron.get_router_detail.return_value = rtr
-        n = self.quantum
+        n = self.neutron
 
         # Router state should start down
         self.vm_mgr.update_state(self.ctx)
@@ -121,7 +121,7 @@ class TestVmManager(unittest.TestCase):
         rtr.management_port = mock.Mock()
         rtr.external_port = mock.Mock()
         self.ctx.neutron.get_router_detail.return_value = rtr
-        n = self.quantum
+        n = self.neutron
 
         # Router state should start down
         self.vm_mgr.update_state(self.ctx)
@@ -483,7 +483,7 @@ class TestVmManager(unittest.TestCase):
         get_mgt_addr.return_value = 'fe80::beef'
         rtr = mock.sentinel.router
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
 
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = False
@@ -504,7 +504,7 @@ class TestVmManager(unittest.TestCase):
         get_mgt_addr.return_value = 'fe80::beef'
         rtr = {'id': 'the_id'}
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
 
         router_api.update_config.side_effect = Exception
 
@@ -515,7 +515,7 @@ class TestVmManager(unittest.TestCase):
             interfaces = router_api.get_interfaces.return_value
 
             verify.assert_called_once_with(rtr, interfaces)
-            config.assert_called_once_with(self.quantum, rtr, interfaces)
+            config.assert_called_once_with(self.neutron, rtr, interfaces)
             router_api.update_config.assert_has_calls([
                 mock.call('fe80::beef', 5000, config.return_value),
                 mock.call('fe80::beef', 5000, config.return_value),
@@ -542,7 +542,7 @@ class TestVmManager(unittest.TestCase):
         p2.mac_address = 'b:b:b:b'
         rtr.internal_ports = [p, p2]
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.router_obj = rtr
         router_api.get_interfaces.return_value = [
             {'lladdr': rtr.management_port.mac_address},
@@ -581,7 +581,7 @@ class TestVmManager(unittest.TestCase):
         p2.mac_address = 'b:b:b:b'
         rtr.internal_ports = [p, p2]
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.router_obj = rtr
         router_api.get_interfaces.return_value = [
             {'lladdr': rtr.management_port.mac_address},
@@ -628,7 +628,7 @@ class TestVmManager(unittest.TestCase):
         p2.mac_address = 'b:b:b:b'
         rtr.internal_ports = [p, p2]
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.router_obj = rtr
         router_api.get_interfaces.return_value = [
             {'lladdr': 'd:c:b:a'},
@@ -670,7 +670,7 @@ class TestVmManager(unittest.TestCase):
         p.mac_address = 'a:a:a:a'
         rtr.internal_ports = []
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.router_obj = rtr
         router_api.get_interfaces.return_value = [
             {'lladdr': rtr.management_port.mac_address},
@@ -716,7 +716,7 @@ class TestVmManager(unittest.TestCase):
         p.mac_address = 'a:a:a:a'
         rtr.internal_ports = []
 
-        self.quantum.get_router_detail.return_value = rtr
+        self.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.router_obj = rtr
         router_api.get_interfaces.return_value = [
             {'lladdr': rtr.management_port.mac_address},
@@ -787,13 +787,13 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
 
         self.vm_mgr._ensure_provider_ports(rtr, self.ctx)
-        self.quantum.create_router_management_port.assert_called_once_with(
+        self.neutron.create_router_management_port.assert_called_once_with(
             'id'
         )
 
         self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr, self.ctx),
                          rtr)
-        self.quantum.create_router_external_port.assert_called_once_with(rtr)
+        self.neutron.create_router_external_port.assert_called_once_with(rtr)
 
     def test_set_error_when_gone(self):
         self.vm_mgr.state = vm_manager.GONE
@@ -801,7 +801,7 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.set_error(self.ctx)
-        self.quantum.update_router_status.assert_called_once_with('R1',
+        self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'ERROR')
         self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
 
@@ -811,7 +811,7 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.set_error(self.ctx)
-        self.quantum.update_router_status.assert_called_once_with('R1',
+        self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'ERROR')
         self.assertEqual(vm_manager.ERROR, self.vm_mgr.state)
 
@@ -821,7 +821,7 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.clear_error(self.ctx)
-        self.quantum.update_router_status.assert_called_once_with('R1',
+        self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'ERROR')
         self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
 
@@ -831,7 +831,7 @@ class TestVmManager(unittest.TestCase):
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.vm_mgr.clear_error(self.ctx)
-        self.quantum.update_router_status.assert_called_once_with('R1',
+        self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'DOWN')
         self.assertEqual(vm_manager.DOWN, self.vm_mgr.state)
 
@@ -899,7 +899,7 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
 
     def test_router_status_changed(self):
         self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
-        self.test_vm_manager._last_synced_status = quantum.STATUS_ACTIVE
+        self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.DOWN
         v = vm_manager.synchronize_router_status(
             lambda vm_manager_inst, ctx, silent: 1)
@@ -907,13 +907,13 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
         self.test_context.neutron.update_router_status.\
             assert_called_once_with(
                 'ABC123',
-                quantum.STATUS_DOWN)
+                neutron.STATUS_DOWN)
         self.assertEqual(self.test_vm_manager._last_synced_status,
-                         quantum.STATUS_DOWN)
+                         neutron.STATUS_DOWN)
 
     def test_router_status_same(self):
         self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
-        self.test_vm_manager._last_synced_status = quantum.STATUS_ACTIVE
+        self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.CONFIGURED
         v = vm_manager.synchronize_router_status(
             lambda vm_manager_inst, ctx, silent: 1)
@@ -921,4 +921,4 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
         self.assertEqual(
             self.test_context.neutron.update_router_status.call_count, 0)
         self.assertEqual(
-            self.test_vm_manager._last_synced_status, quantum.STATUS_ACTIVE)
+            self.test_vm_manager._last_synced_status, neutron.STATUS_ACTIVE)

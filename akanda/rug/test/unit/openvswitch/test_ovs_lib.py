@@ -45,7 +45,7 @@ def generate_uuid():
 
 class OVS_Lib_Test(unittest.TestCase):
     """
-    A test suite to excercise the OVS libraries shared by Quantum agents.
+    A test suite to excercise the OVS libraries shared by Neutron agents.
     Note: these tests do not actually execute ovs-* utilities, and thus
     can run on any system.  That does, however, limit their scope.
     """
@@ -343,7 +343,7 @@ class OVS_Lib_Test(unittest.TestCase):
         self.br.delete_ports(all_ports=True)
         self.mox.VerifyAll()
 
-    def test_delete_quantum_ports(self):
+    def test_delete_neutron_ports(self):
         port1 = ovs_lib.VifPort('tap1234', 1, generate_uuid(),
                                 'ca:fe:de:ad:be:ef', 'br')
         port2 = ovs_lib.VifPort('tap5678', 2, generate_uuid(),

@@ -31,7 +31,7 @@ from oslo.config import cfg
 
 from akanda.rug import commands
 from akanda.rug.api import nova as nova_api
-from akanda.rug.api import quantum as quantum_api
+from akanda.rug.api import neutron as neutron_api
 from akanda.rug.cli import message
 
 logging.getLogger("urllib3").setLevel(logging.ERROR)
@@ -86,7 +86,7 @@ class RouterFetcher(object):
         self.conn = sqlite3.connect(self.db)
         self.conn.row_factory = RouterRow.from_cursor
         self.nova = nova_api.Nova(conf)
-        self.quantum = quantum_api.Quantum(conf)
+        self.neutron = neutron_api.Neutron(conf)
         self.nova_queue = Queue.Queue()
         self.save_queue = Queue.Queue()
 
@@ -103,7 +103,7 @@ class RouterFetcher(object):
             t.start()
 
     def fetch(self):
-        routers = self.quantum.get_routers(detailed=False)
+        routers = self.neutron.get_routers(detailed=False)
         routers.sort(key=lambda x: x.id)
         for router in routers:
             sql = ''.join([

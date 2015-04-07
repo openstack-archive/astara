@@ -18,4 +18,4 @@
 import gettext
 
 
-gettext.install('quantum', unicode=1)
+gettext.install('neutron', unicode=1)
