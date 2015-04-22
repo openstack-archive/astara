@@ -137,6 +137,8 @@ class RouterManage(_TenantRouterCmd):
 class RouterSSH(_TenantRouterCmd):
     """ssh into a router over the management network"""
 
+    interactive = True
+
     def get_parser(self, prog_name):
         p = super(RouterSSH, self).get_parser(prog_name)
         p.add_argument('remainder', nargs=argparse.REMAINDER)

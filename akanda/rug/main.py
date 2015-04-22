@@ -275,6 +275,14 @@ def main(argv=sys.argv[1:]):
     )
     metadata_proc.start()
 
+    from akanda.rug.api import rug as rug_api
+    rug_api_proc = multiprocessing.Process(
+        target=rug_api.serve,
+        args=(mgt_ip_address,),
+        name='rug-api'
+    )
+    rug_api_proc.start()
+
     # Set up the notifications publisher
     Publisher = (notifications.Publisher if cfg.CONF.ceilometer.enabled
                  else notifications.NoopPublisher)
