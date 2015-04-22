@@ -30,6 +30,7 @@ class MessageSending(command.Command):
     __metaclass__ = abc.ABCMeta
 
     log = logging.getLogger(__name__)
+    interactive = False
 
     @abc.abstractmethod
     def make_message(self, parsed_args):
