@@ -200,6 +200,8 @@ def populate_routers(db, conf, workers):
 class BrowseRouters(message.MessageSending):
 
     log = logging.getLogger(__name__)
+    interactive = True
+
     SCHEMA = '''CREATE TABLE routers (
         id TEXT PRIMARY KEY,
         name TEXT,
