@@ -23,7 +23,7 @@ import sys
 
 from akanda.rug import commands
 from akanda.rug.cli import message
-from akanda.rug.api import nova, quantum
+from akanda.rug.api import nova, neutron
 
 from novaclient import exceptions
 from oslo.config import cfg
@@ -155,7 +155,7 @@ class RouterSSH(_TenantRouterCmd):
         ports = n_c.show_router(router_id).get('router', {}).get('ports', {})
         for port in ports:
             if port['fixed_ips'] and \
-               port['device_owner'] == quantum.DEVICE_OWNER_ROUTER_MGT:
+               port['device_owner'] == neutron.DEVICE_OWNER_ROUTER_MGT:
                 v6_addr = port['fixed_ips'].pop()['ip_address']
                 try:
                     cmd = ["ssh", "root@%s" % v6_addr] + parsed_args.remainder
