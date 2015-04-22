@@ -43,6 +43,7 @@ class RugController(app.App):
         # Quiet logging for some request library
         logging.getLogger('requests').setLevel(logging.WARN)
         main.register_and_load_opts()
+        self.log.debug('akanda-rug arguments have already been parsed')
         # Don't pass argv here because cfg.CONF will intercept the
         # help options and exit.
         cfg.CONF(['--config-file', '/etc/akanda-rug/rug.ini'],
