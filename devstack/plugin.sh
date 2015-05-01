@@ -2,10 +2,21 @@
 
 # Set up default directories
 AKANDA_NEUTRON_DIR=$DEST/akanda-neutron
-AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://git.openstack.org/stackforge/akanda-neutron.git}
+AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/stackforge/akanda-neutron.git}
 AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
 
-AKANDA_DEV_APPLIANCE=${AKANDA_DEV_APPLIANCE:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
+AKANDA_APPLIANCE_DIR=$DEST/akanda-appliance
+AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/stackforge/akanda-appliance.git}
+AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-master}
+
+AKANDA_APPLIANCE_BUILDER_DIR=$DEST/akanda-appliance-builder
+AKANDA_APPLIANCE_BUILDER_REPO=${AKANDA_APPLIANCE_BUILDER_REPO:-http://github.com/stackforge/akanda-appliance-builder.git}
+AKANDA_APPLIANCE_BUILDER_BRANCH=${AKANDA_APPLIANCE_BUILDER_BRANCH:-master}
+
+BUILD_AKANDA_DEV_APPLIANCE=${BUILD_AKANDA_DEV_APPLIANCE:-False}
+AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
+AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
+AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
 
 AKANDA_CONF_DIR=/etc/akanda-rug
 AKANDA_RUG_CONF=$AKANDA_CONF_DIR/rug.ini
@@ -62,8 +73,12 @@ function install_akanda() {
 
     git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
     setup_develop $AKANDA_NEUTRON_DIR
-
     setup_develop $AKANDA_RUG_DIR
+
+    if [ "$BUILD_AKANDA_DEV_APPLIANCE" == "True" ]; then
+        git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
+        git_clone $AKANDA_APPLIANCE_BUILDER_REPO $AKANDA_APPLIANCE_BUILDER_DIR $AKANDA_APPLIANCE_BUILDER_BRANCH
+    fi
 }
 
 function _remove_subnets() {
@@ -111,12 +126,30 @@ function pre_start_akanda() {
     neutron $auth_args subnet-delete $PRIVATE_SUBNET_NAME
     neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
+    local akanda_dev_image_src=""
+    if [ "$BUILD_AKANDA_DEV_APPLIANCE" == "True" ]; then
+        if [[ $(type -P disk-image-create) == "" ]]; then
+            pip_install "diskimage-builder<0.1.43"
+        fi
+        # TODO(adam_g): The DIB element pulls akanda-appliance repo directly
+        # from stackforge during the build.  We need to be able to optionally
+        # point this to a local checkout or specific remote repo+gitref for
+        # testing proposed changes.
+        http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
+        ELEMENTS_PATH=$AKANDA_APPLIANCE_BUILDER_DIR/diskimage-builder/elements \
+        DIB_RELEASE=wheezy DIB_EXTLINUX=1 disk-image-create debian vm akanda \
+        -o $TOP_DIR/files/akanda
+        akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_FILE
+    else
+        akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_URL
+    fi
+
     TOKEN=$(keystone token-get | grep ' id ' | get_field 2)
     die_if_not_set $LINENO TOKEN "Keystone fail to get token"
+    upload_image $akanda_dev_image_src $TOKEN
 
-    upload_image $AKANDA_DEV_APPLIANCE $TOKEN
-
-    typeset image_id=$(glance $auth_args image-show akanda_cloud | grep ' id ' | awk '{print $4}')
+    local image_name=$(basename $akanda_dev_image_src | cut -d. -f1)
+    typeset image_id=$(glance $auth_args image-show $image_name | grep ' id ' | awk '{print $4}')
 
     die_if_not_set $LINENO image_id "Failed to find akanda image"
     iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
