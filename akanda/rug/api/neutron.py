@@ -24,6 +24,7 @@ import uuid
 import netaddr
 from oslo.config import cfg
 from neutronclient.v2_0 import client
+from neutronclient.common import exceptions as nc_exceptions
 
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.openstack.common import importutils
@@ -343,6 +344,66 @@ class Neutron(object):
             'MGT'
         )
 
+    def ensure_management_security_group_rules(self, security_group_id):
+        ports = [22, cfg.CONF.akanda_mgt_service_port]
+        ethertypes = ['ipv4', 'ipv6']
+        for port, ethertype in itertools.product(ports, ethertypes):
+            LOG.debug('Ensuring security group rule for %s/%s on group %s.',
+                      port, ethertype, security_group_id)
+            sec_group_rule_dict = dict(
+                direction='ingress',
+                ethertype=ethertype,
+                security_group_id=security_group_id,
+                port_range_min=port,
+                port_range_max=port,
+                protocol='tcp')
+            try:
+                self.api_client.create_security_group_rule(dict(
+                    security_group_rule=sec_group_rule_dict
+                ))
+            except nc_exceptions.Conflict:
+                pass
+
+        for ethertype in ethertypes:
+            LOG.debug('Ensuring security group rule for ICMP on group %s.',
+                      security_group_id)
+            sec_group_rule_dict = dict(
+                direction='ingress',
+                ethertype=ethertype,
+                security_group_id=security_group_id,
+                protocol='icmp')
+            try:
+                self.api_client.create_security_group_rule(dict(
+                    security_group_rule=sec_group_rule_dict
+                ))
+            except nc_exceptions.Conflict:
+                pass
+
+    def ensure_management_security_group(self, label):
+        sec_group_name = 'AKANDA:%s' % label
+        sec_group = self.api_client.list_security_groups(
+            name=sec_group_name)['security_groups']
+
+        # TODO(adam_g): Handle duplicate groups better?
+        if sec_group:
+            sec_group_id = sec_group[0]['id']
+            LOG.debug('Using existing management security group %s (%s).',
+                      sec_group_name, sec_group_id)
+        else:
+            sec_group_dict = dict(name=sec_group_name)
+            sec_group = self.api_client.create_security_group(
+                dict(security_group=sec_group_dict)).get('security_group')
+            sec_group_id = sec_group[0]['id']
+            LOG.debug('Created new management security group %s (%s).',
+                      sec_group_name, sec_group_id)
+        self.ensure_management_security_group_rules(sec_group_id)
+        return sec_group_id
+
+    def get_management_security_groups(self, label):
+        sec_group = self.ensure_management_security_group(label)
+        return ([sec_group] +
+                (cfg.CONF.management_extra_security_group_ids or []))
+
     def create_vrrp_port(self, object_id, network_id, label='VRRP'):
         port_dict = dict(
             admin_state_up=True,
@@ -353,6 +414,10 @@ class Neutron(object):
 
         if label == 'VRRP':
             port_dict['fixed_ips'] = []
+            port_dict['security_groups'] = []
+        elif label == 'MGT':
+            port_dict['security_groups'] = self.get_management_security_groups(
+                label)
 
         response = self.api_client.create_port(dict(port=port_dict))
         port_data = response.get('port')

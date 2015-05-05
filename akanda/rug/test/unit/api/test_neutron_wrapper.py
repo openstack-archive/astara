@@ -471,3 +471,187 @@ class TestExternalPort(unittest.TestCase):
                 self.assertEqual(6, e.missing[1][0])
             else:
                 self.fail('Should have seen MissingIPAllocation')
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_create_vrrp_port_vrrp_label(self, client_wrapper):
+        expected_port_dict = {
+            'port': {
+                'network_id': '1111',
+                'fixed_ips': [],
+                'name': 'AKANDA:VRRP:0000',
+                'security_groups': [],
+                'admin_state_up': True}
+        }
+
+        fake_client = mock.MagicMock()
+        client_wrapper.return_value = fake_client
+
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.create_vrrp_port(
+            object_id='0000',
+            network_id=expected_port_dict['port']['network_id'],
+            label='VRRP')
+        fake_client.create_port.assert_called_with(expected_port_dict)
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_create_vrrp_port_mgt_label(self, client_wrapper):
+        expected_port_dict = {
+            'port': {
+                'network_id': '1111',
+                'name': 'AKANDA:MGT:0000',
+                'security_groups': 'fake_secgroup',
+                'admin_state_up': True}
+        }
+
+        fake_client = mock.MagicMock()
+        client_wrapper.return_value = fake_client
+
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.get_management_security_groups = mock.MagicMock(
+            return_value='fake_secgroup')
+        neutron_wrapper.create_vrrp_port(
+            object_id='0000',
+            network_id=expected_port_dict['port']['network_id'],
+            label='MGT')
+        neutron_wrapper.get_management_security_groups.assert_called_once_with(
+            'MGT'
+        )
+        fake_client.create_port.assert_called_with(expected_port_dict)
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_create_vrrp_port_failed(self, client_wrapper):
+        expected_port_dict = {
+            'port': {
+                'network_id': '1111',
+                'fixed_ips': [],
+                'name': 'AKANDA:VRRP:0000',
+                'security_groups': [],
+                'admin_state_up': True}
+        }
+
+        fake_client = mock.MagicMock(
+            create_port=mock.MagicMock(return_value={'port': []})
+        )
+        client_wrapper.return_value = fake_client
+
+        neutron_wrapper = neutron.Neutron(self.conf)
+        self.assertRaises(
+            ValueError,
+            neutron_wrapper.create_vrrp_port,
+            object_id='0000',
+            network_id=expected_port_dict['port']['network_id'],
+            label='VRRP')
+        fake_client.create_port.assert_called_with(expected_port_dict)
+
+    def test_get_management_security_groups(self):
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.ensure_management_security_group = mock.MagicMock(
+            return_value='fake_mgt_security_group'
+        )
+        result = neutron_wrapper.get_management_security_groups('MGT')
+        self.assertEqual(result, ['fake_mgt_security_group'])
+
+    @mock.patch('akanda.rug.api.neutron.cfg')
+    def test_get_management_security_groups_with_user_specified(self, cfg):
+        cfg.CONF.management_extra_security_group_ids = [
+            'foo_group', 'bar_group'
+        ]
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.ensure_management_security_group = mock.MagicMock(
+            return_value='fake_mgt_security_group'
+        )
+        result = neutron_wrapper.get_management_security_groups('MGT')
+        self.assertEqual(set(result),
+                         set(['foo_group', 'bar_group',
+                             'fake_mgt_security_group']))
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_ensure_management_security_groups_exists(self, client_wrapper):
+        fake_client = mock.MagicMock(
+            list_security_groups=mock.MagicMock(
+                return_value={'security_groups': [{'id': 'foo_group_id'}]}),
+            create_security_group=mock.MagicMock()
+        )
+        client_wrapper.return_value = fake_client
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.ensure_management_security_groups = mock.MagicMock()
+        _ensure = mock.MagicMock()
+        neutron_wrapper.ensure_management_security_group_rules = _ensure
+        result = neutron_wrapper.ensure_management_security_group(label='MGT')
+        self.assertEqual(result, 'foo_group_id')
+        neutron_wrapper.ensure_management_security_group_rules.\
+            assert_called_once_with('foo_group_id')
+        self.assertFalse(fake_client.create_security_group.called)
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_ensure_management_security_groups_created(self, client_wrapper):
+        fake_client = mock.MagicMock(
+            list_security_groups=mock.MagicMock(
+                return_value={'security_groups': []}),
+            create_security_group=mock.MagicMock(
+                return_value={'security_group': [{'id': 'foo_group_id'}]}),
+        )
+        client_wrapper.return_value = fake_client
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.ensure_management_security_groups = mock.MagicMock()
+        _ensure = mock.MagicMock()
+        neutron_wrapper.ensure_management_security_group_rules = _ensure
+        result = neutron_wrapper.ensure_management_security_group(label='MGT')
+        self.assertEqual(result, 'foo_group_id')
+        neutron_wrapper.ensure_management_security_group_rules.\
+            assert_called_once_with('foo_group_id')
+        fake_client.create_security_group.assert_called_once_with(
+            {'security_group': {'name': 'AKANDA:MGT'}})
+
+    @mock.patch('akanda.rug.api.neutron.cfg')
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_ensure_management_security_group_rules(self, client_wrapper, cfg):
+        gid = 'foo_group_id'
+        api_port = '100'
+        cfg.CONF.akanda_mgt_service_port = api_port
+        fake_client = mock.MagicMock(
+            create_security_group_rule=mock.MagicMock()
+        )
+        client_wrapper.return_value = fake_client
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.ensure_management_security_groups = mock.MagicMock()
+        neutron_wrapper.ensure_management_security_group_rules(gid)
+        expected_rules = [
+            {
+                'direction': 'ingress', 'protocol': 'tcp', 'ethertype': 'ipv4',
+                'port_range_max': 22, 'port_range_min': 22,
+                'security_group_id': gid
+
+            },
+            {
+                'direction': 'ingress', 'protocol': 'tcp', 'ethertype': 'ipv6',
+                'port_range_max': 22, 'port_range_min': 22,
+                'security_group_id': gid
+
+            },
+            {
+                'direction': 'ingress', 'protocol': 'tcp', 'ethertype': 'ipv4',
+                'port_range_max': api_port, 'port_range_min': api_port,
+                'security_group_id': gid
+
+            },
+            {
+                'direction': 'ingress', 'protocol': 'tcp', 'ethertype': 'ipv6',
+                'port_range_max': api_port, 'port_range_min': api_port,
+                'security_group_id': gid
+            },
+            {
+                'direction': 'ingress', 'protocol': 'icmp',
+                'ethertype': 'ipv6', 'security_group_id': gid
+            },
+            {
+                'direction': 'ingress', 'protocol': 'icmp',
+                'ethertype': 'ipv4', 'security_group_id': gid
+            },
+        ]
+        for rule in expected_rules:
+            arg = {'security_group_rule': rule}
+            self.assertIn(
+                mock.call(arg),
+                fake_client.create_security_group_rule.call_args_list
+            )
