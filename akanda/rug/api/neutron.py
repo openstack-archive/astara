@@ -343,6 +343,48 @@ class Neutron(object):
             'MGT'
         )
 
+    def create_management_security_group_rules(self, security_group_id):
+        # TODO(adam_g): Don't create ipv6 rules if its not deployed?
+        #               Only worry about creating port for mgt port?
+        ports = [22, cfg.CONF.akanda_mgt_service_port]
+        ethertypes = ['ipv4', 'ipv6']
+        for port, ethertype in itertools.product(ports, ethertypes):
+            LOG.debug('Creating %s security group rule for port %s',
+                      ethertype, port)
+            sec_group_rule_dict = dict(
+                direction='ingress',
+                ethertype=ethertype,
+                security_group_id=security_group_id,
+                port_range_min=port,
+                port_range_max=port,
+                protocol='tcp')
+            self.api_client.create_security_group_rule(dict(
+                security_group_rule=sec_group_rule_dict
+            ))
+
+        for ethertype in ethertypes:
+            LOG.debug('Creating %s security group rule for ICMP traffic.',
+                      ethertype)
+            sec_group_rule_dict = dict(
+                direction='ingress',
+                ethertype=ethertype,
+                security_group_id=security_group_id,
+                protocol='icmp')
+            self.api_client.create_security_group_rule(dict(
+                security_group_rule=sec_group_rule_dict
+            ))
+
+    def create_management_security_group(self, label, object_id):
+        sec_group_dict = dict(name='AKANDA:%s:%s' % (label, object_id))
+        sec_group = self.api_client.create_security_group(
+            dict(security_group=sec_group_dict)).get('security_group')
+        self.create_management_security_group_rules(sec_group['id'])
+        return sec_group['id']
+
+    def get_management_security_groups(self, label, object_id):
+        sec_group = self.create_management_security_group(label, object_id)
+        return [sec_group] + (cfg.CONF.management_extra_security_group_ids or [])
+
     def create_vrrp_port(self, object_id, network_id, label='VRRP'):
         port_dict = dict(
             admin_state_up=True,
@@ -353,6 +395,10 @@ class Neutron(object):
 
         if label == 'VRRP':
             port_dict['fixed_ips'] = []
+            port_dict['security_groups'] = []
+        elif label == 'MGT':
+            port_dict['security_groups'] = self.get_management_security_groups(
+                label, object_id)
 
         response = self.api_client.create_port(dict(port=port_dict))
         port_data = response.get('port')
