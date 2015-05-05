@@ -106,6 +106,7 @@ def register_and_load_opts():
         cfg.StrOpt('auth_region'),
 
         cfg.StrOpt('management_network_id'),
+        cfg.ListOpt('management_extra_security_group_ids'),
         cfg.StrOpt('external_network_id'),
         cfg.StrOpt('management_subnet_id'),
         cfg.StrOpt('external_subnet_id'),
