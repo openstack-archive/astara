@@ -311,6 +311,7 @@ class VmManager(object):
             return
 
         # FIXME: This should raise an explicit exception so the caller
+
         # knows that we could not talk to the router (versus the issue
         # above).
         interfaces = router_api.get_interfaces(
