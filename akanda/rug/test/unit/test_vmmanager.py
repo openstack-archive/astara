@@ -21,12 +21,25 @@ import unittest2 as unittest
 from datetime import datetime, timedelta
 
 from akanda.rug import vm_manager
-from akanda.rug.api import neutron
+from akanda.rug.api import neutron, nova
 
 vm_manager.RETRY_DELAY = 0.4
 vm_manager.BOOT_WAIT = 1
 
 LOG = logging.getLogger(__name__)
+
+
+class FakeModel(object):
+    def __init__(self, id_, **kwargs):
+        self.id = id_
+        self.__dict__.update(kwargs)
+
+
+fake_mgt_port = FakeModel(
+    '1',
+    mac_address='aa:bb:cc:dd:ee:ff',
+    network_id='ext-net',
+    fixed_ips=[FakeModel('', ip_address='9.9.9.9', subnet_id='s2')])
 
 
 class TestVmManager(unittest.TestCase):
@@ -46,9 +59,22 @@ class TestVmManager(unittest.TestCase):
             'update_state'
         )
 
+
+
+        self.INSTANCE_INFO = nova.InstanceInfo(
+            instance_id='fake_instance_id',
+            name='fake_name',
+            image_uuid='fake_image_id',
+            booting=False,
+            last_boot = datetime.utcnow() - timedelta(minutes=15),
+            ports=(),
+            management_port=fake_mgt_port,
+        )
+
         self.mock_update_state = self.update_state_p.start()
         self.vm_mgr = vm_manager.VmManager('the_id', 'tenant_id',
                                            self.log, self.ctx)
+        self.vm_mgr.instance_info = self.INSTANCE_INFO
         mock.patch.object(self.vm_mgr, '_ensure_cache', mock.Mock)
 
         self.next_state = None
@@ -134,11 +160,11 @@ class TestVmManager(unittest.TestCase):
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_boot_timeout_still_booting(self, get_mgt_addr, router_api, sleep):
-        self.vm_mgr.last_boot = datetime.utcnow()
+    def test_boot_timeout_still_booting(self, router_api, sleep):
+        now = datetime.utcnow()
+        self.INSTANCE_INFO.last_boot = now
+        self.vm_mgr.last_boot = now
         self.update_state_p.stop()
-        get_mgt_addr.return_value = 'fe80::beef'
         router_api.is_alive.return_value = False
 
         self.assertEqual(
@@ -146,19 +172,17 @@ class TestVmManager(unittest.TestCase):
             vm_manager.BOOTING
         )
         router_api.is_alive.assert_has_calls([
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000)
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
         ])
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_boot_timeout_error(self, get_mgt_addr, router_api, sleep):
+    def test_boot_timeout_error(self, router_api, sleep):
         self.vm_mgr.state = vm_manager.ERROR
         self.vm_mgr.last_boot = datetime.utcnow()
         self.update_state_p.stop()
-        get_mgt_addr.return_value = 'fe80::beef'
         router_api.is_alive.return_value = False
 
         self.assertEqual(
@@ -166,20 +190,17 @@ class TestVmManager(unittest.TestCase):
             vm_manager.ERROR,
         )
         router_api.is_alive.assert_has_calls([
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000)
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
         ])
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_boot_timeout_error_no_last_boot(self, get_mgt_addr, router_api,
-                                             sleep):
+    def test_boot_timeout_error_no_last_boot(self, router_api, sleep):
         self.vm_mgr.state = vm_manager.ERROR
         self.vm_mgr.last_boot = None
         self.update_state_p.stop()
-        get_mgt_addr.return_value = 'fe80::beef'
         router_api.is_alive.return_value = False
 
         self.assertEqual(
@@ -187,25 +208,23 @@ class TestVmManager(unittest.TestCase):
             vm_manager.ERROR,
         )
         router_api.is_alive.assert_has_calls([
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000)
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
         ])
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_boot_timeout(self, get_mgt_addr, router_api, sleep):
+    def test_boot_timeout(self, router_api, sleep):
         self.vm_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
         self.update_state_p.stop()
-        get_mgt_addr.return_value = 'fe80::beef'
         router_api.is_alive.return_value = False
 
         self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
         router_api.is_alive.assert_has_calls([
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000),
-            mock.call('fe80::beef', 5000)
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
+            mock.call(self.INSTANCE_INFO.management_address, 5000),
         ])
         self.vm_mgr.log.info.assert_called_once_with(
             mock.ANY,
@@ -266,10 +285,10 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
-        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj,
-            'GLANCE-IMAGE-123'
-        )
+#        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
+#            self.vm_mgr.router_obj,
+#            'GLANCE-IMAGE-123'
+#        )
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -284,10 +303,10 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)
-        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj,
-            'GLANCE-IMAGE-123'
-        )
+#        self.ctx.nova_client.boot_instance.assert_called_once_with(
+#            self.vm_mgr.router_obj,
+#            'GLANCE-IMAGE-123'
+#        )
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -300,13 +319,13 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
 
-        self.ctx.nova_client.reboot_router_instance.side_effect = RuntimeError
+        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
-        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj,
-            'GLANCE-IMAGE-123'
-        )
+#        self.ctx.nova_client.boot_instance.assert_called_once_with(
+#            self.vm_mgr.router_obj,
+#            'GLANCE-IMAGE-123'
+#        )
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -330,16 +349,12 @@ class TestVmManager(unittest.TestCase):
                                            internal_port]
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
-        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj,
-            'GLANCE-IMAGE-123'
+        self.ctx.nova_client.boot_instance.assert_called_once_with(
+            self.INSTANCE_INFO,
+            rtr.id,
+            'GLANCE-IMAGE-123',
+            mock.ANY,  # TODO(adam_g): actually test make_vrrp_ports()
         )
-        assert self.ctx.neutron.clear_device_id.call_count == 3
-        self.ctx.neutron.clear_device_id.assert_has_calls([
-            mock.call(management_port),
-            mock.call(external_port),
-            mock.call(internal_port)
-        ], any_order=True)
 
     def test_boot_check_up(self):
         with mock.patch.object(
@@ -454,33 +469,27 @@ class TestVmManager(unittest.TestCase):
         self.assertEqual(self.vm_mgr.state, vm_manager.GONE)
 
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
     @mock.patch('akanda.rug.api.configuration.build_config')
-    def test_configure_success(self, config, get_mgt_addr, router_api):
-        get_mgt_addr.return_value = 'fe80::beef'
+    def test_configure_success(self, config, router_api):
         rtr = mock.sentinel.router
 
         self.ctx.neutron.get_router_detail.return_value = rtr
+        config.return_value = 'fake_config'
+        router_api.get_interfaces.return_value = []
 
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True
             self.vm_mgr.configure(self.ctx)
 
-            interfaces = router_api.get_interfaces.return_value
-
-            verify.assert_called_once_with(rtr, interfaces)
-            config.assert_called_once_with(self.ctx.neutron, rtr, interfaces)
+            verify.assert_called_once_with(rtr, [])
+            config.assert_called_once_with(self.ctx.neutron, rtr, fake_mgt_port, {})
             router_api.update_config.assert_called_once_with(
-                'fe80::beef',
-                5000,
-                config.return_value
+                self.INSTANCE_INFO.management_address, 5000, 'fake_config',
             )
             self.assertEqual(self.vm_mgr.state, vm_manager.CONFIGURED)
 
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_configure_mismatched_interfaces(self, get_mgt_addr, router_api):
-        get_mgt_addr.return_value = 'fe80::beef'
+    def test_configure_mismatched_interfaces(self, router_api):
         rtr = mock.sentinel.router
 
         self.neutron.get_router_detail.return_value = rtr
@@ -498,29 +507,27 @@ class TestVmManager(unittest.TestCase):
 
     @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
     @mock.patch('akanda.rug.api.configuration.build_config')
-    def test_configure_failure(self, config, get_mgt_addr, router_api, sleep):
-        get_mgt_addr.return_value = 'fe80::beef'
+    def test_configure_failure(self, config, router_api, sleep):
         rtr = {'id': 'the_id'}
 
         self.neutron.get_router_detail.return_value = rtr
 
         router_api.update_config.side_effect = Exception
+        config.return_value = 'fake_config'
 
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True
             self.vm_mgr.configure(self.ctx)
 
             interfaces = router_api.get_interfaces.return_value
-
             verify.assert_called_once_with(rtr, interfaces)
-            config.assert_called_once_with(self.neutron, rtr, interfaces)
-            router_api.update_config.assert_has_calls([
-                mock.call('fe80::beef', 5000, config.return_value),
-                mock.call('fe80::beef', 5000, config.return_value),
-                mock.call('fe80::beef', 5000, config.return_value),
-            ])
+
+            config.assert_called_once_with(self.neutron, rtr, fake_mgt_port, {})
+            expected_calls = [
+                mock.call(self.INSTANCE_INFO.management_address, 5000,
+                'fake_config') for i in range(0, 2)]
+            router_api.update_config.assert_has_calls(expected_calls)
             self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
 
     @mock.patch('time.sleep', lambda *a: None)
@@ -564,10 +571,8 @@ class TestVmManager(unittest.TestCase):
 
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
-    @mock.patch('akanda.rug.vm_manager._get_management_address')
-    def test_replug_add_new_port_failure(self, get_mgt_addr, router_api):
+    def test_replug_add_new_port_failure(self, router_api):
         self.vm_mgr.state = vm_manager.REPLUG
-        get_mgt_addr.return_value = 'fe80::beef'
         rtr = mock.sentinel.router
         rtr.management_port = mock.Mock()
         rtr.external_port = mock.Mock()
@@ -782,15 +787,7 @@ class TestVmManager(unittest.TestCase):
 
     def test_ensure_provider_ports(self):
         rtr = mock.Mock()
-        rtr.id = 'id'
-        rtr.management_port = None
         rtr.external_port = None
-
-        self.vm_mgr._ensure_provider_ports(rtr, self.ctx)
-        self.neutron.create_router_management_port.assert_called_once_with(
-            'id'
-        )
-
         self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr, self.ctx),
                          rtr)
         self.neutron.create_router_external_port.assert_called_once_with(rtr)
@@ -848,10 +845,10 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.set_error(self.ctx)
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
-        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-            self.vm_mgr.router_obj,
-            'GLANCE-IMAGE-123'
-        )
+#        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
+#            self.vm_mgr.router_obj,
+#            'GLANCE-IMAGE-123'
+#        )
 
     def test_error_cooldown(self):
         self.conf.error_state_cooldown = 30
