@@ -29,12 +29,12 @@ from akanda.rug import notifications
 from akanda.rug import vm_manager
 from akanda.rug import worker
 
+from akanda.rug.api import neutron
 
-class TestCreatingRouter(unittest.TestCase):
 
+class WorkerTestBase(unittest.TestCase):
     def setUp(self):
-        super(TestCreatingRouter, self).setUp()
-
+        super(WorkerTestBase, self).setUp()
         self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
         self.conf.boot_timeout = 1
         self.conf.akanda_mgt_service_port = 5000
@@ -42,9 +42,19 @@ class TestCreatingRouter(unittest.TestCase):
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
         mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
+        fake_neutron_obj = mock.patch.object(
+            neutron, 'Neutron', autospec=True).start()
+        fake_neutron_obj.get_ports_for_instance.return_value = (
+            'mgt_port', ['ext_port', 'int_port'])
 
+        fake_neutron = mock.patch.object(neutron, 'Neutron', return_value=fake_neutron_obj).start()
+        self.w = worker.Worker(0, mock.Mock())
         self.addCleanup(mock.patch.stopall)
+
+
+class TestCreatingRouter(WorkerTestBase):
+    def setUp(self):
+        super(TestCreatingRouter, self).setUp()
 
         self.w = worker.Worker(0, mock.Mock())
         self.tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
@@ -73,21 +83,10 @@ class TestCreatingRouter(unittest.TestCase):
         self.assertEqual(1, len(sm._queue))
 
 
-class TestWildcardMessages(unittest.TestCase):
+class TestWildcardMessages(WorkerTestBase):
 
     def setUp(self):
         super(TestWildcardMessages, self).setUp()
-
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-
-        self.addCleanup(mock.patch.stopall)
 
         self.w = worker.Worker(0, mock.Mock())
         # Create some tenants
@@ -125,14 +124,7 @@ class TestWildcardMessages(unittest.TestCase):
                          ids)
 
 
-class TestShutdown(unittest.TestCase):
-
-    def setUp(self):
-        super(TestShutdown, self).setUp()
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-        self.addCleanup(mock.patch.stopall)
-
+class TestShutdown(WorkerTestBase):
     def test_shutdown_on_null_message(self):
         self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, '_shutdown') as meth:
@@ -159,23 +151,10 @@ class TestShutdown(unittest.TestCase):
         self.assertFalse(self.w.notifier._t)
 
 
-class TestUpdateStateMachine(unittest.TestCase):
-
+class TestUpdateStateMachine(WorkerTestBase):
     def setUp(self):
         super(TestUpdateStateMachine, self).setUp()
-
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-
         self.worker_context = worker.WorkerContext()
-
-        self.addCleanup(mock.patch.stopall)
 
     def test(self):
         w = worker.Worker(0, mock.Mock())
@@ -205,14 +184,7 @@ class TestUpdateStateMachine(unittest.TestCase):
             meth.assert_called_once_with(used_context)
 
 
-class TestReportStatus(unittest.TestCase):
-
-    def setUp(self):
-        super(TestReportStatus, self).setUp()
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-        self.addCleanup(mock.patch.stopall)
-
+class TestReportStatus(WorkerTestBase):
     def test_report_status_dispatched(self):
         self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, 'report_status') as meth:
@@ -234,7 +206,7 @@ class TestReportStatus(unittest.TestCase):
             self.assertTrue(conf.log_opt_values.called)
 
 
-class TestDebugRouters(unittest.TestCase):
+class TestDebugRouters(WorkerTestBase):
 
     def setUp(self):
         super(TestDebugRouters, self).setUp()
@@ -244,9 +216,6 @@ class TestDebugRouters(unittest.TestCase):
         self.conf.akanda_mgt_service_port = 5000
         self.conf.max_retries = 3
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
 
         self.w = worker.Worker(0, mock.Mock())
 
@@ -321,7 +290,7 @@ class TestDebugRouters(unittest.TestCase):
             self.w.handle_message(tenant_id, msg)
 
 
-class TestIgnoreRouters(unittest.TestCase):
+class TestIgnoreRouters(WorkerTestBase):
 
     def setUp(self):
         super(TestIgnoreRouters, self).setUp()
@@ -332,10 +301,6 @@ class TestIgnoreRouters(unittest.TestCase):
         self.conf.max_retries = 3
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-
-        self.addCleanup(mock.patch.stopall)
 
     def testNoIgnorePath(self):
         w = worker.Worker(0, mock.Mock(), ignore_directory=None)
@@ -397,7 +362,7 @@ class TestIgnoreRouters(unittest.TestCase):
             w.handle_message(tenant_id, msg)
 
 
-class TestDebugTenants(unittest.TestCase):
+class TestDebugTenants(WorkerTestBase):
 
     def setUp(self):
         super(TestDebugTenants, self).setUp()
@@ -408,12 +373,7 @@ class TestDebugTenants(unittest.TestCase):
         self.conf.max_retries = 3
         self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
 
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-
         self.w = worker.Worker(0, mock.Mock())
-
-        self.addCleanup(mock.patch.stopall)
 
     def testNoDebugs(self):
         self.assertEqual(set(), self.w._debug_tenants)
@@ -459,24 +419,7 @@ class TestDebugTenants(unittest.TestCase):
             self.w.handle_message(tenant_id, msg)
 
 
-class TestConfigReload(unittest.TestCase):
-
-    def setUp(self):
-        super(TestConfigReload, self).setUp()
-
-        self.conf = mock.patch.object(worker.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        mock.patch('akanda.rug.worker.nova').start()
-        mock.patch('akanda.rug.worker.neutron').start()
-
-        self.w = worker.Worker(0, mock.Mock())
-
-        self.addCleanup(mock.patch.stopall)
-
+class TestConfigReload(WorkerTestBase):
     def test(self):
         tenant_id = '*'
         router_id = '*'
