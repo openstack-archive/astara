@@ -27,16 +27,16 @@ from akanda.rug.api import neutron
 class TestuNeutronModels(unittest.TestCase):
     def test_router(self):
         r = neutron.Router(
-            '1', 'tenant_id', 'name', True, 'ACTIVE', 'ext', ['int'], 'mgt')
+            '1', 'tenant_id', 'name', True, 'ACTIVE', 'ext', ['int'], ['fip'])
         self.assertEqual(r.id, '1')
         self.assertEqual(r.tenant_id, 'tenant_id')
         self.assertEqual(r.name, 'name')
         self.assertTrue(r.admin_state_up)
         self.assertEqual(r.status, 'ACTIVE')
         self.assertEqual(r.external_port, 'ext')
-        self.assertEqual(r.management_port, 'mgt')
+        self.assertEqual(r.floating_ips, ['fip'])
         self.assertEqual(r.internal_ports, ['int'])
-        self.assertEqual(set(['ext', 'mgt', 'int']), set(r.ports))
+        self.assertEqual(set(['ext', 'int']), set(r.ports))
 
     def test_router_from_dict(self):
         p = {
@@ -193,6 +193,7 @@ class TestuNeutronModels(unittest.TestCase):
     def test_port_model(self):
         d = {
             'id': '1',
+            'name': 'name',
             'device_id': 'device_id',
             'fixed_ips': [{'ip_address': '192.168.1.1', 'subnet_id': 'sub1'}],
             'mac_address': 'aa:bb:cc:dd:ee:ff',
@@ -371,6 +372,9 @@ class TestExternalPort(unittest.TestCase):
     def test_create(self, client_wrapper):
         mock_client = mock.Mock()
         mock_client.show_router.return_value = {'router': self.ROUTER}
+        mock_client.list_ports.return_value = {
+            'ports': [self.ROUTER['ports'][0]]
+        }
         client_wrapper.return_value = mock_client
         neutron_wrapper = neutron.Neutron(self.conf)
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
@@ -385,6 +389,8 @@ class TestExternalPort(unittest.TestCase):
         router = copy.deepcopy(self.ROUTER)
         router['ports'] = []
         mock_client.show_router.return_value = {'router': router}
+        mock_client.list_ports.return_value = {'ports': []}
+
         client_wrapper.return_value = mock_client
         neutron_wrapper = neutron.Neutron(self.conf)
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
@@ -401,6 +407,10 @@ class TestExternalPort(unittest.TestCase):
 
         router = copy.deepcopy(self.ROUTER)
         del router['ports'][0]['fixed_ips'][0]
+
+        mock_client.list_ports.return_value = {
+            'ports': [router['ports'][0]]
+        }
 
         mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
@@ -420,6 +430,10 @@ class TestExternalPort(unittest.TestCase):
 
         router = copy.deepcopy(self.ROUTER)
         del router['ports'][0]['fixed_ips'][1]
+
+        mock_client.list_ports.return_value = {
+            'ports': [router['ports'][0]]
+        }
 
         mock_client.show_router.return_value = {'router': router}
         client_wrapper.return_value = mock_client
@@ -441,7 +455,12 @@ class TestExternalPort(unittest.TestCase):
         router['ports'][0]['fixed_ips'] = []
 
         mock_client.show_router.return_value = {'router': router}
+        mock_client.list_ports.return_value = {
+            'ports': [router['ports'][0]]
+        }
+
         client_wrapper.return_value = mock_client
+
         neutron_wrapper = neutron.Neutron(self.conf)
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
