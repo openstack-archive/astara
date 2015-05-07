@@ -2,8 +2,8 @@
 
 # Set up default directories
 AKANDA_NEUTRON_DIR=$DEST/akanda-neutron
-AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-git@github.com:markmcclain/akanda-neutron.git}
-AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-v2}
+AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://git.openstack.org/stackforge/akanda-neutron.git}
+AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
 
 AKANDA_DEV_APPLIANCE=${AKANDA_DEV_APPLIANCE:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
 
