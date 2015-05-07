@@ -38,7 +38,7 @@ class FakeModel(object):
 fake_mgt_port = FakeModel(
     '1',
     mac_address='aa:bb:cc:dd:ee:ff',
-    network_id='ext-net',
+    network_id='mgt-net',
     fixed_ips=[FakeModel('', ip_address='9.9.9.9', subnet_id='s2')])
 
 fake_int_port = FakeModel(
@@ -53,6 +53,11 @@ fake_ext_port = FakeModel(
     network_id='ext-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s4')])
 
+fake_add_port = FakeModel(
+    '4',
+    mac_address='aa:bb:cc:dd:ff:ff',
+    network_id='additional-net',
+    fixed_ips=[FakeModel('', ip_address='8.8.8.8', subnet_id='s3')])
 
 
 class TestVmManager(unittest.TestCase):
@@ -78,7 +83,7 @@ class TestVmManager(unittest.TestCase):
             image_uuid='fake_image_id',
             booting=False,
             last_boot = datetime.utcnow() - timedelta(minutes=15),
-            ports=set([fake_int_port, fake_ext_port, fake_mgt_port]),
+            ports=[fake_int_port, fake_ext_port, fake_mgt_port],
             management_port=fake_mgt_port,
         )
 
@@ -110,7 +115,6 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('akanda.rug.vm_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_router_status_sync(self, config, router_api):
-        return # XXX
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
         rtr = mock.sentinel.router
@@ -139,12 +143,6 @@ class TestVmManager(unittest.TestCase):
             self.vm_mgr.update_state(self.ctx)
             n.update_router_status.assert_called_once_with('R1', 'ACTIVE')
             n.update_router_status.reset_mock()
-
-        # Removing the management port will trigger a reboot
-        rtr.management_port = None
-        self.vm_mgr.update_state(self.ctx)
-        n.update_router_status.assert_called_once_with('R1', 'DOWN')
-        n.update_router_status.reset_mock()
 
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
@@ -269,13 +267,6 @@ class TestVmManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    def test_update_state_no_mgt_port(self, sleep):
-        self.INSTANCE_INFO.management_port = None
-        self.update_state_p.stop()
-        self.assertEqual(self.vm_mgr.update_state(self.ctx),
-                         vm_manager.DOWN)
-
-    @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
         self.next_state = vm_manager.UP
         rtr = mock.sentinel.router
@@ -287,10 +278,8 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
-#        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-#            self.vm_mgr.router_obj,
-#            'GLANCE-IMAGE-123'
-#        )
+        self.ctx.nova_client.boot_instance.assert_called_once_with(
+            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -305,10 +294,8 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = []
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)
-#        self.ctx.nova_client.boot_instance.assert_called_once_with(
-#            self.vm_mgr.router_obj,
-#            'GLANCE-IMAGE-123'
-#        )
+        self.ctx.nova_client.boot_instance.assert_called_once_with(
+            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -324,10 +311,8 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.boot_instance.side_effect = RuntimeError
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
-#        self.ctx.nova_client.boot_instance.assert_called_once_with(
-#            self.vm_mgr.router_obj,
-#            'GLANCE-IMAGE-123'
-#        )
+        self.ctx.nova_client.boot_instance.assert_called_once_with(
+            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
         self.assertEqual(1, self.vm_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -530,219 +515,137 @@ class TestVmManager(unittest.TestCase):
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
     def test_replug_add_new_port_success(self, router_api):
-        return # XXX
         self.vm_mgr.state = vm_manager.REPLUG
-        rtr = mock.sentinel.router
-        rtr.management_port = mock.Mock()
-        rtr.external_port = mock.Mock()
-        rtr.management_port.mac_address = 'a:b:c:d'
-        rtr.external_port.mac_address = 'd:c:b:a'
-        p = mock.Mock()
-        p.id = 'ABC'
-        p.mac_address = 'a:a:a:a'
-        p2 = mock.Mock()
-        p2.id = 'DEF'
-        p2.mac_address = 'b:b:b:b'
-        rtr.internal_ports = [p, p2]
 
-        self.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.router_obj = rtr
+        fake_router = mock.Mock()
+        fake_router.id = 'fake_router_id'
+        fake_router.ports = [fake_ext_port, fake_int_port, fake_add_port]
+
+        self.neutron.get_router_detail.return_value = fake_router
+        self.vm_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
-            {'lladdr': rtr.management_port.mac_address},
-            {'lladdr': rtr.external_port.mac_address},
-            {'lladdr': p.mac_address},
+            {'lladdr': fake_mgt_port.mac_address},
+            {'lladdr': fake_ext_port.mac_address},
+            {'lladdr': fake_int_port.mac_address}
         ]
         self.conf.hotplug_timeout = 5
 
-        get_instance = self.ctx.nova_client.get_instance
-        get_instance.return_value = mock.Mock()
+        fake_instance = mock.MagicMock()
+        self.ctx.nova_client.get_instance_by_id = mock.Mock(
+            return_value=fake_instance)
+        fake_new_port = mock.Mock(id='fake_new_port_id')
+        self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
+
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True  # the hotplug worked!
             self.vm_mgr.replug(self.ctx)
-            assert self.vm_mgr.state == vm_manager.REPLUG
 
-            get_instance.return_value.interface_attach.assert_called_once_with(
-                p2.id, None, None
+            self.ctx.neutron.create_vrrp_port.assert_called_with(
+                fake_router.id, 'additional-net'
             )
+            self.assertEqual(self.vm_mgr.state, vm_manager.REPLUG)
+            fake_instance.interface_attach.assert_called_once_with(
+                fake_new_port.id, None, None
+            )
+            self.assertIn(fake_new_port, self.INSTANCE_INFO.ports)
 
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
     def test_replug_add_new_port_failure(self, router_api):
-        return # XXX
         self.vm_mgr.state = vm_manager.REPLUG
-        rtr = mock.sentinel.router
-        rtr.management_port = mock.Mock()
-        rtr.external_port = mock.Mock()
-        rtr.management_port.mac_address = 'a:b:c:d'
-        rtr.external_port.mac_address = 'd:c:b:a'
-        p = mock.Mock()
-        p.id = 'ABC'
-        p.mac_address = 'a:a:a:a'
-        p2 = mock.Mock()
-        p2.id = 'DEF'
-        p2.mac_address = 'b:b:b:b'
-        rtr.internal_ports = [p, p2]
 
-        self.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.router_obj = rtr
+        fake_router = mock.Mock()
+        fake_router.id = 'fake_router_id'
+        fake_router.ports = [fake_ext_port, fake_int_port, fake_add_port]
+
+        self.neutron.get_router_detail.return_value = fake_router
+        self.vm_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
-            {'lladdr': rtr.management_port.mac_address},
-            {'lladdr': rtr.external_port.mac_address},
-            {'lladdr': p.mac_address},
+            {'lladdr': fake_mgt_port.mac_address},
+            {'lladdr': fake_ext_port.mac_address},
+            {'lladdr': fake_int_port.mac_address}
         ]
         self.conf.hotplug_timeout = 5
 
-        get_instance = self.ctx.nova_client.get_instance
-        get_instance.return_value = mock.Mock()
+        fake_instance = mock.MagicMock()
+        self.ctx.nova_client.get_instance_by_id = mock.Mock(
+            return_value=fake_instance)
+
+        fake_new_port = mock.Mock(id='fake_new_port_id')
+        self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
+
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = False  # The hotplug didn't work!
             self.vm_mgr.replug(self.ctx)
-            assert self.vm_mgr.state == vm_manager.RESTART
+            self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
 
-            get_instance.return_value.interface_attach.assert_called_once_with(
-                p2.id, None, None
-            )
-
-    @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
-    def test_replug_with_missing_external_port(self, router_api):
-        """
-        If the router doesn't have a management or external port, we should
-        attempt to create (and plug) them.
-        """
-        return # XXX
-        self.vm_mgr.state = vm_manager.REPLUG
-        rtr = mock.sentinel.router
-        rtr.id = 'SOME-ROUTER-ID'
-        rtr.management_port = None
-        rtr.external_port = None
-        self.ctx.neutron.create_router_management_port.return_value = \
-            mock.Mock(mac_address='a:b:c:d')
-        self.ctx.neutron.create_router_external_port.return_value = mock.Mock(
-            mac_address='d:c:b:a'
-        )
-        p = mock.Mock()
-        p.id = 'ABC'
-        p.mac_address = 'a:a:a:a'
-        p2 = mock.Mock()
-        p2.id = 'DEF'
-        p2.mac_address = 'b:b:b:b'
-        rtr.internal_ports = [p, p2]
-
-        self.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.router_obj = rtr
-        router_api.get_interfaces.return_value = [
-            {'lladdr': 'd:c:b:a'},
-            {'lladdr': 'a:b:c:d'},
-            {'lladdr': p.mac_address},
-        ]
-        self.conf.hotplug_timeout = 5
-
-        get_instance = self.ctx.nova_client.get_instance
-        get_instance.return_value = mock.Mock()
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
-            verify.return_value = True  # the hotplug worked!
-            self.vm_mgr.replug(self.ctx)
-            assert self.vm_mgr.state == vm_manager.REPLUG
-
-            self.ctx.neutron.create_router_management_port.assert_called_with(
-                'SOME-ROUTER-ID'
-            )
-            self.ctx.neutron.create_router_external_port.assert_called_with(
-                rtr
-            )
-            get_instance.return_value.interface_attach.assert_called_once_with(
-                p2.id, None, None
+            fake_instance.interface_attach.assert_called_once_with(
+                fake_new_port.id, None, None
             )
 
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
     def test_replug_remove_port_success(self, router_api):
-        return
         self.vm_mgr.state = vm_manager.REPLUG
-        rtr = mock.sentinel.router
-        rtr.management_port = mock.Mock()
-        rtr.external_port = mock.Mock()
-        rtr.management_port.mac_address = 'a:b:c:d'
-        rtr.external_port.mac_address = 'd:c:b:a'
-        p = mock.Mock()
-        p.id = 'ABC'
-        p.mac_address = 'a:a:a:a'
-        rtr.internal_ports = []
 
-        self.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.router_obj = rtr
+        fake_router = mock.Mock()
+        fake_router.id = 'fake_router_id'
+
+        # Router lacks the fake_ext_port, it will be unplugged
+        fake_router.ports = [fake_mgt_port, fake_int_port]
+
+        self.neutron.get_router_detail.return_value = fake_router
+        self.vm_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
-            {'lladdr': rtr.management_port.mac_address},
-            {'lladdr': rtr.external_port.mac_address},
-            {'lladdr': p.mac_address}
+            {'lladdr': fake_mgt_port.mac_address},
+            {'lladdr': fake_ext_port.mac_address},
+            {'lladdr': fake_int_port.mac_address}
         ]
         self.conf.hotplug_timeout = 5
 
-        get_instance = self.ctx.nova_client.get_instance
-        get_instance.return_value = mock.Mock()
-        self.ctx.neutron.api_client.list_ports.return_value = {
-            'ports': [{
-                'id': p.id,
-                'device_id': 'INSTANCE123',
-                'fixed_ips': [],
-                'mac_address': p.mac_address,
-                'network_id': 'NETWORK123',
-                'device_owner': 'network:router_interface'
-            }]
-        }
+        fake_instance = mock.MagicMock()
+        self.ctx.nova_client.get_instance_by_id = mock.Mock(
+            return_value=fake_instance)
+
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = True  # the unplug worked!
             self.vm_mgr.replug(self.ctx)
-            assert self.vm_mgr.state == vm_manager.REPLUG
-
-            get_instance.return_value.interface_detach.assert_called_once_with(
-                p.id
+            self.assertEqual(self.vm_mgr.state, vm_manager.REPLUG)
+            fake_instance.interface_detach.assert_called_once_with(
+                fake_ext_port.id
             )
+            self.assertNotIn(fake_ext_port, self.INSTANCE_INFO.ports)
 
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.vm_manager.router_api')
     def test_replug_remove_port_failure(self, router_api):
-        return # XXX
         self.vm_mgr.state = vm_manager.REPLUG
-        rtr = mock.sentinel.router
-        rtr.management_port = mock.Mock()
-        rtr.external_port = mock.Mock()
-        rtr.management_port.mac_address = 'a:b:c:d'
-        rtr.external_port.mac_address = 'd:c:b:a'
-        p = mock.Mock()
-        p.id = 'ABC'
-        p.mac_address = 'a:a:a:a'
-        rtr.internal_ports = []
 
-        self.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.router_obj = rtr
+        fake_router = mock.Mock()
+        fake_router.id = 'fake_router_id'
+
+        # Router lacks the fake_ext_port, it will be unplugged
+        fake_router.ports = [fake_mgt_port, fake_int_port]
+
+        self.neutron.get_router_detail.return_value = fake_router
+        self.vm_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
-            {'lladdr': rtr.management_port.mac_address},
-            {'lladdr': rtr.external_port.mac_address},
-            {'lladdr': p.mac_address}
+            {'lladdr': fake_mgt_port.mac_address},
+            {'lladdr': fake_ext_port.mac_address},
+            {'lladdr': fake_int_port.mac_address}
         ]
         self.conf.hotplug_timeout = 5
 
-        get_instance = self.ctx.nova_client.get_instance
-        get_instance.return_value = mock.Mock()
-        self.ctx.neutron.api_client.list_ports.return_value = {
-            'ports': [{
-                'id': p.id,
-                'device_id': 'INSTANCE123',
-                'fixed_ips': [],
-                'mac_address': p.mac_address,
-                'network_id': 'NETWORK123',
-                'device_owner': 'network:router_interface'
-            }]
-        }
+        fake_instance = mock.MagicMock()
+        self.ctx.nova_client.get_instance_by_id = mock.Mock(
+            return_value=fake_instance)
+
         with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
             verify.return_value = False  # the unplug failed!
             self.vm_mgr.replug(self.ctx)
-            assert self.vm_mgr.state == vm_manager.RESTART
-
-            get_instance.return_value.interface_detach.assert_called_once_with(
-                p.id
+            self.assertEquals(self.vm_mgr.state, vm_manager.RESTART)
+            fake_instance.interface_detach.assert_called_once_with(
+                fake_ext_port.id
             )
 
     def test_verify_interfaces(self):
@@ -839,10 +742,8 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.set_error(self.ctx)
         self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
         self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
-#        self.ctx.nova_client.reboot_router_instance.assert_called_once_with(
-#            self.vm_mgr.router_obj,
-#            'GLANCE-IMAGE-123'
-#        )
+        self.ctx.nova_client.boot_instance.assert_called_once_with(
+            self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
 
     def test_error_cooldown(self):
         self.conf.error_state_cooldown = 30

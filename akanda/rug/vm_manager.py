@@ -405,7 +405,6 @@ class VmManager(object):
 
         logical_networks = set(p.network_id for p in self.router_obj.ports)
 
-        ports_to_delete = []
         if logical_networks != instance_networks:
             instance = worker_context.nova_client.get_instance_by_id(
                 self.instance_info.id_
@@ -435,7 +434,6 @@ class VmManager(object):
                 instance.interface_detach(port.id)
 
                 self.instance_info.ports.remove(port)
-                ports_to_delete.append(port)
 
         # The action of attaching/detaching interfaces in Nova happens via the
         # message bus and is *not* blocking.  We need to wait a few seconds to
