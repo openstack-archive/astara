@@ -1,4 +1,5 @@
 # Copyright 2014 DreamHost, LLC
+# Copyright 2015 Akanda, Inc
 #
 # Author: DreamHost, LLC
 #
