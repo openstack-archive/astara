@@ -44,6 +44,10 @@ function configure_akanda() {
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_processes "2"
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_threads "2"
     iniset $AKANDA_RUG_CONF DEFAULT reboot_error_threshold "2"
+
+    if [[ "$Q_AGENT" == "linuxbridge" ]]; then
+        iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linu.interface.BridgeInterfaceDriver"
+    fi
 }
 
 function configure_akanda_nova() {
