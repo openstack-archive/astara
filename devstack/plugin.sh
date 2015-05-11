@@ -131,10 +131,9 @@ function pre_start_akanda() {
         if [[ $(type -P disk-image-create) == "" ]]; then
             pip_install "diskimage-builder<0.1.43"
         fi
-        # TODO(adam_g): The DIB element pulls akanda-appliance repo directly
-        # from stackforge during the build.  We need to be able to optionally
-        # point this to a local checkout or specific remote repo+gitref for
-        # testing proposed changes.
+        # Point DIB at the devstack checkout of the akanda-appliance repo
+        DIB_REPOLOCATION_akanda=$AKANDA_APPLIANCE_DIR \
+        DIB_REPOREF_akanda="$(cd $AKANDA_APPLIANCE_DIR && git rev-parse HEAD)" \
         http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
         ELEMENTS_PATH=$AKANDA_APPLIANCE_BUILDER_DIR/diskimage-builder/elements \
         DIB_RELEASE=wheezy DIB_EXTLINUX=1 disk-image-create debian vm akanda \
