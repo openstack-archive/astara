@@ -35,7 +35,6 @@
 import abc
 
 import netaddr
-from oslo.config import cfg
 
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.common.linux import ovs_lib
@@ -45,17 +44,6 @@ from akanda.rug.openstack.common import log as logging
 
 
 LOG = logging.getLogger(__name__)
-
-OPTS = [
-    cfg.StrOpt('ovs_integration_bridge',
-               default='br-int',
-               help=_('Name of Open vSwitch bridge to use')),
-    cfg.BoolOpt('ovs_use_veth',
-                default=False,
-                help=_('Uses veth for an interface or not')),
-    cfg.StrOpt('network_device_mtu',
-               help=_('MTU setting for device.')),
-]
 
 
 class LinuxInterfaceDriver(object):
