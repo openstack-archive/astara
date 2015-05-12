@@ -32,3 +32,5 @@ pip-log.txt
 # pbr output
 AUTHORS
 ChangeLog
+
+test.conf
