@@ -92,49 +92,78 @@ def register_and_load_opts():
         ],
     )
 
-    cfg.CONF.register_opts([
+    # Options defined in the [DEFAULT] group
+    DEFAULT_OPTS = [
         cfg.StrOpt('host',
                    default=socket.getfqdn(),
                    help="The hostname Akanda is running on"),
 
         # FIXME(dhellmann): Use a separate group for these auth params
-        cfg.StrOpt('admin_user'),
-        cfg.StrOpt('admin_password', secret=True),
-        cfg.StrOpt('admin_tenant_name'),
-        cfg.StrOpt('auth_url'),
-        cfg.StrOpt('auth_strategy', default='keystone'),
-        cfg.StrOpt('auth_region'),
+        cfg.StrOpt('admin_user',
+                   help='Username of the admin service user'),
+        cfg.StrOpt('admin_password', secret=True,
+                   help='Password for the admin service user'),
+        cfg.StrOpt('admin_tenant_name',
+                   help='Tenant name of the admin service user'),
+        cfg.StrOpt('auth_url',
+                   help='The Keystone auth url'),
+        cfg.StrOpt('auth_strategy',
+                   help='Authentication strategy to be used',
+                   default='keystone'),
+        cfg.StrOpt('auth_region',
+                   help='The region in which to authenticate'),
 
-        cfg.StrOpt('management_network_id'),
-        cfg.StrOpt('external_network_id'),
-        cfg.StrOpt('management_subnet_id'),
-        cfg.StrOpt('external_subnet_id'),
-        cfg.StrOpt('router_image_uuid'),
+        cfg.StrOpt('management_network_id',
+                   help='Neutron network UUID of the management network'),
+        cfg.StrOpt('external_network_id',
+                   help='Neutron network UUID of the external network'),
+        cfg.StrOpt('management_subnet_id',
+                   help='Neutron subnet UUID of the management subnet'),
+        cfg.StrOpt('external_subnet_id',
+                   help='Neutron subnet UUID of the management subnet'),
+        cfg.StrOpt('router_image_uuid',
+                   help='UUID of the router appliance image in Glance'),
 
-        cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
-        cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
-        cfg.IntOpt('akanda_mgt_service_port', default=5000),
-        cfg.IntOpt('router_instance_flavor', default=1),
+        cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64',
+                   help='Management network IP block'),
+        cfg.StrOpt('external_prefix', default='172.16.77.0/24',
+                   help='External network IP block'),
+        cfg.IntOpt('akanda_mgt_service_port', default=5000,
+                   help='Port on which the appliance API server(s) are '
+                        'listening'),
+        cfg.IntOpt('router_instance_flavor', default=1,
+                   help='The nova flavor ID to use for appliance VMs'),
 
         # needed for plugging locally into management network
-        cfg.StrOpt('interface_driver'),
-        cfg.StrOpt('ovs_integration_bridge', default='br-int'),
-        cfg.BoolOpt('ovs_use_veth', default=False),
-        cfg.IntOpt('network_device_mtu'),
+        cfg.StrOpt('interface_driver',
+                   help='The currently configured Neutron interface driver'),
+        cfg.StrOpt('ovs_integration_bridge', default='br-int',
+                   help='The name of the local OVS bridge to use'),
+        cfg.BoolOpt('ovs_use_veth', default=False,
+                    help='Whether to use veth for an interface'),
+        cfg.IntOpt('network_device_mtu',
+                   help='MTU setting to use on device'),
 
-        # plug in the external port locally
-        cfg.BoolOpt('plug_external_port', default=False),
+        cfg.BoolOpt('plug_external_port', default=False,
+                    help='Whether to plug into the port locally'),
 
-        # The amount of time to wait for nova to hotplug/unplug networks from
-        # the router VM
-        cfg.IntOpt('hotplug_timeout', default=10),
+        cfg.IntOpt('hotplug_timeout', default=10,
+                   help='The amount of time to wait for nova to hotplug/unplug'
+                        ' networks from the router VM'),
 
-        # needed for boot waiting
-        cfg.IntOpt('boot_timeout', default=600),
-        cfg.IntOpt('max_retries', default=3),
-        cfg.IntOpt('retry_delay', default=1),
-        cfg.IntOpt('alive_timeout', default=3),
-        cfg.IntOpt('config_timeout', default=90),
+        cfg.IntOpt('boot_timeout', default=600,
+                   help='The amount of time to wait for the appliance VMs to '
+                        'boot'),
+        cfg.IntOpt('max_retries', default=3,
+                   help='How many retries to issue on failed API calls to'
+                        'external services'),
+        cfg.IntOpt('retry_delay', default=1,
+                   help='How long to wait between retries'),
+        cfg.IntOpt('alive_timeout', default=3,
+                   help='How long to wait before determinig a router is '
+                        'not alive'),
+        cfg.IntOpt('config_timeout', default=90,
+                   help='How long to wait for appliance config updates'),
 
         cfg.StrOpt(
             'ignored_router_directory',
@@ -159,17 +188,34 @@ def register_and_load_opts():
             default=30,
             help=('Number of seconds to ignore new events when a router goes '
                   'into ERROR state'),
-        ),
-
-    ])
-
-    cfg.CONF.register_opts(metadata.metadata_opts)
-
-    AGENT_OPTIONS = [
-        cfg.StrOpt('root_helper', default='sudo'),
+        )
     ]
 
-    cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
+    # Options defined in the [AGENT] section
+    AGENT_OPTS = [
+        cfg.StrOpt('root_helper', default='sudo',
+                   help='Helper command to use when running commands as root'),
+    ]
+    # Options defined in the [ceilometer] section
+    CEILOMETER_OPTS = [
+        cfg.BoolOpt('enabled',
+                    default=False,
+                    help='Enable reporting metrics to ceilometer.'),
+        cfg.StrOpt('topic',
+                   default='notifications.info',
+                   help='The name of the topic queue ceilometer consumes '
+                        'events from.')
+    ]
+
+    opt_groups = {
+        'DEFAULT': DEFAULT_OPTS + metadata.metadata_opts,
+        'AGENT': AGENT_OPTS,
+        'ceilometer': CEILOMETER_OPTS,
+    }
+    for group, opts in opt_groups.items():
+        if group == 'DEFAULT':
+            group = None
+        cfg.CONF.register_opts(opts, group)
 
     # FIXME: Convert these to regular options, not command line options.
     cfg.CONF.register_cli_opts([
@@ -200,19 +246,9 @@ def register_and_load_opts():
                    help='name of the exchange where we receive RPC calls'),
     ])
 
-    ceilometer_group = cfg.OptGroup(name='ceilometer',
-                                    title='Ceilometer Reporting Options')
-    c_enable_reporting = cfg.BoolOpt('enabled',
-                                     default=False,
-                                     help='Enable reporting metrics to '
-                                          'ceilometer.')
-    c_topic = cfg.StrOpt('topic',
-                         default='notifications.info',
-                         help='The name of the topic queue ceilometer '
-                              'consumes events from.')
-    cfg.CONF.register_group(ceilometer_group)
-    cfg.CONF.register_opt(c_enable_reporting, group=ceilometer_group)
-    cfg.CONF.register_opt(c_topic, group=ceilometer_group)
+    # Return a list of (group_name, [options]) tuples specifically for
+    # oslo-config-generator.
+    return [(g, o) for g, o in opt_groups.items()]
 
 
 def main(argv=sys.argv[1:]):
