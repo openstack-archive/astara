@@ -38,7 +38,7 @@ class AkandaFunctionalBase(testtools.TestCase):
         )
         self._management_address = None
 
-    def get_config(self):
+    def _get_config(self):
             config_file = os.environ.get('AKANDA_TEST_CONFIG',
                                          DEFAULT_CONFIG)
             config = ConfigParser.SafeConfigParser()
