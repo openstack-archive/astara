@@ -1,0 +1,11 @@
+Verified+2: Jenkins
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Workflow+1: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+2: Sean Roberts <seanroberts66@gmail.com>
+Workflow+1: Sean Roberts <seanroberts66@gmail.com>
+Code-Review+2: Ryan Petrello <ryan@ryanpetrello.com>
+Submitted-by: Jenkins
+Submitted-at: Wed, 13 May 2015 17:38:38 +0000
+Reviewed-on: https://review.openstack.org/181740
+Project: stackforge/akanda-rug
+Branch: refs/heads/master
