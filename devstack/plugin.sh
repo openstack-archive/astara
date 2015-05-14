@@ -18,11 +18,19 @@ AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dre
 AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
 AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
 
+AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
+AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/stackroge/akanda-horizon}
+AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-master}
+
 AKANDA_CONF_DIR=/etc/akanda-rug
 AKANDA_RUG_CONF=$AKANDA_CONF_DIR/rug.ini
 
 ROUTER_INSTANCE_FLAVOR=2
 PUBLIC_INTERFACE_DEFAULT='eth0'
+AKANDA_RUG_MANAGEMENT_PREFIX=${RUG_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
+AKANDA_RUG_MANAGEMENT_PORT=${AKANDA_RUG_MANAGEMENT_PORT:-5000}
+
+HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
 function configure_akanda() {
     if [[ ! -d $AKANDA_CONF_DIR ]]; then
@@ -45,6 +53,9 @@ function configure_akanda() {
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_threads "2"
     iniset $AKANDA_RUG_CONF DEFAULT reboot_error_threshold "2"
 
+    iniset $AKANDA_RUG_CONF DEFAULT management_prefix $AKANDA_RUG_MANAGEMENT_PREFIX
+    iniset $AKANDA_RUG_CONF DEFAULT akanda_mgt_service_port $AKANDA_RUG_MANAGEMENT_PORT
+
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
     fi
@@ -62,6 +73,24 @@ function configure_akanda_neutron() {
     # We need the RUG to be able to get neutron's events notification like port.create.start/end
     # or router.interface.start/end to make it able to boot akanda routers
     iniset $NEUTRON_CONF DEFAULT notification_driver "neutron.openstack.common.notifier.rpc_notifier"
+}
+
+function configure_akanda_horizon() {
+    # _horizon_config_set depends on this being set
+    local local_settings=$HORIZON_LOCAL_SETTINGS
+    for ext in $(ls $DEST/akanda-horizon/_*.py); do
+        local ext_dest=$DEST/horizon/openstack_dashboard/local/enabled/$(basename $ext)
+        rm -rf $ext_dest
+        ln -s $ext $ext_dest
+        # if horizon is enabled, we assume lib/horizon has been sourced and _horizon_config_set
+        # is defined
+        _horizon_config_set $HORIZON_LOCAL_SETTINGS "" RUG_MANAGEMENT_PREFIX \"$AKANDA_RUG_MANAGEMENT_PREFIX\"
+        _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT \"$AKANDA_RUG_MANAGEMENT_PORT\"
+    done
+}
+
+function start_akanda_horizon() {
+    restart_apache_server
 }
 
 function install_akanda() {
@@ -82,6 +111,11 @@ function install_akanda() {
     if [ "$BUILD_AKANDA_DEV_APPLIANCE" == "True" ]; then
         git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
         git_clone $AKANDA_APPLIANCE_BUILDER_REPO $AKANDA_APPLIANCE_BUILDER_DIR $AKANDA_APPLIANCE_BUILDER_BRANCH
+    fi
+
+    if is_service_enabled horizon; then
+        git_clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR $AKANDA_HORIZON_BRANCH
+        setup_develop $AKANDA_HORIZON_DIR
     fi
 }
 
@@ -158,6 +192,12 @@ function pre_start_akanda() {
     iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
 
     iniset $AKANDA_RUG_CONF DEFAULT auth_url $OS_AUTH_URL
+
+    if is_service_enabled horizon; then
+        # _horizon_config_set depends on this being set
+        local local_settings=$HORIZON_LOCAL_SETTINGS
+        _horizon_config_set $HORIZON_LOCAL_SETTINGS "" ROUTER_IMAGE_UUID \"$image_id\"
+    fi
 }
 
 function start_akanda_rug() {
@@ -226,12 +266,18 @@ if is_service_enabled ak-rug; then
         configure_akanda
         configure_akanda_nova
         configure_akanda_neutron
+        if is_service_enabled horizon; then
+            configure_akanda_horizon
+        fi
         cd $old_cwd
 
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
         echo_summary "Initializing Akanda"
         pre_start_akanda
         start_akanda_rug
+        if is_service_enabled horizon; then
+            start_akanda_horizon
+        fi
         post_start_akanda
     fi
 
