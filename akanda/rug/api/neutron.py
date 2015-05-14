@@ -24,9 +24,9 @@ import uuid
 import netaddr
 from oslo.config import cfg
 from neutronclient.v2_0 import client
+from oslo_utils import importutils
 
 from akanda.rug.common.linux import ip_lib
-from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import proxy
 from akanda.rug.openstack.common import log as logging
