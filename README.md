@@ -1,5 +1,5 @@
 # Akanda Rug
-
+x
 *Part of the [Akanda Project](https://github.com/dreamhost/akanda).*
 
 **ties the room together**
