@@ -32,6 +32,10 @@ AKANDA_RUG_MANAGEMENT_PORT=${AKANDA_RUG_MANAGEMENT_PORT:-5000}
 
 HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
+# Path to public ssh key that will be added to the 'akanda' users authorized_keys
+# within the appliance VM.
+AKANDA_APPLIANCE_SSH_PUBLIC_KEY=${AKANDA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
+
 function configure_akanda() {
     if [[ ! -d $AKANDA_CONF_DIR ]]; then
         sudo mkdir -p $AKANDA_CONF_DIR
@@ -59,6 +63,8 @@ function configure_akanda() {
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
     fi
+
+    iniset $AKANDA_RUG_CONF DEFAULT router_ssh_public_key $AKANDA_APPLIANCE_SSH_PUBLIC_KEY
 }
 
 function configure_akanda_nova() {
@@ -172,9 +178,11 @@ function pre_start_akanda() {
         # Point DIB at the devstack checkout of the akanda-appliance repo
         DIB_REPOLOCATION_akanda=$AKANDA_APPLIANCE_DIR \
         DIB_REPOREF_akanda="$(cd $AKANDA_APPLIANCE_DIR && git rev-parse HEAD)" \
+        DIB_AKANDA_APPLIANCE_DEBUG_USER=$ADMIN_USERNAME \
+        DIB_AKANDA_APPLIANCE_DEBUG_PASSWORD=$ADMIN_PASSWORD \
         http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
         ELEMENTS_PATH=$AKANDA_APPLIANCE_BUILDER_DIR/diskimage-builder/elements \
-        DIB_RELEASE=wheezy DIB_EXTLINUX=1 disk-image-create debian vm akanda \
+        DIB_RELEASE=wheezy DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user \
         -o $TOP_DIR/files/akanda
         akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_FILE
     else
@@ -250,11 +258,20 @@ function set_demo_tenant_sec_group_dhcp_rules() {
 }
 
 
+function check_prereqs() {
+    # Fail devstack as early as possible if system does not satisfy some known
+    # prerequisites
+    if [ ! -e "$AKANDA_APPLIANCE_SSH_PUBLIC_KEY" ]; then
+        die $LINENO "Public SSH key not found at $AKANDA_APPLIANCE_SSH_PUBLIC_KEY. Please copy one there or " \
+                    "set AKANDA_APPLIANCE_SSH_PUBLIC_KEY accordingly."
+
+    fi
+}
+
 
 if is_service_enabled ak-rug; then
     if [[ "$1" == "source" ]]; then
-        # no-op
-        :
+        check_prereqs
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Akanda"
