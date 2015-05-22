@@ -19,8 +19,18 @@ import logging
 
 from novaclient.v1_1 import client
 
+from oslo.config import cfg
 
 LOG = logging.getLogger(__name__)
+
+OPTIONS = [
+    cfg.StrOpt(
+        'router_ssh_public_key',
+        help="Path to the SSH public key for the 'akanda' user within "
+             "router appliance VMs",
+        default='/etc/akanda-rug/akanda.pub')
+]
+cfg.CONF.register_opts(OPTIONS)
 
 
 class InstanceInfo(object):
@@ -181,7 +191,7 @@ debug:
   - verbose: true
 
 bootcmd:
-  - /usr/local/bin/akanda-configure-management %s %s/64
+  - /usr/local/bin/akanda-configure-management %(mac_address)s %(ip_address)s/64
 
 users:
   - name: akanda
@@ -189,12 +199,28 @@ users:
     groups: users
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
-    passwd: $6$rounds=4096$zxaBh6omTayBSA$rI1.FNliuUl7R2SMdkj7zWv.FBhqGVd1lLYDatJd6MiE9WqEQx0M.o7bLyp5nA0CxV6ahoDb0m8Y5OQMDHx1V/
-    lock-passwd: false
+    lock-passwd: true
+    ssh-authorized-keys:
+      - %(ssh_public_key)s
 
 final_message: "Akanda appliance is running"
 """  # noqa
 
 
+def _router_ssh_key():
+    key = cfg.CONF.router_ssh_public_key
+    try:
+        with open(key) as out:
+            return out.read()
+    except IOError:
+        LOG.warning('Could not load router ssh public key from %s' % key)
+        return ''
+
+
 def _format_userdata(mgt_port):
-    return TEMPLATE % (mgt_port.mac_address, mgt_port.fixed_ips[0].ip_address)
+    ctxt = {
+        'ssh_public_key': _router_ssh_key(),
+        'mac_address': mgt_port.mac_address,
+        'ip_address': mgt_port.fixed_ips[0].ip_address,
+    }
+    return TEMPLATE % ctxt

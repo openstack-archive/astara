@@ -18,7 +18,7 @@
 import datetime
 import mock
 import unittest2 as unittest
-
+from six.moves import builtins as __builtins__
 from akanda.rug.api import nova
 
 
@@ -63,6 +63,40 @@ class FakeConf:
     auth_region = 'RegionOne'
     router_image_uuid = 'akanda-image'
     router_instance_flavor = 1
+
+
+EXPECTED_USERDATA = """
+#cloud-config
+
+cloud_config_modules:
+  - emit_upstart
+  - set_hostname
+  - locale
+  - set-passwords
+  - timezone
+  - disable-ec2-metadata
+  - runcmd
+
+output: {all: '| tee -a /var/log/cloud-init-output.log'}
+
+debug:
+  - verbose: true
+
+bootcmd:
+  - /usr/local/bin/akanda-configure-management aa:aa:aa:aa:aa:aa 192.168.1.1/64
+
+users:
+  - name: akanda
+    gecos: Akanda
+    groups: users
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock-passwd: true
+    ssh-authorized-keys:
+      - fake_key
+
+final_message: "Akanda appliance is running"
+"""
 
 
 def fake_make_ports_callback():
@@ -149,3 +183,26 @@ class TestNovaWrapper(unittest.TestCase):
     def test_destroy_router_instance(self):
         self.nova.destroy_instance(self.INSTANCE_INFO)
         self.client.servers.delete.assert_called_with(self.INSTANCE_INFO.id_)
+
+    @mock.patch.object(nova, '_appliance_ssh_key')
+    def test_format_userdata(self, fake_ssh_key):
+        fake_ssh_key.return_value = 'fake_key'
+        result = nova._format_userdata(fake_int_port)
+        self.assertEqual(result.strip(), EXPECTED_USERDATA.strip())
+
+    @mock.patch.object(__builtins__, 'open', autospec=True)
+    def test_appliance_ssh_key(self, fake_open):
+        mock_key_file = mock.MagicMock(spec=file)
+        mock_key_file.read.return_value = 'fake-key'
+        mock_key_file.__enter__.return_value = mock_key_file
+        fake_open.return_value = mock_key_file
+        result = nova._appliance_ssh_key()
+        self.assertEqual(result, 'fake-key')
+
+    @mock.patch.object(nova, 'LOG', autospec=True)
+    @mock.patch.object(__builtins__, 'open', autospec=True)
+    def test_appliance_ssh_key_not_found(self, fake_open, fake_log):
+        fake_open.side_effect = IOError
+        result = nova._appliance_ssh_key()
+        self.assertEqual(result, '')
+        self.assertTrue(fake_log.warning.called)
