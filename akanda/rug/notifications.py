@@ -34,10 +34,10 @@ import kombu.messaging
 from akanda.rug import commands
 from akanda.rug import event
 
-from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.rpc import common as rpc_common
 
 from oslo.config import cfg
+from oslo_context import context
 
 
 cfg.CONF.register_group(cfg.OptGroup(name='rabbit',
