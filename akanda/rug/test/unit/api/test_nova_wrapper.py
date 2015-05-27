@@ -21,6 +21,8 @@ import unittest2 as unittest
 from six.moves import builtins as __builtins__
 from akanda.rug.api import nova
 
+from novaclient import exceptions as novaclient_exceptions
+
 
 class FakeModel(object):
     def __init__(self, id_, **kwargs):
@@ -179,6 +181,12 @@ class TestNovaWrapper(unittest.TestCase):
         result = self.nova.get_instance_by_id('instance_id')
         self.client.servers.get.assert_has_calls(expected)
         self.assertEquals(result, 'fake_instance')
+
+    def test_get_instance_by_id_not_found(self):
+        not_found = novaclient_exceptions.NotFound('instance_id')
+        self.client.servers.get.side_effect = not_found
+        result = self.nova.get_instance_by_id('instance_id')
+        self.assertEqual(result, None)
 
     def test_destroy_router_instance(self):
         self.nova.destroy_instance(self.INSTANCE_INFO)

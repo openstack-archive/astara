@@ -18,6 +18,7 @@ from datetime import datetime
 import logging
 
 from novaclient.v1_1 import client
+from novaclient import exceptions as novaclient_exceptions
 
 from oslo.config import cfg
 
@@ -138,7 +139,10 @@ class Nova(object):
             return None
 
     def get_instance_by_id(self, instance_id):
-        return self.client.servers.get(instance_id)
+        try:
+            return self.client.servers.get(instance_id)
+        except novaclient_exceptions.NotFound:
+            return None
 
     def destroy_instance(self, instance_info):
         if instance_info:
