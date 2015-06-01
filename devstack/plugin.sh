@@ -84,8 +84,8 @@ function configure_akanda_neutron() {
 function configure_akanda_horizon() {
     # _horizon_config_set depends on this being set
     local local_settings=$HORIZON_LOCAL_SETTINGS
-    for ext in $(ls $DEST/akanda-horizon/openstack_dashboard_extensions/*.py); do
-        local ext_dest=$DEST/horizon/openstack_dashboard/local/enabled/$(basename $ext)
+    for ext in $(ls $AKANDA_HORIZON_DIR/openstack_dashboard_extensions/*.py); do
+        local ext_dest=$HORIZON_DIR/openstack_dashboard/local/enabled/$(basename $ext)
         rm -rf $ext_dest
         ln -s $ext $ext_dest
         # if horizon is enabled, we assume lib/horizon has been sourced and _horizon_config_set
