@@ -26,7 +26,13 @@ import threading
 from contextlib import closing
 from datetime import datetime
 
-from blessed import Terminal
+try:
+    from blessed import Terminal
+except ImportError:
+    # blessed is not part of openstack global-requirements.
+    raise Exception("The 'blessed' python module is required to browse"
+                    " Akanda routers. Please install and try again.")
+
 from oslo.config import cfg
 
 from akanda.rug import commands
