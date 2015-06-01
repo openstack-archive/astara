@@ -1,0 +1,9 @@
+Verified+2: Jenkins
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Code-Review+2: Ryan Petrello <ryan@ryanpetrello.com>
+Workflow+1: Ryan Petrello <ryan@ryanpetrello.com>
+Submitted-by: Jenkins
+Submitted-at: Mon, 01 Jun 2015 20:03:46 +0000
+Reviewed-on: https://review.openstack.org/187241
+Project: stackforge/akanda-rug
+Branch: refs/heads/stable/kilo
