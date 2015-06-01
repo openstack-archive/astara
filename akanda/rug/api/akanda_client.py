@@ -19,7 +19,7 @@ import logging
 import requests
 
 from oslo.config import cfg
-from akanda.rug.openstack.common import jsonutils
+from oslo_serialization import jsonutils
 
 AKANDA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'
 AKANDA_MGT_SERVICE_PORT = 5000

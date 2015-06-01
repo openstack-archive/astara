@@ -180,7 +180,7 @@ class TestAkandaClient(unittest.TestCase):
 
     def test_load_provider_rules(self):
         rules_dict = {'labels': {}, 'preanchors': [], 'postanchors': []}
-        with mock.patch('akanda.rug.openstack.common.jsonutils.load') as load:
+        with mock.patch('oslo_serialization.jsonutils.load') as load:
             load.return_value = rules_dict
             with mock.patch('__builtin__.open') as mock_open:
                 r = conf_mod.load_provider_rules('/the/path')

@@ -21,7 +21,7 @@ import re
 import netaddr
 from oslo.config import cfg
 
-from akanda.rug.openstack.common import jsonutils
+from oslo_serialization import jsonutils
 
 LOG = logging.getLogger(__name__)
 
