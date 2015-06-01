@@ -108,7 +108,7 @@ function install_akanda() {
     # http://git.openstack.org/cgit/openstack-dev/devstack/commit/functions-common?id=def1534ce06409c4c70d6569ea6314a82897e28b
     #
     # For now, inject `blessed` into the global requirements so that akanda-rug can install
-    echo "blessed" >> /opt/stack/requirements/global-requirements.txt
+    echo "blessed" >> $REQUIREMENTS_DIR/global-requirements.txt
 
     git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
     setup_develop $AKANDA_NEUTRON_DIR
@@ -272,6 +272,12 @@ function check_prereqs() {
 if is_service_enabled ak-rug; then
     if [[ "$1" == "source" ]]; then
         check_prereqs
+        # XXX:
+        # get gunicorn  + blessed out of our requirements
+        export REQUIREMENTS_MODE=soft
+
+        # Add akanda-horizon to $PROJECTS
+        export RECLONE=True
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Akanda"
