@@ -26,7 +26,13 @@ import threading
 from contextlib import closing
 from datetime import datetime
 
-from blessed import Terminal
+import sys
+try:
+    from blessed import Terminal
+except ImportError:
+    print 'hi'
+    sys.exit(1)
+
 from oslo.config import cfg
 
 from akanda.rug import commands
