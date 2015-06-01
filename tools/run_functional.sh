@@ -20,4 +20,9 @@ service_tenant_id=$SERVICE_TENANT_ID
 appliance_api_port=$APPLIANCE_API_PORT
 END
 
-sudo -E tox -e  functional
+
+nova list --all-tenants
+for i in `neutron router-list | awk '{ print $2 }' | grep -v ^id`; do neutron router-show $i ; done
+
+for r in `neutron router-list 
+tox -e functional
