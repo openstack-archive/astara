@@ -100,16 +100,6 @@ function start_akanda_horizon() {
 }
 
 function install_akanda() {
-
-    # akanda-rug rug-ctl requires the `blessed` package, which is not in OpenStack's global requirements,
-    # so an attempt to install akanda-rug with the `setup_develop` function will fail.
-    #
-    # In newer versions of devstack, there is a way to disabled this behavior:
-    # http://git.openstack.org/cgit/openstack-dev/devstack/commit/functions-common?id=def1534ce06409c4c70d6569ea6314a82897e28b
-    #
-    # For now, inject `blessed` into the global requirements so that akanda-rug can install
-    echo "blessed" >> /opt/stack/requirements/global-requirements.txt
-
     git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
     setup_develop $AKANDA_NEUTRON_DIR
     setup_develop $AKANDA_RUG_DIR
@@ -120,7 +110,9 @@ function install_akanda() {
     fi
 
     if is_service_enabled horizon; then
-        git_clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR $AKANDA_HORIZON_BRANCH
+        #git_clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR $AKANDA_HORIZON_BRANCH
+        # XXX http://review.openstack.org/#/c/187310/
+        git clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR
         setup_develop $AKANDA_HORIZON_DIR
     fi
 }
@@ -272,6 +264,10 @@ function check_prereqs() {
 if is_service_enabled ak-rug; then
     if [[ "$1" == "source" ]]; then
         check_prereqs
+        # XXX:
+        # get gunicorn  + blessed out of our requirements
+        export REQUIREMENTS_MODE=soft
+
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Akanda"
