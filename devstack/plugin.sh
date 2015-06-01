@@ -100,16 +100,6 @@ function start_akanda_horizon() {
 }
 
 function install_akanda() {
-
-    # akanda-rug rug-ctl requires the `blessed` package, which is not in OpenStack's global requirements,
-    # so an attempt to install akanda-rug with the `setup_develop` function will fail.
-    #
-    # In newer versions of devstack, there is a way to disabled this behavior:
-    # http://git.openstack.org/cgit/openstack-dev/devstack/commit/functions-common?id=def1534ce06409c4c70d6569ea6314a82897e28b
-    #
-    # For now, inject `blessed` into the global requirements so that akanda-rug can install
-    echo "blessed" >> /opt/stack/requirements/global-requirements.txt
-
     git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
     setup_develop $AKANDA_NEUTRON_DIR
     setup_develop $AKANDA_RUG_DIR
@@ -120,7 +110,9 @@ function install_akanda() {
     fi
 
     if is_service_enabled horizon; then
-        git_clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR $AKANDA_HORIZON_BRANCH
+        #git_clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR $AKANDA_HORIZON_BRANCH
+        # XXX http://review.openstack.org/#/c/187310/
+        git clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR
         setup_develop $AKANDA_HORIZON_DIR
     fi
 }
@@ -135,15 +127,22 @@ function _remove_subnets() {
 }
 
 function pre_start_akanda() {
+    # XXX debug
+    neutron net-list
+    neutron subnet-list
+    neutron port-list
+    neturon router-list
     typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
-    neutron $auth_args net-create public --router:external
+    if ! neutron net-show $PUBLIC_NETWORK_NAME; then
+        neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
+    fi
 
     # Remove the ipv6 subnet created automatically before adding our own.
-    _remove_subnets public
+    _remove_subnets $PUBLIC_NETWORK_NAME
 
-    typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 public 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
+    typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 $PUBLIC_NETWORK_NAME 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
     iniset $AKANDA_RUG_CONF DEFAULT external_subnet_id $public_subnet_id
-    neutron $auth_args subnet-create --ip-version 6 public fdee:9f85:83be::/48
+    neutron $auth_args subnet-create --ip-version 6 $PUBLIC_NETWORK_NAME fdee:9f85:83be::/48
 
     # Point neutron-akanda at the subnet to use for floating IPs.  This requires a neutron service restart (later) to take effect.
     iniset $NEUTRON_CONF akanda floatingip_subnet $public_subnet_id
@@ -151,9 +150,9 @@ function pre_start_akanda() {
     # setup masq rule for public network
     sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
 
-    neutron $auth_args net-show public | grep ' id ' | awk '{ print $4 }'
+    neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }'
 
-    typeset public_network_id=$(neutron $auth_args net-show public | grep ' id ' | awk '{ print $4 }')
+    typeset public_network_id=$(neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }')
     iniset $AKANDA_RUG_CONF DEFAULT external_network_id $public_network_id
 
     neutron $auth_args net-create mgt
@@ -272,6 +271,10 @@ function check_prereqs() {
 if is_service_enabled ak-rug; then
     if [[ "$1" == "source" ]]; then
         check_prereqs
+        # XXX:
+        # get gunicorn  + blessed out of our requirements
+        export REQUIREMENTS_MODE=soft
+
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Akanda"
