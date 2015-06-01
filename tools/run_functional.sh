@@ -20,4 +20,33 @@ service_tenant_id=$SERVICE_TENANT_ID
 appliance_api_port=$APPLIANCE_API_PORT
 END
 
-sudo -E tox -e  functional
+
+nova list --all-tenants
+for i in `neutron router-list | awk '{ print $2 }' | grep -v ^id`; do neutron router-show $i ; done
+sleep 240
+nova list --all-tenants
+for i in `neutron router-list | awk '{ print $2 }' | grep -v ^id`; do neutron router-show $i ; done
+r_id=$(nova list --all-tenants | grep "ak-" | awk '{ print $2 }')
+nova console-log $r_id
+addr=$(nova show $r_id | grep mgt | awk '{ print $5 }' | cut -d\, -f1)
+
+rc=1
+count=0
+while [[ $rc == 1 ]]; do
+  if [[ $count -gt 240 ]]; then
+      echo "fail"
+      exit 1
+  fi
+  ping -c1 $addr
+  rc=$?
+  if [[ $rc -ne 0 ]]; then
+      echo "zzz"
+      sleep 1
+      count=$[$count + 1]
+  fi
+done
+
+
+ssh akanda@$addr ps aux
+
+tox -e functional
