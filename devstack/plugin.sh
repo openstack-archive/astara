@@ -126,24 +126,27 @@ function install_akanda() {
 }
 
 function _remove_subnets() {
+    # Attempt to delete subnets associated with a network.
     # We have to modify the output of net-show to allow it to be
     # parsed properly as shell variables, and we run both commands in
     # a subshell to avoid polluting the local namespace.
     (eval $(neutron $auth_args net-show -f shell $1 | sed 's/:/_/g');
-        neutron $auth_args subnet-delete $subnets)
-
+        neutron $auth_args subnet-delete $subnets || true)
 }
 
 function pre_start_akanda() {
     typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
-    neutron $auth_args net-create public --router:external
+    if ! neutron net-show $PUBLIC_NETWORK_NAME; then
+        neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
+    fi
 
     # Remove the ipv6 subnet created automatically before adding our own.
-    _remove_subnets public
+    # NOTE(adam_g): For some reason this fails the first time and needs to be repeated?
+    _remove_subnets $PUBLIC_NETWORK_NAME ; _remove_subnets $PUBLIC_NETWORK_NAME
 
-    typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 public 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
+    typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 $PUBLIC_NETWORK_NAME 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
     iniset $AKANDA_RUG_CONF DEFAULT external_subnet_id $public_subnet_id
-    neutron $auth_args subnet-create --ip-version 6 public fdee:9f85:83be::/48
+    neutron $auth_args subnet-create --ip-version 6 $PUBLIC_NETWORK_NAME fdee:9f85:83be::/48
 
     # Point neutron-akanda at the subnet to use for floating IPs.  This requires a neutron service restart (later) to take effect.
     iniset $NEUTRON_CONF akanda floatingip_subnet $public_subnet_id
@@ -151,9 +154,9 @@ function pre_start_akanda() {
     # setup masq rule for public network
     sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
 
-    neutron $auth_args net-show public | grep ' id ' | awk '{ print $4 }'
+    neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }'
 
-    typeset public_network_id=$(neutron $auth_args net-show public | grep ' id ' | awk '{ print $4 }')
+    typeset public_network_id=$(neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }')
     iniset $AKANDA_RUG_CONF DEFAULT external_network_id $public_network_id
 
     neutron $auth_args net-create mgt
@@ -226,7 +229,11 @@ function post_start_akanda() {
         subnet-create thenet 192.168.0.0/24
 
     # Restart neutron so that `akanda.floatingip_subnet` is properly set
-    screen_stop_service q-svc
+    if [[ "$USE_SCREEN" == "True" ]]; then
+        screen_stop_service q-svc
+    else
+        stop_process q-svc
+    fi
     start_neutron_service_and_check
 
     # Due to a bug in security groups we need to enable udp ingress traffic
