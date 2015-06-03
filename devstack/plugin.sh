@@ -185,7 +185,7 @@ function pre_start_akanda() {
         DIB_AKANDA_APPLIANCE_DEBUG_PASSWORD=$ADMIN_PASSWORD \
         http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
         ELEMENTS_PATH=$AKANDA_APPLIANCE_BUILDER_DIR/diskimage-builder/elements \
-        DIB_RELEASE=wheezy DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user \
+        DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user \
         -o $TOP_DIR/files/akanda
         akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_FILE
     else
