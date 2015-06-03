@@ -20,4 +20,6 @@ service_tenant_id=$SERVICE_TENANT_ID
 appliance_api_port=$APPLIANCE_API_PORT
 END
 
-sudo -E tox -e  functional
+sleep 340
+
+tox -e  functional
