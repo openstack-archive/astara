@@ -19,6 +19,7 @@ import mock
 import netaddr
 from oslo.config import cfg
 import unittest2 as unittest
+from six.moves import builtins as __builtins__
 
 from akanda.rug.api import configuration as conf_mod
 from akanda.rug.api.neutron import Subnet
@@ -188,6 +189,12 @@ class TestAkandaClient(unittest.TestCase):
                 mock_open.assert_called_once_with('/the/path')
                 load.assert_called_once_with(mock_open.return_value)
                 self.assertEqual(r, rules_dict)
+
+    @mock.patch.object(__builtins__, 'open', autospec=True)
+    def test_load_provider_rules_not_found(self, mock_open):
+        mock_open.side_effect = IOError()
+        res = conf_mod.load_provider_rules('/tmp/path')
+        self.assertEqual(res, {})
 
     def test_generate_network_config(self):
         methods = {
