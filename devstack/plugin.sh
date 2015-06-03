@@ -13,7 +13,7 @@ AKANDA_APPLIANCE_BUILDER_DIR=$DEST/akanda-appliance-builder
 AKANDA_APPLIANCE_BUILDER_REPO=${AKANDA_APPLIANCE_BUILDER_REPO:-http://github.com/stackforge/akanda-appliance-builder.git}
 AKANDA_APPLIANCE_BUILDER_BRANCH=${AKANDA_APPLIANCE_BUILDER_BRANCH:-master}
 
-BUILD_AKANDA_DEV_APPLIANCE=${BUILD_AKANDA_DEV_APPLIANCE:-False}
+BUILD_AKANDA_APPLIANCE_IMAGE=${BUILD_AKANDA_APPLIANCE_IMAGE:-False}
 AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
 AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
 AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
@@ -100,21 +100,11 @@ function start_akanda_horizon() {
 }
 
 function install_akanda() {
-
-    # akanda-rug rug-ctl requires the `blessed` package, which is not in OpenStack's global requirements,
-    # so an attempt to install akanda-rug with the `setup_develop` function will fail.
-    #
-    # In newer versions of devstack, there is a way to disabled this behavior:
-    # http://git.openstack.org/cgit/openstack-dev/devstack/commit/functions-common?id=def1534ce06409c4c70d6569ea6314a82897e28b
-    #
-    # For now, inject `blessed` into the global requirements so that akanda-rug can install
-    echo "blessed" >> /opt/stack/requirements/global-requirements.txt
-
     git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
     setup_develop $AKANDA_NEUTRON_DIR
     setup_develop $AKANDA_RUG_DIR
 
-    if [ "$BUILD_AKANDA_DEV_APPLIANCE" == "True" ]; then
+    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
         git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
         git_clone $AKANDA_APPLIANCE_BUILDER_REPO $AKANDA_APPLIANCE_BUILDER_DIR $AKANDA_APPLIANCE_BUILDER_BRANCH
     fi
@@ -174,7 +164,7 @@ function pre_start_akanda() {
     neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
     local akanda_dev_image_src=""
-    if [ "$BUILD_AKANDA_DEV_APPLIANCE" == "True" ]; then
+    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
         if [[ $(type -P disk-image-create) == "" ]]; then
             pip_install "diskimage-builder<0.1.43"
         fi
