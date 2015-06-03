@@ -113,6 +113,7 @@ def load_provider_rules(path):
         return jsonutils.load(open(path))
     except:  # pragma nocover
         LOG.exception('unable to open provider rules: %s' % path)
+        return {}
 
 
 def generate_network_config(client, router, management_port, iface_map):
