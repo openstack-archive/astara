@@ -8,6 +8,12 @@ from cliff import commandmanager
 from akanda.rug.api import rug
 from akanda.rug.openstack.common import log as logging
 
+try:
+    import blessed  # noqa
+    HAS_BLESSED = True
+except ImportError:
+    HAS_BLESSED = False
+
 
 class TestRugAPI(unittest.TestCase):
 
@@ -19,6 +25,7 @@ class TestRugAPI(unittest.TestCase):
         self.api = rug.RugAPI(ctl)
         self.ctl = ctl.return_value
 
+    @unittest.skipUnless(HAS_BLESSED, "blessed not available")
     def test_browse(self):
         resp = self.api(webob.Request({
             'REQUEST_METHOD': 'PUT',
