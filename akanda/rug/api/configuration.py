@@ -112,7 +112,7 @@ def load_provider_rules(path):
     try:
         return jsonutils.load(open(path))
     except:  # pragma nocover
-        LOG.exception('unable to open provider rules: %s' % path)
+        LOG.warning('unable to open provider rules: %s' % path)
         return {}
 
 
