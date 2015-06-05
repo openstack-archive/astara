@@ -114,7 +114,7 @@ def register_and_load_opts():
         cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
         cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
         cfg.IntOpt('akanda_mgt_service_port', default=5000),
-        cfg.IntOpt('router_instance_flavor', default=1),
+        cfg.StrOpt('router_instance_flavor', default=1),
 
         # needed for plugging locally into management network
         cfg.StrOpt('interface_driver'),
