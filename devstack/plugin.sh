@@ -25,7 +25,13 @@ AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-master}
 AKANDA_CONF_DIR=/etc/akanda-rug
 AKANDA_RUG_CONF=$AKANDA_CONF_DIR/rug.ini
 
-ROUTER_INSTANCE_FLAVOR=2
+# Router instances will run as a specific Nova flavor. These values configure
+# the specs of the flavor devstack will create.
+ROUTER_INSTANCE_FLAVOR_ID=${ROUTER_INSTANCE_FLAVOR_ID:-135}  # NOTE(adam_g): This can be auto-generated UUID once RUG supports non-int IDs here
+ROUTER_INSTANCE_FLAVOR_RAM=${ROUTER_INSTANCE_FLAVOR_RAM:-512}
+ROUTER_INSTANCE_FLAVOR_DISK=${ROUTER_INSTANCE_FLAVOR_DISK:-5}
+ROUTER_INSTANCE_FLAVOR_CPUS=${ROUTER_INSTANCE_FLAVOR_CPUS:-1}
+
 PUBLIC_INTERFACE_DEFAULT='eth0'
 AKANDA_RUG_MANAGEMENT_PREFIX=${RUG_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
 AKANDA_RUG_MANAGEMENT_PORT=${AKANDA_RUG_MANAGEMENT_PORT:-5000}
@@ -125,6 +131,13 @@ function install_akanda() {
     fi
 }
 
+function create_akanda_nova_flavor() {
+    nova flavor-create akanda $ROUTER_INSTANCE_FLAVOR_ID \
+      $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
+      $ROUTER_INSTANCE_FLAVOR_CPUS
+    iniset $AKANDA_RUG_CONF DEFAULT router_instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
+}
+
 function _remove_subnets() {
     # Attempt to delete subnets associated with a network.
     # We have to modify the output of net-show to allow it to be
@@ -218,6 +231,8 @@ function pre_start_akanda() {
         _horizon_config_set $HORIZON_LOCAL_SETTINGS "" ROUTER_IMAGE_UUID \"$image_id\"
         _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT "44250"
     fi
+
+    create_akanda_nova_flavor
 }
 
 function start_akanda_rug() {
