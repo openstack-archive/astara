@@ -3,6 +3,7 @@ import ConfigParser
 import mock
 import os
 import testtools
+import time
 
 from akanda.rug.api import akanda_client
 
@@ -10,6 +11,7 @@ from novaclient.v1_1 import client as _novaclient
 from neutronclient.v2_0 import client as _neutronclient
 
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
+DEFAULT_ACTIVE_TIMEOUT = 340
 
 
 class AkandaFunctionalBase(testtools.TestCase):
@@ -46,11 +48,12 @@ class AkandaFunctionalBase(testtools.TestCase):
                 self.skipTest('Skipping, no test config found @ %s' %
                               config_file)
 
-            conf_settings = ['os_auth_url', 'os_username', 'os_password',
-                             'os_tenant_name', 'service_tenant_name',
-                             'service_tenant_id', 'appliance_api_port']
+            req_conf_settings = ['os_auth_url', 'os_username', 'os_password',
+                                 'os_tenant_name', 'service_tenant_name',
+                                 'service_tenant_id', 'appliance_api_port',
+                                 'akanda_test_router_uuid']
             out = {}
-            for c in conf_settings:
+            for c in req_conf_settings:
                 try:
                     out[c] = config.get('functional', c)
                 except ConfigParser.NoOptionError:
@@ -59,6 +62,15 @@ class AkandaFunctionalBase(testtools.TestCase):
             if missing:
                     self.fail('Missing required setting in test.conf (%s)'
                               (config_file, ','.join(missing)))
+
+            opt_conf_settings = {
+                'appliance_active_timeout': DEFAULT_ACTIVE_TIMEOUT,
+            }
+            for setting, default in opt_conf_settings.items():
+                try:
+                    out[setting] = config.get('functional', setting)
+                except ConfigParser.NoOptionError:
+                    out[setting] = default
             return out
 
     @property
@@ -78,3 +90,17 @@ class AkandaFunctionalBase(testtools.TestCase):
             self.fail('"mgt" port not found on service vm %s (%s)' %
                       (service_vm.id, service_vm.name))
         return self._management_address['addr']
+
+    def assert_router_is_active(self, router_uuid=None):
+        if not router_uuid:
+            router_uuid = self.config['akanda_test_router_uuid']
+        i = 0
+        router = self.neutronclient.show_router(router_uuid)['router']
+        while router['status'] != 'ACTIVE':
+            if i >= int(self.config['appliance_active_timeout']):
+                raise Exception(
+                    'Timed out waiting for router %s to become ACTIVE, '
+                    'current status=%s' % (router_uuid, router['status']))
+            time.sleep(1)
+            router = self.neutronclient.show_router(router_uuid)['router']
+            i += 1
