@@ -34,6 +34,7 @@ from akanda.rug import scheduler
 from akanda.rug import populate
 from akanda.rug import worker
 from akanda.rug.api import neutron as neutron_api
+#from akanda.rug.common import rpc
 
 LOG = log.getLogger(__name__)
 
@@ -198,6 +199,9 @@ def register_and_load_opts():
         cfg.StrOpt('rpc-exchange',
                    default='l3_agent_fanout',
                    help='name of the exchange where we receive RPC calls'),
+        cfg.StrOpt('neutron-control-exchange',
+                   default='neutron',
+                   help='The name of the exchange used by Neutron for RPCs')
     ])
 
     ceilometer_group = cfg.OptGroup(name='ceilometer',
@@ -256,11 +260,6 @@ def main(argv=sys.argv[1:]):
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         kwargs={
-            'host_id': cfg.CONF.host,
-            'amqp_url': cfg.CONF.amqp_url,
-            'notifications_exchange_name':
-            cfg.CONF.incoming_notifications_exchange,
-            'rpc_exchange_name': cfg.CONF.rpc_exchange,
             'notification_queue': notification_queue
         },
         name='notification-listener',
