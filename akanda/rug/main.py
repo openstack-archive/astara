@@ -89,7 +89,6 @@ def main(argv=sys.argv[1:]):
     t.name = 'tmain'
 
     ak_cfg.parse_config(argv)
-
     log.setup('akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
 
@@ -121,11 +120,6 @@ def main(argv=sys.argv[1:]):
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         kwargs={
-            'host_id': cfg.CONF.host,
-            'amqp_url': cfg.CONF.amqp_url,
-            'notifications_exchange_name':
-            cfg.CONF.incoming_notifications_exchange,
-            'rpc_exchange_name': cfg.CONF.rpc_exchange,
             'notification_queue': notification_queue
         },
         name='notification-listener',
@@ -152,8 +146,6 @@ def main(argv=sys.argv[1:]):
     Publisher = (notifications.Publisher if cfg.CONF.ceilometer.enabled
                  else notifications.NoopPublisher)
     publisher = Publisher(
-        cfg.CONF.amqp_url,
-        exchange_name=cfg.CONF.outgoing_notifications_exchange,
         topic=cfg.CONF.ceilometer.topic,
     )
 

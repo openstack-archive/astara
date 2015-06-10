@@ -253,8 +253,7 @@ class Worker(object):
     }
 
     def _dispatch_command(self, target, message):
-        instructions = message.body['payload']
-
+        instructions = message.body
         if instructions['command'] == commands.WORKERS_DEBUG:
             self.report_status()
 
