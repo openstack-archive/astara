@@ -145,7 +145,7 @@ class TestShutdown(WorkerTestBase):
     @mock.patch('kombu.entity.Exchange')
     @mock.patch('kombu.Producer')
     def test_stop_threads_notifier(self, producer, exchange, broker):
-        notifier = notifications.Publisher('url', 'neutron', 'topic')
+        notifier = notifications.Publisher('topic')
         self.w = worker.Worker(0, notifier)
         self.assertTrue(self.w.notifier._t)
         self.w._shutdown()
@@ -192,7 +192,7 @@ class TestReportStatus(WorkerTestBase):
             self.w.handle_message(
                 'debug',
                 event.Event('*', '', event.COMMAND,
-                            {'payload': {'command': commands.WORKERS_DEBUG}})
+                            {'command': commands.WORKERS_DEBUG})
             )
             meth.assert_called_once_with()
 
@@ -202,7 +202,7 @@ class TestReportStatus(WorkerTestBase):
             self.w.handle_message(
                 'debug',
                 event.Event('*', '', event.COMMAND,
-                            {'payload': {'command': commands.WORKERS_DEBUG}})
+                            {'command': commands.WORKERS_DEBUG})
             )
             self.assertTrue(conf.log_opt_values.called)
 
@@ -229,8 +229,8 @@ class TestDebugRouters(WorkerTestBase):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.ROUTER_DEBUG,
-                                     'router_id': 'this-router-id'}}),
+                        {'command': commands.ROUTER_DEBUG,
+                         'router_id': 'this-router-id'}),
         )
         self.assertEqual(set(['this-router-id']), self.w._debug_routers)
 
@@ -241,8 +241,8 @@ class TestDebugRouters(WorkerTestBase):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                        {'command': commands.ROUTER_MANAGE,
+                         'router_id': 'this-router-id'}),
         )
         self.assertEqual(set(), self.w._debug_routers)
         lock.release.assert_called_once()
@@ -252,8 +252,8 @@ class TestDebugRouters(WorkerTestBase):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                        {'command': commands.ROUTER_MANAGE,
+                         'router_id': 'this-router-id'}),
         )
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -264,8 +264,8 @@ class TestDebugRouters(WorkerTestBase):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                        {'command': commands.ROUTER_MANAGE,
+                         'router_id': 'this-router-id'}),
         )
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -330,8 +330,8 @@ class TestIgnoreRouters(WorkerTestBase):
         w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                        {'command': commands.ROUTER_MANAGE,
+                         'router_id': 'this-router-id'}),
         )
         self.assertEqual(set(), w._debug_routers)
 
@@ -382,8 +382,8 @@ class TestDebugTenants(WorkerTestBase):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.TENANT_DEBUG,
-                                     'tenant_id': 'this-tenant-id'}}),
+                        {'command': commands.TENANT_DEBUG,
+                         'tenant_id': 'this-tenant-id'}),
         )
         self.assertEqual(set(['this-tenant-id']), self.w._debug_tenants)
 
@@ -392,8 +392,8 @@ class TestDebugTenants(WorkerTestBase):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
-                        {'payload': {'command': commands.TENANT_MANAGE,
-                                     'tenant_id': 'this-tenant-id'}}),
+                        {'command': commands.TENANT_MANAGE,
+                         'tenant_id': 'this-tenant-id'}),
         )
         self.assertEqual(set(), self.w._debug_tenants)
 
@@ -427,9 +427,7 @@ class TestConfigReload(WorkerTestBase):
             tenant_id=tenant_id,
             router_id=router_id,
             crud=event.COMMAND,
-            body={
-                'payload': {'command': commands.CONFIG_RELOAD},
-            },
+            body={'command': commands.CONFIG_RELOAD}
         )
         self.w.handle_message(tenant_id, msg)
         self.assertTrue(self.conf.called)

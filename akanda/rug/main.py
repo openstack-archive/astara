@@ -87,6 +87,7 @@ def register_and_load_opts():
             'stevedore=INFO',
             'eventlet.wsgi.server=WARN',
             'requests=WARN',
+            'oslo.messaging=INFO',
             'akanda.rug.openstack.common.rpc.amqp=INFO',
             'neutronclient.client=INFO',
         ],
@@ -198,6 +199,9 @@ def register_and_load_opts():
         cfg.StrOpt('rpc-exchange',
                    default='l3_agent_fanout',
                    help='name of the exchange where we receive RPC calls'),
+        cfg.StrOpt('neutron-control-exchange',
+                   default='neutron',
+                   help='The name of the exchange used by Neutron for RPCs')
     ])
 
     ceilometer_group = cfg.OptGroup(name='ceilometer',
@@ -256,11 +260,6 @@ def main(argv=sys.argv[1:]):
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         kwargs={
-            'host_id': cfg.CONF.host,
-            'amqp_url': cfg.CONF.amqp_url,
-            'notifications_exchange_name':
-            cfg.CONF.incoming_notifications_exchange,
-            'rpc_exchange_name': cfg.CONF.rpc_exchange,
             'notification_queue': notification_queue
         },
         name='notification-listener',
@@ -287,8 +286,6 @@ def main(argv=sys.argv[1:]):
     Publisher = (notifications.Publisher if cfg.CONF.ceilometer.enabled
                  else notifications.NoopPublisher)
     publisher = Publisher(
-        cfg.CONF.amqp_url,
-        exchange_name=cfg.CONF.outgoing_notifications_exchange,
         topic=cfg.CONF.ceilometer.topic,
     )
 
