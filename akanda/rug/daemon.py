@@ -18,7 +18,7 @@
 """Utilities for managing ourselves as a daemon.
 """
 
-import logging
+from akanda.rug.common import log_shim as logging
 import signal
 
 

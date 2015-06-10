@@ -15,7 +15,7 @@
 # under the License.
 
 
-import logging
+from akanda.rug.common import log_shim as logging
 import requests
 
 from oslo.config import cfg
