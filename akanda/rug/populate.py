@@ -18,7 +18,7 @@
 """Populate the workers with the existing routers
 """
 
-import logging
+from akanda.rug.common import log_shim as logging
 import threading
 import time
 

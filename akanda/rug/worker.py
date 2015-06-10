@@ -19,7 +19,7 @@
 """
 
 import collections
-import logging
+from akanda.rug.common import log_shim as logging
 import os
 import Queue
 import threading

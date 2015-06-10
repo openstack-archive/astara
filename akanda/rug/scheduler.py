@@ -18,7 +18,7 @@
 """Scheduler to send messages for a given router to the correct worker.
 """
 
-import logging
+from akanda.rug.common import log_shim as logging
 import multiprocessing
 import uuid
 

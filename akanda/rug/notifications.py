@@ -18,7 +18,7 @@
 """Listen for notifications.
 """
 
-import logging
+from akanda.rug.common import log_shim as logging
 import Queue
 import urlparse
 import threading

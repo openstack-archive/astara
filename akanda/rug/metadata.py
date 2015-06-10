@@ -46,7 +46,7 @@ import webob
 import webob.dec
 import webob.exc
 
-from akanda.rug.openstack.common import log as logging
+from akanda.rug.common import log_shim as logging
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
