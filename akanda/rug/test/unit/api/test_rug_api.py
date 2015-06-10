@@ -6,7 +6,7 @@ import webob
 from cliff import commandmanager
 
 from akanda.rug.api import rug
-from akanda.rug.openstack.common import log as logging
+from akanda.rug.common import log_shim as logging
 
 try:
     import blessed  # noqa

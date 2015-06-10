@@ -14,7 +14,7 @@
 
 from oslo.config import cfg
 
-from akanda.rug.openstack.common import log
+from akanda.rug.common import log_shim as log
 
 LOG = log.getLogger(__name__)
 

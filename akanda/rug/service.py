@@ -23,7 +23,7 @@ from oslo_config import cfg
 
 from akanda.rug import manager
 from akanda.rug.openstack.common.gettextutils import _
-from akanda.rug.openstack.common import log
+from akanda.rug.common import log_shim as log
 from akanda.rug.openstack.common.rpc import service as rpc_service
 from akanda.rug.openstack.common import service
 

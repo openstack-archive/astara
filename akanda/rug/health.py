@@ -18,7 +18,7 @@
 """Periodic health check code.
 """
 
-import logging
+from akanda.rug.common import log_shim as logging
 import threading
 import time
 

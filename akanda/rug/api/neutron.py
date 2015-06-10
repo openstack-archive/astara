@@ -31,7 +31,7 @@ from oslo_utils import importutils
 
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.openstack.common.rpc import proxy
-from akanda.rug.openstack.common import log as logging
+from akanda.rug.common import log_shim as logging
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF

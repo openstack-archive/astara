@@ -15,7 +15,7 @@
 # under the License.
 
 from datetime import datetime
-import logging
+from akanda.rug.common import log_shim as logging
 
 from novaclient.v1_1 import client
 from novaclient import exceptions as novaclient_exceptions

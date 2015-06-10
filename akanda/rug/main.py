@@ -16,7 +16,7 @@
 
 
 import functools
-import logging
+from akanda.rug.common import log_shim as logging
 import multiprocessing
 import signal
 import socket
@@ -28,7 +28,7 @@ from oslo_config import cfg
 from akanda.rug.common import config as ak_cfg
 from akanda.rug import daemon
 from akanda.rug import health
-from akanda.rug.openstack.common import log
+from akanda.rug.common import log_shim as log
 from akanda.rug import metadata
 from akanda.rug import notifications
 from akanda.rug import scheduler
