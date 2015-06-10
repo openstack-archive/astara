@@ -24,7 +24,7 @@
 
 import collections
 import itertools
-import logging
+from akanda.rug.common import log_shim as logging
 
 from oslo.config import cfg
 
