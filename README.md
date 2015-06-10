@@ -1,6 +1,6 @@
 # Akanda Rug
 
-*Part of the [Akanda Project](https://github.com/dreamhost/akanda).*
+*Part of the [Akanda Project](https://github.com/stackforge/akanda).*
 
 **ties the room together**
 
