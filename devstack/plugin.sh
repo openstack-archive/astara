@@ -9,10 +9,6 @@ AKANDA_APPLIANCE_DIR=$DEST/akanda-appliance
 AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/stackforge/akanda-appliance.git}
 AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-master}
 
-AKANDA_APPLIANCE_BUILDER_DIR=$DEST/akanda-appliance-builder
-AKANDA_APPLIANCE_BUILDER_REPO=${AKANDA_APPLIANCE_BUILDER_REPO:-http://github.com/stackforge/akanda-appliance-builder.git}
-AKANDA_APPLIANCE_BUILDER_BRANCH=${AKANDA_APPLIANCE_BUILDER_BRANCH:-master}
-
 BUILD_AKANDA_APPLIANCE_IMAGE=${BUILD_AKANDA_APPLIANCE_IMAGE:-False}
 AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
 AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
@@ -112,7 +108,6 @@ function install_akanda() {
 
     if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
         git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
-        git_clone $AKANDA_APPLIANCE_BUILDER_REPO $AKANDA_APPLIANCE_BUILDER_DIR $AKANDA_APPLIANCE_BUILDER_BRANCH
     fi
 
     if is_service_enabled horizon; then
@@ -187,7 +182,7 @@ function pre_start_akanda() {
         DIB_AKANDA_APPLIANCE_DEBUG_USER=$ADMIN_USERNAME \
         DIB_AKANDA_APPLIANCE_DEBUG_PASSWORD=$ADMIN_PASSWORD \
         http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
-        ELEMENTS_PATH=$AKANDA_APPLIANCE_BUILDER_DIR/diskimage-builder/elements \
+        ELEMENTS_PATH=$AKANDA_APPLIANCE_DIR/diskimage-builder/elements \
         DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user \
         -o $TOP_DIR/files/akanda
         akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_FILE
