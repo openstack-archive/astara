@@ -342,8 +342,10 @@ class ConfigureVM(State):
 
 class ReadStats(State):
     def execute(self, action, worker_context):
-        stats = self.vm.read_stats()
-        self.params.bandwidth_callback(stats)
+        bandwidth_stats = self.vm.bandwidth_stats()
+        self.params.bandwidth_callback(
+            router_id=self.vm.router_id,
+            bandwidth=bandwidth_stats)
         return POLL
 
     def transition(self, action, worker_context):

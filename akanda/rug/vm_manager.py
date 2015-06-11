@@ -536,3 +536,8 @@ class VmManager(object):
             )
             router.external_port = ext_port
         return router
+
+    def bandwidth_stats(self):
+        # TODO(adam_g): Gather and report some form of statistics on bandwidth
+        # usage per-VM.
+        return {}

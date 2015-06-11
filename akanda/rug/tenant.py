@@ -99,12 +99,16 @@ class TenantRouterManager(object):
 
     def _report_bandwidth(self, router_id, bandwidth):
         LOG.debug('reporting bandwidth for %s', router_id)
+        # NOTE(adam_g): this is just temporary, when we are ready to integrate
+        # /w ceilometer we'll need to define this similar to existing neutron
+        # notifications
         msg = {
-            'tenant_id': self.tenant_id,
-            'timestamp': timeutils.isotime(),
             'event_type': 'akanda.bandwidth.used',
-            'payload': dict((b.pop('name'), b) for b in bandwidth),
-            'router_id': router_id,
+            'payload': {
+                'router_id': router_id,
+                'tenant_id': self.tenant_id,
+                'bandwidth_used': dict((b.pop('name'), b) for b in bandwidth),
+            }
         }
         self.notify(msg)
 
