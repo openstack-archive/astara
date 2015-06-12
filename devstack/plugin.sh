@@ -38,6 +38,16 @@ HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 # within the appliance VM.
 AKANDA_APPLIANCE_SSH_PUBLIC_KEY=${AKANDA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
 
+
+function colorize_logging {
+    # Add color to logging output - this is lifted from devstack's functions to colorize the non-standard
+    # akanda format
+    iniset $AKANDA_RUG_CONF DEFAULT logging_exception_prefix "%(color)s%(asctime)s.%(msecs)03d TRACE %(name)s [01;[00m"
+    iniset $AKANDA_RUG_CONF DEFAULT logging_debug_format_suffix "[00;33mfrom (pid=%(process)d) %(funcName)s %(pathname)s:%(lineno)d[00m"
+    iniset $AKANDA_RUG_CONF DEFAULT logging_default_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[00;36m-%(color)s] [01;35m%(color)s%(message)s[00m"
+    iniset $AKANDA_RUG_CONF DEFAULT logging_context_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[01;36m%(request_id)s [00;36m%(user)s %(tenant)s%(color)s] [01;35m%(color)s%(message)s[00m"
+}
+
 function configure_akanda() {
     if [[ ! -d $AKANDA_CONF_DIR ]]; then
         sudo mkdir -p $AKANDA_CONF_DIR
@@ -67,6 +77,10 @@ function configure_akanda() {
     fi
 
     iniset $AKANDA_RUG_CONF DEFAULT router_ssh_public_key $AKANDA_APPLIANCE_SSH_PUBLIC_KEY
+
+    if [ "$LOG_COLOR" == "True" ] && [ "$SYSLOG" == "False" ]; then
+        colorize_logging
+    fi
 }
 
 function configure_akanda_nova() {

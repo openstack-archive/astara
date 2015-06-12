@@ -18,8 +18,9 @@
 """Utilities for managing ourselves as a daemon.
 """
 
-from akanda.rug.common import log_shim as logging
 import signal
+
+from oslo_log import log as logging
 
 
 def ignore_signals():
