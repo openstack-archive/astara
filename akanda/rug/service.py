@@ -19,13 +19,15 @@ import socket
 import sys
 
 import eventlet
+
 from oslo_config import cfg
+from oslo_log import log
 
 from akanda.rug import manager
 from akanda.rug.openstack.common.gettextutils import _
-from akanda.rug.common import log_shim as log
 from akanda.rug.openstack.common.rpc import service as rpc_service
 from akanda.rug.openstack.common import service
+
 
 L3_AGENT_TOPIC = 'l3_agent'
 cfg.CONF.register_opts([

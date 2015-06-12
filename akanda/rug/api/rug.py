@@ -23,7 +23,10 @@ import webob.dec
 import webob.exc
 
 from akanda.rug.cli import app
-from akanda.rug.common import log_shim as logging
+
+from oslo_log import log as logging
+from oslo_log import loggers
+
 
 from oslo_config import cfg
 
@@ -103,7 +106,7 @@ class RugAPIServer(object):
             sock,
             app,
             custom_pool=self.pool,
-            log=logging.WritableLogger(LOG))
+            log=loggers.WritableLogger(LOG))
 
 
 def serve(ip_address):

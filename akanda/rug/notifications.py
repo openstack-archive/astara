@@ -18,8 +18,6 @@
 """Listen for notifications.
 """
 
-from akanda.rug.common import log_shim as logging
-
 import Queue
 import threading
 
@@ -29,6 +27,7 @@ from akanda.rug.common import rpc
 
 from oslo_config import cfg
 from oslo_context import context
+from oslo_log import log as logging
 
 
 cfg.CONF.register_group(cfg.OptGroup(name='rabbit',

@@ -18,15 +18,21 @@ import sys
 import socket
 
 import mock
-import unittest2 as unittest
+import testtools
 
 from oslo_config import cfg
+from oslo_config import fixture as config_fixture
 
 from akanda.rug import main
 from akanda.rug import notifications as ak_notifications
 
 
-@mock.patch('akanda.rug.main.cfg')
+class TestMainBase(testtools.TestCase):
+    def setUp(self):
+        super(TestMainBase, self).setUp()
+        self.test_config = self.useFixture(config_fixture.Config(cfg.CONF))
+
+
 @mock.patch('akanda.rug.main.neutron_api')
 @mock.patch('akanda.rug.main.multiprocessing')
 @mock.patch('akanda.rug.main.notifications')
@@ -34,11 +40,10 @@ from akanda.rug import notifications as ak_notifications
 @mock.patch('akanda.rug.main.populate')
 @mock.patch('akanda.rug.main.health')
 @mock.patch('akanda.rug.main.shuffle_notifications')
-class TestMainPippo(unittest.TestCase):
-
+class TestMainPippo(TestMainBase):
     def test_shuffle_notifications(self, shuffle_notifications,
                                    health, populate, scheduler, notifications,
-                                   multiprocessing, neutron_api, cfg):
+                                   multiprocessing, neutron_api):
         queue = mock.Mock()
         queue.get.side_effect = [
             ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
@@ -52,7 +57,7 @@ class TestMainPippo(unittest.TestCase):
     def test_shuffle_notifications_error(
             self, shuffle_notifications,
             health, populate, scheduler, notifications,
-            multiprocessing, neutron_api, cfg):
+            multiprocessing, neutron_api):
         queue = mock.Mock()
         queue.get.side_effect = [
             ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
@@ -66,15 +71,15 @@ class TestMainPippo(unittest.TestCase):
 
     def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
-                                       multiprocessing, neutron_api, cfg):
+                                       multiprocessing, neutron_api):
         main.main(argv=[])
         neutron = neutron_api.Neutron.return_value
         neutron.ensure_local_service_port.assert_called_once_with()
 
     def test_ceilometer_disabled(self, shuffle_notifications, health,
                                  populate, scheduler, notifications,
-                                 multiprocessing, neutron_api, cfg):
-        cfg.CONF.ceilometer.enabled = False
+                                 multiprocessing, neutron_api):
+        self.test_config.config(enabled=False, group='ceilometer')
         notifications.Publisher = mock.Mock(spec=ak_notifications.Publisher)
         notifications.NoopPublisher = mock.Mock(
             spec=ak_notifications.NoopPublisher)
@@ -84,8 +89,8 @@ class TestMainPippo(unittest.TestCase):
 
     def test_ceilometer_enabled(self, shuffle_notifications, health,
                                 populate, scheduler, notifications,
-                                multiprocessing, neutron_api, cfg):
-        cfg.CONF.ceilometer.enabled = True
+                                multiprocessing, neutron_api):
+        self.test_config.config(enabled=True, group='ceilometer')
         notifications.Publisher = mock.Mock(spec=ak_notifications.Publisher)
         notifications.NoopPublisher = mock.Mock(
             spec=ak_notifications.NoopPublisher)
@@ -103,9 +108,9 @@ class TestMainPippo(unittest.TestCase):
 @mock.patch('akanda.rug.main.health')
 @mock.patch('akanda.rug.main.shuffle_notifications')
 @mock.patch('akanda.rug.api.neutron.get_local_service_ip')
-class TestMainExtPortBinding(unittest.TestCase):
+class TestMainExtPortBinding(TestMainBase):
 
-    @unittest.skipIf(
+    @testtools.skipIf(
         sys.platform != 'linux2',
         'unsupported platform'
     )
@@ -114,10 +119,11 @@ class TestMainExtPortBinding(unittest.TestCase):
             populate, scheduler, notifications, multiprocessing,
             akanda_wrapper, importutils):
 
-        cfg.CONF.plug_external_port = False
+        self.test_config.config(plug_external_port=False)
 
         def side_effect(**kwarg):
             return {'ports': {}}
+
         akanda_wrapper.return_value.list_ports.side_effect = side_effect
 
         main.main(argv=[])
