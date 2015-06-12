@@ -19,13 +19,15 @@
 """
 
 import collections
-from akanda.rug.common import log_shim as logging
 import os
 import Queue
 import threading
 import uuid
 
+from logging import INFO
+
 from oslo.config import cfg
+from oslo_log import log as logging
 
 from akanda.rug import commands
 from akanda.rug import event
@@ -304,7 +306,7 @@ class Worker(object):
             except Exception:
                 LOG.exception('Could not reload configuration')
             else:
-                cfg.CONF.log_opt_values(LOG, logging.INFO)
+                cfg.CONF.log_opt_values(LOG, INFO)
 
         else:
             LOG.warn('unrecognized command: %s', instructions)
@@ -367,7 +369,7 @@ class Worker(object):
 
     def report_status(self, show_config=True):
         if show_config:
-            cfg.CONF.log_opt_values(LOG, logging.INFO)
+            cfg.CONF.log_opt_values(LOG, INFO)
         LOG.info(
             'Number of state machines in work queue: %d',
             self.work_queue.qsize()

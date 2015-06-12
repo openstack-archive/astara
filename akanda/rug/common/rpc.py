@@ -1,9 +1,8 @@
 
-from akanda.rug.common import log_shim as logging
+import threading
 
 import oslo_messaging
-
-import threading
+from oslo_log import log as logging
 
 # XXX get this from the appropriate config settings. may need
 # to provide some mapping from the existing amqp_url to oslo.messaging

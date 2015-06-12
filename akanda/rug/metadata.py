@@ -46,7 +46,9 @@ import webob
 import webob.dec
 import webob.exc
 
-from akanda.rug.common import log_shim as logging
+from oslo_log import log as logging
+from oslo_log import loggers
+
 
 LOG = logging.getLogger(__name__)
 RUG_META_PORT = 9697
@@ -166,7 +168,7 @@ class MetadataProxy(object):
             sock,
             app,
             custom_pool=self.pool,
-            log=logging.WritableLogger(LOG))
+            log=loggers.WritableLogger(LOG))
 
 
 def serve(ip_address):

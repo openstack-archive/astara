@@ -16,7 +16,6 @@
 
 
 import functools
-from akanda.rug.common import log_shim as logging
 import multiprocessing
 import signal
 import socket
@@ -24,16 +23,17 @@ import sys
 import threading
 
 from oslo.config import cfg
+from oslo_log import log
 
 from akanda.rug import daemon
 from akanda.rug import health
-from akanda.rug.common import log_shim as log
 from akanda.rug import metadata
 from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import populate
 from akanda.rug import worker
 from akanda.rug.api import neutron as neutron_api
+
 
 LOG = log.getLogger(__name__)
 
@@ -60,6 +60,19 @@ def shuffle_notifications(notification_queue, sched):
 
 
 def register_and_load_opts():
+    log_levels = [
+        'amqp=WARN',
+        'amqplib=WARN',
+        'qpid.messaging=INFO',
+        'sqlalchemy=WARN',
+        'keystoneclient=INFO',
+        'stevedore=INFO',
+        'eventlet.wsgi.server=WARN',
+        'requests=WARN',
+        'oslo.messaging=INFO',
+        'akanda.rug.openstack.common.rpc.amqp=INFO',
+        'neutronclient.client=INFO',
+    ]
 
     # Set the logging format to include the process and thread, since
     # those aren't included in standard openstack logs but are useful
@@ -72,26 +85,12 @@ def register_and_load_opts():
                                     'processName',
                                     'threadName',
                                     'message'])
-    cfg.set_defaults(log.logging_cli_opts, log_format=log_format)
 
-    # Configure the default log levels for some third-party packages
-    # that are chatty
-    cfg.set_defaults(
-        log.log_opts,
-        default_log_levels=[
-            'amqp=WARN',
-            'amqplib=WARN',
-            'qpid.messaging=INFO',
-            'sqlalchemy=WARN',
-            'keystoneclient=INFO',
-            'stevedore=INFO',
-            'eventlet.wsgi.server=WARN',
-            'requests=WARN',
-            'oslo.messaging=INFO',
-            'akanda.rug.openstack.common.rpc.amqp=INFO',
-            'neutronclient.client=INFO',
-        ],
+    log.register_options(cfg.CONF)
+    log.set_defaults(
+        default_log_levels=log_levels,
     )
+    cfg.CONF.set_default('logging_default_format_string', log_format)
 
     cfg.CONF.register_opts([
         cfg.StrOpt('host',
@@ -229,11 +228,11 @@ def main(argv=sys.argv[1:]):
     register_and_load_opts()
     cfg.CONF(argv, project='akanda-rug')
 
-    log.setup('akanda-rug')
-    cfg.CONF.log_opt_values(LOG, logging.INFO)
+    log.setup(cfg.CONF, 'akanda-rug')
 
     # Purge the mgt tap interface on startup
     neutron = neutron_api.Neutron(cfg.CONF)
+
     # TODO(mark): develop better way restore after machine reboot
     # neutron.purge_management_interface()
 

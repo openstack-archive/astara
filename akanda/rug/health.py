@@ -18,11 +18,13 @@
 """Periodic health check code.
 """
 
-from akanda.rug.common import log_shim as logging
 import threading
 import time
 
 from akanda.rug import event
+
+from oslo_log import log as logging
+
 
 LOG = logging.getLogger(__name__)
 

@@ -15,10 +15,10 @@
 # under the License.
 
 
-from akanda.rug.common import log_shim as logging
 import requests
 
 from oslo.config import cfg
+from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 AKANDA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'
