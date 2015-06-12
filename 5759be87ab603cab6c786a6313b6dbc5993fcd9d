@@ -1,0 +1,9 @@
+Verified+2: Jenkins
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+2: David Lenwell <dlenwell@gmail.com>
+Workflow+1: David Lenwell <dlenwell@gmail.com>
+Submitted-by: Jenkins
+Submitted-at: Fri, 12 Jun 2015 23:45:06 +0000
+Reviewed-on: https://review.openstack.org/190312
+Project: stackforge/akanda-rug
+Branch: refs/heads/master
