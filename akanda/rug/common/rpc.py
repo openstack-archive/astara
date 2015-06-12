@@ -17,8 +17,7 @@
 import threading
 import urlparse
 
-from akanda.rug.common import log_shim as logging
-
+from oslo_log import log as logging
 from oslo.config import cfg
 import oslo_messaging
 

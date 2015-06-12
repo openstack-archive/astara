@@ -18,7 +18,6 @@
 """Scheduler to send messages for a given router to the correct worker.
 """
 
-from akanda.rug.common import log_shim as logging
 import multiprocessing
 import uuid
 
@@ -26,6 +25,8 @@ from oslo_config import cfg
 
 from akanda.rug import commands
 from akanda.rug import daemon
+
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)

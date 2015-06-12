@@ -13,13 +13,14 @@
 # under the License.
 
 from oslo.config import cfg
+from oslo_log import log
 
-from akanda.rug.common import log_shim as log
 
 LOG = log.getLogger(__name__)
 
 
 def parse_config(argv, default_config_files=None):
+    log.register_options(cfg.CONF)
     # Set the logging format to include the process and thread, since
     # those aren't included in standard openstack logs but are useful
     # for the rug
@@ -31,25 +32,23 @@ def parse_config(argv, default_config_files=None):
                                     'processName',
                                     'threadName',
                                     'message'])
-    cfg.set_defaults(log.logging_cli_opts, log_format=log_format)
-
     # Configure the default log levels for some third-party packages
     # that are chatty
-    cfg.set_defaults(
-        log.log_opts,
-        default_log_levels=[
-            'amqp=WARN',
-            'amqplib=WARN',
-            'qpid.messaging=INFO',
-            'sqlalchemy=WARN',
-            'keystoneclient=INFO',
-            'stevedore=INFO',
-            'eventlet.wsgi.server=WARN',
-            'requests=WARN',
-            'akanda.rug.openstack.common.rpc.amqp=INFO',
-            'neutronclient.client=INFO',
-        ],
-    )
+    log_levels = [
+        'amqp=WARN',
+        'amqplib=WARN',
+        'qpid.messaging=INFO',
+        'sqlalchemy=WARN',
+        'keystoneclient=INFO',
+        'stevedore=INFO',
+        'eventlet.wsgi.server=WARN',
+        'requests=WARN',
+        'akanda.rug.openstack.common.rpc.amqp=INFO',
+        'neutronclient.client=INFO',
+        'oslo.messaging=INFO',
+    ]
+    cfg.CONF.set_default('logging_default_format_string', log_format)
+    log.set_defaults(default_log_levels=log_levels)
     cfg.CONF(argv,
              project='akanda-rug',
              default_config_files=default_config_files)
