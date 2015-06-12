@@ -6,7 +6,9 @@ import webob
 from cliff import commandmanager
 
 from akanda.rug.api import rug
-from akanda.rug.common import log_shim as logging
+
+from oslo_log import loggers
+
 
 try:
     import blessed  # noqa
@@ -174,7 +176,7 @@ class TestRugAPIServer(unittest.TestCase):
             args[0] == sock,
             isinstance(args[1], rug.RugAPI),
             kwargs['custom_pool'] == server.pool,
-            isinstance(kwargs['log'], logging.WritableLogger)
+            isinstance(kwargs['log'], loggers.WritableLogger)
         ])
 
     @mock.patch('eventlet.listen')
@@ -214,5 +216,5 @@ class TestRugAPIServer(unittest.TestCase):
             args[0] == sock,
             isinstance(args[1], rug.RugAPI),
             kwargs['custom_pool'] == server.pool,
-            isinstance(kwargs['log'], logging.WritableLogger)
+            isinstance(kwargs['log'], loggers.WritableLogger)
         ])

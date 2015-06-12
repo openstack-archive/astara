@@ -27,10 +27,10 @@ from neutronclient.v2_0 import client
 
 from oslo.config import cfg
 from oslo_context import context
+from oslo_log import log as logging
 from oslo_utils import importutils
 
 from akanda.rug.common.linux import ip_lib
-from akanda.rug.common import log_shim as logging
 from akanda.rug.common import rpc
 
 LOG = logging.getLogger(__name__)
