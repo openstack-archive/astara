@@ -45,7 +45,8 @@ import tempfile
 from eventlet.green import subprocess
 
 from akanda.rug.openstack.common.gettextutils import _
-from akanda.rug.common import log_shim as logging
+
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
