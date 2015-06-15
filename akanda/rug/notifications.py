@@ -58,6 +58,21 @@ RABBIT_OPTIONS = [
 ]
 cfg.CONF.register_opts(RABBIT_OPTIONS, group='rabbit')
 
+NOTIFICATIONS_OPTS = [
+    cfg.StrOpt('amqp-url',
+               default='amqp://guest:secrete@localhost:5672/',
+               help='connection for AMQP server'),
+    cfg.StrOpt('incoming-notifications-exchange',
+               default='neutron',
+               help='name of the exchange where we receive notifications'),
+    cfg.StrOpt('outgoing-notifications-exchange',
+               default='neutron',
+               help='name of the exchange where we send notifications'),
+    cfg.StrOpt('rpc-exchange',
+               default='l3_agent_fanout',
+               help='name of the exchange where we receive RPC calls'),
+]
+cfg.CONF.register_opts(NOTIFICATIONS_OPTS)
 
 LOG = logging.getLogger(__name__)
 

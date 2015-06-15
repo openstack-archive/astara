@@ -26,6 +26,13 @@ AKANDA_MGT_SERVICE_PORT = 5000
 AKANDA_BASE_PATH = '/v1/'
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+
+AK_CLIENT_OPTS = [
+    cfg.IntOpt('alive_timeout', default=3),
+    cfg.IntOpt('config_timeout', default=90),
+]
+CONF.register_opts(AK_CLIENT_OPTS)
 
 
 def _mgt_url(host, port, path):

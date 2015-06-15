@@ -34,6 +34,24 @@ from akanda.rug.openstack.common.rpc import proxy
 from akanda.rug.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+
+
+neutron_opts = [
+    cfg.StrOpt('management_network_id'),
+    cfg.StrOpt('external_network_id'),
+    cfg.StrOpt('management_subnet_id'),
+    cfg.StrOpt('external_subnet_id'),
+    cfg.StrOpt('router_image_uuid'),
+    cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
+    cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
+    cfg.IntOpt('akanda_mgt_service_port', default=5000),
+    cfg.StrOpt('router_instance_flavor', default=1),
+    cfg.StrOpt('interface_driver'),
+
+]
+cfg.CONF.register_opts(neutron_opts)
+
 
 # copied from Neutron source
 DEVICE_OWNER_ROUTER_MGT = "network:router_management"

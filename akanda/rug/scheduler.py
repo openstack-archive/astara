@@ -22,11 +22,20 @@ import logging
 import multiprocessing
 import uuid
 
+from oslo_config import cfg
+
 from akanda.rug import commands
 from akanda.rug import daemon
 
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+SCHEDULER_OPTS = [
+    cfg.IntOpt('num_worker_processes',
+               default=16,
+               help='the number of worker processes to run'),
+]
+CONF.register_opts(SCHEDULER_OPTS)
 
 
 def _worker(inq, worker_factory):
@@ -90,7 +99,7 @@ class Scheduler(object):
     """Managers a worker pool and redistributes messages.
     """
 
-    def __init__(self, num_workers, worker_factory):
+    def __init__(self, worker_factory):
         """
         :param num_workers: The number of worker processes to create.
         :type num_workers: int
@@ -98,9 +107,9 @@ class Scheduler(object):
                             when a notification is received.
         :type worker_factory: Callable to create Worker instances.
         """
-        if num_workers < 1:
+        self.num_workers = cfg.CONF.num_worker_processes
+        if self.num_workers < 1:
             raise ValueError('Need at least one worker process')
-        self.num_workers = num_workers
         self.workers = []
         # Create several worker processes, each with its own queue for
         # sending it instructions based on the notifications we get

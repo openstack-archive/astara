@@ -43,6 +43,24 @@ STATUS_MAP = {
 }
 
 
+CONF = cfg.CONF
+VM_MANAGER_OPTS = [
+    cfg.IntOpt(
+        'hotplug_timeout', default=10,
+        help='The amount of time to wait for nova to hotplug/unplug '
+        'networks from the router VMs'),
+    cfg.IntOpt(
+        'boot_timeout', default=600),
+    cfg.IntOpt(
+        'error_state_cooldown',
+        default=30,
+        help=('Number of seconds to ignore new events when a router goes '
+              'into ERROR state'),
+    ),
+]
+CONF.register_opts(VM_MANAGER_OPTS)
+
+
 def synchronize_router_status(f):
     @wraps(f)
     def wrapper(self, worker_context, silent=False):

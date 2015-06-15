@@ -49,10 +49,12 @@ import webob.exc
 from akanda.rug.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+
 RUG_META_PORT = 9697
 
 
-metadata_opts = [
+METADATA_OPTS = [
     cfg.StrOpt('nova_metadata_ip', default='127.0.0.1',
                help="IP address used by Nova metadata server."),
     cfg.IntOpt('nova_metadata_port',
@@ -63,6 +65,7 @@ metadata_opts = [
                help='Shared secret to sign instance-id request',
                deprecated_name='quantum_metadata_proxy_shared_secret')
 ]
+CONF.register_opts(METADATA_OPTS)
 
 
 class MetadataProxyHandler(object):

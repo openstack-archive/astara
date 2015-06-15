@@ -21,9 +21,15 @@ import sys
 
 from oslo_config import cfg
 
-from akanda.rug import main
 from akanda.rug import state
 from akanda.rug import worker
+
+
+DEBUG_OPTS = [
+    cfg.StrOpt(
+        'router-id', required=True,
+        help='The UUID for the router to debug')
+]
 
 
 class Fake(object):
@@ -40,16 +46,8 @@ def bandwidth_callback(self, *args, **kwargs):
 
 
 def debug_one_router(args=sys.argv[1:]):
-
-    main.register_and_load_opts()
-
     # Add our extra option for specifying the router-id to debug
-    cfg.CONF.register_cli_opts([
-        cfg.StrOpt('router-id',
-                   required=True,
-                   help='The UUID for the router to debug',
-                   ),
-    ])
+    cfg.CONF.register_cli_opts(DEBUG_OPTS)
     cfg.CONF(args, project='akanda-rug')
     cfg.CONF.set_override('boot_timeout', 60000)
 

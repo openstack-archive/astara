@@ -13,3 +13,20 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+
+from oslo_config import cfg
+
+CONF = cfg.CONF
+
+
+api_opts = [
+    cfg.StrOpt('admin_user'),
+    cfg.StrOpt('admin_password', secret=True),
+    cfg.StrOpt('admin_tenant_name'),
+    cfg.StrOpt('auth_url'),
+    cfg.StrOpt('auth_strategy', default='keystone'),
+    cfg.StrOpt('auth_region'),
+    cfg.IntOpt('max_retries', default=3),
+    cfg.IntOpt('retry_delay', default=1),
+]
+CONF.register_opts(api_opts)
