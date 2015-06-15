@@ -34,6 +34,32 @@ from akanda.rug.api import nova
 from akanda.rug.api import neutron
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+
+WORKER_OPTS = [
+    cfg.StrOpt(
+        'ignored_router_directory',
+        default='/etc/akanda-rug/ignored',
+        help='Directory to scan for routers to ignore for debugging',
+    ),
+    cfg.IntOpt(
+        'queue_warning_threshold',
+        default=100,
+        help='warn if the event backlog for a tenant exceeds this value',
+    ),
+    cfg.IntOpt(
+        'reboot_error_threshold',
+        default=5,
+        help=('Number of reboots to allow before assuming '
+              'a router needs manual intervention'),
+    ),
+    cfg.IntOpt(
+        'num_worker_threads',
+        default=4,
+        help='the number of worker threads to run per process'),
+
+]
+CONF.register_opts(WORKER_OPTS)
 
 
 def _normalize_uuid(value):
@@ -56,19 +82,10 @@ class Worker(object):
     track of a bunch of the state machines, so the callable is a
     method of an instance of this class instead of a simple function.
     """
-
-    QUEUE_WARNING_THRESHOLD_DEFAULT = 100
-    REBOOT_ERROR_THRESHOLD_DEFAULT = 5
-
-    def __init__(self,
-                 num_threads,
-                 notifier,
-                 ignore_directory=None,
-                 queue_warning_threshold=QUEUE_WARNING_THRESHOLD_DEFAULT,
-                 reboot_error_threshold=REBOOT_ERROR_THRESHOLD_DEFAULT):
-        self._ignore_directory = ignore_directory
-        self._queue_warning_threshold = queue_warning_threshold
-        self._reboot_error_threshold = reboot_error_threshold
+    def __init__(self, notifier):
+        self._ignore_directory = cfg.CONF.ignored_router_directory
+        self._queue_warning_threshold = cfg.CONF.queue_warning_threshold
+        self._reboot_error_threshold = cfg.CONF.reboot_error_threshold
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -96,7 +113,7 @@ class Worker(object):
                 name='t%02d' % i,
                 target=self._thread_target,
             )
-            for i in xrange(num_threads)
+            for i in xrange(cfg.CONF.num_worker_threads)
         ]
         for t in self.threads:
             t.setDaemon(True)

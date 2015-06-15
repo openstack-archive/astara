@@ -23,6 +23,8 @@ import mock
 
 import unittest2 as unittest
 
+from oslo_config import cfg
+
 from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import notifications
@@ -35,11 +37,11 @@ from akanda.rug.api import neutron
 class WorkerTestBase(unittest.TestCase):
     def setUp(self):
         super(WorkerTestBase, self).setUp()
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        cfg.CONF.boot_timeout = 1
+        cfg.CONF.akanda_mgt_service_port = 5000
+        cfg.CONF.max_retries = 3
+        cfg.CONF.management_prefix = 'fdca:3ba5:a17a:acda::/64'
+        cfg.CONF.num_worker_threads = 0
 
         mock.patch('akanda.rug.worker.nova').start()
         fake_neutron_obj = mock.patch.object(
@@ -49,15 +51,17 @@ class WorkerTestBase(unittest.TestCase):
 
         mock.patch.object(neutron, 'Neutron',
                           return_value=fake_neutron_obj).start()
-        self.w = worker.Worker(0, mock.Mock())
+        self.w = worker.Worker(mock.Mock())
         self.addCleanup(mock.patch.stopall)
+
+    def tearDown(self):
+        self.w._shutdown()
+        super(WorkerTestBase, self).tearDown()
 
 
 class TestCreatingRouter(WorkerTestBase):
     def setUp(self):
         super(TestCreatingRouter, self).setUp()
-
-        self.w = worker.Worker(0, mock.Mock())
         self.tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         self.router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         self.hostname = 'akanda'
@@ -68,10 +72,6 @@ class TestCreatingRouter(WorkerTestBase):
             body={'key': 'value'},
         )
         self.w.handle_message(self.tenant_id, self.msg)
-
-    def tearDown(self):
-        self.w._shutdown()
-        super(TestCreatingRouter, self).tearDown()
 
     def test_in_tenant_managers(self):
         self.assertIn(self.tenant_id, self.w.tenant_managers)
@@ -88,8 +88,6 @@ class TestWildcardMessages(WorkerTestBase):
 
     def setUp(self):
         super(TestWildcardMessages, self).setUp()
-
-        self.w = worker.Worker(0, mock.Mock())
         # Create some tenants
         for msg in [
                 event.Event(
@@ -105,10 +103,6 @@ class TestWildcardMessages(WorkerTestBase):
                     body={'key': 'value'},
                 )]:
             self.w.handle_message(msg.tenant_id, msg)
-
-    def tearDown(self):
-        self.w._shutdown()
-        super(TestWildcardMessages, self).tearDown()
 
     def test_wildcard_to_all(self):
         trms = self.w._get_trms('*')
@@ -127,13 +121,11 @@ class TestWildcardMessages(WorkerTestBase):
 
 class TestShutdown(WorkerTestBase):
     def test_shutdown_on_null_message(self):
-        self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, '_shutdown') as meth:
             self.w.handle_message(None, None)
             meth.assert_called_once_with()
 
     def test_stop_threads(self):
-        self.w = worker.Worker(1, mock.Mock())
         original_queue = self.w.work_queue
         self.assertTrue(self.w._keep_going)
         self.w._shutdown()
@@ -146,10 +138,10 @@ class TestShutdown(WorkerTestBase):
     @mock.patch('kombu.Producer')
     def test_stop_threads_notifier(self, producer, exchange, broker):
         notifier = notifications.Publisher('url', 'neutron', 'topic')
-        self.w = worker.Worker(0, notifier)
-        self.assertTrue(self.w.notifier._t)
-        self.w._shutdown()
-        self.assertFalse(self.w.notifier._t)
+        w = worker.Worker(notifier)
+        self.assertTrue(notifier)
+        w._shutdown()
+        self.assertFalse(w.notifier._t)
 
 
 class TestUpdateStateMachine(WorkerTestBase):
@@ -158,7 +150,6 @@ class TestUpdateStateMachine(WorkerTestBase):
         self.worker_context = worker.WorkerContext()
 
     def test(self):
-        w = worker.Worker(0, mock.Mock())
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
@@ -169,25 +160,24 @@ class TestUpdateStateMachine(WorkerTestBase):
         )
         # Create the router manager and state machine so we can
         # replace the update() method with a mock.
-        trm = w._get_trms(tenant_id)[0]
+        trm = self.w._get_trms(tenant_id)[0]
         sm = trm.get_state_machines(msg, self.worker_context)[0]
         with mock.patch.object(sm, 'update') as meth:
-            w.handle_message(tenant_id, msg)
+            self.w.handle_message(tenant_id, msg)
             # Add a null message so the worker loop will exit. We have
             # to do this directly, because if we do it through
             # handle_message() that triggers shutdown logic that keeps
             # the loop from working properly.
-            w.work_queue.put(None)
+            self.w.work_queue.put(None)
             # We aren't using threads (and we trust that threads do
             # work) so we just invoke the thread target ourselves to
             # pretend.
-            used_context = w._thread_target()
+            used_context = self.w._thread_target()
             meth.assert_called_once_with(used_context)
 
 
 class TestReportStatus(WorkerTestBase):
     def test_report_status_dispatched(self):
-        self.w = worker.Worker(0, mock.Mock())
         with mock.patch.object(self.w, 'report_status') as meth:
             self.w.handle_message(
                 'debug',
@@ -197,7 +187,6 @@ class TestReportStatus(WorkerTestBase):
             meth.assert_called_once_with()
 
     def test_handle_message_report_status(self):
-        self.w = worker.Worker(0, mock.Mock())
         with mock.patch('akanda.rug.worker.cfg.CONF') as conf:
             self.w.handle_message(
                 'debug',
@@ -208,20 +197,6 @@ class TestReportStatus(WorkerTestBase):
 
 
 class TestDebugRouters(WorkerTestBase):
-
-    def setUp(self):
-        super(TestDebugRouters, self).setUp()
-
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        self.w = worker.Worker(0, mock.Mock())
-
-        self.addCleanup(mock.patch.stopall)
-
     def testNoDebugs(self):
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -292,56 +267,50 @@ class TestDebugRouters(WorkerTestBase):
 
 
 class TestIgnoreRouters(WorkerTestBase):
-
     def setUp(self):
-        super(TestIgnoreRouters, self).setUp()
-
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-    def testNoIgnorePath(self):
-        w = worker.Worker(0, mock.Mock(), ignore_directory=None)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
-
-    def testNoIgnores(self):
         tmpdir = tempfile.mkdtemp()
-        self.addCleanup(lambda: os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
-
-    def testWithIgnores(self):
-        tmpdir = tempfile.mkdtemp()
+        cfg.CONF.ignored_router_directory = tmpdir
         fullname = os.path.join(tmpdir, 'this-router-id')
         with open(fullname, 'a'):
             os.utime(fullname, None)
         self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
+        super(TestIgnoreRouters, self).setUp()
+
+    @mock.patch('os.listdir')
+    def testNoIgnorePath(self, mock_listdir):
+        mock_listdir.side_effect = OSError()
+        ignored = self.w._get_routers_to_ignore()
+        self.assertEqual(set(), ignored)
+
+    def testNoIgnores(self):
+        tmpdir = tempfile.mkdtemp()
+        cfg.CONF.ignored_router_directory = tmpdir
+        self.addCleanup(lambda: os.rmdir(tmpdir))
+        w = worker.Worker(mock.Mock())
         ignored = w._get_routers_to_ignore()
+        self.assertEqual(set(), ignored)
+
+    def testWithIgnores(self):
+        ignored = self.w._get_routers_to_ignore()
         self.assertEqual(set(['this-router-id']), ignored)
 
     def testManage(self):
-        w = worker.Worker(0, mock.Mock())
-        w._debug_routers = set(['this-router-id'])
-        w.handle_message(
+        self.w._debug_routers = set(['this-router-id'])
+        self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
                                      'router_id': 'this-router-id'}}),
         )
-        self.assertEqual(set(), w._debug_routers)
+        self.assertEqual(set(), self.w._debug_routers)
 
     def testIgnoring(self):
         tmpdir = tempfile.mkdtemp()
+        cfg.CONF.ignored_router_directory = tmpdir
         fullname = os.path.join(tmpdir, 'ac194fc5-f317-412e-8611-fb290629f624')
         with open(fullname, 'a'):
             os.utime(fullname, None)
         self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
-        w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
 
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
@@ -353,8 +322,9 @@ class TestIgnoreRouters(WorkerTestBase):
         )
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
-        trm = w._get_trms(tenant_id)[0]
+        trm = self.w._get_trms(tenant_id)[0]
         sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+        w = worker.Worker(mock.Mock())
         with mock.patch.object(sm, 'send_message') as meth:
             # The router id is being ignored, so the send_message()
             # method shouldn't ever be invoked.
@@ -363,18 +333,6 @@ class TestIgnoreRouters(WorkerTestBase):
 
 
 class TestDebugTenants(WorkerTestBase):
-
-    def setUp(self):
-        super(TestDebugTenants, self).setUp()
-
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
-        self.conf.management_prefix = 'fdca:3ba5:a17a:acda::/64'
-
-        self.w = worker.Worker(0, mock.Mock())
-
     def testNoDebugs(self):
         self.assertEqual(set(), self.w._debug_tenants)
 
@@ -420,7 +378,10 @@ class TestDebugTenants(WorkerTestBase):
 
 
 class TestConfigReload(WorkerTestBase):
-    def test(self):
+    @mock.patch.object(worker, 'cfg')
+    def test(self, mock_cfg):
+        mock_cfg.CONF = mock.MagicMock(
+            log_opt_values=mock.MagicMock())
         tenant_id = '*'
         router_id = '*'
         msg = event.Event(
@@ -432,8 +393,8 @@ class TestConfigReload(WorkerTestBase):
             },
         )
         self.w.handle_message(tenant_id, msg)
-        self.assertTrue(self.conf.called)
-        self.assertTrue(self.conf.log_opt_values.called)
+        self.assertTrue(mock_cfg.CONF.called)
+        self.assertTrue(mock_cfg.CONF.log_opt_values.called)
 
 
 class TestNormalizeUUID(unittest.TestCase):

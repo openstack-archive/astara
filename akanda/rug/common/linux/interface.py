@@ -45,6 +45,8 @@ from akanda.rug.openstack.common import log as logging
 
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+
 
 OPTS = [
     cfg.StrOpt('ovs_integration_bridge',
@@ -56,6 +58,15 @@ OPTS = [
     cfg.StrOpt('network_device_mtu',
                help=_('MTU setting for device.')),
 ]
+CONF.register_opts(OPTS)
+
+
+# NOTE(adam_g): These need a better home
+AGENT_OPTIONS = [
+   cfg.StrOpt('root_helper', default='sudo'),
+]
+CONF.register_group(cfg.OptGroup(name='AGENT'))
+CONF.register_opts(AGENT_OPTIONS, 'AGENT')
 
 
 class LinuxInterfaceDriver(object):
