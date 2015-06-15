@@ -18,10 +18,18 @@
 import mock
 import unittest2 as unittest
 
+from oslo.config import cfg
+
 from akanda.rug import debug
 
 
 class TestDebug(unittest.TestCase):
+    def tearDown(self):
+        # The router-id CLI opt is added at runtime and needs to be removed
+        # post-test to avoid polluting other tests' config namespace
+        cfg.CONF.reset()
+        cfg.CONF.unregister_opts(debug.DEBUG_OPTS)
+        super(TestDebug, self).tearDown()
 
     @mock.patch('akanda.rug.worker.WorkerContext')
     @mock.patch('akanda.rug.state.Automaton')

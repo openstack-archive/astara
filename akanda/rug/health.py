@@ -22,14 +22,25 @@ import logging
 import threading
 import time
 
+from oslo_config import cfg
+
 from akanda.rug import event
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
+
+HEALTH_INSPECTOR_OPTS = [
+    cfg.IntOpt('health_check_period',
+               default=60,
+               help='seconds between health checks'),
+]
+CONF.register_opts(HEALTH_INSPECTOR_OPTS)
 
 
-def _health_inspector(period, scheduler):
+def _health_inspector(scheduler):
     """Runs in the thread.
     """
+    period = CONF.health_check_period
     while True:
         time.sleep(period)
         LOG.debug('waking up')
@@ -47,7 +58,7 @@ def start_inspector(period, scheduler):
     """
     t = threading.Thread(
         target=_health_inspector,
-        args=(period, scheduler,),
+        args=(scheduler,),
         name='HealthInspector',
     )
     t.setDaemon(True)

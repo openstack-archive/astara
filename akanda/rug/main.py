@@ -25,6 +25,7 @@ import threading
 
 from oslo.config import cfg
 
+from akanda.rug.common import config as ak_cfg
 from akanda.rug import daemon
 from akanda.rug import health
 from akanda.rug.openstack.common import log
@@ -36,6 +37,27 @@ from akanda.rug import worker
 from akanda.rug.api import neutron as neutron_api
 
 LOG = log.getLogger(__name__)
+CONF = cfg.CONF
+
+MAIN_OPTS = [
+    cfg.StrOpt('host',
+               default=socket.getfqdn(),
+               help="The hostname Akanda is running on"),
+    cfg.BoolOpt('plug_external_port', default=False),
+]
+CONF.register_opts(MAIN_OPTS)
+
+
+CEILOMETER_OPTS = [
+    cfg.BoolOpt('enabled', default=False,
+                help='Enable reporting metrics to ceilometer.'),
+    cfg.StrOpt('topic', default='notifications.info',
+               help='The name of the topic queue ceilometer consumes events '
+                    'from.')
+]
+CONF.register_group(cfg.OptGroup(name='ceilometer',
+                                 title='Ceilometer Reporting Options'))
+CONF.register_opts(CEILOMETER_OPTS, group='ceilometer')
 
 
 def shuffle_notifications(notification_queue, sched):
@@ -59,162 +81,6 @@ def shuffle_notifications(notification_queue, sched):
             LOG.exception('unhandled exception processing message')
 
 
-def register_and_load_opts():
-
-    # Set the logging format to include the process and thread, since
-    # those aren't included in standard openstack logs but are useful
-    # for the rug
-    log_format = ':'.join('%(' + n + ')s'
-                          for n in ['asctime',
-                                    'levelname',
-                                    'name',
-                                    'process',
-                                    'processName',
-                                    'threadName',
-                                    'message'])
-    cfg.set_defaults(log.logging_cli_opts, log_format=log_format)
-
-    # Configure the default log levels for some third-party packages
-    # that are chatty
-    cfg.set_defaults(
-        log.log_opts,
-        default_log_levels=[
-            'amqp=WARN',
-            'amqplib=WARN',
-            'qpid.messaging=INFO',
-            'sqlalchemy=WARN',
-            'keystoneclient=INFO',
-            'stevedore=INFO',
-            'eventlet.wsgi.server=WARN',
-            'requests=WARN',
-            'akanda.rug.openstack.common.rpc.amqp=INFO',
-            'neutronclient.client=INFO',
-        ],
-    )
-
-    cfg.CONF.register_opts([
-        cfg.StrOpt('host',
-                   default=socket.getfqdn(),
-                   help="The hostname Akanda is running on"),
-
-        # FIXME(dhellmann): Use a separate group for these auth params
-        cfg.StrOpt('admin_user'),
-        cfg.StrOpt('admin_password', secret=True),
-        cfg.StrOpt('admin_tenant_name'),
-        cfg.StrOpt('auth_url'),
-        cfg.StrOpt('auth_strategy', default='keystone'),
-        cfg.StrOpt('auth_region'),
-
-        cfg.StrOpt('management_network_id'),
-        cfg.StrOpt('external_network_id'),
-        cfg.StrOpt('management_subnet_id'),
-        cfg.StrOpt('external_subnet_id'),
-        cfg.StrOpt('router_image_uuid'),
-
-        cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
-        cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
-        cfg.IntOpt('akanda_mgt_service_port', default=5000),
-        cfg.StrOpt('router_instance_flavor', default=1),
-
-        # needed for plugging locally into management network
-        cfg.StrOpt('interface_driver'),
-        cfg.StrOpt('ovs_integration_bridge', default='br-int'),
-        cfg.BoolOpt('ovs_use_veth', default=False),
-        cfg.IntOpt('network_device_mtu'),
-
-        # plug in the external port locally
-        cfg.BoolOpt('plug_external_port', default=False),
-
-        # The amount of time to wait for nova to hotplug/unplug networks from
-        # the router VM
-        cfg.IntOpt('hotplug_timeout', default=10),
-
-        # needed for boot waiting
-        cfg.IntOpt('boot_timeout', default=600),
-        cfg.IntOpt('max_retries', default=3),
-        cfg.IntOpt('retry_delay', default=1),
-        cfg.IntOpt('alive_timeout', default=3),
-        cfg.IntOpt('config_timeout', default=90),
-
-        cfg.StrOpt(
-            'ignored_router_directory',
-            default='/etc/akanda-rug/ignored',
-            help='Directory to scan for routers to ignore for debugging',
-        ),
-
-        cfg.IntOpt(
-            'queue_warning_threshold',
-            default=worker.Worker.QUEUE_WARNING_THRESHOLD_DEFAULT,
-            help='warn if the event backlog for a tenant exceeds this value',
-        ),
-
-        cfg.IntOpt(
-            'reboot_error_threshold',
-            default=worker.Worker.REBOOT_ERROR_THRESHOLD_DEFAULT,
-            help=('Number of reboots to allow before assuming '
-                  'a router needs manual intervention'),
-        ),
-        cfg.IntOpt(
-            'error_state_cooldown',
-            default=30,
-            help=('Number of seconds to ignore new events when a router goes '
-                  'into ERROR state'),
-        ),
-
-    ])
-
-    cfg.CONF.register_opts(metadata.metadata_opts)
-
-    AGENT_OPTIONS = [
-        cfg.StrOpt('root_helper', default='sudo'),
-    ]
-
-    cfg.CONF.register_opts(AGENT_OPTIONS, 'AGENT')
-
-    # FIXME: Convert these to regular options, not command line options.
-    cfg.CONF.register_cli_opts([
-        cfg.IntOpt('health-check-period',
-                   default=60,
-                   help='seconds between health checks'),
-        cfg.IntOpt('num-worker-processes',
-                   short='w',
-                   default=16,
-                   help='the number of worker processes to run'),
-        cfg.IntOpt('num-worker-threads',
-                   short='t',
-                   default=4,
-                   help='the number of worker threads to run per process'),
-
-        # FIXME(dhellmann): set up a group for these messaging params
-        cfg.StrOpt('amqp-url',
-                   default='amqp://guest:secrete@localhost:5672/',
-                   help='connection for AMQP server'),
-        cfg.StrOpt('incoming-notifications-exchange',
-                   default='neutron',
-                   help='name of the exchange where we receive notifications'),
-        cfg.StrOpt('outgoing-notifications-exchange',
-                   default='neutron',
-                   help='name of the exchange where we send notifications'),
-        cfg.StrOpt('rpc-exchange',
-                   default='l3_agent_fanout',
-                   help='name of the exchange where we receive RPC calls'),
-    ])
-
-    ceilometer_group = cfg.OptGroup(name='ceilometer',
-                                    title='Ceilometer Reporting Options')
-    c_enable_reporting = cfg.BoolOpt('enabled',
-                                     default=False,
-                                     help='Enable reporting metrics to '
-                                          'ceilometer.')
-    c_topic = cfg.StrOpt('topic',
-                         default='notifications.info',
-                         help='The name of the topic queue ceilometer '
-                              'consumes events from.')
-    cfg.CONF.register_group(ceilometer_group)
-    cfg.CONF.register_opt(c_enable_reporting, group=ceilometer_group)
-    cfg.CONF.register_opt(c_topic, group=ceilometer_group)
-
-
 def main(argv=sys.argv[1:]):
     # Change the process and thread name so the logs are cleaner.
     p = multiprocessing.current_process()
@@ -222,8 +88,7 @@ def main(argv=sys.argv[1:]):
     t = threading.current_thread()
     t.name = 'tmain'
 
-    register_and_load_opts()
-    cfg.CONF(argv, project='akanda-rug')
+    ak_cfg.parse_config(argv)
 
     log.setup('akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
@@ -296,17 +161,12 @@ def main(argv=sys.argv[1:]):
     # run.
     worker_factory = functools.partial(
         worker.Worker,
-        num_threads=cfg.CONF.num_worker_threads,
-        notifier=publisher,
-        ignore_directory=cfg.CONF.ignored_router_directory,
-        queue_warning_threshold=cfg.CONF.queue_warning_threshold,
-        reboot_error_threshold=cfg.CONF.reboot_error_threshold,
+        notifier=publisher
     )
 
     # Set up the scheduler that knows how to manage the routers and
     # dispatch messages.
     sched = scheduler.Scheduler(
-        num_workers=cfg.CONF.num_worker_processes,
         worker_factory=worker_factory,
     )
 

@@ -20,6 +20,8 @@ import socket
 import mock
 import unittest2 as unittest
 
+from oslo_config import cfg
+
 from akanda.rug import main
 from akanda.rug import notifications as ak_notifications
 
@@ -65,7 +67,7 @@ class TestMainPippo(unittest.TestCase):
     def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
                                        multiprocessing, neutron_api, cfg):
-        main.main()
+        main.main(argv=[])
         neutron = neutron_api.Neutron.return_value
         neutron.ensure_local_service_port.assert_called_once_with()
 
@@ -76,7 +78,7 @@ class TestMainPippo(unittest.TestCase):
         notifications.Publisher = mock.Mock(spec=ak_notifications.Publisher)
         notifications.NoopPublisher = mock.Mock(
             spec=ak_notifications.NoopPublisher)
-        main.main()
+        main.main(argv=[])
         self.assertEqual(len(notifications.Publisher.mock_calls), 0)
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 1)
 
@@ -87,12 +89,11 @@ class TestMainPippo(unittest.TestCase):
         notifications.Publisher = mock.Mock(spec=ak_notifications.Publisher)
         notifications.NoopPublisher = mock.Mock(
             spec=ak_notifications.NoopPublisher)
-        main.main()
+        main.main(argv=[])
         self.assertEqual(len(notifications.Publisher.mock_calls), 1)
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 0)
 
 
-@mock.patch('akanda.rug.main.cfg')
 @mock.patch('akanda.rug.api.neutron.importutils')
 @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
 @mock.patch('akanda.rug.main.multiprocessing')
@@ -111,7 +112,7 @@ class TestMainExtPortBinding(unittest.TestCase):
     def test_ensure_local_port_host_binding(
             self, get_local_service_ip, shuffle_notifications, health,
             populate, scheduler, notifications, multiprocessing,
-            akanda_wrapper, importutils, cfg):
+            akanda_wrapper, importutils):
 
         cfg.CONF.plug_external_port = False
 
@@ -119,7 +120,7 @@ class TestMainExtPortBinding(unittest.TestCase):
             return {'ports': {}}
         akanda_wrapper.return_value.list_ports.side_effect = side_effect
 
-        main.main()
+        main.main(argv=[])
         args, kwargs = akanda_wrapper.return_value.create_port.call_args
         port = args[0]['port']
         self.assertIn('binding:host_id', port)

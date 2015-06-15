@@ -20,28 +20,30 @@ import uuid
 
 import unittest2 as unittest
 
+from oslo_config import cfg
+
 from akanda.rug import scheduler
 
 
 class TestScheduler(unittest.TestCase):
 
     def test_invalid_num_workers(self):
-        try:
-            scheduler.Scheduler(0, lambda x: x)
-        except ValueError:
-            pass
-        else:
-            self.fail('Should have raised ValueError')
+        cfg.CONF.num_worker_processes = 0
+        self.assertRaises(
+            ValueError,
+            scheduler.Scheduler, mock.Mock)
 
     @mock.patch('multiprocessing.Process')
     def test_creating_workers(self, process):
-        s = scheduler.Scheduler(2, mock.Mock)
+        cfg.CONF.num_worker_processes = 2
+        s = scheduler.Scheduler(mock.Mock)
         self.assertEqual(2, len(s.workers))
 
     @mock.patch('multiprocessing.Process')
     @mock.patch('multiprocessing.JoinableQueue')
     def test_stop(self, process, queue):
-        s = scheduler.Scheduler(2, mock.Mock)
+        cfg.CONF.num_worker_processes = 2
+        s = scheduler.Scheduler(mock.Mock)
         s.stop()
         for w in s.workers:
             w['queue'].put.assert_called_once(None)
