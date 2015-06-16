@@ -246,7 +246,7 @@ class TestBridgeInterfaceDriver(TestBase):
             br = interface.BridgeInterfaceDriver(self.conf)
             br.unplug('tap0')
             [mock.call(), mock.call('tap0', 'sudo'), mock.call().link.delete()]
-            self.assertEqual(log.error.call_count, 1)
+            self.assertEqual(log.exception.call_count, 1)
 
     def test_unplug(self):
         self.device_exists.return_value = True

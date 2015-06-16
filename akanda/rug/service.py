@@ -24,7 +24,6 @@ from oslo_config import cfg
 from oslo_log import log
 
 from akanda.rug import manager
-from akanda.rug.openstack.common.gettextutils import _
 from akanda.rug.openstack.common.rpc import service as rpc_service
 from akanda.rug.openstack.common import service
 
@@ -36,7 +35,7 @@ cfg.CONF.register_opts([
                help='seconds between periodic task runs (ie health check)'),
     cfg.StrOpt('host',
                default=socket.getfqdn(),
-               help=_("The hostname Neutron is running on")),
+               help="The hostname Neutron is running on"),
 ])
 
 

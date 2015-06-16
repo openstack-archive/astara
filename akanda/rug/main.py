@@ -26,6 +26,7 @@ import threading
 from oslo_config import cfg
 from oslo_log import log
 
+from akanda.rug.common.i18n import _, _LE, _LI
 from akanda.rug.common import config as ak_cfg
 from akanda.rug import daemon
 from akanda.rug import health
@@ -76,14 +77,15 @@ def shuffle_notifications(notification_queue, sched):
             # meantime waiting for a better solution.
             pass
         except KeyboardInterrupt:
-            LOG.info('got Ctrl-C')
+            LOG.info(_LI('got Ctrl-C'))
             break
         except:
-            LOG.exception('unhandled exception processing message')
+            LOG.exception(_LE('unhandled exception processing message'))
 
 
 def main(argv=sys.argv[1:]):
     # Change the process and thread name so the logs are cleaner.
+
     p = multiprocessing.current_process()
     p.name = 'pmain'
     t = threading.current_thread()
@@ -175,11 +177,11 @@ def main(argv=sys.argv[1:]):
         shuffle_notifications(notification_queue, sched)
     finally:
         # Terminate the scheduler and its workers
-        LOG.info('stopping processing')
+        LOG.info(_LI('stopping processing'))
         sched.stop()
         # Terminate the listening process
-        LOG.debug('stopping %s', notification_proc.name)
+        LOG.debug(_('stopping %s'), notification_proc.name)
         notification_proc.terminate()
-        LOG.debug('stopping %s', metadata_proc.name)
+        LOG.debug(_('stopping %s'), metadata_proc.name)
         metadata_proc.terminate()
-        LOG.info('exiting')
+        LOG.info(_LI('exiting'))
