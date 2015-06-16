@@ -48,7 +48,7 @@ fake_int_port = FakeModel(
     fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')])
 
 fake_router = FakeModel(
-    'router_id',
+    'instance_id',
     tenant_id='tenant_id',
     external_port=fake_ext_port,
     management_port=fake_mgt_port,
@@ -63,7 +63,7 @@ class FakeConf:
     auth_url = 'http://127.0.0.1/'
     auth_strategy = 'keystone'
     auth_region = 'RegionOne'
-    router_image_uuid = 'akanda-image'
+    image_uuid = 'akanda-image'
     router_instance_flavor = 1
 
 
@@ -129,7 +129,7 @@ class TestNovaWrapper(unittest.TestCase):
         mock_userdata.return_value = 'fake_userdata'
         expected = [
             mock.call.servers.create(
-                'ak-router_id',
+                'ak-instance_id',
                 nics=[{'port-id': '2',
                        'net-id': 'mgt-net',
                        'v4-fixed-ip': ''},
@@ -147,7 +147,7 @@ class TestNovaWrapper(unittest.TestCase):
         ]
 
         self.nova.create_instance(
-            'router_id', 'GLANCE-IMAGE-123', fake_make_ports_callback)
+            'instance_id', 'GLANCE-IMAGE-123', fake_make_ports_callback)
         self.client.assert_has_calls(expected)
 
     def test_get_instance_for_obj(self):
@@ -155,10 +155,10 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.servers.list.return_value = [instance]
 
         expected = [
-            mock.call.servers.list(search_opts={'name': 'ak-router_id'})
+            mock.call.servers.list(search_opts={'name': 'ak-instance_id'})
         ]
 
-        result = self.nova.get_instance_for_obj('router_id')
+        result = self.nova.get_instance_for_obj('instance_id')
         self.client.assert_has_calls(expected)
         self.assertEqual(result, instance)
 
@@ -166,10 +166,10 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.servers.list.return_value = []
 
         expected = [
-            mock.call.servers.list(search_opts={'name': 'ak-router_id'})
+            mock.call.servers.list(search_opts={'name': 'ak-instance_id'})
         ]
 
-        result = self.nova.get_instance_for_obj('router_id')
+        result = self.nova.get_instance_for_obj('instance_id')
         self.client.assert_has_calls(expected)
         self.assertIsNone(result)
 

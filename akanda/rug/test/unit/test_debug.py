@@ -35,7 +35,7 @@ class TestDebug(unittest.TestCase):
         ctx.return_value.neutron.get_router_detail.assert_called_once_with('X')
         assert set_trace.called
         automaton.assert_called_once_with(
-            router_id='X',
+            instance_id='X',
             tenant_id='123',
             delete_callback=debug.delete_callback,
             bandwidth_callback=debug.bandwidth_callback,

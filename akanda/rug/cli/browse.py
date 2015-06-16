@@ -176,7 +176,7 @@ class RouterFetcher(object):
             if image:
                 self.save_queue.put((
                     router.id,
-                    image.id == cfg.CONF.router_image_uuid,
+                    image.id == cfg.CONF.image_uuid,
                     image.name,
                     instance.created,
                     instance.status
@@ -332,7 +332,7 @@ class BrowseRouters(message.MessageSending):
     def make_message(self, router):
         return {
             'command': commands.ROUTER_REBUILD,
-            'router_id': router.id,
+            'instance_id': router.id,
             'tenant_id': router.tenant_id
         }
 

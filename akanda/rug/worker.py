@@ -41,7 +41,7 @@ def _normalize_uuid(value):
 
 
 class WorkerContext(object):
-    """Holds resources owned by the worker and used by the Automaton.
+    """Holds instances owned by the worker and used by the Automaton.
     """
 
     def __init__(self):
@@ -125,24 +125,24 @@ class Worker(object):
                 break
             # Make sure we didn't already have some updates under way
             # for a router we've been told to ignore for debug mode.
-            if sm.router_id in self._debug_routers:
+            if sm.instance_id in self._debug_routers:
                 LOG.debug('skipping update of router %s (in debug mode)',
-                          sm.router_id)
+                          sm.instance_id)
                 continue
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
             LOG.debug('performing work on %s for tenant %s',
-                      sm.router_id, sm.tenant_id)
+                      sm.instance_id, sm.tenant_id)
             try:
-                self._thread_status[my_id] = 'updating %s' % sm.router_id
+                self._thread_status[my_id] = 'updating %s' % sm.instance_id
                 sm.update(context)
             except:
                 LOG.exception('could not complete update for %s',
-                              sm.router_id)
+                              sm.instance_id)
             finally:
                 self._thread_status[my_id] = (
-                    'finalizing task for %s' % sm.router_id
+                    'finalizing task for %s' % sm.instance_id
                 )
                 self.work_queue.task_done()
                 with self.lock:
@@ -160,10 +160,10 @@ class Worker(object):
                     # the queue.
                     if sm.has_more_work():
                         LOG.debug('%s has more work, returning to work queue',
-                                  sm.router_id)
+                                  sm.instance_id)
                         self._add_router_to_work_queue(sm)
                     else:
-                        LOG.debug('%s has no more work', sm.router_id)
+                        LOG.debug('%s has no more work', sm.instance_id)
         # Return the context object so tests can look at it
         self._thread_status[my_id] = 'exiting'
         return context
@@ -242,25 +242,25 @@ class Worker(object):
             self.report_status()
 
         elif instructions['command'] == commands.ROUTER_DEBUG:
-            router_id = instructions['router_id']
-            if router_id in commands.WILDCARDS:
+            instance_id = instructions['instance_id']
+            if instance_id in commands.WILDCARDS:
                 LOG.warning(
                     'Ignoring instruction to debug all routers with %r',
-                    router_id)
+                    instance_id)
             else:
-                LOG.info('Placing router %s in debug mode', router_id)
-                self._debug_routers.add(router_id)
+                LOG.info('Placing router %s in debug mode', instance_id)
+                self._debug_routers.add(instance_id)
 
         elif instructions['command'] == commands.ROUTER_MANAGE:
-            router_id = instructions['router_id']
+            instance_id = instructions['instance_id']
             try:
-                self._debug_routers.remove(router_id)
-                LOG.info('Resuming management of router %s', router_id)
+                self._debug_routers.remove(instance_id)
+                LOG.info('Resuming management of router %s', instance_id)
             except KeyError:
                 pass
             try:
-                self._router_locks[router_id].release()
-                LOG.info('Unlocked router %s', router_id)
+                self._router_locks[instance_id].release()
+                LOG.info('Unlocked router %s', instance_id)
             except KeyError:
                 pass
             except threading.ThreadError:
@@ -270,7 +270,7 @@ class Worker(object):
         elif instructions['command'] in self._EVENT_COMMANDS:
             new_msg = event.Event(
                 tenant_id=message.tenant_id,
-                router_id=message.router_id,
+                instance_id=message.instance_id,
                 crud=self._EVENT_COMMANDS[instructions['command']],
                 body=instructions,
             )
@@ -334,10 +334,10 @@ class Worker(object):
         for trm in trms:
             sms = trm.get_state_machines(message, self._context)
             for sm in sms:
-                if sm.router_id in routers_to_ignore:
+                if sm.instance_id in routers_to_ignore:
                     LOG.info(
                         'Ignoring message intended for %s: %s',
-                        sm.router_id, message,
+                        sm.instance_id, message,
                     )
                     continue
                 # Add the message to the state machine's inbox. If
@@ -356,15 +356,15 @@ class Worker(object):
 
         The work queue lock should be held before calling this method.
         """
-        l = self._router_locks[sm.router_id]
+        l = self._router_locks[sm.instance_id]
         locked = l.acquire(False)
         if locked:
             self.work_queue.put(sm)
         else:
-            LOG.debug('%s is already in the work queue', sm.router_id)
+            LOG.debug('%s is already in the work queue', sm.instance_id)
 
     def _release_router_lock(self, sm):
-        self._router_locks[sm.router_id].release()
+        self._router_locks[sm.instance_id].release()
 
     def report_status(self, show_config=True):
         if show_config:

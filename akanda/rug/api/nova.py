@@ -85,15 +85,15 @@ class Nova(object):
             auth_system=conf.auth_strategy,
             region_name=conf.auth_region)
 
-    def create_instance(self, router_id, image_uuid, make_ports_callback):
+    def create_instance(self, instance_id, image_uuid, make_ports_callback):
         mgt_port, instance_ports = make_ports_callback()
 
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in ([mgt_port] + instance_ports)]
 
         LOG.debug('creating vm for router %s with image %s',
-                  router_id, image_uuid)
-        name = 'ak-' + router_id
+                  instance_id, image_uuid)
+        name = 'ak-' + instance_id
 
         server = self.client.servers.create(
             name,
@@ -118,8 +118,8 @@ class Nova(object):
         instance_info.nova_status = server.status
         return instance_info
 
-    def get_instance_info_for_obj(self, router_id):
-        instance = self.get_instance_for_obj(router_id)
+    def get_instance_info_for_obj(self, instance_id):
+        instance = self.get_instance_for_obj(instance_id)
 
         if instance:
             return InstanceInfo(
@@ -128,9 +128,9 @@ class Nova(object):
                 image_uuid=instance.image['id']
             )
 
-    def get_instance_for_obj(self, router_id):
+    def get_instance_for_obj(self, instance_id):
         instances = self.client.servers.list(
-            search_opts=dict(name='ak-' + router_id)
+            search_opts=dict(name='ak-' + instance_id)
         )
 
         if instances:
@@ -149,12 +149,12 @@ class Nova(object):
             LOG.debug('deleting vm for router %s', instance_info.name)
             self.client.servers.delete(instance_info.id_)
 
-    def boot_instance(self, prev_instance_info, router_id, router_image_uuid,
+    def boot_instance(self, prev_instance_info, instance_id, image_uuid,
                       make_ports_callback):
 
         instance_info = None
         if not prev_instance_info:
-            instance = self.get_instance_for_obj(router_id)
+            instance = self.get_instance_for_obj(instance_id)
         else:
             instance = self.get_instance_by_id(prev_instance_info.id_)
 
@@ -170,8 +170,8 @@ class Nova(object):
 
         # it is now safe to attempt boot
         instance_info = self.create_instance(
-            router_id,
-            router_image_uuid,
+            instance_id,
+            image_uuid,
             make_ports_callback
         )
         return instance_info
@@ -195,7 +195,7 @@ debug:
   - verbose: true
 
 bootcmd:
-  - /usr/local/bin/akanda-configure-management %(mac_address)s %(ip_address)s/64
+  - akanda-configure-management %(mac_address)s %(ip_address)s/64
 
 users:
   - name: akanda

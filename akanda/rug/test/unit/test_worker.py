@@ -59,11 +59,11 @@ class TestCreatingRouter(WorkerTestBase):
 
         self.w = worker.Worker(0, mock.Mock())
         self.tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        self.router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        self.instance_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         self.hostname = 'akanda'
         self.msg = event.Event(
             tenant_id=self.tenant_id,
-            router_id=self.router_id,
+            instance_id=self.instance_id,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -94,13 +94,13 @@ class TestWildcardMessages(WorkerTestBase):
         for msg in [
                 event.Event(
                     tenant_id='98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
-                    router_id='ABCD',
+                    instance_id='ABCD',
                     crud=event.CREATE,
                     body={'key': 'value'},
                 ),
                 event.Event(
                     tenant_id='ac194fc5-f317-412e-8611-fb290629f624',
-                    router_id='EFGH',
+                    instance_id='EFGH',
                     crud=event.CREATE,
                     body={'key': 'value'},
                 )]:
@@ -160,10 +160,10 @@ class TestUpdateStateMachine(WorkerTestBase):
     def test(self):
         w = worker.Worker(0, mock.Mock())
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        instance_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
-            router_id=router_id,
+            instance_id=instance_id,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -230,7 +230,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_DEBUG,
-                                     'router_id': 'this-router-id'}}),
+                                     'instance_id': 'this-router-id'}}),
         )
         self.assertEqual(set(['this-router-id']), self.w._debug_routers)
 
@@ -242,7 +242,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'instance_id': 'this-router-id'}}),
         )
         self.assertEqual(set(), self.w._debug_routers)
         lock.release.assert_called_once()
@@ -253,7 +253,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'instance_id': 'this-router-id'}}),
         )
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -265,7 +265,7 @@ class TestDebugRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'instance_id': 'this-router-id'}}),
         )
         self.assertEqual(set(), self.w._debug_routers)
 
@@ -273,10 +273,10 @@ class TestDebugRouters(WorkerTestBase):
         self.w._debug_routers = set(['ac194fc5-f317-412e-8611-fb290629f624'])
 
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        instance_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
-            router_id=router_id,
+            instance_id=instance_id,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -331,7 +331,7 @@ class TestIgnoreRouters(WorkerTestBase):
             '*',
             event.Event('*', '', event.COMMAND,
                         {'payload': {'command': commands.ROUTER_MANAGE,
-                                     'router_id': 'this-router-id'}}),
+                                     'instance_id': 'this-router-id'}}),
         )
         self.assertEqual(set(), w._debug_routers)
 
@@ -344,10 +344,10 @@ class TestIgnoreRouters(WorkerTestBase):
         w = worker.Worker(0, mock.Mock(), ignore_directory=tmpdir)
 
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        instance_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
-            router_id=router_id,
+            instance_id=instance_id,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -401,10 +401,10 @@ class TestDebugTenants(WorkerTestBase):
         self.w._debug_tenants = set(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'])
 
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        instance_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
             tenant_id=tenant_id,
-            router_id=router_id,
+            instance_id=instance_id,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -422,10 +422,10 @@ class TestDebugTenants(WorkerTestBase):
 class TestConfigReload(WorkerTestBase):
     def test(self):
         tenant_id = '*'
-        router_id = '*'
+        instance_id = '*'
         msg = event.Event(
             tenant_id=tenant_id,
-            router_id=router_id,
+            instance_id=instance_id,
             crud=event.COMMAND,
             body={
                 'payload': {'command': commands.CONFIG_RELOAD},

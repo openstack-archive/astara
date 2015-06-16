@@ -104,7 +104,7 @@ fake_subnet_with_slaac = Subnet(
     host_routes={})
 
 fake_router = FakeModel(
-    'router_id',
+    'instance_id',
     tenant_id='tenant_id',
     name='router_name',
     external_port=fake_ext_port,

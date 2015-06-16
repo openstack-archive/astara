@@ -521,11 +521,11 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.state = vm_manager.REPLUG
 
         fake_router = mock.Mock()
-        fake_router.id = 'fake_router_id'
+        fake_router.id = 'fake_instance_id'
         fake_router.ports = [fake_ext_port, fake_int_port, fake_add_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.vm_mgr.instance_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -558,11 +558,11 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.state = vm_manager.REPLUG
 
         fake_router = mock.Mock()
-        fake_router.id = 'fake_router_id'
+        fake_router.id = 'fake_instance_id'
         fake_router.ports = [fake_ext_port, fake_int_port, fake_add_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.vm_mgr.instance_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -592,13 +592,13 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.state = vm_manager.REPLUG
 
         fake_router = mock.Mock()
-        fake_router.id = 'fake_router_id'
+        fake_router.id = 'fake_instance_id'
 
         # Router lacks the fake_ext_port, it will be unplugged
         fake_router.ports = [fake_mgt_port, fake_int_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.vm_mgr.instance_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -625,13 +625,13 @@ class TestVmManager(unittest.TestCase):
         self.vm_mgr.state = vm_manager.REPLUG
 
         fake_router = mock.Mock()
-        fake_router.id = 'fake_router_id'
+        fake_router.id = 'fake_instance_id'
 
         # Router lacks the fake_ext_port, it will be unplugged
         fake_router.ports = [fake_mgt_port, fake_int_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.vm_mgr.instance_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -781,19 +781,19 @@ class TestBootAttemptCounter(unittest.TestCase):
 class TestSynchronizeRouterStatus(unittest.TestCase):
 
     def setUp(self):
-        self.test_vm_manager = mock.Mock(spec=('router_obj',
+        self.test_vm_manager = mock.Mock(spec=('instance_obj',
                                                '_last_synced_status',
                                                'state'))
         self.test_context = mock.Mock()
 
     def test_router_is_deleted(self):
-        self.test_vm_manager.router_obj = None
+        self.test_vm_manager.instance_obj = None
         v = vm_manager.synchronize_router_status(
             lambda vm_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_vm_manager, {}), 1)
 
     def test_router_status_changed(self):
-        self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
+        self.test_vm_manager.instance_obj = mock.Mock(id='ABC123')
         self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.DOWN
         v = vm_manager.synchronize_router_status(
@@ -807,7 +807,7 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
                          neutron.STATUS_DOWN)
 
     def test_router_status_same(self):
-        self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
+        self.test_vm_manager.instance_obj = mock.Mock(id='ABC123')
         self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_vm_manager.state = vm_manager.CONFIGURED
         v = vm_manager.synchronize_router_status(

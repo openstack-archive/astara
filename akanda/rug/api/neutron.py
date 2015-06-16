@@ -49,7 +49,11 @@ STATUS_DOWN = 'DOWN'
 STATUS_ERROR = 'ERROR'
 
 
-class RouterGone(Exception):
+class LogicalResourceGone(Exception):
+    pass
+
+
+class RouterGone(LogicalResourceGone):
     pass
 
 
@@ -58,7 +62,7 @@ class RouterGatewayMissing(Exception):
 
 
 class MissingIPAllocation(Exception):
-
+    """Triggered when ip address allocation fails"""
     def __init__(self, port_id, missing):
         self.port_id = port_id
         self.missing = missing
@@ -72,6 +76,8 @@ class MissingIPAllocation(Exception):
 
 
 class Router(object):
+    """Logical Router object"""
+
     def __init__(self, id_, tenant_id, name, admin_state_up, status,
                  external_port=None, internal_ports=None, floating_ips=None):
         self.id = id_
@@ -257,13 +263,13 @@ class L3PluginApi(proxy.RpcProxy):
             topic=topic, default_version=self.BASE_RPC_API_VERSION)
         self.host = host
 
-    def get_routers(self, router_id=None):
+    def get_routers(self, instance_id=None):
         """Make a remote process call to retrieve the sync data for routers."""
-        router_id = [router_id] if router_id else None
+        instance_id = [instance_id] if instance_id else None
         # yes the plural is intended for havana compliance
         retval = self.call(context.get_admin_context(),
                            self.make_msg('sync_routers', host=self.host,
-                                         router_ids=router_id),  # plural
+                                         instance_ids=instance_id),  # plural
                            topic=self.topic)
         return retval
 
@@ -289,9 +295,9 @@ class Neutron(object):
         routers = self.api_client.list_routers().get('routers', [])
         return [Router.from_dict(r) for r in routers]
 
-    def get_router_detail(self, router_id):
+    def get_router_detail(self, instance_id):
         """Return detailed information about a router and it's networks."""
-        router = self.rpc_client.get_routers(router_id=router_id)
+        router = self.rpc_client.get_routers(instance_id=instance_id)
         try:
             return Router.from_dict(router[0])
         except IndexError:
@@ -518,16 +524,16 @@ class Neutron(object):
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
 
-    def update_router_status(self, router_id, status):
+    def update_router_status(self, instance_id, status):
         try:
-            self.api_client.update_router_status(router_id, status)
+            self.api_client.update_router_status(instance_id, status)
         except Exception as e:
             # We don't want to die just because we can't tell neutron
             # what the status of the router should be. Log the error
             # but otherwise ignore it.
             LOG.info(
                 'ignoring failure to update status for router %s to %s: %s',
-                router_id, status, e,
+                instance_id, status, e,
             )
 
     def clear_device_id(self, port):
