@@ -39,10 +39,10 @@ import netaddr
 from oslo.config import cfg
 from oslo_log import log as logging
 
+from akanda.rug.common.i18n import _, _LE, _LW
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.common.linux import ovs_lib
 from akanda.rug.common.linux import utils
-from akanda.rug.openstack.common.gettextutils import _
 
 
 LOG = logging.getLogger(__name__)
@@ -200,7 +200,7 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
             if self.conf.ovs_use_veth:
                 root_dev.link.set_up()
         else:
-            LOG.warn(_("Device %s already exists"), device_name)
+            LOG.warn(_LW("Device %s already exists"), device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""
@@ -220,8 +220,7 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
                 device.link.delete()
                 LOG.debug(_("Unplugged interface '%s'"), device_name)
         except RuntimeError:
-            LOG.error(_("Failed unplugging interface '%s'"),
-                      device_name)
+            LOG.exception(_LE("Failed unplugging interface '%s'"), device_name)
 
 
 class BridgeInterfaceDriver(LinuxInterfaceDriver):
@@ -257,7 +256,7 @@ class BridgeInterfaceDriver(LinuxInterfaceDriver):
             ns_veth.link.set_up()
 
         else:
-            LOG.warn(_("Device %s already exists"), device_name)
+            LOG.warn(_LW("Device %s already exists"), device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""
@@ -266,5 +265,5 @@ class BridgeInterfaceDriver(LinuxInterfaceDriver):
             device.link.delete()
             LOG.debug(_("Unplugged interface '%s'"), device_name)
         except RuntimeError:
-            LOG.error(_("Failed unplugging interface '%s'"),
-                      device_name)
+            LOG.exception(_LE(
+                "Failed unplugging interface '%s'"), device_name)
