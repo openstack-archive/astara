@@ -38,7 +38,7 @@
 import re
 
 from akanda.rug.common.linux import utils
-from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.common.i18n import _, _LE, _LW
 
 from oslo_log import log as logging
 
@@ -81,8 +81,9 @@ class OVSBridge:
         try:
             return utils.execute(full_args, root_helper=self.root_helper)
         except Exception, e:
-            LOG.error(_("Unable to execute %(cmd)s. Exception: %(exception)s"),
-                      {'cmd': full_args, 'exception': e})
+            LOG.error(_LE(
+                "Unable to execute %(cmd)s. Exception: %(exception)s"),
+                {'cmd': full_args, 'exception': e})
 
     def reset_bridge(self):
         self.run_vsctl(["--", "--if-exists", "del-br", self.br_name])
@@ -110,8 +111,9 @@ class OVSBridge:
         try:
             return utils.execute(full_args, root_helper=self.root_helper)
         except Exception, e:
-            LOG.error(_("Unable to execute %(cmd)s. Exception: %(exception)s"),
-                      {'cmd': full_args, 'exception': e})
+            LOG.error(_LE(
+                "Unable to execute %(cmd)s. Exception: %(exception)s"),
+                {'cmd': full_args, 'exception': e})
 
     def count_flows(self):
         flow_list = self.run_ofctl("dump-flows", []).split("\n")[1:]
@@ -232,8 +234,9 @@ class OVSBridge:
         try:
             return utils.execute(args, root_helper=self.root_helper).strip()
         except Exception, e:
-            LOG.error(_("Unable to execute %(cmd)s. Exception: %(exception)s"),
-                      {'cmd': args, 'exception': e})
+            LOG.error(_LE(
+                "Unable to execute %(cmd)s. Exception: %(exception)s"),
+                {'cmd': args, 'exception': e})
 
     # returns a VIF object for each VIF port
     def get_vif_ports(self):
@@ -287,7 +290,7 @@ class OVSBridge:
             ofport = int(match.group('ofport'))
             return VifPort(port_name, ofport, vif_id, vif_mac, self)
         except Exception, e:
-            LOG.info(_("Unable to parse regex results. Exception: %s"), e)
+            LOG.warning(_LW("Unable to parse regex results. Exception: %s"), e)
             return
 
     def delete_ports(self, all_ports=False):
@@ -304,9 +307,8 @@ def get_bridge_for_iface(root_helper, iface):
     args = ["ovs-vsctl", "--timeout=2", "iface-to-br", iface]
     try:
         return utils.execute(args, root_helper=root_helper).strip()
-    except Exception, e:
-        LOG.exception(_("Interface %(iface)s not found. Exception: %(e)s"),
-                      locals())
+    except Exception:
+        LOG.exception(_LE("Interface %s not found.", iface))
         return None
 
 
@@ -314,6 +316,6 @@ def get_bridges(root_helper):
     args = ["ovs-vsctl", "--timeout=2", "list-br"]
     try:
         return utils.execute(args, root_helper=root_helper).strip().split("\n")
-    except Exception, e:
-        LOG.exception(_("Unable to retrieve bridges. Exception: %s"), e)
+    except Exception:
+        LOG.exception(_LE("Unable to retrieve bridges."))
         return []

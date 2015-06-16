@@ -34,10 +34,13 @@
 import netaddr
 
 from akanda.rug.common.linux import utils
-from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.common.i18n import _
 
+from oslo_log import log
 
 LOOPBACK_DEVNAME = 'lo'
+
+LOG = log.getLogger(__name__)
 
 
 class SubProcessBase(object):
@@ -413,9 +416,13 @@ class IpNetnsCommand(IpCommandBase):
 
     def execute(self, cmds, addl_env={}, check_exit_code=True):
         if not self._parent.root_helper:
-            raise Exception('Sudo is required to run this command')
+            m = _('sudo is required to run this command')
+            LOG.error(m)
+            raise Exception(m)
         elif not self._parent.namespace:
-            raise Exception(_('No namespace defined for parent'))
+            m = _('No namespace defined for parent')
+            LOG.error(m)
+            raise Exception(m)
         else:
             return utils.execute(
                 ['%s=%s' % pair for pair in addl_env.items()] +
