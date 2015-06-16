@@ -112,15 +112,15 @@ def _make_event_from_message(message):
         message = rpc_common.deserialize_msg(message)
     tenant_id = _get_tenant_id_for_message(message)
     crud = event.UPDATE
-    router_id = None
+    instance_id = None
     if message.get('method') == 'router_deleted':
         crud = event.DELETE
-        router_id = message.get('args', {}).get('router_id')
+        instance_id = message.get('args', {}).get('instance_id')
     else:
         event_type = message.get('event_type', '')
         # Router id is not always present, but look for it as though
         # it is to avoid duplicating this line a few times.
-        router_id = message.get('payload', {}).get('router', {}).get('id')
+        instance_id = message.get('payload', {}).get('router', {}).get('id')
         if event_type.startswith('routerstatus.update'):
             # We generate these events ourself, so ignore them.
             return None
@@ -128,10 +128,10 @@ def _make_event_from_message(message):
             crud = event.CREATE
         elif event_type == 'router.delete.end':
             crud = event.DELETE
-            router_id = message.get('payload', {}).get('router_id')
+            instance_id = message.get('payload', {}).get('instance_id')
         elif event_type in _INTERFACE_NOTIFICATIONS:
             crud = event.UPDATE
-            router_id = message.get(
+            instance_id = message.get(
                 'payload', {}
             ).get('router.interface', {}).get('id')
         elif event_type in _INTERESTING_NOTIFICATIONS:
@@ -143,12 +143,12 @@ def _make_event_from_message(message):
             # If the message does not specify a tenant, send it to everyone
             pl = message.get('payload', {})
             tenant_id = pl.get('tenant_id', '*')
-            router_id = pl.get('router_id')
+            instance_id = pl.get('instance_id')
             crud = event.COMMAND
             if pl.get('command') == commands.POLL:
                 return event.Event(
                     tenant_id='*',
-                    router_id='*',
+                    instance_id='*',
                     crud=event.POLL,
                     body={},
                 )
@@ -156,7 +156,7 @@ def _make_event_from_message(message):
             # LOG.debug('ignoring message %r', message)
             return None
 
-    return event.Event(tenant_id, router_id, crud, message)
+    return event.Event(tenant_id, instance_id, crud, message)
 
 
 def _handle_connection_error(exception, interval):
@@ -337,7 +337,7 @@ class Sender(object):
 
         # We expect to be created in one process and then used in
         # another, so we delay creating any actual AMQP connections or
-        # other resources until we're going to use them.
+        # other instances until we're going to use them.
         conn_info = urlparse.urlparse(self.amqp_url)
         self._connection = kombu.connection.BrokerConnection(
             hostname=conn_info.hostname,

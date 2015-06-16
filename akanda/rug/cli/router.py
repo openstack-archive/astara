@@ -37,15 +37,15 @@ class _TenantRouterCmd(message.MessageSending):
         # argument first
         p = super(_TenantRouterCmd, self).get_parser(prog_name)
         p.add_argument(
-            'router_id',
+            'instance_id',
         )
         return p
 
     def make_message(self, parsed_args):
-        router_id = parsed_args.router_id.lower()
-        if router_id == 'error':
+        instance_id = parsed_args.instance_id.lower()
+        if instance_id == 'error':
             tenant_id = 'error'
-        elif router_id == '*':
+        elif instance_id == '*':
             tenant_id = '*'
         else:
             # Look up the tenant for a given router so we can send the
@@ -64,23 +64,23 @@ class _TenantRouterCmd(message.MessageSending):
                 auth_strategy=self.app.rug_ini.auth_strategy,
                 region_name=self.app.rug_ini.auth_region,
             )
-            response = n_c.list_routers(retrieve_all=True, id=router_id)
+            response = n_c.list_routers(retrieve_all=True, id=instance_id)
             try:
                 router_details = response['routers'][0]
             except (KeyError, IndexError):
                 raise ValueError('No router with id %r found: %s' %
-                                 (router_id, response))
-            assert router_details['id'] == router_id
+                                 (instance_id, response))
+            assert router_details['id'] == instance_id
             tenant_id = router_details['tenant_id']
         self.log.info(
             'sending %s instruction for tenant %r, router %r',
             self._COMMAND,
             tenant_id,
-            router_id,
+            instance_id,
         )
         return {
             'command': self._COMMAND,
-            'router_id': router_id,
+            'instance_id': instance_id,
             'tenant_id': tenant_id,
         }
 
@@ -99,12 +99,12 @@ class RouterRebuild(_TenantRouterCmd):
     def get_parser(self, prog_name):
         p = super(RouterRebuild, self).get_parser(prog_name)
         p.add_argument(
-            '--router_image_uuid',
+            '--image_uuid',
         )
         return p
 
     def take_action(self, parsed_args):
-        uuid = parsed_args.router_image_uuid
+        uuid = parsed_args.image_uuid
         if uuid:
             nova_client = nova.Nova(cfg.CONF).client
             try:
@@ -118,7 +118,7 @@ class RouterRebuild(_TenantRouterCmd):
 
     def make_message(self, parsed_args):
         message = super(RouterRebuild, self).make_message(parsed_args)
-        message['router_image_uuid'] = parsed_args.router_image_uuid
+        message['image_uuid'] = parsed_args.image_uuid
         return message
 
 
@@ -153,8 +153,8 @@ class RouterSSH(_TenantRouterCmd):
             auth_strategy=self.app.rug_ini.auth_strategy,
             region_name=self.app.rug_ini.auth_region,
         )
-        router_id = parsed_args.router_id.lower()
-        ports = n_c.show_router(router_id).get('router', {}).get('ports', {})
+        instance_id = parsed_args.instance_id.lower()
+        ports = n_c.show_router(instance_id).get('router', {}).get('ports', {})
         for port in ports:
             if port['fixed_ips'] and \
                port['device_owner'] == neutron.DEVICE_OWNER_ROUTER_MGT:

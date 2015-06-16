@@ -35,7 +35,7 @@ def _health_inspector(period, scheduler):
         LOG.debug('waking up')
         e = event.Event(
             tenant_id='*',
-            router_id='*',
+            instance_id='*',
             crud=event.POLL,
             body={},
         )

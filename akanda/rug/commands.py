@@ -24,7 +24,7 @@ WILDCARDS = ('*', 'error')
 # Dump debugging details about the worker processes and threads
 WORKERS_DEBUG = 'workers-debug'
 
-# Router commands expect a 'router_id' argument in the payload with
+# Router commands expect a 'instance_id' argument in the payload with
 # the UUID of the router
 
 # Put a router in debug/manage mode

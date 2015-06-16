@@ -74,7 +74,7 @@ class TestPrePopulateWorkers(unittest.TestCase):
     @mock.patch('akanda.rug.api.neutron.Neutron')
     def test_retry_loop_logging(self, mocked_neutron_api, log):
         neutron_client = mock.Mock()
-        message = mock.Mock(tenant_id='1', router_id='2')
+        message = mock.Mock(tenant_id='1', instance_id='2')
         returned_value = [
             q_exceptions.NeutronClientException,
             [message]
@@ -100,13 +100,13 @@ class TestPrePopulateWorkers(unittest.TestCase):
 
         def message_to_router_args(message):
             tmp = message.copy()
-            tmp['id'] = tmp.pop('router_id')
+            tmp['id'] = tmp.pop('instance_id')
             return tmp
 
         neutron_client = mock.Mock()
-        message1 = {'tenant_id': '1', 'router_id': '2',
+        message1 = {'tenant_id': '1', 'instance_id': '2',
                     'body': {}, 'crud': 'poll'}
-        message2 = {'tenant_id': '3', 'router_id': '4',
+        message2 = {'tenant_id': '3', 'instance_id': '4',
                     'body': {}, 'crud': 'poll'}
 
         return_value = [

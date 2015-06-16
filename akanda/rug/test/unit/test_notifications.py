@@ -35,7 +35,7 @@ class TestGetTenantID(unittest.TestCase):
                '_context_timestamp': '2013-07-25 13:51:50.791338',
                '_context_user_id': '472511eedebd4322a26c5fb1f52711ee',
                '_unique_id': 'c87303336c7c4bb0b097b3e97bebf7ea',
-               'args': {'router_id': 'f37f31e9-adc2-4712-a002-4ccf0be17a99'},
+               'args': {'instance_id': 'f37f31e9-adc2-4712-a002-4ccf0be17a99'},
                'method': 'router_deleted',
                'version': '1.0'}
         tenant_id = notifications._get_tenant_id_for_message(msg)
@@ -146,10 +146,10 @@ class TestGetTenantID(unittest.TestCase):
 class TestGetCRUD(unittest.TestCase):
 
     def test_rpc_router_deleted(self):
-        msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"router_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "_context_user_id": "472511eedebd4322a26c5fb1f52711ee", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
+        msg = {u'oslo.message': u'{"_context_roles": ["anotherrole", "Member", "admin"], "_context_read_deleted": "no", "args": {"instance_id": "f37f31e9-adc2-4712-a002-4ccf0be17a99"}, "_unique_id": "c87303336c7c4bb0b097b3e97bebf7ea", "_context_timestamp": "2013-07-25 13:51:50.791338", "_context_is_admin": false, "version": "1.0", "_context_project_id": "c25992581e574b6485dbfdf39a3df46c", "_context_tenant_id": "c25992581e574b6485dbfdf39a3df46c", "_context_user_id": "472511eedebd4322a26c5fb1f52711ee", "method": "router_deleted"}', u'oslo.version': u'2.0'}  # noqa
         e = notifications._make_event_from_message(msg)
         self.assertEqual(event.DELETE, e.crud)
-        self.assert_(e.router_id)
+        self.assert_(e.instance_id)
 
     def _test_notification(self, event_type):
         msg = {
@@ -226,7 +226,7 @@ class TestGetCRUD(unittest.TestCase):
         e = self._test_notification('router.delete.end')
         self.assertEqual(event.DELETE, e.crud)
 
-    def test_notification_router_id(self):
+    def test_notification_instance_id(self):
         msg = {
             u'_context_is_admin': False,
             u'_context_project_id': u'c25992581e574b6485dbfdf39a3df46c',
@@ -255,7 +255,8 @@ class TestGetCRUD(unittest.TestCase):
         }
 
         e = notifications._make_event_from_message(msg)
-        self.assertEqual(e.router_id, u'f95fb32d-0072-4675-b4bd-61d829a46aca')
+        self.assertEqual(e.instance_id,
+                         u'f95fb32d-0072-4675-b4bd-61d829a46aca')
 
     def test_interface_create_and_delete(self):
         for action in ('create', 'delete'):
@@ -286,7 +287,7 @@ class TestGetCRUD(unittest.TestCase):
             self.assertEqual(event.UPDATE, e.crud)
             self.assertEqual(
                 u'58868681-4a58-4f69-8dc0-b20955e7923f',
-                e.router_id
+                e.instance_id
             )
 
     def test_notification_akanda(self):

@@ -67,10 +67,11 @@ def debug_one_router(args=sys.argv[1:]):
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
     context = worker.WorkerContext()
-    router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
+    instance_obj = context.neutron.get_router_detail(cfg.CONF.instance_id)
+
     a = state.Automaton(
-        router_id=cfg.CONF.router_id,
-        tenant_id=router_obj.tenant_id,
+        instance_id=cfg.CONF.instance_id,
+        tenant_id=instance_obj.tenant_id,
         delete_callback=delete_callback,
         bandwidth_callback=bandwidth_callback,
         worker_context=context,

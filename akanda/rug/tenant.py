@@ -15,7 +15,7 @@
 # under the License.
 
 
-"""Manage the routers for a given tenant.
+"""Manage the instances for a given tenant.
 """
 
 import collections
@@ -23,6 +23,7 @@ import logging
 import threading
 
 from akanda.rug import state
+from akanda.rug import drivers
 from akanda.rug.openstack.common import timeutils
 
 LOG = logging.getLogger(__name__)
@@ -48,9 +49,9 @@ class RouterContainer(object):
         with self.lock:
             return list(self.state_machines.values())
 
-    def has_been_deleted(self, router_id):
+    def has_been_deleted(self, instance_id):
         with self.lock:
-            return router_id in self.deleted
+            return instance_id in self.deleted
 
     def __getitem__(self, item):
         with self.lock:
@@ -77,15 +78,15 @@ class TenantRouterManager(object):
         self._queue_warning_threshold = queue_warning_threshold
         self._reboot_error_threshold = reboot_error_threshold
         self.state_machines = RouterContainer()
-        self._default_router_id = None
+        self._default_instance_id = None
 
-    def _delete_router(self, router_id):
+    def _delete_router(self, instance_id):
         "Called when the Automaton decides the router can be deleted"
-        if router_id in self.state_machines:
-            LOG.debug('deleting state machine for %s', router_id)
-            del self.state_machines[router_id]
-        if self._default_router_id == router_id:
-            self._default_router_id = None
+        if instance_id in self.state_machines:
+            LOG.debug('deleting state machine for %s', instance_id)
+            del self.state_machines[instance_id]
+        if self._default_instance_id == instance_id:
+            self._default_instance_id = None
 
     def shutdown(self):
         LOG.info('shutting down')
@@ -97,25 +98,25 @@ class TenantRouterManager(object):
                     'Failed to shutdown state machine for %s' % rid
                 )
 
-    def _report_bandwidth(self, router_id, bandwidth):
-        LOG.debug('reporting bandwidth for %s', router_id)
+    def _report_bandwidth(self, instance_id, bandwidth):
+        LOG.debug('reporting bandwidth for %s', instance_id)
         msg = {
             'tenant_id': self.tenant_id,
             'timestamp': timeutils.isotime(),
             'event_type': 'akanda.bandwidth.used',
             'payload': dict((b.pop('name'), b) for b in bandwidth),
-            'router_id': router_id,
+            'instance_id': instance_id,
         }
         self.notify(msg)
 
-    def get_state_machines(self, message, worker_context):
+    def get_state_machines(self, message, worker_context, driver="router"):
         """Return the state machines and the queue for sending it messages for
         the router being addressed by the message.
         """
-        router_id = message.router_id
-        if not router_id:
+        instance_id = message.instance_id
+        if not instance_id:
             LOG.debug('looking for router for %s', message.tenant_id)
-            if self._default_router_id is None:
+            if self._default_instance_id is None:
                 # TODO(mark): handle muliple router lookup
                 router = worker_context.neutron.get_router_for_tenant(
                     message.tenant_id,
@@ -126,24 +127,24 @@ class TenantRouterManager(object):
                         message.tenant_id
                     )
                     return []
-                self._default_router_id = router.id
-            router_id = self._default_router_id
-            LOG.debug('using router id %s', router_id)
+                self._default_instance_id = router.id
+            instance_id = self._default_instance_id
+            LOG.debug('using router id %s', instance_id)
 
         # Ignore messages to deleted routers.
-        if self.state_machines.has_been_deleted(router_id):
+        if self.state_machines.has_been_deleted(instance_id):
             LOG.debug('dropping message for deleted router')
             return []
 
         state_machines = []
 
         # Send to all of our routers.
-        if router_id == '*':
+        if instance_id == '*':
             LOG.debug('routing to all state machines')
             state_machines = self.state_machines.values()
 
         # Send to routers that have an ERROR status
-        elif router_id == 'error':
+        elif instance_id == 'error':
             state_machines = [
                 sm for sm in self.state_machines.values()
                 if sm.has_error()
@@ -152,27 +153,29 @@ class TenantRouterManager(object):
                       len(state_machines))
 
         # Create a new state machine for this router.
-        elif router_id not in self.state_machines:
-            LOG.debug('creating state machine for %s', router_id)
+        elif instance_id not in self.state_machines:
+            LOG.debug('creating state machine for %s', instance_id)
 
             def deleter():
-                self._delete_router(router_id)
+                self._delete_router(instance_id)
 
             sm = state.Automaton(
-                router_id=router_id,
+                instance_id=instance_id,
                 tenant_id=self.tenant_id,
                 delete_callback=deleter,
                 bandwidth_callback=self._report_bandwidth,
                 worker_context=worker_context,
                 queue_warning_threshold=self._queue_warning_threshold,
                 reboot_error_threshold=self._reboot_error_threshold,
+                driver=drivers.options[driver],
             )
-            self.state_machines[router_id] = sm
+
+            self.state_machines[instance_id] = sm
             state_machines = [sm]
 
         # Send directly to an existing router.
-        elif router_id:
-            sm = self.state_machines[router_id]
+        elif instance_id:
+            sm = self.state_machines[instance_id]
             state_machines = [sm]
 
         # Filter out any deleted state machines.
@@ -180,5 +183,5 @@ class TenantRouterManager(object):
             machine
             for machine in state_machines
             if (not machine.deleted and
-                not self.state_machines.has_been_deleted(machine.router_id))
+                not self.state_machines.has_been_deleted(machine.instance_id))
         ]

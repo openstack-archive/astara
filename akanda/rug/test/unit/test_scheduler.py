@@ -62,37 +62,37 @@ class TestDispatcher(unittest.TestCase):
 
     def test_pick(self):
         for i in range(len(self.workers)):
-            router_id = self._mk_uuid(i)
+            instance_id = self._mk_uuid(i)
             self.assertEqual(
                 [i],
-                self.d.pick_workers(router_id),
-                'Incorrect index for %s' % router_id,
+                self.d.pick_workers(instance_id),
+                'Incorrect index for %s' % instance_id,
             )
 
     def test_pick_none(self):
-        router_id = None
+        instance_id = None
         self.assertEqual(
             [],
-            self.d.pick_workers(router_id),
+            self.d.pick_workers(instance_id),
             'Found a router for None',
         )
 
     def test_pick_with_spaces(self):
         for i in range(len(self.workers)):
-            router_id = ' %s ' % self._mk_uuid(i)
+            instance_id = ' %s ' % self._mk_uuid(i)
             self.assertEqual(
                 [i],
-                self.d.pick_workers(router_id),
-                'Incorrect index for %s' % router_id,
+                self.d.pick_workers(instance_id),
+                'Incorrect index for %s' % instance_id,
             )
 
     def test_pick_invalid(self):
         for i in range(len(self.workers)):
-            router_id = self._mk_uuid(i) + 'Z'
+            instance_id = self._mk_uuid(i) + 'Z'
             self.assertEqual(
                 [],
-                self.d.pick_workers(router_id),
-                'Found unexpected worker for %r' % router_id,
+                self.d.pick_workers(instance_id),
+                'Found unexpected worker for %r' % instance_id,
             )
 
     def test_wildcard(self):
