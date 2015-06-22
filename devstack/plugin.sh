@@ -31,6 +31,7 @@ ROUTER_INSTANCE_FLAVOR_CPUS=${ROUTER_INSTANCE_FLAVOR_CPUS:-1}
 PUBLIC_INTERFACE_DEFAULT='eth0'
 AKANDA_RUG_MANAGEMENT_PREFIX=${RUG_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
 AKANDA_RUG_MANAGEMENT_PORT=${AKANDA_RUG_MANAGEMENT_PORT:-5000}
+AKANDA_RUG_API_PORT=${AKANDA_RUG_API_PORT:-44250}
 
 HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
@@ -61,6 +62,7 @@ function configure_akanda() {
 
     iniset $AKANDA_RUG_CONF DEFAULT management_prefix $AKANDA_RUG_MANAGEMENT_PREFIX
     iniset $AKANDA_RUG_CONF DEFAULT akanda_mgt_service_port $AKANDA_RUG_MANAGEMENT_PORT
+    iniset $AKANDA_RUG_CONF DEFAULT rug_api_port $AKANDA_RUG_API_PORT
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
@@ -93,7 +95,7 @@ function configure_akanda_horizon() {
         # if horizon is enabled, we assume lib/horizon has been sourced and _horizon_config_set
         # is defined
         _horizon_config_set $HORIZON_LOCAL_SETTINGS "" RUG_MANAGEMENT_PREFIX \"$AKANDA_RUG_MANAGEMENT_PREFIX\"
-        _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT \"$AKANDA_RUG_MANAGEMENT_PORT\"
+        _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT \"$AKANDA_RUG_API_PORT\"
     done
 }
 

@@ -25,8 +25,15 @@ import webob.exc
 from akanda.rug.cli import app
 from akanda.rug.openstack.common import log as logging
 
+from oslo.config import cfg
+
 LOG = logging.getLogger(__name__)
-RUG_API_PORT = 44250  # 0xacda
+
+RUG_API_OPTS = [
+    cfg.IntOpt('rug_api_port', default=44250,
+               help='RUG API listening port')
+]
+cfg.CONF.register_opts(RUG_API_OPTS)
 
 
 class RugAPI(object):
@@ -66,7 +73,7 @@ class RugAPIServer(object):
     def __init__(self):
         self.pool = eventlet.GreenPool(1000)
 
-    def run(self, ip_address, port=RUG_API_PORT):
+    def run(self, ip_address, port=cfg.CONF.rug_api_port):
         app = RugAPI()
         for i in xrange(5):
             LOG.info(
