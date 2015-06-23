@@ -289,6 +289,15 @@ class TestInstanceManager(unittest.TestCase):
         self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
+    def test_boot_instance_deleted(self, sleep):
+        self.ctx.nova_client.boot_instance.return_value = None
+        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        # a deleted VM should reset the vm mgr state and not as a failed
+        # attempt
+        self.assertEqual(self.vm_mgr.attempts, 0)
+        self.assertIsNone(self.vm_mgr.instance_info)
+
+    @mock.patch('time.sleep')
     def test_boot_fail(self, sleep):
         self.next_state = instance_manager.DOWN
         rtr = mock.sentinel.router
