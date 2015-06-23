@@ -218,6 +218,10 @@ class InstanceManager(object):
             )
             if not instance_info:
                 self.log.info('Previous router is deleting')
+                # Reset the VM manager, causing the state machine to start
+                # again with a new VM.
+                self.reset_boot_counter()
+                self.instance_info = None
                 return
         except:
             self.log.exception('Router failed to start boot')
