@@ -119,6 +119,12 @@ class Nova(object):
         return instance_info
 
     def get_instance_info_for_obj(self, router_id):
+        """Retrieves an InstanceInfo object for a given router_id
+
+        :param router_id: UUID of the router being queried
+
+        :returns: an InstanceInfo object representing the router instance
+        """
         instance = self.get_instance_for_obj(router_id)
 
         if instance:
@@ -129,6 +135,13 @@ class Nova(object):
             )
 
     def get_instance_for_obj(self, router_id):
+        """Retreives a nova server for a given router_id, based on instance
+        name.
+
+        :param router_id: UUID of the router being queried
+
+        :returns: a novaclient.v2.servers.Server object or None
+        """
         instances = self.client.servers.list(
             search_opts=dict(name='ak-' + router_id)
         )
@@ -139,6 +152,12 @@ class Nova(object):
             return None
 
     def get_instance_by_id(self, instance_id):
+        """Retreives a nova server for a given instance_id.
+
+        :param instance_id: Nova instance ID of instance being queried
+
+        :returns: a novaclient.v2.servers.Server object
+        """
         try:
             return self.client.servers.get(instance_id)
         except novaclient_exceptions.NotFound:
@@ -152,7 +171,6 @@ class Nova(object):
     def boot_instance(self, prev_instance_info, router_id, router_image_uuid,
                       make_ports_callback):
 
-        instance_info = None
         if not prev_instance_info:
             instance = self.get_instance_for_obj(router_id)
         else:
@@ -161,11 +179,19 @@ class Nova(object):
         # check to make sure this instance isn't pre-existing
         if instance:
             if 'BUILD' in instance.status:
-                # return the same instance with updated status
-                prev_instance_info.nova_status = instance.status
-                return prev_instance_info
-
-            self.client.servers.delete(instance_info.id_)
+                if prev_instance_info:
+                    # if we had previous instance, return the same instance
+                    # with updated status
+                    prev_instance_info.nova_status = instance.status
+                    instance_info = prev_instance_info
+                else:
+                    instance_info = InstanceInfo(
+                        instance.id,
+                        instance.name,
+                        image_uuid=instance.image['id']
+                    )
+                return instance_info
+            self.client.servers.delete(instance.id)
             return None
 
         # it is now safe to attempt boot
