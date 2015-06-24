@@ -32,7 +32,7 @@
 
 import uuid
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.openstack.common import context
 from akanda.rug.openstack.common.gettextutils import _

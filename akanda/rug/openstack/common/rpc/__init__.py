@@ -45,7 +45,7 @@ For some wrappers that add message versioning to rpc, see:
 import inspect
 import logging
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.openstack.common.gettextutils import _
 from akanda.rug.openstack.common import importutils

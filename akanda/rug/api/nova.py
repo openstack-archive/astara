@@ -20,7 +20,7 @@ import logging
 from novaclient.v1_1 import client
 from novaclient import exceptions as novaclient_exceptions
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
 

@@ -35,7 +35,7 @@
 import abc
 
 import netaddr
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.common.linux import ovs_lib

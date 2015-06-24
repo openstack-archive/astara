@@ -23,7 +23,7 @@ import socket
 import sys
 import threading
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug import daemon
 from akanda.rug import health

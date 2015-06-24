@@ -41,7 +41,7 @@ import urlparse
 import eventlet
 import eventlet.wsgi
 import httplib2
-from oslo.config import cfg
+from oslo_config import cfg
 import webob
 import webob.dec
 import webob.exc

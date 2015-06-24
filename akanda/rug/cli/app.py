@@ -22,7 +22,7 @@ from cliff import commandmanager
 
 import pkg_resources
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug import main
 

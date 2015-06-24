@@ -25,7 +25,7 @@ import netaddr
 
 from neutronclient.v2_0 import client
 
-from oslo.config import cfg
+from oslo_config import cfg
 from oslo_context import context
 from oslo_utils import importutils
 

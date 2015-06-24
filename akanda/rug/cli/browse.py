@@ -33,7 +33,7 @@ except ImportError:
     raise Exception("The 'blessed' python module is required to browse"
                     " Akanda routers. Please install and try again.")
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug import commands
 from akanda.rug.api import nova as nova_api

@@ -41,7 +41,7 @@ import traceback
 import eventlet
 import eventlet.backdoor
 import greenlet
-from oslo.config import cfg
+from oslo_config import cfg
 
 eventlet_backdoor_opts = [
     cfg.IntOpt('backdoor_port',

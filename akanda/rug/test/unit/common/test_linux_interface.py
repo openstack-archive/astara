@@ -35,7 +35,7 @@
 import unittest
 
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.common.linux import interface
 from akanda.rug.common.linux import ip_lib

@@ -25,7 +25,7 @@ import webob.exc
 from akanda.rug.cli import app
 from akanda.rug.openstack.common import log as logging
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
 

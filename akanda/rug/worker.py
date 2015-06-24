@@ -25,7 +25,7 @@ import Queue
 import threading
 import uuid
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug import commands
 from akanda.rug import event

@@ -19,7 +19,7 @@ import socket
 import sys
 
 import eventlet
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug import manager
 from akanda.rug.openstack.common.gettextutils import _

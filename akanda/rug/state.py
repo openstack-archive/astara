@@ -26,7 +26,7 @@ import collections
 import itertools
 import logging
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
 from akanda.rug import vm_manager

@@ -22,7 +22,7 @@ import logging
 import threading
 import time
 
-from oslo.config import cfg
+from oslo_config import cfg
 from neutronclient.common import exceptions as q_exceptions
 
 from akanda.rug import event

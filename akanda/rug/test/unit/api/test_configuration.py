@@ -17,7 +17,7 @@
 
 import mock
 import netaddr
-from oslo.config import cfg
+from oslo_config import cfg
 import unittest2 as unittest
 from six.moves import builtins as __builtins__
 

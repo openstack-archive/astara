@@ -36,7 +36,7 @@ from akanda.rug import event
 
 from akanda.rug.openstack.common.rpc import common as rpc_common
 
-from oslo.config import cfg
+from oslo_config import cfg
 from oslo_context import context
 
 
@@ -166,7 +166,7 @@ def _handle_connection_error(exception, interval):
 
 
 def _kombu_configuration(conf):
-    """Return a dict of kombu connection parameters from oslo.config."""
+    """Return a dict of kombu connection parameters from oslo_config."""
     cfg_keys = ('max_retries',
                 'interval_start',
                 'interval_step',

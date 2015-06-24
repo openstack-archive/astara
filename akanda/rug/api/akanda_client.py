@@ -18,7 +18,7 @@
 import logging
 import requests
 
-from oslo.config import cfg
+from oslo_config import cfg
 from oslo_serialization import jsonutils
 
 AKANDA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'

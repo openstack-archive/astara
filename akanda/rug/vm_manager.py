@@ -19,7 +19,7 @@ from datetime import datetime
 from functools import wraps
 import time
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api

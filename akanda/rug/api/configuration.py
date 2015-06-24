@@ -19,7 +19,7 @@ import logging
 import re
 
 import netaddr
-from oslo.config import cfg
+from oslo_config import cfg
 
 from oslo_serialization import jsonutils
 

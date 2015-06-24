@@ -54,7 +54,7 @@ from eventlet import semaphore
 # TODO(pekowsk): Remove import cfg and below comment in Havana.
 # This import should no longer be needed when the amqp_rpc_single_reply_queue
 # option is removed.
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug.openstack.common import excutils
 from akanda.rug.openstack.common.gettextutils import _

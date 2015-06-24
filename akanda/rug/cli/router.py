@@ -26,7 +26,7 @@ from akanda.rug.cli import message
 from akanda.rug.api import nova, neutron
 
 from novaclient import exceptions
-from oslo.config import cfg
+from oslo_config import cfg
 from neutronclient.v2_0 import client
 
 
