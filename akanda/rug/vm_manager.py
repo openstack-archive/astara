@@ -418,7 +418,12 @@ class VmManager(object):
                     network_id, port.id
                 )
 
-                instance.interface_attach(port.id, None, None)
+                try:
+                    instance.interface_attach(port.id, None, None)
+                except:
+                    self.log.exception('Interface attach failed')
+                    self.state = RESTART
+                    return
                 self.instance_info.ports.append(port)
 
             for network_id in instance_networks - logical_networks:
@@ -428,7 +433,12 @@ class VmManager(object):
                     network_id, port.id
                 )
 
-                instance.interface_detach(port.id)
+                try:
+                    instance.interface_detach(port.id)
+                except:
+                    self.log.exception('Interface detach failed')
+                    self.state = RESTART
+                    return
 
                 self.instance_info.ports.remove(port)
 
