@@ -96,16 +96,25 @@ class BootAttemptCounter(object):
 
 class InstanceManager(object):
 
-    def __init__(self, router_id, tenant_id, log, worker_context):
-        self.router_id = router_id
+    def __init__(self, driver, tenant_id, worker_context):
+        """
+
+        :param driver: driver object
+        :param tenant_id:
+        """
+        self.driver = driver
+        self.id = self.driver.id
         self.tenant_id = tenant_id
-        self.log = log
+        self.log = self.driver.log
+
         self.state = DOWN
+
         self.router_obj = None
         self.instance_info = None
         self.last_error = None
         self._boot_counter = BootAttemptCounter()
         self._last_synced_status = None
+
         self.update_state(worker_context, silent=True)
 
     @property
@@ -119,11 +128,11 @@ class InstanceManager(object):
     def update_state(self, worker_context, silent=False):
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.debug('not updating state of deleted router')
+            self.log.debug('not updating state of deleted instance')
             return self.state
 
         if self.instance_info is None:
-            self.log.debug('no backing instance, marking router as down')
+            self.log.debug('no backing instance, marking instance as down')
             self.state = DOWN
             return self.state
 
@@ -146,7 +155,7 @@ class InstanceManager(object):
 
             # If the router isn't responding, make sure Nova knows about it
             instance = worker_context.nova_client.get_instance_for_obj(
-                self.router_id
+                self.driver
             )
             if instance is None and self.state != ERROR:
                 self.log.info('No instance was found; rebooting')
@@ -176,69 +185,93 @@ class InstanceManager(object):
                               self.instance_info.boot_duration.total_seconds(),
                               self._boot_counter.count)
             # Always reset the boot counter, even if we didn't boot
-            # the server ourself, so we don't accidentally think we
+            # the server our self, so we don't accidentally think we
             # have an erroring router.
             self._boot_counter.reset()
         return self.state
 
-    def boot(self, worker_context, router_image_uuid):
+    def boot(self, worker_context):
+        """instance boot function
+
+        :returns:
+        """
         self._ensure_cache(worker_context)
+
+        # don't try to boot an instance who's state is GONE
         if self.state == GONE:
             self.log.info('not booting deleted router')
             return
 
-        self.log.info('Booting router')
+        self.log.info('Booting %s' % self.driver.RESOURCE_NAME)
+
+        # start with state of DOWN
         self.state = DOWN
+
+        # kick off boot counter
         self._boot_counter.start()
 
-        def make_vrrp_ports():
-            mgt_port = worker_context.neutron.create_management_port(
-                self.router_obj.id
-            )
+        # make ports call back function for nova client
+        def make_ports():
+            mgt_port = \
+                worker_context.neutron.create_management_port(
+                    self.driver.id
+                )
 
             # FIXME(mark): ideally this should be ordered and de-duped
             instance_ports = [
-                worker_context.neutron.create_vrrp_port(self.router_obj.id, n)
-                for n in (p.network_id for p in self.router_obj.ports)
+                worker_context.neutron.create_vrrp_port(
+                    self.driver.id,
+                    n
+                )
+                for n in (p.network_id for p in self.driver.obj.ports)
             ]
 
             return mgt_port, instance_ports
 
         try:
             # TODO(mark): make this pluggable
-            self._ensure_provider_ports(self.router_obj, worker_context)
+            self._ensure_provider_ports()
 
             # TODO(mark): make this handle errors more gracefully on cb fail
             # TODO(mark): checkout from a pool - boot on demand for now
-            instance_info = worker_context.nova_client.boot_instance(
-                self.instance_info,
-                self.router_obj.id,
-                router_image_uuid,
-                make_vrrp_ports
-            )
+            instance_info = \
+                worker_context.nova_client.boot_instance(
+                    self.driver,
+                    make_ports
+                )
+
             if not instance_info:
                 self.log.info('Previous router is deleting')
                 return
+
         except:
-            self.log.exception('Router failed to start boot')
+            self.log.exception('Instance failed to start boot')
             # TODO(mark): attempt clean-up of failed ports
             return
-        else:
-            # We have successfully started a (re)boot attempt so
-            # record the timestamp so we can report how long it takes.
-            self.state = BOOTING
-            self.instance_info = instance_info
+
+        # We have successfully started a (re)boot attempt so
+        # record the timestamp so we can report how long it takes.
+        self.state = BOOTING
+        self.instance_info = instance_info
 
     def check_boot(self, worker_context):
+        """checks boot status
+
+        :returns:
+        """
         ready_states = (UP, CONFIGURED)
-        if self.update_state(worker_context, silent=True) in ready_states:
-            self.log.info('Router has booted, attempting initial config')
+
+        if self.update_state(silent=True) in ready_states:
+            self.log.info('Instance has booted, attempting initial config')
             self.configure(worker_context, BOOTING, attempts=1)
+
             if self.state != CONFIGURED:
                 self._check_boot_timeout()
+
             return self.state == CONFIGURED
 
-        self.log.debug('Router is %s' % self.state.upper())
+        self.log.debug('Instance is %s' % self.state.upper())
+
         return False
 
     @synchronize_router_status
@@ -251,6 +284,7 @@ class InstanceManager(object):
         whether or not the router is fatally broken.
         """
         self._ensure_cache(worker_context)
+
         if self.state == GONE:
             self.log.debug('not updating state of deleted router')
             return self.state
@@ -270,35 +304,41 @@ class InstanceManager(object):
         # Clear the boot counter.
         self._boot_counter.reset()
         self._ensure_cache(worker_context)
+
         if self.state == GONE:
             self.log.debug('not updating state of deleted router')
             return self.state
+
         self.state = DOWN
+
         return self.state
 
     @property
-    def error_cooldown(self):
+    def error_cooldown(self, worker_context):
         # Returns True if the router was recently set to ERROR state.
         if self.last_error and self.state == ERROR:
             seconds_since_error = (
                 datetime.utcnow() - self.last_error
             ).total_seconds()
+
             if seconds_since_error < cfg.CONF.error_state_cooldown:
                 return True
+
         return False
 
     def stop(self, worker_context):
         self._ensure_cache(worker_context)
+
         if self.state == GONE:
-            self.log.info('Destroying router neutron has deleted')
+            self.log.info('Destroying instance neutron has deleted')
         else:
-            self.log.info('Destroying router')
+            self.log.info('Destroying instance')
 
         try:
             nova_client = worker_context.nova_client
             nova_client.destroy_instance(self.instance_info)
         except Exception:
-            self.log.exception('Error deleting router instance')
+            self.log.exception('Error deleting instance')
 
         start = time.time()
         while time.time() - start < cfg.CONF.boot_timeout:
@@ -306,10 +346,12 @@ class InstanceManager(object):
                 if self.state != GONE:
                     self.state = DOWN
                 return
-            self.log.debug('Router has not finished stopping')
+
+            self.log.debug('Instance has not finished stopping')
             time.sleep(cfg.CONF.retry_delay)
+
         self.log.error(
-            'Router failed to stop within %d secs',
+            'Instance failed to stop within %d secs',
             cfg.CONF.boot_timeout)
 
     def configure(self, worker_context, failure_state=RESTART, attempts=None):
@@ -318,16 +360,16 @@ class InstanceManager(object):
         attempts = attempts or cfg.CONF.max_retries
 
         # FIXME: This might raise an error, which doesn't mean the
-        # *router* is broken, but does mean we can't update it.
+        # *instance* is broken, but does mean we can't update it.
         # Change the exception to something the caller can catch
         # safely.
         self._ensure_cache(worker_context)
+
         if self.state == GONE:
             return
 
         # FIXME: This should raise an explicit exception so the caller
-
-        # knows that we could not talk to the router (versus the issue
+        # knows that we could not talk to the instance (versus the issue
         # above).
         interfaces = router_api.get_interfaces(
             self.instance_info.management_address,
@@ -386,7 +428,7 @@ class InstanceManager(object):
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
-                self.log.info('Router config updated')
+                self.log.info('Instance config updated')
                 return
         else:
             # FIXME: We failed to configure the router too many times,
@@ -486,7 +528,7 @@ class InstanceManager(object):
     def _ensure_cache(self, worker_context):
         try:
             self.router_obj = worker_context.neutron.get_router_detail(
-                self.router_id
+                self.driver.id
             )
         except neutron.RouterGone:
             # The router has been deleted, set our state accordingly
@@ -497,7 +539,7 @@ class InstanceManager(object):
         if not self.instance_info:
             self.instance_info = (
                 worker_context.nova_client.get_instance_info_for_obj(
-                    self.router_id
+                    self.driver.id
                 )
             )
 
