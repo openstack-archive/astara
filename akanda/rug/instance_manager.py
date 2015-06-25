@@ -44,11 +44,11 @@ STATUS_MAP = {
 
 
 CONF = cfg.CONF
-VM_MANAGER_OPTS = [
+INSTANCE_MANAGER_OPTS = [
     cfg.IntOpt(
         'hotplug_timeout', default=10,
         help='The amount of time to wait for nova to hotplug/unplug '
-        'networks from the router VMs'),
+        'networks from the router instances'),
     cfg.IntOpt(
         'boot_timeout', default=600),
     cfg.IntOpt(
@@ -58,7 +58,7 @@ VM_MANAGER_OPTS = [
               'into ERROR state'),
     ),
 ]
-CONF.register_opts(VM_MANAGER_OPTS)
+CONF.register_opts(INSTANCE_MANAGER_OPTS)
 
 
 def synchronize_router_status(f):
@@ -94,7 +94,7 @@ class BootAttemptCounter(object):
         return self._attempts
 
 
-class VmManager(object):
+class InstanceManager(object):
 
     def __init__(self, router_id, tenant_id, log, worker_context):
         self.router_id = router_id
@@ -149,7 +149,7 @@ class VmManager(object):
                 self.router_id
             )
             if instance is None and self.state != ERROR:
-                self.log.info('No router VM was found; rebooting')
+                self.log.info('No instance was found; rebooting')
                 self.state = DOWN
                 self.instance_info = None
 
@@ -425,7 +425,7 @@ class VmManager(object):
                 self.instance_info.id_
             )
 
-            # For each port that doesn't have a mac address on the VM...
+            # For each port that doesn't have a mac address on the instance...
             for network_id in logical_networks - instance_networks:
                 port = worker_context.neutron.create_vrrp_port(
                     self.router_obj.id,
@@ -463,7 +463,7 @@ class VmManager(object):
         # The action of attaching/detaching interfaces in Nova happens via the
         # message bus and is *not* blocking.  We need to wait a few seconds to
         # see if the list of tap devices on the appliance actually changed.  If
-        # not, assume the hotplug failed, and reboot the VM.
+        # not, assume the hotplug failed, and reboot the Instance.
         replug_seconds = cfg.CONF.hotplug_timeout
         while replug_seconds > 0:
             self.log.debug(
@@ -521,7 +521,7 @@ class VmManager(object):
                 if self.state != ERROR:
                     self.state = BOOTING
             else:
-                # If the VM was created more than `boot_timeout` seconds
+                # If the instance was created more than `boot_timeout` seconds
                 # ago, log an error and set the state set to DOWN
                 self.log.info(
                     'Router is DOWN.  Created over %d secs ago.',
