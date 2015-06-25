@@ -534,3 +534,13 @@ class Automaton(object):
 
     def has_error(self):
         return self.instance.state == states.ERROR
+
+    def drop_queue(self):
+        """Drop all pending actions from the local state machine's work queue.
+
+        This is used after a ring rebalance if this state machine no longer
+        maps to the local Rug process.
+        """
+        self.driver.log.info(
+            'Dropping %s pending actions from queue', len(self._queue))
+        self._queue.clear()

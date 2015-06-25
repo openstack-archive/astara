@@ -42,6 +42,8 @@ HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 # within the appliance VM.
 AKANDA_APPLIANCE_SSH_PUBLIC_KEY=${AKANDA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
 
+AKANDA_COORDINATION_ENABLED=${AKANDA_COORDINATION_ENABLED:-True}
+AKANDA_COORDINATION_URL=${AKANDA_COORDINATION_URL:-memcached://localhost:11211}
 
 function colorize_logging {
     # Add color to logging output - this is lifted from devstack's functions to colorize the non-standard
@@ -87,6 +89,11 @@ function configure_akanda() {
 
     if [ "$LOG_COLOR" == "True" ] && [ "$SYSLOG" == "False" ]; then
         colorize_logging
+    fi
+
+    if [[ "$AKANDA_COORDINATION_ENABLED" == "True" ]]; then
+        iniset $AKANDA_RUG_CONF coordination enabled True
+        iniset $AKANDA_RUG_CONF coordination url $AKANDA_COORDINATION_URL
     fi
 }
 

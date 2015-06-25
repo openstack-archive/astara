@@ -28,6 +28,14 @@ from akanda.rug import drivers
 LOG = logging.getLogger(__name__)
 
 
+def repopulate():
+    """Called from workers after a rebalance to find newly owned resources"""
+    resources = []
+    for driver in drivers.enabled_drivers():
+        resources += driver.pre_populate_hook()
+    return resources
+
+
 def _pre_populate_workers(scheduler):
     """Loops through enabled drivers triggering each drivers pre_populate_hook
     which is a static method for each driver.
