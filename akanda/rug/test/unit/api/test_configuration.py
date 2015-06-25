@@ -54,7 +54,7 @@ fake_int_port = FakeModel(
     fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')],
     device_id='i-i-i-i')
 
-fake_vm_port = FakeModel(
+fake_instance_port = FakeModel(
     '4',
     name='foo',
     mac_address='aa:aa:aa:aa:aa:bb',
@@ -63,7 +63,7 @@ fake_vm_port = FakeModel(
     first_v4='192.168.1.2',
     device_id='v-v-v-v')
 
-fake_vm_mgt_port = FakeModel(
+fake_instance_mgt_port = FakeModel(
     '4',
     name='AKANDA:MGT:foo',
     mac_address='aa:aa:aa:aa:aa:bb',
@@ -72,7 +72,7 @@ fake_vm_mgt_port = FakeModel(
     first_v4='192.168.1.2',
     device_id='v-v-v-v')
 
-fake_vm_vrrp_port = FakeModel(
+fake_instance_vrrp_port = FakeModel(
     '4',
     name='AKANDA:VRRP:foo',
     mac_address='aa:aa:aa:aa:aa:bb',
@@ -283,7 +283,7 @@ class TestAkandaClient(unittest.TestCase):
             'dhcp',
             'ra',
             subnets_dict={fake_subnet.id: fake_subnet},
-            network_ports=[fake_vm_port])
+            network_ports=[fake_instance_port])
 
         expected = {
             'interface': interface,
@@ -376,7 +376,8 @@ class TestAkandaClient(unittest.TestCase):
     def test_allocation_config_vrrp(self):
         subnets_dict = {fake_subnet.id: fake_subnet}
         self.assertEqual(
-            conf_mod._allocation_config([fake_vm_vrrp_port], subnets_dict),
+            conf_mod._allocation_config([fake_instance_vrrp_port],
+                                        subnets_dict),
             []
         )
 
@@ -389,7 +390,8 @@ class TestAkandaClient(unittest.TestCase):
              'device_id': 'v-v-v-v'}
         ]
         self.assertEqual(
-            conf_mod._allocation_config([fake_vm_mgt_port], subnets_dict),
+            conf_mod._allocation_config([fake_instance_mgt_port],
+                                        subnets_dict),
             expected
         )
 

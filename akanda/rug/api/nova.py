@@ -28,7 +28,7 @@ OPTIONS = [
     cfg.StrOpt(
         'router_ssh_public_key',
         help="Path to the SSH public key for the 'akanda' user within "
-             "router appliance VMs",
+             "router appliance instances",
         default='/etc/akanda-rug/akanda.pub')
 ]
 cfg.CONF.register_opts(OPTIONS)
@@ -91,7 +91,7 @@ class Nova(object):
         nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
                 for p in ([mgt_port] + instance_ports)]
 
-        LOG.debug('creating vm for router %s with image %s',
+        LOG.debug('creating instance for router %s with image %s',
                   router_id, image_uuid)
         name = 'ak-' + router_id
 
@@ -146,7 +146,7 @@ class Nova(object):
 
     def destroy_instance(self, instance_info):
         if instance_info:
-            LOG.debug('deleting vm for router %s', instance_info.name)
+            LOG.debug('deleting instance for router %s', instance_info.name)
             self.client.servers.delete(instance_info.id_)
 
     def boot_instance(self, prev_instance_info, router_id, router_image_uuid,
