@@ -20,11 +20,11 @@ import mock
 import unittest2 as unittest
 from datetime import datetime, timedelta
 
-from akanda.rug import vm_manager
+from akanda.rug import instance_manager
 from akanda.rug.api import neutron, nova
 
-vm_manager.RETRY_DELAY = 0.4
-vm_manager.BOOT_WAIT = 1
+instance_manager.RETRY_DELAY = 0.4
+instance_manager.BOOT_WAIT = 1
 
 LOG = logging.getLogger(__name__)
 
@@ -60,12 +60,12 @@ fake_add_port = FakeModel(
     fixed_ips=[FakeModel('', ip_address='8.8.8.8', subnet_id='s3')])
 
 
-class TestVmManager(unittest.TestCase):
+class TestInstanceManager(unittest.TestCase):
 
     def setUp(self):
         self.ctx = mock.Mock()
         self.neutron = self.ctx.neutron
-        self.conf = mock.patch.object(vm_manager.cfg, 'CONF').start()
+        self.conf = mock.patch.object(instance_manager.cfg, 'CONF').start()
         self.conf.boot_timeout = 1
         self.conf.akanda_mgt_service_port = 5000
         self.conf.max_retries = 3
@@ -73,7 +73,7 @@ class TestVmManager(unittest.TestCase):
 
         self.log = mock.Mock()
         self.update_state_p = mock.patch.object(
-            vm_manager.VmManager,
+            instance_manager.InstanceManager,
             'update_state'
         )
 
@@ -88,31 +88,34 @@ class TestVmManager(unittest.TestCase):
         )
 
         self.mock_update_state = self.update_state_p.start()
-        self.vm_mgr = vm_manager.VmManager('the_id', 'tenant_id',
-                                           self.log, self.ctx)
-        self.vm_mgr.instance_info = self.INSTANCE_INFO
-        mock.patch.object(self.vm_mgr, '_ensure_cache', mock.Mock)
+        self.instance_mgr = instance_manager.InstanceManager('the_id',
+                                                             'tenant_id',
+                                                             self.log,
+                                                             self.ctx)
+        self.instance_mgr.instance_info = self.INSTANCE_INFO
+        mock.patch.object(self.instance_mgr, '_ensure_cache', mock.Mock)
 
         self.next_state = None
 
         def next_state(*args, **kwargs):
             if self.next_state:
-                self.vm_mgr.state = self.next_state
-            return self.vm_mgr.state
+                self.instance_mgr.state = self.next_state
+            return self.instance_mgr.state
         self.mock_update_state.side_effect = next_state
 
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_update_state_is_alive(self, router_api):
         self.update_state_p.stop()
         router_api.is_alive.return_value = True
 
-        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.UP)
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         instance_manager.UP)
         router_api.is_alive.assert_called_once_with(
             self.INSTANCE_INFO.management_address,
             self.conf.akanda_mgt_service_port)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_router_status_sync(self, config, router_api):
         self.update_state_p.stop()
@@ -125,27 +128,28 @@ class TestVmManager(unittest.TestCase):
         n = self.neutron
 
         # Router state should start down
-        self.vm_mgr.update_state(self.ctx)
+        self.instance_mgr.update_state(self.ctx)
         n.update_router_status.assert_called_once_with('R1', 'DOWN')
         n.update_router_status.reset_mock()
 
         # Bring the router to UP with `is_alive = True`
         router_api.is_alive.return_value = True
-        self.vm_mgr.update_state(self.ctx)
+        self.instance_mgr.update_state(self.ctx)
         n.update_router_status.assert_called_once_with('R1', 'BUILD')
         n.update_router_status.reset_mock()
 
         # Configure the router and make sure state is synchronized as ACTIVE
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = True
-            self.vm_mgr.last_boot = datetime.utcnow()
-            self.vm_mgr.configure(self.ctx)
-            self.vm_mgr.update_state(self.ctx)
+            self.instance_mgr.last_boot = datetime.utcnow()
+            self.instance_mgr.configure(self.ctx)
+            self.instance_mgr.update_state(self.ctx)
             n.update_router_status.assert_called_once_with('R1', 'ACTIVE')
             n.update_router_status.reset_mock()
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_router_status_caching(self, config, router_api):
         self.update_state_p.stop()
@@ -158,26 +162,26 @@ class TestVmManager(unittest.TestCase):
         n = self.neutron
 
         # Router state should start down
-        self.vm_mgr.update_state(self.ctx)
+        self.instance_mgr.update_state(self.ctx)
         n.update_router_status.assert_called_once_with('R1', 'DOWN')
         n.update_router_status.reset_mock()
 
         # Router state should not be updated in neutron if it didn't change
-        self.vm_mgr.update_state(self.ctx)
+        self.instance_mgr.update_state(self.ctx)
         self.assertEqual(n.update_router_status.call_count, 0)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_boot_timeout_still_booting(self, router_api, sleep):
         now = datetime.utcnow()
         self.INSTANCE_INFO.last_boot = now
-        self.vm_mgr.last_boot = now
+        self.instance_mgr.last_boot = now
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
 
         self.assertEqual(
-            self.vm_mgr.update_state(self.ctx),
-            vm_manager.BOOTING
+            self.instance_mgr.update_state(self.ctx),
+            instance_manager.BOOTING
         )
         router_api.is_alive.assert_has_calls([
             mock.call(self.INSTANCE_INFO.management_address, 5000),
@@ -186,16 +190,16 @@ class TestVmManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_boot_timeout_error(self, router_api, sleep):
-        self.vm_mgr.state = vm_manager.ERROR
-        self.vm_mgr.last_boot = datetime.utcnow()
+        self.instance_mgr.state = instance_manager.ERROR
+        self.instance_mgr.last_boot = datetime.utcnow()
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
 
         self.assertEqual(
-            self.vm_mgr.update_state(self.ctx),
-            vm_manager.ERROR,
+            self.instance_mgr.update_state(self.ctx),
+            instance_manager.ERROR,
         )
         router_api.is_alive.assert_has_calls([
             mock.call(self.INSTANCE_INFO.management_address, 5000),
@@ -204,16 +208,16 @@ class TestVmManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_boot_timeout_error_no_last_boot(self, router_api, sleep):
-        self.vm_mgr.state = vm_manager.ERROR
-        self.vm_mgr.last_boot = None
+        self.instance_mgr.state = instance_manager.ERROR
+        self.instance_mgr.last_boot = None
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
 
         self.assertEqual(
-            self.vm_mgr.update_state(self.ctx),
-            vm_manager.ERROR,
+            self.instance_mgr.update_state(self.ctx),
+            instance_manager.ERROR,
         )
         router_api.is_alive.assert_has_calls([
             mock.call(self.INSTANCE_INFO.management_address, 5000),
@@ -222,30 +226,32 @@ class TestVmManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_boot_timeout(self, router_api, sleep):
-        self.vm_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
+        self.instance_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
 
-        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         instance_manager.DOWN)
         router_api.is_alive.assert_has_calls([
             mock.call(self.INSTANCE_INFO.management_address, 5000),
             mock.call(self.INSTANCE_INFO.management_address, 5000),
             mock.call(self.INSTANCE_INFO.management_address, 5000),
         ])
-        self.vm_mgr.log.info.assert_called_once_with(
+        self.instance_mgr.log.info.assert_called_once_with(
             mock.ANY,
             self.conf.boot_timeout
         )
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_update_state_is_down(self, router_api, sleep):
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
 
-        self.assertEqual(self.vm_mgr.update_state(self.ctx), vm_manager.DOWN)
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         instance_manager.DOWN)
         router_api.is_alive.assert_has_calls([
             mock.call(self.INSTANCE_INFO.management_address, 5000),
             mock.call(self.INSTANCE_INFO.management_address, 5000),
@@ -253,13 +259,13 @@ class TestVmManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_update_state_retry_delay(self, router_api, sleep):
         self.update_state_p.stop()
         router_api.is_alive.side_effect = [False, False, True]
         max_retries = 5
         self.conf.max_retries = max_retries
-        self.vm_mgr.update_state(self.ctx, silent=False)
+        self.instance_mgr.update_state(self.ctx, silent=False)
         self.assertEqual(sleep.call_count, 2)
         self.log.debug.assert_has_calls([
             mock.call('Alive check failed. Attempt %d of %d', 0, max_retries),
@@ -268,7 +274,7 @@ class TestVmManager(unittest.TestCase):
 
     @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
-        self.next_state = vm_manager.UP
+        self.next_state = instance_manager.UP
         rtr = mock.sentinel.router
         self.ctx.neutron.get_router_detail.return_value = rtr
         rtr.id = 'ROUTER1'
@@ -276,15 +282,15 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
-        self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
+        self.instance_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.assertEqual(self.instance_mgr.state, instance_manager.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
-        self.assertEqual(1, self.vm_mgr.attempts)
+        self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_fail(self, sleep):
-        self.next_state = vm_manager.DOWN
+        self.next_state = instance_manager.DOWN
         rtr = mock.sentinel.router
         self.ctx.neutron.get_router_detail.return_value = rtr
         rtr.id = 'ROUTER1'
@@ -292,11 +298,11 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
-        self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)
+        self.instance_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.assertEqual(self.instance_mgr.state, instance_manager.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
-        self.assertEqual(1, self.vm_mgr.attempts)
+        self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_exception(self, sleep):
@@ -309,15 +315,15 @@ class TestVmManager(unittest.TestCase):
         rtr.ports.__iter__.return_value = []
 
         self.ctx.nova_client.boot_instance.side_effect = RuntimeError
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
-        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
+        self.instance_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.assertEqual(self.instance_mgr.state, instance_manager.DOWN)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
-        self.assertEqual(1, self.vm_mgr.attempts)
+        self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_with_port_cleanup(self, sleep):
-        self.next_state = vm_manager.UP
+        self.next_state = instance_manager.UP
 
         management_port = mock.Mock(id='mgmt', device_id='INSTANCE1')
         external_port = mock.Mock(id='ext', device_id='INSTANCE1')
@@ -334,8 +340,8 @@ class TestVmManager(unittest.TestCase):
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = [management_port, external_port,
                                            internal_port]
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
-        self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
+        self.instance_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.assertEqual(self.instance_mgr.state, instance_manager.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             self.INSTANCE_INFO,
             rtr.id,
@@ -345,98 +351,98 @@ class TestVmManager(unittest.TestCase):
 
     def test_boot_check_up(self):
         with mock.patch.object(
-            vm_manager.VmManager,
+            instance_manager.InstanceManager,
             'update_state'
         ) as update_state:
             with mock.patch.object(
-                vm_manager.VmManager,
+                instance_manager.InstanceManager,
                 'configure'
             ) as configure:
-                update_state.return_value = vm_manager.UP
+                update_state.return_value = instance_manager.UP
                 configure.side_effect = lambda *a, **kw: setattr(
-                    self.vm_mgr,
+                    self.instance_mgr,
                     'state',
-                    vm_manager.CONFIGURED
+                    instance_manager.CONFIGURED
                 )
-                assert self.vm_mgr.check_boot(self.ctx) is True
+                assert self.instance_mgr.check_boot(self.ctx) is True
                 update_state.assert_called_once_with(self.ctx, silent=True)
                 configure.assert_called_once_with(
                     self.ctx,
-                    vm_manager.BOOTING,
+                    instance_manager.BOOTING,
                     attempts=1
                 )
 
     def test_boot_check_configured(self):
         with mock.patch.object(
-            vm_manager.VmManager,
+            instance_manager.InstanceManager,
             'update_state'
         ) as update_state:
             with mock.patch.object(
-                vm_manager.VmManager,
+                instance_manager.InstanceManager,
                 'configure'
             ) as configure:
-                update_state.return_value = vm_manager.CONFIGURED
+                update_state.return_value = instance_manager.CONFIGURED
                 configure.side_effect = lambda *a, **kw: setattr(
-                    self.vm_mgr,
+                    self.instance_mgr,
                     'state',
-                    vm_manager.CONFIGURED
+                    instance_manager.CONFIGURED
                 )
-                assert self.vm_mgr.check_boot(self.ctx) is True
+                assert self.instance_mgr.check_boot(self.ctx) is True
                 update_state.assert_called_once_with(self.ctx, silent=True)
                 configure.assert_called_once_with(
                     self.ctx,
-                    vm_manager.BOOTING,
+                    instance_manager.BOOTING,
                     attempts=1
                 )
 
     def test_boot_check_still_booting(self):
         with mock.patch.object(
-            vm_manager.VmManager,
+            instance_manager.InstanceManager,
             'update_state'
         ) as update_state:
-            update_state.return_value = vm_manager.BOOTING
-            assert self.vm_mgr.check_boot(self.ctx) is False
+            update_state.return_value = instance_manager.BOOTING
+            assert self.instance_mgr.check_boot(self.ctx) is False
             update_state.assert_called_once_with(self.ctx, silent=True)
 
     def test_boot_check_unsuccessful_initial_config_update(self):
         with mock.patch.object(
-            vm_manager.VmManager,
+            instance_manager.InstanceManager,
             'update_state'
         ) as update_state:
             with mock.patch.object(
-                vm_manager.VmManager,
+                instance_manager.InstanceManager,
                 'configure'
             ) as configure:
-                update_state.return_value = vm_manager.CONFIGURED
+                update_state.return_value = instance_manager.CONFIGURED
                 configure.side_effect = lambda *a, **kw: setattr(
-                    self.vm_mgr,
+                    self.instance_mgr,
                     'state',
-                    vm_manager.BOOTING
+                    instance_manager.BOOTING
                 )
-                assert self.vm_mgr.check_boot(self.ctx) is False
+                assert self.instance_mgr.check_boot(self.ctx) is False
                 update_state.assert_called_once_with(self.ctx, silent=True)
                 configure.assert_called_once_with(
                     self.ctx,
-                    vm_manager.BOOTING,
+                    instance_manager.BOOTING,
                     attempts=1
                 )
 
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):
-        self.vm_mgr.state = vm_manager.UP
+        self.instance_mgr.state = instance_manager.UP
         self.ctx.nova_client.get_instance_by_id.return_value = None
-        self.vm_mgr.stop(self.ctx)
+        self.instance_mgr.stop(self.ctx)
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO
         )
-        self.assertEqual(self.vm_mgr.state, vm_manager.DOWN)
+        self.assertEqual(self.instance_mgr.state, instance_manager.DOWN)
 
     @mock.patch('time.sleep')
     def test_stop_fail(self, sleep):
-        self.vm_mgr.state = vm_manager.UP
+        self.instance_mgr.state = instance_manager.UP
         self.ctx.nova_client.get_router_instance_status.return_value = 'UP'
-        self.vm_mgr.stop(self.ctx)
-        self.assertEqual(self.vm_mgr.state, vm_manager.UP)
+        self.instance_mgr.stop(self.ctx)
+        self.assertEqual(self.instance_mgr.state, instance_manager.UP)
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO
         )
@@ -444,13 +450,13 @@ class TestVmManager(unittest.TestCase):
 
     @mock.patch('time.sleep')
     def test_stop_router_already_deleted_from_neutron(self, sleep):
-        self.vm_mgr.state = vm_manager.GONE
-        self.vm_mgr.stop(self.ctx)
+        self.instance_mgr.state = instance_manager.GONE
+        self.instance_mgr.stop(self.ctx)
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO)
-        self.assertEqual(self.vm_mgr.state, vm_manager.GONE)
+        self.assertEqual(self.instance_mgr.state, instance_manager.GONE)
 
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_configure_success(self, config, router_api):
         rtr = mock.sentinel.router
@@ -459,9 +465,10 @@ class TestVmManager(unittest.TestCase):
         config.return_value = 'fake_config'
         router_api.get_interfaces.return_value = []
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = True
-            self.vm_mgr.configure(self.ctx)
+            self.instance_mgr.configure(self.ctx)
 
             verify.assert_called_once_with(rtr, [])
             config.assert_called_once_with(
@@ -469,27 +476,29 @@ class TestVmManager(unittest.TestCase):
             router_api.update_config.assert_called_once_with(
                 self.INSTANCE_INFO.management_address, 5000, 'fake_config',
             )
-            self.assertEqual(self.vm_mgr.state, vm_manager.CONFIGURED)
+            self.assertEqual(self.instance_mgr.state,
+                             instance_manager.CONFIGURED)
 
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_configure_mismatched_interfaces(self, router_api):
         rtr = mock.sentinel.router
 
         self.neutron.get_router_detail.return_value = rtr
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = False
-            self.vm_mgr.configure(self.ctx)
+            self.instance_mgr.configure(self.ctx)
 
             interfaces = router_api.get_interfaces.return_value
 
             verify.assert_called_once_with(rtr, interfaces)
 
             self.assertFalse(router_api.update_config.called)
-            self.assertEqual(self.vm_mgr.state, vm_manager.REPLUG)
+            self.assertEqual(self.instance_mgr.state, instance_manager.REPLUG)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_configure_failure(self, config, router_api, sleep):
         rtr = {'id': 'the_id'}
@@ -499,9 +508,10 @@ class TestVmManager(unittest.TestCase):
         router_api.update_config.side_effect = Exception
         config.return_value = 'fake_config'
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = True
-            self.vm_mgr.configure(self.ctx)
+            self.instance_mgr.configure(self.ctx)
 
             interfaces = router_api.get_interfaces.return_value
             verify.assert_called_once_with(rtr, interfaces)
@@ -513,19 +523,19 @@ class TestVmManager(unittest.TestCase):
                           'fake_config')
                 for i in range(0, 2)]
             router_api.update_config.assert_has_calls(expected_calls)
-            self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
+            self.assertEqual(self.instance_mgr.state, instance_manager.RESTART)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_replug_add_new_port_success(self, router_api):
-        self.vm_mgr.state = vm_manager.REPLUG
+        self.instance_mgr.state = instance_manager.REPLUG
 
         fake_router = mock.Mock()
         fake_router.id = 'fake_router_id'
         fake_router.ports = [fake_ext_port, fake_int_port, fake_add_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.instance_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -539,30 +549,31 @@ class TestVmManager(unittest.TestCase):
         fake_new_port = mock.Mock(id='fake_new_port_id')
         self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = True  # the hotplug worked!
-            self.vm_mgr.replug(self.ctx)
+            self.instance_mgr.replug(self.ctx)
 
             self.ctx.neutron.create_vrrp_port.assert_called_with(
                 fake_router.id, 'additional-net'
             )
-            self.assertEqual(self.vm_mgr.state, vm_manager.REPLUG)
+            self.assertEqual(self.instance_mgr.state, instance_manager.REPLUG)
             fake_instance.interface_attach.assert_called_once_with(
                 fake_new_port.id, None, None
             )
             self.assertIn(fake_new_port, self.INSTANCE_INFO.ports)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_replug_add_new_port_failure(self, router_api):
-        self.vm_mgr.state = vm_manager.REPLUG
+        self.instance_mgr.state = instance_manager.REPLUG
 
         fake_router = mock.Mock()
         fake_router.id = 'fake_router_id'
         fake_router.ports = [fake_ext_port, fake_int_port, fake_add_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.instance_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -577,19 +588,20 @@ class TestVmManager(unittest.TestCase):
         fake_new_port = mock.Mock(id='fake_new_port_id')
         self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = False  # The hotplug didn't work!
-            self.vm_mgr.replug(self.ctx)
-            self.assertEqual(self.vm_mgr.state, vm_manager.RESTART)
+            self.instance_mgr.replug(self.ctx)
+            self.assertEqual(self.instance_mgr.state, instance_manager.RESTART)
 
             fake_instance.interface_attach.assert_called_once_with(
                 fake_new_port.id, None, None
             )
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_replug_remove_port_success(self, router_api):
-        self.vm_mgr.state = vm_manager.REPLUG
+        self.instance_mgr.state = instance_manager.REPLUG
 
         fake_router = mock.Mock()
         fake_router.id = 'fake_router_id'
@@ -598,7 +610,7 @@ class TestVmManager(unittest.TestCase):
         fake_router.ports = [fake_mgt_port, fake_int_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.instance_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -610,19 +622,20 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.get_instance_by_id = mock.Mock(
             return_value=fake_instance)
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = True  # the unplug worked!
-            self.vm_mgr.replug(self.ctx)
-            self.assertEqual(self.vm_mgr.state, vm_manager.REPLUG)
+            self.instance_mgr.replug(self.ctx)
+            self.assertEqual(self.instance_mgr.state, instance_manager.REPLUG)
             fake_instance.interface_detach.assert_called_once_with(
                 fake_ext_port.id
             )
             self.assertNotIn(fake_ext_port, self.INSTANCE_INFO.ports)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.vm_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.router_api')
     def test_replug_remove_port_failure(self, router_api):
-        self.vm_mgr.state = vm_manager.REPLUG
+        self.instance_mgr.state = instance_manager.REPLUG
 
         fake_router = mock.Mock()
         fake_router.id = 'fake_router_id'
@@ -631,7 +644,7 @@ class TestVmManager(unittest.TestCase):
         fake_router.ports = [fake_mgt_port, fake_int_port]
 
         self.neutron.get_router_detail.return_value = fake_router
-        self.vm_mgr.router_obj = fake_router
+        self.instance_mgr.router_obj = fake_router
         router_api.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
@@ -643,10 +656,12 @@ class TestVmManager(unittest.TestCase):
         self.ctx.nova_client.get_instance_by_id = mock.Mock(
             return_value=fake_instance)
 
-        with mock.patch.object(self.vm_mgr, '_verify_interfaces') as verify:
+        with mock.patch.object(self.instance_mgr,
+                               '_verify_interfaces') as verify:
             verify.return_value = False  # the unplug failed!
-            self.vm_mgr.replug(self.ctx)
-            self.assertEquals(self.vm_mgr.state, vm_manager.RESTART)
+            self.instance_mgr.replug(self.ctx)
+            self.assertEquals(self.instance_mgr.state,
+                              instance_manager.RESTART)
             fake_instance.interface_detach.assert_called_once_with(
                 fake_ext_port.id
             )
@@ -666,7 +681,7 @@ class TestVmManager(unittest.TestCase):
             {'lladdr': fake_int_port.mac_address}
         ]
 
-        self.assertTrue(self.vm_mgr._verify_interfaces(rtr, interfaces))
+        self.assertTrue(self.instance_mgr._verify_interfaces(rtr, interfaces))
 
     def test_verify_interfaces_with_cleared_gateway(self):
         rtr = mock.Mock()
@@ -683,58 +698,59 @@ class TestVmManager(unittest.TestCase):
             {'lladdr': 'a:a:a:a'}
         ]
 
-        self.assertFalse(self.vm_mgr._verify_interfaces(rtr, interfaces))
+        self.assertFalse(self.instance_mgr._verify_interfaces(rtr, interfaces))
 
     def test_ensure_provider_ports(self):
         rtr = mock.Mock()
         rtr.external_port = None
-        self.assertEqual(self.vm_mgr._ensure_provider_ports(rtr, self.ctx),
+        self.assertEqual(self.instance_mgr._ensure_provider_ports(rtr,
+                                                                  self.ctx),
                          rtr)
         self.neutron.create_router_external_port.assert_called_once_with(rtr)
 
     def test_set_error_when_gone(self):
-        self.vm_mgr.state = vm_manager.GONE
+        self.instance_mgr.state = instance_manager.GONE
         rtr = mock.sentinel.router
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.set_error(self.ctx)
+        self.instance_mgr.set_error(self.ctx)
         self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'ERROR')
-        self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
+        self.assertEqual(instance_manager.GONE, self.instance_mgr.state)
 
     def test_set_error_when_booting(self):
-        self.vm_mgr.state = vm_manager.BOOTING
+        self.instance_mgr.state = instance_manager.BOOTING
         rtr = mock.sentinel.router
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.set_error(self.ctx)
+        self.instance_mgr.set_error(self.ctx)
         self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'ERROR')
-        self.assertEqual(vm_manager.ERROR, self.vm_mgr.state)
+        self.assertEqual(instance_manager.ERROR, self.instance_mgr.state)
 
     def test_clear_error_when_gone(self):
-        self.vm_mgr.state = vm_manager.GONE
+        self.instance_mgr.state = instance_manager.GONE
         rtr = mock.sentinel.router
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.clear_error(self.ctx)
+        self.instance_mgr.clear_error(self.ctx)
         self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'ERROR')
-        self.assertEqual(vm_manager.GONE, self.vm_mgr.state)
+        self.assertEqual(instance_manager.GONE, self.instance_mgr.state)
 
     def test_set_error_when_error(self):
-        self.vm_mgr.state = vm_manager.ERROR
+        self.instance_mgr.state = instance_manager.ERROR
         rtr = mock.sentinel.router
         rtr.id = 'R1'
         self.ctx.neutron.get_router_detail.return_value = rtr
-        self.vm_mgr.clear_error(self.ctx)
+        self.instance_mgr.clear_error(self.ctx)
         self.neutron.update_router_status.assert_called_once_with('R1',
                                                                   'DOWN')
-        self.assertEqual(vm_manager.DOWN, self.vm_mgr.state)
+        self.assertEqual(instance_manager.DOWN, self.instance_mgr.state)
 
     @mock.patch('time.sleep')
     def test_boot_success_after_error(self, sleep):
-        self.next_state = vm_manager.UP
+        self.next_state = instance_manager.UP
         rtr = mock.sentinel.router
         self.ctx.neutron.get_router_detail.return_value = rtr
         rtr.id = 'ROUTER1'
@@ -742,29 +758,29 @@ class TestVmManager(unittest.TestCase):
         rtr.external_port = None
         rtr.ports = mock.MagicMock()
         rtr.ports.__iter__.return_value = []
-        self.vm_mgr.set_error(self.ctx)
-        self.vm_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
-        self.assertEqual(self.vm_mgr.state, vm_manager.BOOTING)  # async
+        self.instance_mgr.set_error(self.ctx)
+        self.instance_mgr.boot(self.ctx, 'GLANCE-IMAGE-123')
+        self.assertEqual(self.instance_mgr.state, instance_manager.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             self.INSTANCE_INFO, rtr.id, 'GLANCE-IMAGE-123', mock.ANY)
 
     def test_error_cooldown(self):
         self.conf.error_state_cooldown = 30
-        self.assertIsNone(self.vm_mgr.last_error)
-        self.assertFalse(self.vm_mgr.error_cooldown)
+        self.assertIsNone(self.instance_mgr.last_error)
+        self.assertFalse(self.instance_mgr.error_cooldown)
 
-        self.vm_mgr.state = vm_manager.ERROR
-        self.vm_mgr.last_error = datetime.utcnow() - timedelta(seconds=1)
-        self.assertTrue(self.vm_mgr.error_cooldown)
+        self.instance_mgr.state = instance_manager.ERROR
+        self.instance_mgr.last_error = datetime.utcnow() - timedelta(seconds=1)
+        self.assertTrue(self.instance_mgr.error_cooldown)
 
-        self.vm_mgr.last_error = datetime.utcnow() - timedelta(minutes=5)
-        self.assertFalse(self.vm_mgr.error_cooldown)
+        self.instance_mgr.last_error = datetime.utcnow() - timedelta(minutes=5)
+        self.assertFalse(self.instance_mgr.error_cooldown)
 
 
 class TestBootAttemptCounter(unittest.TestCase):
 
     def setUp(self):
-        self.c = vm_manager.BootAttemptCounter()
+        self.c = instance_manager.BootAttemptCounter()
 
     def test_start(self):
         self.c.start()
@@ -781,39 +797,39 @@ class TestBootAttemptCounter(unittest.TestCase):
 class TestSynchronizeRouterStatus(unittest.TestCase):
 
     def setUp(self):
-        self.test_vm_manager = mock.Mock(spec=('router_obj',
-                                               '_last_synced_status',
-                                               'state'))
+        self.test_instance_manager = mock.Mock(spec=('router_obj',
+                                                     '_last_synced_status',
+                                                     'state'))
         self.test_context = mock.Mock()
 
     def test_router_is_deleted(self):
-        self.test_vm_manager.router_obj = None
-        v = vm_manager.synchronize_router_status(
-            lambda vm_manager_inst, ctx, silent: 1)
-        self.assertEqual(v(self.test_vm_manager, {}), 1)
+        self.test_instance_manager.router_obj = None
+        v = instance_manager.synchronize_router_status(
+            lambda instance_manager_inst, ctx, silent: 1)
+        self.assertEqual(v(self.test_instance_manager, {}), 1)
 
     def test_router_status_changed(self):
-        self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
-        self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
-        self.test_vm_manager.state = vm_manager.DOWN
-        v = vm_manager.synchronize_router_status(
-            lambda vm_manager_inst, ctx, silent: 1)
-        self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
+        self.test_instance_manager.router_obj = mock.Mock(id='ABC123')
+        self.test_instance_manager._last_synced_status = neutron.STATUS_ACTIVE
+        self.test_instance_manager.state = instance_manager.DOWN
+        v = instance_manager.synchronize_router_status(
+            lambda instance_manager_inst, ctx, silent: 1)
+        self.assertEqual(v(self.test_instance_manager, self.test_context), 1)
         self.test_context.neutron.update_router_status.\
             assert_called_once_with(
                 'ABC123',
                 neutron.STATUS_DOWN)
-        self.assertEqual(self.test_vm_manager._last_synced_status,
+        self.assertEqual(self.test_instance_manager._last_synced_status,
                          neutron.STATUS_DOWN)
 
     def test_router_status_same(self):
-        self.test_vm_manager.router_obj = mock.Mock(id='ABC123')
-        self.test_vm_manager._last_synced_status = neutron.STATUS_ACTIVE
-        self.test_vm_manager.state = vm_manager.CONFIGURED
-        v = vm_manager.synchronize_router_status(
-            lambda vm_manager_inst, ctx, silent: 1)
-        self.assertEqual(v(self.test_vm_manager, self.test_context), 1)
+        self.test_instance_manager.router_obj = mock.Mock(id='ABC123')
+        self.test_instance_manager._last_synced_status = neutron.STATUS_ACTIVE
+        self.test_instance_manager.state = instance_manager.CONFIGURED
+        v = instance_manager.synchronize_router_status(
+            lambda instance_manager_inst, ctx, silent: 1)
+        self.assertEqual(v(self.test_instance_manager, self.test_context), 1)
         self.assertEqual(
             self.test_context.neutron.update_router_status.call_count, 0)
-        self.assertEqual(
-            self.test_vm_manager._last_synced_status, neutron.STATUS_ACTIVE)
+        self.assertEqual(self.test_instance_manager._last_synced_status,
+                         neutron.STATUS_ACTIVE)

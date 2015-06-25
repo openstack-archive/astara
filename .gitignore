@@ -36,3 +36,6 @@ ChangeLog
 test.conf
 
 *.swp
+
+#pycharm cruft
+.idea/*
