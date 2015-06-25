@@ -23,7 +23,7 @@ import unittest2 as unittest
 
 from akanda.rug import event
 from akanda.rug import state
-from akanda.rug import vm_manager
+from akanda.rug import instance_manager
 from akanda.rug.api.neutron import RouterGone
 
 
@@ -33,11 +33,12 @@ class BaseTestStateCase(unittest.TestCase):
     def setUp(self):
         self.ctx = mock.Mock()  # worker context
         log = logging.getLogger(__name__)
-        vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
+        instance_mgr_cls = \
+            mock.patch('akanda.rug.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
-        self.vm = vm_mgr_cls.return_value
+        self.instance = instance_mgr_cls.return_value
         self.params = state.StateParams(
-            vm=self.vm,
+            instance=self.instance,
             log=log,
             queue=deque(),
             bandwidth_callback=mock.Mock(),
@@ -47,8 +48,8 @@ class BaseTestStateCase(unittest.TestCase):
         self.state = self.state_cls(self.params)
 
     def _test_transition_hlpr(self, action, expected_class,
-                              vm_state=state.vm_manager.UP):
-        self.vm.state = vm_state
+                              instance_state=state.instance_manager.UP):
+        self.instance.state = instance_state
         result = self.state.transition(action, self.ctx)
         self.assertIsInstance(result, expected_class)
         return result
@@ -134,7 +135,7 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CheckBoot,
-            vm_manager.BOOTING
+            instance_manager.BOOTING
         )
 
     def test_transition_update_missing_router_not_down(self):
@@ -143,7 +144,7 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CheckBoot,
-            vm_manager.BOOTING
+            instance_manager.BOOTING
         )
 
     def test_transition_delete_missing_router_down(self):
@@ -151,8 +152,8 @@ class TestCalcActionState(BaseTestStateCase):
         self.ctx.neutron.get_router_detail.side_effect = RouterGone
         self._test_transition_hlpr(
             event.DELETE,
-            state.StopVM,
-            vm_manager.DOWN
+            state.StopInstance,
+            instance_manager.DOWN
         )
 
     def test_transition_delete_missing_router_not_down(self):
@@ -160,56 +161,62 @@ class TestCalcActionState(BaseTestStateCase):
         self.ctx.neutron.get_router_detail.side_effect = RouterGone
         self._test_transition_hlpr(
             event.DELETE,
-            state.StopVM,
-            vm_manager.BOOTING
+            state.StopInstance,
+            instance_manager.BOOTING
         )
 
-    def test_transition_delete_down_vm(self):
-        self._test_transition_hlpr(event.DELETE, state.StopVM, vm_manager.DOWN)
+    def test_transition_delete_down_instance(self):
+        self._test_transition_hlpr(event.DELETE,
+                                   state.StopInstance,
+                                   instance_manager.DOWN)
 
-    def test_transition_delete_up_vm(self):
-        self._test_transition_hlpr(event.DELETE, state.StopVM)
+    def test_transition_delete_up_instance(self):
+        self._test_transition_hlpr(event.DELETE, state.StopInstance)
 
-    def test_transition_create_down_vm(self):
+    def test_transition_create_down_instance(self):
         for evt in [event.POLL, event.READ, event.UPDATE, event.CREATE]:
-            self._test_transition_hlpr(evt, state.CreateVM, vm_manager.DOWN)
+            self._test_transition_hlpr(evt,
+                                       state.CreateInstance,
+                                       instance_manager.DOWN)
 
-    def test_transition_poll_up_vm(self):
-        self._test_transition_hlpr(event.POLL, state.Alive, vm_manager.UP)
+    def test_transition_poll_up_instance(self):
+        self._test_transition_hlpr(event.POLL,
+                                   state.Alive,
+                                   instance_manager.UP)
 
-    def test_transition_poll_configured_vm(self):
+    def test_transition_poll_configured_instance(self):
         self._test_transition_hlpr(
             event.POLL,
             state.Alive,
-            vm_manager.CONFIGURED
+            instance_manager.CONFIGURED
         )
 
-    def test_transition_other_up_vm(self):
+    def test_transition_other_up_instance(self):
         for evt in [event.READ, event.UPDATE, event.CREATE]:
             self._test_transition_hlpr(evt, state.Alive)
 
-    def test_transition_update_error_vm(self):
-        self.vm.error_cooldown = False
+    def test_transition_update_error_instance(self):
+        self.instance.error_cooldown = False
         result = self._test_transition_hlpr(
             event.UPDATE,
             state.ClearError,
-            vm_manager.ERROR,
+            instance_manager.ERROR,
         )
         self.assertIsInstance(result._next_state, state.Alive)
 
-    def test_transition_update_error_vm_in_error_cooldown(self):
-        self.vm.error_cooldown = True
+    def test_transition_update_error_instance_in_error_cooldown(self):
+        self.instance.error_cooldown = True
         self._test_transition_hlpr(
             event.UPDATE,
             state.CalcAction,
-            vm_manager.ERROR,
+            instance_manager.ERROR,
         )
 
-    def test_transition_poll_error_vm(self):
+    def test_transition_poll_error_instance(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
-            vm_manager.ERROR,
+            instance_manager.ERROR,
         )
 
 
@@ -221,104 +228,107 @@ class TestAliveState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.vm.update_state.assert_called_once_with(self.ctx)
+        self.instance.update_state.assert_called_once_with(self.ctx)
 
-    def test_transition_vm_down(self):
+    def test_transition_instance_down(self):
         for evt in [event.POLL, event.READ, event.UPDATE, event.CREATE]:
-            self._test_transition_hlpr(evt, state.CreateVM, vm_manager.DOWN)
+            self._test_transition_hlpr(evt,
+                                       state.CreateInstance,
+                                       instance_manager.DOWN)
 
-    def test_transition_poll_vm_configured(self):
+    def test_transition_poll_instance_configured(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
-            vm_manager.CONFIGURED
+            instance_manager.CONFIGURED
         )
 
-    def test_transition_read_vm_configured(self):
+    def test_transition_read_instance_configured(self):
         self._test_transition_hlpr(
             event.READ,
             state.ReadStats,
-            vm_manager.CONFIGURED
+            instance_manager.CONFIGURED
         )
 
     def test_transition_up_to_configured(self):
         self._test_transition_hlpr(
             event.CREATE,
-            state.ConfigureVM,
-            vm_manager.UP
+            state.ConfigureInstance,
+            instance_manager.UP
         )
 
-    def test_transition_configured_vm_configured(self):
+    def test_transition_configured_instance_configured(self):
         self._test_transition_hlpr(
             event.CREATE,
-            state.ConfigureVM,
-            vm_manager.CONFIGURED
+            state.ConfigureInstance,
+            instance_manager.CONFIGURED
         )
 
 
-class TestCreateVMState(BaseTestStateCase):
-    state_cls = state.CreateVM
+class TestCreateInstanceState(BaseTestStateCase):
+    state_cls = state.CreateInstance
 
     def test_execute(self):
-        self.vm.attempts = 0
+        self.instance.attempts = 0
         self.assertEqual(
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.vm.boot.assert_called_once_with(self.ctx, 'GLANCE-IMAGE-123')
+        self.instance.boot.assert_called_once_with(self.ctx,
+                                                   'GLANCE-IMAGE-123')
 
     def test_execute_too_many_attempts(self):
-        self.vm.attempts = self.params.reboot_error_threshold
+        self.instance.attempts = self.params.reboot_error_threshold
         self.assertEqual(
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.assertEqual([], self.vm.boot.mock_calls)
-        self.vm.set_error.assert_called_once_with(self.ctx)
+        self.assertEqual([], self.instance.boot.mock_calls)
+        self.instance.set_error.assert_called_once_with(self.ctx)
 
-    def test_transition_vm_down(self):
+    def test_transition_instance_down(self):
         self._test_transition_hlpr(
             event.READ,
             state.CheckBoot,
-            vm_manager.BOOTING
+            instance_manager.BOOTING
         )
 
-    def test_transition_vm_up(self):
+    def test_transition_instance_up(self):
         self._test_transition_hlpr(
             event.READ,
             state.CheckBoot,
-            vm_state=state.vm_manager.BOOTING
+            instance_state=state.instance_manager.BOOTING
         )
 
-    def test_transition_vm_missing(self):
+    def test_transition_instance_missing(self):
         self._test_transition_hlpr(
             event.READ,
-            state.CreateVM,
-            vm_state=state.vm_manager.DOWN
+            state.CreateInstance,
+            instance_state=state.instance_manager.DOWN
         )
 
-    def test_transition_vm_error(self):
+    def test_transition_instance_error(self):
         self._test_transition_hlpr(event.READ, state.CalcAction,
-                                   vm_state=state.vm_manager.ERROR)
+                                   instance_state=state.instance_manager.ERROR)
 
 
-class TestRebuildVMState(BaseTestStateCase):
-    state_cls = state.RebuildVM
+class TestRebuildInstanceState(BaseTestStateCase):
+    state_cls = state.RebuildInstance
 
     def test_execute(self):
         self.assertEqual(
             self.state.execute('ignored', self.ctx),
             event.CREATE,
         )
-        self.vm.stop.assert_called_once_with(self.ctx)
+        self.instance.stop.assert_called_once_with(self.ctx)
 
     def test_execute_gone(self):
-        self.vm.state = vm_manager.GONE
+        self.instance.state = instance_manager.GONE
         self.assertEqual(
             self.state.execute('ignored', self.ctx),
             event.DELETE,
         )
-        self.vm.stop.assert_called_once_with(self.ctx)
+        self.instance.stop.assert_called_once_with(self.ctx)
 
 
 class TestClearErrorState(BaseTestStateCase):
@@ -329,15 +339,15 @@ class TestClearErrorState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough',
         )
-        self.vm.clear_error.assert_called_once_with(self.ctx)
+        self.instance.clear_error.assert_called_once_with(self.ctx)
 
     def test_execute_after_error(self):
-        self.vm.state = vm_manager.ERROR
+        self.instance.state = instance_manager.ERROR
         self.assertEqual(
             self.state.execute('passthrough', self.ctx),
             'passthrough',
         )
-        self.vm.clear_error.assert_called_once_with(self.ctx)
+        self.instance.clear_error.assert_called_once_with(self.ctx)
 
     def test_transition_default(self):
         st = self.state_cls(self.params)
@@ -362,66 +372,70 @@ class TestCheckBootState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.vm.check_boot.assert_called_once_with(self.ctx)
+        self.instance.check_boot.assert_called_once_with(self.ctx)
         assert list(self.params.queue) == ['passthrough']
 
-    def test_transition_vm_configure(self):
+    def test_transition_instance_configure(self):
         self._test_transition_hlpr(
             event.UPDATE,
-            state.ConfigureVM,
-            vm_manager.UP
+            state.ConfigureInstance,
+            instance_manager.UP
         )
 
-    def test_transition_vm_booting(self):
+    def test_transition_instance_booting(self):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CalcAction,
-            vm_manager.BOOTING
+            instance_manager.BOOTING
         )
 
 
-class TestStopVMState(BaseTestStateCase):
-    state_cls = state.StopVM
+class TestStopInstanceState(BaseTestStateCase):
+    state_cls = state.StopInstance
 
     def test_execute(self):
         self.assertEqual(
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.vm.stop.assert_called_once_with(self.ctx)
+        self.instance.stop.assert_called_once_with(self.ctx)
 
-    def test_transition_vm_still_up(self):
-        self._test_transition_hlpr(event.DELETE, state.StopVM)
+    def test_transition_instance_still_up(self):
+        self._test_transition_hlpr(event.DELETE, state.StopInstance)
 
-    def test_transition_delete_vm_down(self):
-        self._test_transition_hlpr(event.DELETE, state.Exit, vm_manager.DOWN)
+    def test_transition_delete_instance_down(self):
+        self._test_transition_hlpr(event.DELETE,
+                                   state.Exit,
+                                   instance_manager.DOWN)
 
-    def test_transition_restart_vm_down(self):
-        self._test_transition_hlpr(event.READ, state.CreateVM, vm_manager.DOWN)
+    def test_transition_restart_instance_down(self):
+        self._test_transition_hlpr(event.READ,
+                                   state.CreateInstance,
+                                   instance_manager.DOWN)
 
 
 class TestReplugState(BaseTestStateCase):
-    state_cls = state.ReplugVM
+    state_cls = state.ReplugInstance
 
     def test_execute(self):
         self.assertEqual(
             self.state.execute('update', self.ctx),
             'update'
         )
-        self.vm.replug.assert_called_once_with(self.ctx)
+        self.instance.replug.assert_called_once_with(self.ctx)
 
     def test_transition_hotplug_succeeded(self):
         self._test_transition_hlpr(
             event.UPDATE,
-            state.ConfigureVM,
-            vm_manager.REPLUG
+            state.ConfigureInstance,
+            instance_manager.REPLUG
         )
 
     def test_transition_hotplug_failed(self):
         self._test_transition_hlpr(
             event.UPDATE,
-            state.StopVM,
-            vm_manager.RESTART
+            state.StopInstance,
+            instance_manager.RESTART
         )
 
 
@@ -429,51 +443,55 @@ class TestExitState(TestBaseState):
     state_cls = state.Exit
 
 
-class TestConfigureVMState(BaseTestStateCase):
-    state_cls = state.ConfigureVM
+class TestConfigureInstanceState(BaseTestStateCase):
+    state_cls = state.ConfigureInstance
 
     def test_execute_read_configure_success(self):
-        self.vm.state = vm_manager.CONFIGURED
+        self.instance.state = instance_manager.CONFIGURED
         self.assertEqual(self.state.execute(event.READ, self.ctx),
                          event.READ)
-        self.vm.configure.assert_called_once_with(self.ctx)
+        self.instance.configure.assert_called_once_with(self.ctx)
 
     def test_execute_update_configure_success(self):
-        self.vm.state = vm_manager.CONFIGURED
+        self.instance.state = instance_manager.CONFIGURED
         self.assertEqual(self.state.execute(event.UPDATE, self.ctx),
                          event.POLL)
-        self.vm.configure.assert_called_once_with(self.ctx)
+        self.instance.configure.assert_called_once_with(self.ctx)
 
     def test_execute_configure_failure(self):
         self.assertEqual(
             self.state.execute(event.CREATE, self.ctx),
             event.CREATE
         )
-        self.vm.configure.assert_called_once_with(self.ctx)
+        self.instance.configure.assert_called_once_with(self.ctx)
 
     def test_transition_not_configured_down(self):
-        self._test_transition_hlpr(event.READ, state.StopVM, vm_manager.DOWN)
+        self._test_transition_hlpr(event.READ,
+                                   state.StopInstance,
+                                   instance_manager.DOWN)
 
     def test_transition_not_configured_restart(self):
-        self._test_transition_hlpr(event.READ, state.StopVM,
-                                   vm_manager.RESTART)
+        self._test_transition_hlpr(event.READ,
+                                   state.StopInstance,
+                                   instance_manager.RESTART)
 
     def test_transition_not_configured_up(self):
-        self._test_transition_hlpr(event.READ, state.PushUpdate,
-                                   vm_manager.UP)
+        self._test_transition_hlpr(event.READ,
+                                   state.PushUpdate,
+                                   instance_manager.UP)
 
     def test_transition_read_configured(self):
         self._test_transition_hlpr(
             event.READ,
             state.ReadStats,
-            vm_manager.CONFIGURED
+            instance_manager.CONFIGURED
         )
 
     def test_transition_other_configured(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
-            vm_manager.CONFIGURED
+            instance_manager.CONFIGURED
         )
 
 
@@ -481,13 +499,13 @@ class TestReadStatsState(BaseTestStateCase):
     state_cls = state.ReadStats
 
     def test_execute(self):
-        self.vm.read_stats.return_value = 'foo'
+        self.instance.read_stats.return_value = 'foo'
 
         self.assertEqual(
             self.state.execute(event.READ, self.ctx),
             event.POLL
         )
-        self.vm.read_stats.assert_called_once_with()
+        self.instance.read_stats.assert_called_once_with()
         self.params.bandwidth_callback.assert_called_once_with('foo')
 
     def test_transition(self):
@@ -500,7 +518,8 @@ class TestAutomaton(unittest.TestCase):
 
         self.ctx = mock.Mock()  # worker context
 
-        self.vm_mgr_cls = mock.patch('akanda.rug.vm_manager.VmManager').start()
+        self.instance_mgr_cls = \
+            mock.patch('akanda.rug.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
 
         self.delete_callback = mock.Mock()
@@ -548,8 +567,8 @@ class TestAutomaton(unittest.TestCase):
         self.assertFalse(self.sm.has_more_work())
 
     def test_send_message_in_error(self):
-        vm = self.vm_mgr_cls.return_value
-        vm.state = state.vm_manager.ERROR
+        instance = self.instance_mgr_cls.return_value
+        instance.state = state.instance_manager.ERROR
         message = mock.Mock()
         message.crud = 'poll'
         self.sm.send_message(message)
@@ -567,9 +586,9 @@ class TestAutomaton(unittest.TestCase):
             )
 
     def test_send_rebuild_message_with_custom_image(self):
-        vm = self.vm_mgr_cls.return_value
-        vm.state = state.vm_manager.DOWN
-        with mock.patch.object(vm_manager.cfg, 'CONF') as conf:
+        instance = self.instance_mgr_cls.return_value
+        instance.state = state.instance_manager.DOWN
+        with mock.patch.object(instance_manager.cfg, 'CONF') as conf:
             conf.router_image_uuid = 'DEFAULT'
             self.sm.state.params.router_image_uuid = conf.router_image_uuid
 
@@ -645,7 +664,7 @@ class TestAutomaton(unittest.TestCase):
 
                 execute.called_once_with(
                     event.POLL,
-                    self.vm_mgr_cls.return_value,
+                    self.instance_mgr_cls.return_value,
                     self.ctx,
                     self.sm._queue
                 )
@@ -663,17 +682,17 @@ class TestAutomaton(unittest.TestCase):
 
             execute.called_once_with(
                 event.POLL,
-                self.vm_mgr_cls.return_value,
+                self.instance_mgr_cls.return_value,
                 self.ctx,
                 self.bandwidth_callback
             )
 
     def test_has_error(self):
-        with mock.patch.object(self.sm, 'vm') as vm:
-            vm.state = vm_manager.ERROR
+        with mock.patch.object(self.sm, 'instance') as instance:
+            instance.state = instance_manager.ERROR
             self.assertTrue(self.sm.has_error())
 
     def test_has_no_error(self):
-        with mock.patch.object(self.sm, 'vm') as vm:
-            vm.state = vm_manager.UP
+        with mock.patch.object(self.sm, 'instance') as instance:
+            instance.state = instance_manager.UP
             self.assertFalse(self.sm.has_error())
