@@ -78,17 +78,18 @@ class AkandaFunctionalBase(testtools.TestCase):
         if self._management_address:
             return self._management_address['addr']
 
-        # TODO(adam_g): Deal with multiple service VMs
-        service_vm = [vm for vm in self.novaclient.servers.list(search_opts={
-            'all_tenants': 1,
-            'tenant_id': self.config['service_tenant_id'],
-        }) if vm.name.startswith('ak-')][0]
+        # TODO(adam_g): Deal with multiple service instances
+        service_instance = \
+            [instance for instance in self.novaclient.servers.list(
+                search_opts={'all_tenants': 1,
+                             'tenant_id': self.config['service_tenant_id']}
+            ) if instance.name.startswith('ak-')][0]
 
         try:
-            self._management_address = service_vm.addresses['mgt'][0]
+            self._management_address = service_instance.addresses['mgt'][0]
         except KeyError:
-            self.fail('"mgt" port not found on service vm %s (%s)' %
-                      (service_vm.id, service_vm.name))
+            self.fail('"mgt" port not found on service instance %s (%s)' %
+                      (service_instance.id, service_instance.name))
         return self._management_address['addr']
 
     def assert_router_is_active(self, router_uuid=None):

@@ -21,7 +21,7 @@ import unittest2 as unittest
 from akanda.rug import event
 from akanda.rug import tenant
 from akanda.rug import state
-from akanda.rug import vm_manager
+from akanda.rug import instance_manager
 
 
 class TestTenantRouterManager(unittest.TestCase):
@@ -29,7 +29,8 @@ class TestTenantRouterManager(unittest.TestCase):
     def setUp(self):
         super(TestTenantRouterManager, self).setUp()
 
-        self.vm_mgr = mock.patch('akanda.rug.vm_manager.VmManager').start()
+        self.instance_mgr = \
+            mock.patch('akanda.rug.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.notifier = mock.Mock()
         self.trm = tenant.TenantRouterManager(
@@ -93,10 +94,10 @@ class TestTenantRouterManager(unittest.TestCase):
                                  None, None, None, 5, 5)
             # Replace the default mock with one that has 'state' set.
             if i == 2:
-                status = vm_manager.ERROR
+                status = instance_manager.ERROR
             else:
-                status = vm_manager.UP
-            sm.vm = mock.Mock(state=status)
+                status = instance_manager.UP
+            sm.instance = mock.Mock(state=status)
             self.trm.state_machines.state_machines[str(i)] = sm
         msg = event.Event(
             tenant_id='1234',

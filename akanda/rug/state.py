@@ -29,13 +29,13 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
-from akanda.rug import vm_manager
+from akanda.rug import instance_manager
 
 
 class StateParams(object):
-    def __init__(self, vm, log, queue, bandwidth_callback,
+    def __init__(self, instance, log, queue, bandwidth_callback,
                  reboot_error_threshold, router_image_uuid):
-        self.vm = vm
+        self.instance = instance
         self.log = log
         self.queue = queue
         self.bandwidth_callback = bandwidth_callback
@@ -57,8 +57,8 @@ class State(object):
         return self.params.queue
 
     @property
-    def vm(self):
-        return self.params.vm
+    def instance(self):
+        return self.params.instance
 
     @property
     def router_image_uuid(self):
@@ -136,26 +136,26 @@ class CalcAction(State):
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.GONE:
-            next_action = StopVM(self.params)
+        if self.instance.state == instance_manager.GONE:
+            next_action = StopInstance(self.params)
         elif action == DELETE:
-            next_action = StopVM(self.params)
+            next_action = StopInstance(self.params)
         elif action == REBUILD:
-            next_action = RebuildVM(self.params)
-        elif self.vm.state == vm_manager.BOOTING:
+            next_action = RebuildInstance(self.params)
+        elif self.instance.state == instance_manager.BOOTING:
             next_action = CheckBoot(self.params)
-        elif self.vm.state == vm_manager.DOWN:
-            next_action = CreateVM(self.params)
+        elif self.instance.state == instance_manager.DOWN:
+            next_action = CreateInstance(self.params)
         else:
             next_action = Alive(self.params)
-        if self.vm.state == vm_manager.ERROR:
+        if self.instance.state == instance_manager.ERROR:
             if action == POLL:
                 # If the selected action is to poll, and we are in an
                 # error state, then an event slipped through the
                 # filter in send_message() and we should ignore it
                 # here.
                 next_action = self
-            elif self.vm.error_cooldown:
+            elif self.instance.error_cooldown:
                     self.log.debug('Router is in ERROR cooldown, ignoring '
                                    'event.')
                     next_action = self
@@ -180,7 +180,7 @@ class PushUpdate(State):
 
 
 class ClearError(State):
-    """Remove the error state from the VM.
+    """Remove the error state from the instance.
     """
 
     def __init__(self, params, next_state=None):
@@ -188,9 +188,9 @@ class ClearError(State):
         self._next_state = next_state
 
     def execute(self, action, worker_context):
-        # If we are being told explicitly to update the VM, we should
+        # If we are being told explicitly to update the instance, we should
         # ignore any error status.
-        self.vm.clear_error(worker_context)
+        self.instance.clear_error(worker_context)
         return action
 
     def transition(self, action, worker_context):
@@ -201,123 +201,128 @@ class ClearError(State):
 
 class Alive(State):
     def execute(self, action, worker_context):
-        self.vm.update_state(worker_context)
+        self.instance.update_state(worker_context)
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.GONE:
-            return StopVM(self.params)
-        elif self.vm.state == vm_manager.DOWN:
-            return CreateVM(self.params)
-        elif action == POLL and self.vm.state == vm_manager.CONFIGURED:
+        if self.instance.state == instance_manager.GONE:
+            return StopInstance(self.params)
+        elif self.instance.state == instance_manager.DOWN:
+            return CreateInstance(self.params)
+        elif action == POLL and \
+                self.instance.state == instance_manager.CONFIGURED:
             return CalcAction(self.params)
-        elif action == READ and self.vm.state == vm_manager.CONFIGURED:
+        elif action == READ and \
+                self.instance.state == instance_manager.CONFIGURED:
             return ReadStats(self.params)
         else:
-            return ConfigureVM(self.params)
+            return ConfigureInstance(self.params)
 
 
-class CreateVM(State):
+class CreateInstance(State):
     def execute(self, action, worker_context):
         # Check for a loop where the router keeps failing to boot or
         # accept the configuration.
-        if self.vm.attempts >= self.params.reboot_error_threshold:
+        if self.instance.attempts >= self.params.reboot_error_threshold:
             self.log.info('dropping out of boot loop after %s trials',
-                          self.vm.attempts)
-            self.vm.set_error(worker_context)
+                          self.instance.attempts)
+            self.instance.set_error(worker_context)
             return action
-        self.vm.boot(worker_context, self.router_image_uuid)
-        self.log.debug('CreateVM attempt %s/%s',
-                       self.vm.attempts,
+        self.instance.boot(worker_context, self.router_image_uuid)
+        self.log.debug('CreateInstance attempt %s/%s',
+                       self.instance.attempts,
                        self.params.reboot_error_threshold)
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.GONE:
-            return StopVM(self.params)
-        elif self.vm.state == vm_manager.ERROR:
+        if self.instance.state == instance_manager.GONE:
+            return StopInstance(self.params)
+        elif self.instance.state == instance_manager.ERROR:
             return CalcAction(self.params)
-        elif self.vm.state == vm_manager.DOWN:
-            return CreateVM(self.params)
+        elif self.instance.state == instance_manager.DOWN:
+            return CreateInstance(self.params)
         return CheckBoot(self.params)
 
 
 class CheckBoot(State):
     def execute(self, action, worker_context):
-        self.vm.check_boot(worker_context)
+        self.instance.check_boot(worker_context)
         # Put the action back on the front of the queue so that we can yield
         # and handle it in another state machine traversal (which will proceed
         # from CalcAction directly to CheckBoot).
-        if self.vm.state not in (vm_manager.DOWN, vm_manager.GONE):
+        if self.instance.state not in (instance_manager.DOWN,
+                                       instance_manager.GONE):
             self.queue.appendleft(action)
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state in (vm_manager.DOWN,
-                             vm_manager.GONE):
-            return StopVM(self.params)
-        if self.vm.state == vm_manager.UP:
-            return ConfigureVM(self.params)
+        if self.instance.state in (instance_manager.DOWN,
+                                   instance_manager.GONE):
+            return StopInstance(self.params)
+        if self.instance.state == instance_manager.UP:
+            return ConfigureInstance(self.params)
         return CalcAction(self.params)
 
 
-class ReplugVM(State):
+class ReplugInstance(State):
     def execute(self, action, worker_context):
-        self.vm.replug(worker_context)
+        self.instance.replug(worker_context)
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.RESTART:
-            return StopVM(self.params)
-        return ConfigureVM(self.params)
+        if self.instance.state == instance_manager.RESTART:
+            return StopInstance(self.params)
+        return ConfigureInstance(self.params)
 
 
-class StopVM(State):
+class StopInstance(State):
     def execute(self, action, worker_context):
-        self.vm.stop(worker_context)
-        if self.vm.state == vm_manager.GONE:
+        self.instance.stop(worker_context)
+        if self.instance.state == instance_manager.GONE:
             # Force the action to delete since the router isn't there
             # any more.
             return DELETE
         return action
 
     def transition(self, action, worker_context):
-        if self.vm.state not in (vm_manager.DOWN, vm_manager.GONE):
+        if self.instance.state not in (instance_manager.DOWN,
+                                       instance_manager.GONE):
             return self
-        if self.vm.state == vm_manager.GONE:
+        if self.instance.state == instance_manager.GONE:
             return Exit(self.params)
         if action == DELETE:
             return Exit(self.params)
-        return CreateVM(self.params)
+        return CreateInstance(self.params)
 
 
-class RebuildVM(State):
+class RebuildInstance(State):
     def execute(self, action, worker_context):
-        self.vm.stop(worker_context)
-        if self.vm.state == vm_manager.GONE:
+        self.instance.stop(worker_context)
+        if self.instance.state == instance_manager.GONE:
             # Force the action to delete since the router isn't there
             # any more.
             return DELETE
-        # Re-create the VM
-        self.vm.reset_boot_counter()
+        # Re-create the instance
+        self.instance.reset_boot_counter()
         return CREATE
 
     def transition(self, action, worker_context):
-        if self.vm.state not in (vm_manager.DOWN, vm_manager.GONE):
+        if self.instance.state not in (instance_manager.DOWN,
+                                       instance_manager.GONE):
             return self
-        if self.vm.state == vm_manager.GONE:
+        if self.instance.state == instance_manager.GONE:
             return Exit(self.params)
-        return CreateVM(self.params)
+        return CreateInstance(self.params)
 
 
 class Exit(State):
     pass
 
 
-class ConfigureVM(State):
+class ConfigureInstance(State):
     def execute(self, action, worker_context):
-        self.vm.configure(worker_context)
-        if self.vm.state == vm_manager.CONFIGURED:
+        self.instance.configure(worker_context)
+        if self.instance.state == instance_manager.CONFIGURED:
             if action == READ:
                 return READ
             else:
@@ -326,15 +331,15 @@ class ConfigureVM(State):
             return action
 
     def transition(self, action, worker_context):
-        if self.vm.state == vm_manager.REPLUG:
-            return ReplugVM(self.params)
-        if self.vm.state in (vm_manager.RESTART,
-                             vm_manager.DOWN,
-                             vm_manager.GONE):
-            return StopVM(self.params)
-        if self.vm.state == vm_manager.UP:
+        if self.instance.state == instance_manager.REPLUG:
+            return ReplugInstance(self.params)
+        if self.instance.state in (instance_manager.RESTART,
+                                   instance_manager.DOWN,
+                                   instance_manager.GONE):
+            return StopInstance(self.params)
+        if self.instance.state == instance_manager.UP:
             return PushUpdate(self.params)
-        # Below here, assume vm.state == vm_manager.CONFIGURED
+        # Below here, assume instance.state == instance_manager.CONFIGURED
         if action == READ:
             return ReadStats(self.params)
         return CalcAction(self.params)
@@ -342,7 +347,7 @@ class ConfigureVM(State):
 
 class ReadStats(State):
     def execute(self, action, worker_context):
-        stats = self.vm.read_stats()
+        stats = self.instance.read_stats()
         self.params.bandwidth_callback(stats)
         return POLL
 
@@ -363,9 +368,8 @@ class Automaton(object):
         :param delete_callback: Invoked when the Automaton decides
                                 the router should be deleted.
         :type delete_callback: callable
-        :param bandwidth_callback: To be invoked when the Automaton
-                                   needs to report how much bandwidth
-                                   a router has used.
+        :param bandwidth_callback: To be invoked when the Automaton needs to
+                                   report how much bandwidth a router has used.
         :type bandwidth_callback: callable taking router_id and bandwidth
                                   info dict
         :param worker_context: a WorkerContext
@@ -388,10 +392,12 @@ class Automaton(object):
         self.log = logging.getLogger(__name__ + '.' + router_id)
 
         self.action = POLL
-        self.vm = vm_manager.VmManager(router_id, tenant_id, self.log,
-                                       worker_context)
+        self.instance = instance_manager.InstanceManager(router_id,
+                                                         tenant_id,
+                                                         self.log,
+                                                         worker_context)
         self._state_params = StateParams(
-            self.vm,
+            self.instance,
             self.log,
             self._queue,
             self.bandwidth_callback,
@@ -423,14 +429,18 @@ class Automaton(object):
                     return
 
                 try:
-                    self.log.debug('%s.execute(%s) vm.state=%s',
-                                   self.state, self.action, self.vm.state)
+                    self.log.debug('%s.execute(%s) instance.state=%s',
+                                   self.state,
+                                   self.action,
+                                   self.instance.state)
                     self.action = self.state.execute(
                         self.action,
                         worker_context,
                     )
-                    self.log.debug('%s.execute -> %s vm.state=%s',
-                                   self.state, self.action, self.vm.state)
+                    self.log.debug('%s.execute -> %s instance.state=%s',
+                                   self.state,
+                                   self.action,
+                                   self.instance.state)
                 except:
                     self.log.exception(
                         '%s.execute() failed for action: %s',
@@ -443,9 +453,9 @@ class Automaton(object):
                     self.action,
                     worker_context,
                 )
-                self.log.debug('%s.transition(%s) -> %s vm.state=%s',
+                self.log.debug('%s.transition(%s) -> %s instance.state=%s',
                                old_state, self.action, self.state,
-                               self.vm.state)
+                               self.instance.state)
 
                 # Yield control each time we stop to figure out what
                 # to do next.
@@ -473,7 +483,8 @@ class Automaton(object):
         # down on the number of times a worker thread wakes up to
         # process something on a router that isn't going to actually
         # do any work.
-        if message.crud == POLL and self.vm.state == vm_manager.ERROR:
+        if message.crud == POLL and \
+                self.instance.state == instance_manager.ERROR:
             self.log.info(
                 'Router status is ERROR, ignoring POLL message: %s',
                 message,
@@ -512,4 +523,4 @@ class Automaton(object):
         return (not self.deleted) and bool(self._queue)
 
     def has_error(self):
-        return self.vm.state == vm_manager.ERROR
+        return self.instance.state == instance_manager.ERROR
