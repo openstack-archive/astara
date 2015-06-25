@@ -88,8 +88,10 @@ def main(argv=sys.argv[1:]):
 
     p = multiprocessing.current_process()
     p.name = 'pmain'
+
     t = threading.current_thread()
     t.name = 'tmain'
+
     ak_cfg.parse_config(argv)
     log.setup(cfg.CONF, 'akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
