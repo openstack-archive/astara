@@ -28,6 +28,7 @@ from oslo_log import log
 
 from akanda.rug.common.i18n import _LE, _LI
 from akanda.rug.common import config as ak_cfg
+from akanda.rug import coordination
 from akanda.rug import daemon
 from akanda.rug import health
 from akanda.rug import metadata
@@ -147,6 +148,18 @@ def main(argv=sys.argv[1:]):
     )
     notification_proc.start()
 
+    if CONF.coordination.enabled:
+        coordinator_proc = multiprocessing.Process(
+            target=coordination.start,
+            kwargs={
+                'notification_queue': notification_queue
+            },
+            name='coordinator',
+        )
+        coordinator_proc.start()
+    else:
+        coordinator_proc = None
+
     mgt_ip_address = neutron_api.get_local_service_ip(cfg.CONF).split('/')[0]
     metadata_proc = multiprocessing.Process(
         target=metadata.serve,
@@ -200,6 +213,9 @@ def main(argv=sys.argv[1:]):
         publisher.stop()
 
         # Terminate the subprocesses
-        for subproc in [notification_proc, metadata_proc, rug_api_proc]:
+        for subproc in [notification_proc, coordinator_proc, metadata_proc,
+                        rug_api_proc]:
+            if not subproc:
+                continue
             LOG.info(_LI('Stopping %s.'), subproc.name)
             subproc.terminate()
