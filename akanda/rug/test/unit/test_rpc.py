@@ -145,7 +145,7 @@ class TestConnection(testtools.TestCase):
             topic='foo_topic', fanout=False, exchange='foo_exchange')
         fake_get_listener.assert_called_with(
             'fake_transport', ['fake_target'], endpoints,
-            pool='akanda.foo_topic')
+            pool='akanda.foo_topic.test_host')
         self.connection._add_server_thread.assert_called_with(
             'fake_listener_server')
 

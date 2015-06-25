@@ -32,6 +32,7 @@ from akanda.rug.common.i18n import _LI, _LW
 from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug.common import hash_ring
 from akanda.rug.api import nova
 from akanda.rug.api import neutron
 from akanda.rug.db import api as db_api
@@ -110,6 +111,7 @@ class Worker(object):
         self._ignore_directory = cfg.CONF.ignored_router_directory
         self._queue_warning_threshold = cfg.CONF.queue_warning_threshold
         self._reboot_error_threshold = cfg.CONF.reboot_error_threshold
+        self.host = cfg.CONF.host
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -142,6 +144,9 @@ class Worker(object):
             )
             for i in xrange(cfg.CONF.num_worker_threads)
         ]
+
+        self.hash_ring_mgr = hash_ring.HashRingManager()
+
         for t in self.threads:
             t.setDaemon(True)
             t.start()
@@ -288,7 +293,7 @@ class Worker(object):
                       router_id, message.tenant_id)
         return message
 
-    def _should_process(self, message):
+    def _should_process_message(self, target, message):
         """Determines whether a message should be processed or not."""
         global_debug, reason = self.db_api.global_debug()
         if global_debug:
@@ -320,6 +325,17 @@ class Worker(object):
             )
             return False
 
+        if target in commands.WILDCARDS:
+            return message
+
+        if cfg.CONF.coordination.enabled:
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                message.router_id)
+            if self.host not in target_hosts:
+                LOG.debug('Ignoring message intended for router %s as it does '
+                          'not map to this rug process.', message.router_id)
+                return False
+
         return message
 
     def handle_message(self, target, message):
@@ -332,11 +348,12 @@ class Worker(object):
             return
         if message.crud == event.COMMAND:
             self._dispatch_command(target, message)
+        elif message.crud == event.REBALANCE:
+            self._rebalance(message)
         else:
-            message = self._should_process(message)
+            message = self._should_process_message(target, message)
             if not message:
                 return
-
             # This is an update command for the router, so deliver it
             # to the state machine.
             with self.lock:
@@ -347,7 +364,52 @@ class Worker(object):
         commands.ROUTER_REBUILD: event.REBUILD,
     }
 
+    def _rebalance(self, message):
+        # TODO(adam_g): Avoid rebalancing once per thread
+        self.hash_ring_mgr.rebalance(message.body.get('members'))
+
+    def _should_process_command(self, message):
+        command = message.body['command']
+
+        def _hash_by(k, d):
+            if not cfg.CONF.coordination.enabled:
+                return True
+
+            data = d.get(k)
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(data)
+            if self.host not in target_hosts:
+                LOG.debug(
+                    'Ignoring command, it does not map to this host by %s '
+                    '(%s)' % (k, data))
+                return False
+            return True
+
+        if command in [commands.WORKERS_DEBUG, commands.CONFIG_RELOAD]:
+            # All RUGs get workers_debug and config reload commands
+            return True
+
+        router_cmds = ([commands.ROUTER_DEBUG, commands.ROUTER_MANAGE] +
+                       self._EVENT_COMMANDS.keys())
+        if command in router_cmds:
+            # hash router commands to a RUG by router_id
+            return _hash_by('router_id', message.body)
+
+        if command in [commands.TENANT_DEBUG, commands.TENANT_MANAGE]:
+            # hash tenant commands to a RUG by tenant_id
+            return _hash_by('tenant_id', message.body)
+
+        if command in [commands.GLOBAL_DEBUG]:
+            # global debug can happen anywhere but to avoid a stempeding
+            # herd trying to update a singe thing in the DB, hash it to
+            # a single host using a static key
+            return _hash_by(
+                hash_ring.DC_KEY,
+                {hash_ring.DC_KEY: hash_ring.DC_KEY})
+
     def _dispatch_command(self, target, message):
+        if not self._should_process_command(message):
+            return
+
         instructions = message.body
         if instructions['command'] == commands.WORKERS_DEBUG:
             self.report_status()
@@ -501,3 +563,9 @@ class Worker(object):
                 LOG.info('Debugging router: %s (reason: %s)', r_uuid, reason)
         else:
             LOG.info('No routers in debug mode')
+
+        if cfg.CONF.coordination.enabled:
+            # NOTE(adam_g): This list could be big with a large cluster.
+            LOG.info('Peer akanda-rug hosts: %s', self.hash_ring_mgr.hosts)
+        else:
+            LOG.info('No peer akanda-rug hosts, coordination disabled.')
