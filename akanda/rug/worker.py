@@ -33,9 +33,11 @@ from akanda.rug import drivers
 from akanda.rug.common.i18n import _LE, _LI, _LW
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug.common import hash_ring
 from akanda.rug.api import nova
 from akanda.rug.api import neutron
 from akanda.rug.db import api as db_api
+from akanda.rug import populate
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -129,6 +131,7 @@ class Worker(object):
         self._ignore_directory = cfg.CONF.ignored_router_directory
         self._queue_warning_threshold = cfg.CONF.queue_warning_threshold
         self._reboot_error_threshold = cfg.CONF.reboot_error_threshold
+        self.host = cfg.CONF.host
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -161,6 +164,9 @@ class Worker(object):
             )
             for i in xrange(cfg.CONF.num_worker_threads)
         ]
+
+        self.hash_ring_mgr = hash_ring.HashRingManager()
+
         for t in self.threads:
             t.setDaemon(True)
             t.start()
@@ -195,6 +201,22 @@ class Worker(object):
                 LOG.debug('Skipping update of resource %s in debug mode. '
                           '(reason: %s)', sm.resource_id, reason)
                 continue
+
+            # In the event that a rebalance took place while processing an
+            # event, it may have been put back into the work queue. Check
+            # the hash table once more to find out if we still manage it
+            # and do some cleanup if not.
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                sm.resource_id)
+            if self.host not in target_hosts:
+                LOG.debug('Skipping update of router %s, it no longer '
+                          'maps here.', sm.resource_id)
+                sm._do_delete()
+                self.work_queue.task_done()
+                with self.lock:
+                    self._release_resource_lock(sm)
+                continue
+
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
@@ -318,7 +340,7 @@ class Worker(object):
 
         return message
 
-    def _should_process(self, message):
+    def _should_process_message(self, target, message):
         """Determines whether a message should be processed or not."""
         global_debug, reason = self.db_api.global_debug()
         if global_debug:
@@ -352,6 +374,18 @@ class Worker(object):
                 )
                 return False
 
+        if target in commands.WILDCARDS:
+            return message
+
+        if cfg.CONF.coordination.enabled:
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                message.resource.id)
+            if self.host not in target_hosts:
+                LOG.debug('Ignoring message intended for resource %s as it '
+                          'does not map to this Rug process.',
+                          message.resource.id)
+                return False
+
         return message
 
     def handle_message(self, target, message):
@@ -364,11 +398,12 @@ class Worker(object):
             return
         if message.crud == event.COMMAND:
             self._dispatch_command(target, message)
+        elif message.crud == event.REBALANCE:
+            self._rebalance(message)
         else:
-            message = self._should_process(message)
+            message = self._should_process_message(target, message)
             if not message:
                 return
-
             # This is an update command for the router, so deliver it
             # to the state machine.
             with self.lock:
@@ -380,7 +415,93 @@ class Worker(object):
             if sm:
                 return sm
 
+    def _rebalance(self, message):
+        self.hash_ring_mgr.rebalance(message.body.get('members'))
+
+        # After we rebalance, we need to repopulate state machines
+        # for any resources that now map here.  This is required
+        # otherwise commands that hash here will not be delivered
+        # until a state machine is created during a later event
+        # delivery.  Note that this causes a double populate for new
+        # nodes (once for pre-populate on startup, again for the
+        # repopulate here once the node has joined the cluster)
+        for resource in populate.repopulate():
+            if not self.hash_ring_mgr.ring.get_hosts(resource.id):
+                continue
+            e = event.Event(resource=resource, crud=None, body={})
+            trms = self._get_trms(resource.tenant_id)
+            for trm in trms:
+                trm.get_state_machines(e, self._context)
+        # rebalance our hash ring according to new cluster membership
+        self.hash_ring_mgr.rebalance(message.body.get('members'))
+
+        # loop through all local state machines and drop all pending work
+        # for those that are no longer managed here, as per newly balanced
+        # hash ring
+        trms = self._get_trms('*')
+        for trm in trms:
+            sms = trm.get_state_machines(message, self._context)
+            for sm in sms:
+                target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                    sm.resource_id)
+                if self.host not in target_hosts:
+                    sm.drop_queue()
+
+        # NOTE(adam_g): If somethings queued up on a SM, it means the SM
+        # is currently executing something thats probably long running
+        # (ie a create).  We should add some smarts here to transfer the
+        # currently executing task to the new owner
+
+    def _should_process_command(self, message):
+        command = message.body['command']
+
+        def _hash_by(k, d):
+            if not cfg.CONF.coordination.enabled:
+                return True
+
+            data = d.get(k)
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(data)
+            if self.host not in target_hosts:
+                LOG.debug(
+                    'Ignoring command, it does not map to this host by %s '
+                    '(%s)' % (k, data))
+                return False
+            return True
+
+        if command in [commands.WORKERS_DEBUG, commands.CONFIG_RELOAD]:
+            # All RUGs get workers_debug and config reload commands
+            return True
+
+        resource_cmds = ([commands.RESOURCE_DEBUG, commands.RESOURCE_MANAGE] +
+                         EVENT_COMMANDS.keys())
+        if command in resource_cmds:
+            # hash router commands to a RUG by router_id
+            return _hash_by('resource_id', message.body)
+
+        # NOTE(adam_g): This is compat. with old style router-specific rug-ctl
+        # and should be dropped in M.
+        router_cmds = ([commands.ROUTER_DEBUG, commands.ROUTER_MANAGE] +
+                       DEPRECATED_ROUTER_COMMANDS.keys())
+        if command in router_cmds:
+            # hash router commands to a RUG by router_id
+            return _hash_by('router_id', message.body)
+
+        if command in [commands.TENANT_DEBUG, commands.TENANT_MANAGE]:
+            # hash tenant commands to a RUG by tenant_id
+            return _hash_by('tenant_id', message.body)
+
+        if command in [commands.GLOBAL_DEBUG]:
+            # global debug can happen anywhere but to avoid a stempeding
+            # herd trying to update a singe thing in the DB, hash it to
+            # a single host using a static key
+            return _hash_by(
+                hash_ring.DC_KEY,
+                {hash_ring.DC_KEY: hash_ring.DC_KEY})
+
     def _dispatch_command(self, target, message):
+        if not self._should_process_command(message):
+            return
+
         instructions = message.body
         if instructions['command'] == commands.WORKERS_DEBUG:
             self.report_status()
@@ -456,7 +577,6 @@ class Worker(object):
         #               sending commands to specific routers and can be
         #               removed once the CLI component is dropped in M.
         elif instructions['command'] in DEPRECATED_ROUTER_COMMANDS:
-            print 'XXX DEPR'
             new_rsc = event.Resource(
                 driver=drivers.router.Router.RESOURCE_NAME,
                 id=message.body.get('router_id'),
@@ -583,3 +703,11 @@ class Worker(object):
                          resource_id, reason)
         else:
             LOG.info(_LI('No resources in debug mode'))
+
+        if cfg.CONF.coordination.enabled:
+            # NOTE(adam_g): This list could be big with a large cluster.
+            LOG.info(_LI(
+                'Peer akanda-rug hosts: %s'), self.hash_ring_mgr.hosts)
+        else:
+            LOG.info(_LI(
+                'No peer akanda-rug hosts, coordination disabled.'))

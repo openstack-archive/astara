@@ -132,7 +132,7 @@ class Connection(object):
         transport = get_transport()
         target = get_target(topic=topic, fanout=False,
                             exchange=exchange)
-        pool = 'akanda.' + topic
+        pool = 'akanda.' + topic + '.' + cfg.CONF.host
         server = oslo_messaging.get_notification_listener(
             transport, [target], endpoints, pool=pool)
         LOG.debug(
