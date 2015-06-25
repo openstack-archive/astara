@@ -29,7 +29,7 @@ from akanda.rug import notifications
 from akanda.rug import worker
 
 from akanda.rug.api import neutron
-
+from akanda.rug.common.hash_ring import DC_KEY
 
 from akanda.rug.test.unit.db import base
 
@@ -39,6 +39,9 @@ class FakeFetchedRouter(object):
 
 
 class WorkerTestBase(base.DbTestCase):
+    tenant_id = '1040f478-3c74-11e5-a72a-173606e0a6d0'
+    router_id = '18ffa532-3c74-11e5-a0e7-eb9f90a17ffb'
+
     def setUp(self):
         super(WorkerTestBase, self).setUp()
         cfg.CONF.boot_timeout = 1
@@ -56,8 +59,17 @@ class WorkerTestBase(base.DbTestCase):
             FakeFetchedRouter())
         self.fake_neutron = mock.patch.object(
             neutron, 'Neutron', return_value=fake_neutron_obj).start()
+
         self.w = worker.Worker(mock.Mock())
         self.addCleanup(mock.patch.stopall)
+
+        self.target = self.tenant_id
+        self.msg = event.Event(
+            tenant_id=self.tenant_id,
+            router_id=self.router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
 
     def tearDown(self):
         self.w._shutdown()
@@ -86,38 +98,27 @@ class WorkerTestBase(base.DbTestCase):
 
 
 class TestWorker(WorkerTestBase):
-    tenant_id = '1040f478-3c74-11e5-a72a-173606e0a6d0'
-    router_id = '18ffa532-3c74-11e5-a0e7-eb9f90a17ffb'
-
     def setUp(self):
         super(TestWorker, self).setUp()
-        self.target = self.tenant_id
-        self.msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=self.router_id,
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
         self.fake_router_cache = worker.TenantRouterCache()
         self.fake_router_cache.get_by_tenant = mock.MagicMock()
         self.w.router_cache = self.fake_router_cache
 
-    def test__should_process_true(self):
-        self.assertEqual(
-            self.msg,
-            self.w._should_process(self.msg))
-
-    def test__should_process_global_debug(self):
+    def test__should_process_message_global_debug(self):
         self.dbapi.enable_global_debug()
         self.assertFalse(
-            self.w._should_process(self.msg))
+            self.w._should_process_message(self.target, self.msg))
 
-    def test__should_process_tenant_debug(self):
+    def test__should_process_message_tenant_debug(self):
         self.dbapi.enable_tenant_debug(tenant_uuid=self.tenant_id)
         self.assertFalse(
-            self.w._should_process(self.msg))
+            self.w._should_process_message(self.target, self.msg))
 
-    def test__should_process_no_router_id(self):
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_no_router_id(self, fake_hash):
+        fake_ring_manager = fake_hash.HashRingManager()
+        fake_ring_manager.ring.get_hosts.return_value = [self.w.host]
+        self.w.hash_ring_mgr = fake_ring_manager
         self.fake_router_cache.get_by_tenant.return_value = (
             '9846d012-3c75-11e5-b476-8321b3ff1a1d')
         msg = event.Event(
@@ -132,7 +133,9 @@ class TestWorker(WorkerTestBase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        self.assertEquals(expected, self.w._should_process(msg))
+        self.assertEquals(
+            expected,
+            self.w._should_process_message(self.target, msg))
 
     def test__should_process_no_router_id_no_router_found(self):
         self.fake_router_cache.get_by_tenant.return_value = None
@@ -142,7 +145,7 @@ class TestWorker(WorkerTestBase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        self.assertFalse(self.w._should_process(msg))
+        self.assertFalse(self.w._should_process_message(self.target, msg))
 
     def test__populate_router_id_not_needed(self):
         self.assertEqual(
@@ -184,7 +187,7 @@ class TestWorker(WorkerTestBase):
             self.tenant_id, self.w._context)
 
     @mock.patch('akanda.rug.worker.Worker._deliver_message')
-    @mock.patch('akanda.rug.worker.Worker._should_process')
+    @mock.patch('akanda.rug.worker.Worker._should_process_message')
     def test_handle_message_should_process(self, fake_should_process,
                                            fake_deliver):
         # ensure we plumb through the return of should_process to
@@ -200,16 +203,123 @@ class TestWorker(WorkerTestBase):
         fake_should_process.return_value = new_msg
         self.w.handle_message(self.target, self.msg)
         fake_deliver.assert_called_with(self.target, new_msg)
-        fake_should_process.assert_called_with(self.msg)
+        fake_should_process.assert_called_with(self.target, self.msg)
 
     @mock.patch('akanda.rug.worker.Worker._deliver_message')
-    @mock.patch('akanda.rug.worker.Worker._should_process')
+    @mock.patch('akanda.rug.worker.Worker._should_process_message')
     def test_handle_message_should_not_process(self, fake_should_process,
                                                fake_deliver):
         fake_should_process.return_value = False
         self.w.handle_message(self.target, self.msg)
         self.assertFalse(fake_deliver.called)
-        fake_should_process.assert_called_with(self.msg)
+        fake_should_process.assert_called_with(self.target, self.msg)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_message_does_not_hash(self, fake_hash):
+        fake_ring_manager = fake_hash.HashRingManager()
+        fake_ring_manager.ring.get_hosts.return_value = ['not_this_host']
+        self.w.hash_ring_mgr = fake_ring_manager
+        self.assertFalse(
+            self.w._should_process_message(self.target, self.msg))
+        fake_ring_manager.ring.get_hosts.assert_called_with(self.router_id)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_message_wildcard_true(self, fake_hash):
+        fake_ring_manager = fake_hash.HashRingManager()
+        fake_ring_manager.ring.get_hosts.return_value = ['not_this_host']
+        self.w.hash_ring_mgr = fake_ring_manager
+        self.assertTrue(
+            self.w._should_process_message('*', self.msg))
+        self.assertFalse(fake_ring_manager.ring.called)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_message_true(self, fake_hash):
+        fake_ring_manager = fake_hash.HashRingManager()
+        fake_ring_manager.ring.get_hosts.return_value = [self.w.host]
+        self.w.hash_ring_mgr = fake_ring_manager
+        self.assertEqual(
+            self.w._should_process_message(self.target, self.msg),
+            self.msg)
+        fake_ring_manager.ring.get_hosts.assert_called_with(self.router_id)
+
+    def test__should_process_command_debug_config(self):
+        for cmd in [commands.WORKERS_DEBUG, commands.CONFIG_RELOAD]:
+            msg = event.Event(
+                tenant_id=self.tenant_id,
+                router_id=self.router_id,
+                crud=event.COMMAND,
+                body={'command': cmd},
+            )
+            self.assertTrue(self.w._should_process_command(msg))
+
+    def _test__should_process_command(self, fake_hash, cmds, key,
+                                      negative=False):
+        fake_ring_manager = fake_hash.HashRingManager()
+
+        if not negative:
+            fake_ring_manager.ring.get_hosts.return_value = [self.w.host]
+            assertion = self.assertTrue
+        else:
+            fake_ring_manager.ring.get_hosts.return_value = ['not_this_host']
+            assertion = self.assertFalse
+
+        self.w.hash_ring_mgr = fake_ring_manager
+        for cmd in cmds:
+            msg = event.Event(
+                tenant_id=self.tenant_id,
+                router_id=self.router_id,
+                crud=event.COMMAND,
+                body={
+                    'command': cmd,
+                    'router_id': self.router_id,
+                    'tenant_id': self.tenant_id}
+            )
+            assertion(self.w._should_process_command(msg))
+
+            if key == DC_KEY:
+                fake_ring_manager.ring.get_hosts.assert_called_with(DC_KEY)
+            else:
+                fake_ring_manager.ring.get_hosts.assert_called_with(
+                    getattr(msg, key))
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_command_routers(self, fake_hash):
+        cmds = [commands.ROUTER_DEBUG, commands.ROUTER_MANAGE]
+        cmds += self.w._EVENT_COMMANDS
+        self._test__should_process_command(
+            fake_hash, cmds=cmds, key='router_id', negative=False)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_command_routers_negative(self, fake_hash):
+        cmds = [commands.ROUTER_DEBUG, commands.ROUTER_MANAGE]
+        self._test__should_process_command(
+            fake_hash, cmds=cmds, key='router_id', negative=True)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_command_tenants(self, fake_hash):
+        cmds = [commands.TENANT_DEBUG, commands.TENANT_MANAGE]
+        self._test__should_process_command(
+            fake_hash, cmds=cmds, key='tenant_id', negative=False)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_command_tenants_negative(self, fake_hash):
+        cmds = [commands.TENANT_DEBUG, commands.TENANT_MANAGE]
+        self._test__should_process_command(
+            fake_hash, cmds=cmds, key='tenant_id', negative=True)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_command_global_debug(self, fake_hash):
+        fake_hash.DC_KEY = DC_KEY
+        cmds = [commands.GLOBAL_DEBUG]
+        self._test__should_process_command(
+            fake_hash, cmds=cmds, key=DC_KEY, negative=False)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test__should_process_command_global_debug_negative(self, fake_hash):
+        fake_hash.DC_KEY = DC_KEY
+        cmds = [commands.GLOBAL_DEBUG]
+        self._test__should_process_command(
+            fake_hash, cmds=cmds, key=DC_KEY, negative=True)
 
 
 class TestRouterCache(WorkerTestBase):
@@ -247,14 +357,21 @@ class TestCreatingRouter(WorkerTestBase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        self.w.handle_message(self.tenant_id, self.msg)
+        self.w._should_process_message = mock.MagicMock(return_value=self.msg)
 
     def test_in_tenant_managers(self):
+        self.w.handle_message(self.tenant_id, self.msg)
         self.assertIn(self.tenant_id, self.w.tenant_managers)
         trm = self.w.tenant_managers[self.tenant_id]
         self.assertEqual(self.tenant_id, trm.tenant_id)
 
+    def test_not_in_tenant_managers(self):
+        self.w._should_process_message = mock.MagicMock(return_value=False)
+        self.w.handle_message(self.tenant_id, self.msg)
+        self.assertNotIn(self.tenant_id, self.w.tenant_managers)
+
     def test_message_enqueued(self):
+        self.w.handle_message(self.tenant_id, self.msg)
         trm = self.w.tenant_managers[self.tenant_id]
         sm = trm.get_state_machines(self.msg, worker.WorkerContext())[0]
         self.assertEqual(len(sm._queue), 1)
@@ -264,6 +381,8 @@ class TestWildcardMessages(WorkerTestBase):
 
     def setUp(self):
         super(TestWildcardMessages, self).setUp()
+        self.w._should_process_message = mock.MagicMock(return_value=self.msg)
+
         # Create some tenants
         for msg in [
                 event.Event(
@@ -324,22 +443,15 @@ class TestUpdateStateMachine(WorkerTestBase):
     def setUp(self):
         super(TestUpdateStateMachine, self).setUp()
         self.worker_context = worker.WorkerContext()
+        self.w._should_process_message = mock.MagicMock(return_value=self.msg)
 
     def test(self):
-        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
-        msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
         # Create the router manager and state machine so we can
         # replace the update() method with a mock.
-        trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, self.worker_context)[0]
+        trm = self.w._get_trms(self.tenant_id)[0]
+        sm = trm.get_state_machines(self.msg, self.worker_context)[0]
         with mock.patch.object(sm, 'update') as meth:
-            self.w.handle_message(tenant_id, msg)
+            self.w.handle_message(self.tenant_id, self.msg)
             # Add a null message so the worker loop will exit. We have
             # to do this directly, because if we do it through
             # handle_message() that triggers shutdown logic that keeps
@@ -373,6 +485,10 @@ class TestReportStatus(WorkerTestBase):
 
 
 class TestDebugRouters(WorkerTestBase):
+    def setUp(self):
+        super(TestDebugRouters, self).setUp()
+        self.w._should_process_command = mock.MagicMock(return_value=self.msg)
+
     def testNoDebugs(self):
         self.assertEqual(self.dbapi.routers_in_debug(), set())
 
@@ -444,6 +560,10 @@ class TestDebugRouters(WorkerTestBase):
 
 
 class TestDebugTenants(WorkerTestBase):
+    def setUp(self):
+        super(TestDebugTenants, self).setUp()
+        self.w._should_process_command = mock.MagicMock(return_value=self.msg)
+
     def testNoDebugs(self):
         self.assertEqual(self.dbapi.tenants_in_debug(), set())
 
@@ -541,3 +661,16 @@ class TestGlobalDebug(WorkerTestBase):
             # method shouldn't ever be invoked.
             meth.side_effect = AssertionError('send_message was called')
             self.w.handle_message(tenant_id, msg)
+
+class TestRebalance(WorkerTestBase):
+    def test_rebalance(self):
+        self.w.hash_ring_mgr.rebalance(['foo'])
+        self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo']))
+        msg = event.Event(
+            tenant_id='*',
+            router_id='*',
+            crud=event.REBALANCE,
+            body={'members': ['foo', 'bar']},
+        )
+        self.w.handle_message('*', msg)
+        self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo', 'bar']))
