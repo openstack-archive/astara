@@ -32,3 +32,4 @@ DELETE = 'delete'
 POLL = 'poll'
 COMMAND = 'command'  # an external command to be processed
 REBUILD = 'rebuild'
+REBALANCE = 'rebalance'
