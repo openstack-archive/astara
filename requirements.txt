@@ -12,3 +12,8 @@ kombu>=2.4.8
 WebOb>=1.2.3,<1.3
 python-novaclient>=2.15.0
 cliff>=1.4.3
+
+# NOTE(adam_g): 0.17.0 broke https://launchpad.net/bugs/1470264
+tooz>=0.13.1,<0.17.0 # Apache-2.0
+
+pymemcache>=1.2.9  # Apache 2.0 License
