@@ -24,17 +24,18 @@ import sys
 import threading
 
 from oslo_config import cfg
+from oslo_log import log
 
 from akanda.rug.common import config as ak_cfg
 from akanda.rug import daemon
 from akanda.rug import health
-from akanda.rug.openstack.common import log
 from akanda.rug import metadata
 from akanda.rug import notifications
 from akanda.rug import scheduler
 from akanda.rug import populate
 from akanda.rug import worker
 from akanda.rug.api import neutron as neutron_api
+
 
 LOG = log.getLogger(__name__)
 CONF = cfg.CONF
@@ -87,14 +88,13 @@ def main(argv=sys.argv[1:]):
     p.name = 'pmain'
     t = threading.current_thread()
     t.name = 'tmain'
-
     ak_cfg.parse_config(argv)
-
-    log.setup('akanda-rug')
+    log.setup(cfg.CONF, 'akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
 
     # Purge the mgt tap interface on startup
     neutron = neutron_api.Neutron(cfg.CONF)
+
     # TODO(mark): develop better way restore after machine reboot
     # neutron.purge_management_interface()
 
@@ -121,11 +121,6 @@ def main(argv=sys.argv[1:]):
     notification_proc = multiprocessing.Process(
         target=notifications.listen,
         kwargs={
-            'host_id': cfg.CONF.host,
-            'amqp_url': cfg.CONF.amqp_url,
-            'notifications_exchange_name':
-            cfg.CONF.incoming_notifications_exchange,
-            'rpc_exchange_name': cfg.CONF.rpc_exchange,
             'notification_queue': notification_queue
         },
         name='notification-listener',
@@ -152,8 +147,6 @@ def main(argv=sys.argv[1:]):
     Publisher = (notifications.Publisher if cfg.CONF.ceilometer.enabled
                  else notifications.NoopPublisher)
     publisher = Publisher(
-        cfg.CONF.amqp_url,
-        exchange_name=cfg.CONF.outgoing_notifications_exchange,
         topic=cfg.CONF.ceilometer.topic,
     )
 

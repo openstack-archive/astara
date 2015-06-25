@@ -19,11 +19,13 @@
 """
 
 import collections
-import logging
 import threading
 
 from akanda.rug import state
 from akanda.rug.openstack.common import timeutils
+
+from oslo_log import log as logging
+
 
 LOG = logging.getLogger(__name__)
 

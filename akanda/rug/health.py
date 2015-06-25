@@ -18,13 +18,15 @@
 """Periodic health check code.
 """
 
-import logging
 import threading
 import time
 
 from oslo_config import cfg
 
 from akanda.rug import event
+
+from oslo_log import log as logging
+
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF

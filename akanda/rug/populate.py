@@ -18,11 +18,12 @@
 """Populate the workers with the existing routers
 """
 
-import logging
 import threading
 import time
 
 from oslo_config import cfg
+from oslo_log import log as logging
+
 from neutronclient.common import exceptions as q_exceptions
 
 from akanda.rug import event

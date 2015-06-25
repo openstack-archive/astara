@@ -27,11 +27,11 @@ from neutronclient.v2_0 import client
 
 from oslo_config import cfg
 from oslo_context import context
+from oslo_log import log as logging
 from oslo_utils import importutils
 
 from akanda.rug.common.linux import ip_lib
-from akanda.rug.openstack.common.rpc import proxy
-from akanda.rug.openstack.common import log as logging
+from akanda.rug.common import rpc
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -265,24 +265,26 @@ class AkandaExtClientWrapper(client.Client):
         )
 
 
-class L3PluginApi(proxy.RpcProxy):
+class L3PluginApi(object):
+
     """Agent side of the Qunatum l3 agent RPC API."""
 
     BASE_RPC_API_VERSION = '1.0'
 
     def __init__(self, topic, host):
-        super(L3PluginApi, self).__init__(
-            topic=topic, default_version=self.BASE_RPC_API_VERSION)
         self.host = host
+        self._client = rpc.get_rpc_client(
+            topic=topic,
+            exchange=cfg.CONF.neutron_control_exchange,
+            version=self.BASE_RPC_API_VERSION)
 
     def get_routers(self, router_id=None):
         """Make a remote process call to retrieve the sync data for routers."""
         router_id = [router_id] if router_id else None
         # yes the plural is intended for havana compliance
-        retval = self.call(context.get_admin_context(),
-                           self.make_msg('sync_routers', host=self.host,
-                                         router_ids=router_id),  # plural
-                           topic=self.topic)
+        retval = self._client.call(
+            context.get_admin_context().to_dict(),
+            'sync_routers', host=self.host, router_ids=router_id)  # plural
         return retval
 
 

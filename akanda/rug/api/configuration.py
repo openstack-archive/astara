@@ -15,12 +15,12 @@
 # under the License.
 
 
-import logging
 import re
 
 import netaddr
-from oslo_config import cfg
 
+from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 LOG = logging.getLogger(__name__)

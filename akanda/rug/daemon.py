@@ -18,8 +18,9 @@
 """Utilities for managing ourselves as a daemon.
 """
 
-import logging
 import signal
+
+from oslo_log import log as logging
 
 
 def ignore_signals():
