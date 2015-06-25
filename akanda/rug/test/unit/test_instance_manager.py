@@ -103,7 +103,7 @@ class TestInstanceManager(unittest.TestCase):
             return self.instance_mgr.state
         self.mock_update_state.side_effect = next_state
 
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_update_state_is_alive(self, router_api):
         self.update_state_p.stop()
         router_api.is_alive.return_value = True
@@ -115,7 +115,7 @@ class TestInstanceManager(unittest.TestCase):
             self.conf.akanda_mgt_service_port)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_router_status_sync(self, config, router_api):
         self.update_state_p.stop()
@@ -149,7 +149,7 @@ class TestInstanceManager(unittest.TestCase):
             n.update_router_status.reset_mock()
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_router_status_caching(self, config, router_api):
         self.update_state_p.stop()
@@ -171,7 +171,7 @@ class TestInstanceManager(unittest.TestCase):
         self.assertEqual(n.update_router_status.call_count, 0)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_boot_timeout_still_booting(self, router_api, sleep):
         now = datetime.utcnow()
         self.INSTANCE_INFO.last_boot = now
@@ -190,7 +190,7 @@ class TestInstanceManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_boot_timeout_error(self, router_api, sleep):
         self.instance_mgr.state = instance_manager.ERROR
         self.instance_mgr.last_boot = datetime.utcnow()
@@ -208,7 +208,7 @@ class TestInstanceManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_boot_timeout_error_no_last_boot(self, router_api, sleep):
         self.instance_mgr.state = instance_manager.ERROR
         self.instance_mgr.last_boot = None
@@ -226,7 +226,7 @@ class TestInstanceManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_boot_timeout(self, router_api, sleep):
         self.instance_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
         self.update_state_p.stop()
@@ -245,7 +245,7 @@ class TestInstanceManager(unittest.TestCase):
         )
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_update_state_is_down(self, router_api, sleep):
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
@@ -259,7 +259,7 @@ class TestInstanceManager(unittest.TestCase):
         ])
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_update_state_retry_delay(self, router_api, sleep):
         self.update_state_p.stop()
         router_api.is_alive.side_effect = [False, False, True]
@@ -456,7 +456,7 @@ class TestInstanceManager(unittest.TestCase):
             self.INSTANCE_INFO)
         self.assertEqual(self.instance_mgr.state, instance_manager.GONE)
 
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_configure_success(self, config, router_api):
         rtr = mock.sentinel.router
@@ -479,7 +479,7 @@ class TestInstanceManager(unittest.TestCase):
             self.assertEqual(self.instance_mgr.state,
                              instance_manager.CONFIGURED)
 
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_configure_mismatched_interfaces(self, router_api):
         rtr = mock.sentinel.router
 
@@ -498,7 +498,7 @@ class TestInstanceManager(unittest.TestCase):
             self.assertEqual(self.instance_mgr.state, instance_manager.REPLUG)
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_configure_failure(self, config, router_api, sleep):
         rtr = {'id': 'the_id'}
@@ -526,7 +526,7 @@ class TestInstanceManager(unittest.TestCase):
             self.assertEqual(self.instance_mgr.state, instance_manager.RESTART)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_replug_add_new_port_success(self, router_api):
         self.instance_mgr.state = instance_manager.REPLUG
 
@@ -564,7 +564,7 @@ class TestInstanceManager(unittest.TestCase):
             self.assertIn(fake_new_port, self.INSTANCE_INFO.ports)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_replug_add_new_port_failure(self, router_api):
         self.instance_mgr.state = instance_manager.REPLUG
 
@@ -599,7 +599,7 @@ class TestInstanceManager(unittest.TestCase):
             )
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_replug_remove_port_success(self, router_api):
         self.instance_mgr.state = instance_manager.REPLUG
 
@@ -633,7 +633,7 @@ class TestInstanceManager(unittest.TestCase):
             self.assertNotIn(fake_ext_port, self.INSTANCE_INFO.ports)
 
     @mock.patch('time.sleep', lambda *a: None)
-    @mock.patch('akanda.rug.instance_manager.router_api')
+    @mock.patch('akanda.rug.instance_manager.instance_api')
     def test_replug_remove_port_failure(self, router_api):
         self.instance_mgr.state = instance_manager.REPLUG
 
@@ -804,7 +804,7 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
 
     def test_router_is_deleted(self):
         self.test_instance_manager.router_obj = None
-        v = instance_manager.synchronize_router_status(
+        v = instance_manager.synchronize_status(
             lambda instance_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_instance_manager, {}), 1)
 
@@ -812,7 +812,7 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
         self.test_instance_manager.router_obj = mock.Mock(id='ABC123')
         self.test_instance_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_instance_manager.state = instance_manager.DOWN
-        v = instance_manager.synchronize_router_status(
+        v = instance_manager.synchronize_status(
             lambda instance_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_instance_manager, self.test_context), 1)
         self.test_context.neutron.update_router_status.\
@@ -826,7 +826,7 @@ class TestSynchronizeRouterStatus(unittest.TestCase):
         self.test_instance_manager.router_obj = mock.Mock(id='ABC123')
         self.test_instance_manager._last_synced_status = neutron.STATUS_ACTIVE
         self.test_instance_manager.state = instance_manager.CONFIGURED
-        v = instance_manager.synchronize_router_status(
+        v = instance_manager.synchronize_status(
             lambda instance_manager_inst, ctx, silent: 1)
         self.assertEqual(v(self.test_instance_manager, self.test_context), 1)
         self.assertEqual(
