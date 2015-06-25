@@ -20,6 +20,7 @@
 
 import collections
 import Queue
+import os
 import threading
 import uuid
 
@@ -31,6 +32,7 @@ from oslo_log import log as logging
 from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug.common import hash_ring
 from akanda.rug.api import nova
 from akanda.rug.api import neutron
 from akanda.rug.db import api as db_api
@@ -109,6 +111,8 @@ class Worker(object):
         self._ignore_directory = cfg.CONF.ignored_router_directory
         self._queue_warning_threshold = cfg.CONF.queue_warning_threshold
         self._reboot_error_threshold = cfg.CONF.reboot_error_threshold
+        # XXX debug
+        self.host = os.getenv('RUG_HOST_ID') or cfg.CONF.host
         self.work_queue = Queue.Queue()
         self.lock = threading.Lock()
         self._keep_going = True
@@ -141,6 +145,10 @@ class Worker(object):
             )
             for i in xrange(cfg.CONF.num_worker_threads)
         ]
+
+        self.hash_ring_lock = threading.Lock()
+        self.hash_ring_mgr = hash_ring.HashRingManager()
+
         for t in self.threads:
             t.setDaemon(True)
             t.start()
@@ -313,6 +321,15 @@ class Worker(object):
             )
             return False
 
+        if target in commands.WILDCARDS:
+            return True
+
+        target_hosts = self.hash_ring_mgr.ring.get_hosts(message.router_id)
+        if not self.host in target_hosts:
+            LOG.debug('Ignoring message intended for router %s as it does not'
+                      ' map to this rug process.', message.router_id)
+            return False
+
         return True
 
     def handle_message(self, target, message):
@@ -325,10 +342,11 @@ class Worker(object):
             return
         if message.crud == event.COMMAND:
             self._dispatch_command(target, message)
+        elif message.crud == event.REBALANCE:
+            self._rebalance(message)
         else:
             if not self._should_process(target, message):
                 return
-
             # This is an update command for the router, so deliver it
             # to the state machine.
             with self.lock:
@@ -338,6 +356,10 @@ class Worker(object):
         commands.ROUTER_UPDATE: event.UPDATE,
         commands.ROUTER_REBUILD: event.REBUILD,
     }
+
+    def _rebalance(self, message):
+        #TODO(adam_g): Avoid rebalancing once per thread
+        self.hash_ring_mgr.rebalance(message.body.get('members'))
 
     def _dispatch_command(self, target, message):
         instructions = message.body
@@ -492,3 +514,6 @@ class Worker(object):
                 LOG.info('Debugging router: %s (reason: %s)', r_uuid, reason)
         else:
             LOG.info('No routers in debug mode')
+
+        #NOTE(adam_g): This list could be big with a large cluster.
+        LOG.info('Peer RUG hosts: %s', self.hash_ring_mgr.hosts)
