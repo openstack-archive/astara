@@ -32,6 +32,7 @@ from oslo_log import log as logging
 from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug.common import hash_ring
 from akanda.rug.api import nova
 from akanda.rug.api import neutron
 
@@ -117,6 +118,10 @@ class Worker(object):
             )
             for i in xrange(cfg.CONF.num_worker_threads)
         ]
+
+        self.hash_ring_lock = threading.Lock()
+        self.hash_ring_mgr = hash_ring.HashRingManager()
+
         for t in self.threads:
             t.setDaemon(True)
             t.start()
@@ -233,6 +238,15 @@ class Worker(object):
             )
         return [self.tenant_managers[tenant_id]]
 
+    def should_process(self, message):
+        router_id = message.router_id
+        target_hosts = self.hash_ring_mgr.ring.get_hosts(router_id)
+                  (router_id, target_hosts))
+        if (CONF.coordination.host_id in target_hosts or
+            router_id in commands.WILDCARDS):
+            return True
+        return False
+
     def handle_message(self, target, message):
         """Callback to be used in main
         """
@@ -243,7 +257,11 @@ class Worker(object):
             return
         if message.crud == event.COMMAND:
             self._dispatch_command(target, message)
+        elif message.crud == event.REBALANCE:
+            self._rebalance(message)
         else:
+            if not self.should_process(message):
+                return
             # This is an update command for the router, so deliver it
             # to the state machine.
             with self.lock:
@@ -253,6 +271,10 @@ class Worker(object):
         commands.ROUTER_UPDATE: event.UPDATE,
         commands.ROUTER_REBUILD: event.REBUILD,
     }
+
+    def _rebalance(self, message):
+        #TODO(adam_g): Avoid rebalancing once per thread
+        self.hash_ring_mgr.rebalance(message.body.get('members'))
 
     def _dispatch_command(self, target, message):
         instructions = message.body
