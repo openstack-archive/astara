@@ -94,7 +94,6 @@ def main(argv=sys.argv[1:]):
     log.setup(cfg.CONF, 'akanda-rug')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
 
-    # Purge the mgt tap interface on startup
     neutron = neutron_api.Neutron(cfg.CONF)
 
     # TODO(mark): develop better way restore after machine reboot
