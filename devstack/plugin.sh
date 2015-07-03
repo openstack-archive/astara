@@ -149,7 +149,9 @@ function _remove_subnets() {
 }
 
 function pre_start_akanda() {
-    typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
+    akanda-rug-dbsync upgrade
+
+     typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
     if ! neutron net-show $PUBLIC_NETWORK_NAME; then
         neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
     fi

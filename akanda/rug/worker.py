@@ -34,6 +34,7 @@ from akanda.rug import event
 from akanda.rug import tenant
 from akanda.rug.api import nova
 from akanda.rug.api import neutron
+from akanda.rug.db import api as db_api
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -99,9 +100,10 @@ class Worker(object):
         # The notifier needs to be started here to ensure that it
         # happens inside the worker process and not the parent.
         self.notifier.start()
-        # Track the routers and tenants we are told to ignore
-        self._debug_routers = set()
-        self._debug_tenants = set()
+
+        # The DB is used for trakcing debug modes
+        self.db_api = db_api.get_instance()
+
         # Thread locks for the routers so we only put one copy in the
         # work queue at a time
         self._router_locks = collections.defaultdict(threading.Lock)
@@ -144,9 +146,10 @@ class Worker(object):
                 break
             # Make sure we didn't already have some updates under way
             # for a router we've been told to ignore for debug mode.
-            if sm.router_id in self._debug_routers:
-                LOG.debug('skipping update of router %s (in debug mode)',
-                          sm.router_id)
+            should_ignore, reason = self.db_api.router_in_debug(sm.router_id)
+            if should_ignore:
+                LOG.debug('skipping update of router %s in debug mode ( '
+                          'reason: ', sm.router_id, reason)
                 continue
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
@@ -261,18 +264,20 @@ class Worker(object):
 
         elif instructions['command'] == commands.ROUTER_DEBUG:
             router_id = instructions['router_id']
+            reason = instructions.get('reason')
             if router_id in commands.WILDCARDS:
                 LOG.warning(
                     'Ignoring instruction to debug all routers with %r',
                     router_id)
             else:
-                LOG.info('Placing router %s in debug mode', router_id)
-                self._debug_routers.add(router_id)
+                LOG.info('Placing router %s in debug mode (reason: %s)',
+                         router_id, reason)
+                self.db_api.enable_router_debug(router_id, reason)
 
         elif instructions['command'] == commands.ROUTER_MANAGE:
             router_id = instructions['router_id']
             try:
-                self._debug_routers.remove(router_id)
+                self.db_api.disable_router_debug(router_id)
                 LOG.info('Resuming management of router %s', router_id)
             except KeyError:
                 pass
@@ -301,18 +306,20 @@ class Worker(object):
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
+            reason = instructions.get('reason')
             if tenant_id in commands.WILDCARDS:
                 LOG.warning(
                     'Ignoring instruction to debug all tenants with %r',
                     tenant_id)
             else:
-                LOG.info('Placing tenant %s in debug mode', tenant_id)
-                self._debug_tenants.add(tenant_id)
+                LOG.info('Placing tenant %s in debug mode (reason: %s)',
+                         tenant_id, reason)
+                self.db_api.enable_tenant_debug(tenant_id, reason)
 
         elif instructions['command'] == commands.TENANT_MANAGE:
             tenant_id = instructions['tenant_id']
             try:
-                self._debug_tenants.remove(tenant_id)
+                self.db_api.disable_tenant_debug(tenant_id)
                 LOG.info('Resuming management of tenant %s', tenant_id)
             except KeyError:
                 pass
@@ -338,24 +345,26 @@ class Worker(object):
         return ignores
 
     def _deliver_message(self, target, message):
-        if target in self._debug_tenants:
+        should_ignore, reason = self.db_api.tenant_in_debug(target)
+        if should_ignore:
             LOG.info(
-                'Ignoring message intended for tenant %s: %s',
-                target, message,
+                'Ignoring message intended for tenant %s in debug mode '
+                '(reason: %s): %s',
+                target, reason, message,
             )
             return
         LOG.debug('preparing to deliver %r to %r', message, target)
-        routers_to_ignore = self._debug_routers.union(
-            self._get_routers_to_ignore()
-        )
         trms = self._get_trms(target)
         for trm in trms:
             sms = trm.get_state_machines(message, self._context)
             for sm in sms:
-                if sm.router_id in routers_to_ignore:
+                should_ignore, reason = self.db_api.router_in_debug(
+                    sm.router_id)
+                if should_ignore:
                     LOG.info(
-                        'Ignoring message intended for %s: %s',
-                        sm.router_id, message,
+                        'Ignoring message intended for router %s in '
+                        'debug mode (reason: %s): %s',
+                        sm.router_id, reason, message,
                     )
                     continue
                 # Add the message to the state machine's inbox. If
@@ -402,16 +411,16 @@ class Worker(object):
                 'alive' if thread.isAlive() else 'DEAD',
                 self._thread_status.get(thread.name, 'UNKNOWN'),
             )
-        for tid in sorted(self._debug_tenants):
-            LOG.info('Debugging tenant: %s', tid)
-        if not self._debug_tenants:
+        debug_tenants = self.db_api.tenants_in_debug()
+        if debug_tenants:
+            for uuid, reason in debug_tenants:
+                LOG.info('Debugging router: %s (reason: %s)', uuid, reason)
+        else:
             LOG.info('No tenants in debug mode')
-        for rid in sorted(self._debug_routers):
-            LOG.info('Debugging router: %s', rid)
-        if not self._debug_routers:
+
+        debug_routers = self.db_api.routers_in_debug()
+        if debug_routers:
+            for uuid, reason in debug_routers:
+                LOG.info('Debugging router: %s (reason: %s)', uuid, reason)
+        else:
             LOG.info('No routers in debug mode')
-        ignored_routers = sorted(self._get_routers_to_ignore())
-        for rid in ignored_routers:
-            LOG.info('Ignoring router: %s', rid)
-        if not ignored_routers:
-            LOG.info('No routers being ignored')
