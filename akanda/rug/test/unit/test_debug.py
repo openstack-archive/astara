@@ -63,4 +63,4 @@ class TestDebug(unittest.TestCase):
         automaton.return_value.send_message.assert_called_once_with(
             CrudMatch('update')
         )
-        self.assertEqual(automaton.return_value.update.call_count, 1)
+        automaton.return_value.update.assert_called

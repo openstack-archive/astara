@@ -46,12 +46,9 @@ class TestScheduler(unittest.TestCase):
         s = scheduler.Scheduler(mock.Mock)
         s.stop()
         for w in s.workers:
-            self.assertEqual(
-                w['queue'].put.call_args_list,
-                [mock.call(None), mock.call(None)]  # one put for each worker
-            )
-            self.assertEqual(w['queue'].close.call_count, 2)
-            self.assertEqual(w['worker'].join.call_count, 2)
+            w['queue'].put.assert_called_once(None)
+            w['queue'].close.assert_called_once()
+            w['worker'].join.assert_called_once()
 
 
 class TestDispatcher(unittest.TestCase):

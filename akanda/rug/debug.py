@@ -28,8 +28,15 @@ from akanda.rug import worker
 DEBUG_OPTS = [
     cfg.StrOpt(
         'router-id', required=True,
-        help='The UUID for the router to debug')
+        help='The UUID for the router to debug'),
 ]
+
+if not hasattr(cfg.CONF, 'host'):
+    DEBUG_OPTS.append(cfg.StrOpt('host', default='localhost'))
+if not hasattr(cfg.CONF, 'neutron_control_exchange'):
+    DEBUG_OPTS.append(cfg.StrOpt('neutron_control_exchange'))
+if not hasattr(cfg.CONF, 'amqp_url'):
+    DEBUG_OPTS.append(cfg.StrOpt('amqp_url', default='localhost'))
 
 
 class Fake(object):
@@ -46,9 +53,15 @@ def bandwidth_callback(self, *args, **kwargs):
 
 
 def debug_one_router(args=sys.argv[1:]):
-    # Add our extra option for specifying the router-id to debug
     cfg.CONF.register_cli_opts(DEBUG_OPTS)
+
+    # force the config file while in debug
+    args.extend(['--config-file', '/etc/akanda-rug/rug.ini'])
+
     cfg.CONF(args, project='akanda-rug')
+
+    cfg.CONF.register_opts(DEBUG_OPTS)
+
     cfg.CONF.set_override('boot_timeout', 60000)
 
     logging.basicConfig(
@@ -65,7 +78,9 @@ def debug_one_router(args=sys.argv[1:]):
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
     context = worker.WorkerContext()
+
     router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
+
     a = state.Automaton(
         router_id=cfg.CONF.router_id,
         tenant_id=router_obj.tenant_id,

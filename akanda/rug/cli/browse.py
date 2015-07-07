@@ -43,6 +43,12 @@ from akanda.rug.cli import message
 logging.getLogger("urllib3").setLevel(logging.ERROR)
 
 
+if not hasattr(cfg.CONF, 'host'):
+    opts = cfg.StrOpt('host', default='localhost'),
+
+    cfg.CONF.register_opts(opts)
+
+
 class FakeConfig(object):
 
     def __init__(self, admin_user, admin_password, tenant_name, auth_url,

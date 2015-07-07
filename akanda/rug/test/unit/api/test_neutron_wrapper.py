@@ -255,8 +255,8 @@ class TestNeutronWrapper(unittest.TestCase):
 
         neutron_wrapper = neutron.Neutron(conf)
         neutron_wrapper.purge_management_interface()
-        self.assertEqual(driver.get_device_name.call_count, 1)
-        self.assertEqual(driver.unplug.call_count, 1)
+        driver.get_device_name.assert_called_once()
+        driver.unplug.assert_called_once()
 
     def test_clear_device_id(self):
         neutron_wrapper = neutron.Neutron(mock.Mock())

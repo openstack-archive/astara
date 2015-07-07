@@ -48,10 +48,9 @@ neutron_opts = [
     cfg.IntOpt('akanda_mgt_service_port', default=5000),
     cfg.StrOpt('router_instance_flavor', default=1),
     cfg.StrOpt('interface_driver'),
-
 ]
-cfg.CONF.register_opts(neutron_opts)
 
+cfg.CONF.register_opts(neutron_opts)
 
 # copied from Neutron source
 DEVICE_OWNER_ROUTER_MGT = "network:router_management"
