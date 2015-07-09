@@ -225,6 +225,9 @@ function pre_start_akanda() {
     fi
 
     create_akanda_nova_flavor
+
+    # temp hack to add blessed durring devstack installs so that rug-ctl browse works out of the box
+    pip install blessed
 }
 
 function start_akanda_rug() {
