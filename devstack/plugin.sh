@@ -122,6 +122,9 @@ function install_akanda() {
     setup_develop $AKANDA_NEUTRON_DIR
     setup_develop $AKANDA_RUG_DIR
 
+    # temp hack to add blessed durring devstack installs so that rug-ctl browse works out of the box
+    pip_install blessed
+
     if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
         git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
     fi
@@ -225,6 +228,7 @@ function pre_start_akanda() {
     fi
 
     create_akanda_nova_flavor
+
 }
 
 function start_akanda_rug() {
