@@ -39,11 +39,10 @@ class TestMainBase(testtools.TestCase):
 @mock.patch('akanda.rug.main.scheduler')
 @mock.patch('akanda.rug.main.populate')
 @mock.patch('akanda.rug.main.health')
-@mock.patch('akanda.rug.main.shuffle_notifications')
 class TestMainPippo(TestMainBase):
-    def test_shuffle_notifications(self, shuffle_notifications,
-                                   health, populate, scheduler, notifications,
-                                   multiprocessing, neutron_api):
+    def test_shuffle_notifications(self, health, populate, scheduler,
+                                   notifications, multiprocessing,
+                                   neutron_api):
         queue = mock.Mock()
         queue.get.side_effect = [
             ('9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'),
@@ -51,12 +50,13 @@ class TestMainPippo(TestMainBase):
         ]
         sched = scheduler.Scheduler.return_value
         main.shuffle_notifications(queue, sched)
-        sched.handle_message.assert_called_once('message')
-        sched.stop.assert_called_once()
+        sched.handle_message.assert_called_once_with(
+            '9306bbd8-f3cc-11e2-bd68-080027e60b25',
+            'message'
+        )
 
     def test_shuffle_notifications_error(
-            self, shuffle_notifications,
-            health, populate, scheduler, notifications,
+            self, health, populate, scheduler, notifications,
             multiprocessing, neutron_api):
         queue = mock.Mock()
         queue.get.side_effect = [
@@ -66,9 +66,11 @@ class TestMainPippo(TestMainBase):
         ]
         sched = scheduler.Scheduler.return_value
         main.shuffle_notifications(queue, sched)
-        sched.handle_message.assert_called_once('message')
-        sched.stop.assert_called_once()
+        sched.handle_message.assert_called_once_with(
+            '9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'
+        )
 
+    @mock.patch('akanda.rug.main.shuffle_notifications')
     def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
                                        multiprocessing, neutron_api):
@@ -76,6 +78,7 @@ class TestMainPippo(TestMainBase):
         neutron = neutron_api.Neutron.return_value
         neutron.ensure_local_service_port.assert_called_once_with()
 
+    @mock.patch('akanda.rug.main.shuffle_notifications')
     def test_ceilometer_disabled(self, shuffle_notifications, health,
                                  populate, scheduler, notifications,
                                  multiprocessing, neutron_api):
@@ -87,6 +90,7 @@ class TestMainPippo(TestMainBase):
         self.assertEqual(len(notifications.Publisher.mock_calls), 0)
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 1)
 
+    @mock.patch('akanda.rug.main.shuffle_notifications')
     def test_ceilometer_enabled(self, shuffle_notifications, health,
                                 populate, scheduler, notifications,
                                 multiprocessing, neutron_api):
