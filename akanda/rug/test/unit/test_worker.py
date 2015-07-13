@@ -245,7 +245,7 @@ class TestDebugRouters(WorkerTestBase):
                                      'router_id': 'this-router-id'}}),
         )
         self.assertEqual(set(), self.w._debug_routers)
-        lock.release.assert_called_once()
+        self.assertEqual(lock.release.call_count, 1)
 
     def testManageNoLock(self):
         self.w._debug_routers = set(['this-router-id'])
