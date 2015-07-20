@@ -18,7 +18,7 @@ import threading
 import urlparse
 
 from oslo_log import log as logging
-from oslo.config import cfg
+from oslo_config import cfg
 import oslo_messaging
 
 LOG = logging.getLogger(__name__)
