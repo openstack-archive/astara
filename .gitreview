@@ -2,4 +2,4 @@
 host=review.openstack.org
 port=29418
 project=stackforge/akanda-rug.git
-defaultbranch=stable/kilo
+defaultbranch=stable/juno
