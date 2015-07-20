@@ -87,6 +87,7 @@ function configure_akanda() {
 
 function configure_akanda_nova() {
     iniset $NOVA_CONF DEFAULT service_neutron_metadata_proxy True
+    iniset $NOVA_CONF DEFAULT use_ipv6 True
 }
 
 function configure_akanda_neutron() {
