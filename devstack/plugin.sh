@@ -1,17 +1,21 @@
 # -*- mode: shell-script -*-
 
 # Set up default directories
-AKANDA_NEUTRON_DIR=$DEST/akanda-neutron
+AKANDA_RUG_DIR=${AKANDA_RUG_DIR:-$DEST/akanda-rug}
+AKANDA_RUG_REPO=${AKANDA_RUG_REPO:-http://github.com/stackforge/akanda-rug.git}
+AKANDA_RUG_BRANCH=${AKANDA_RUG_BRANCH:-stable/juno}
+
+AKANDA_NEUTRON_DIR=${AKANDA_NEUTRON_DIR:-$DEST/akanda-neutron}
 AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/stackforge/akanda-neutron.git}
-AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
+AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-stable/juno}
 
-AKANDA_APPLIANCE_DIR=$DEST/akanda-appliance
+AKANDA_APPLIANCE_DIR=${AKANDA_APPLIANCE_DIR:-$DEST/akanda-appliance}
 AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/stackforge/akanda-appliance.git}
-AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-master}
+AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-stable/juno}
 
-AKANDA_APPLIANCE_BUILDER_DIR=$DEST/akanda-appliance-builder
+AKANDA_APPLIANCE_BUILDER_DIR=${AKANDA_APPLIANCE_DIR:-$DEST/akanda-appliance-builder}
 AKANDA_APPLIANCE_BUILDER_REPO=${AKANDA_APPLIANCE_BUILDER_REPO:-http://github.com/stackforge/akanda-appliance-builder.git}
-AKANDA_APPLIANCE_BUILDER_BRANCH=${AKANDA_APPLIANCE_BUILDER_BRANCH:-master}
+AKANDA_APPLIANCE_BUILDER_BRANCH=${AKANDA_APPLIANCE_BUILDER_BRANCH:-stable/juno}
 
 BUILD_AKANDA_DEV_APPLIANCE=${BUILD_AKANDA_DEV_APPLIANCE:-False}
 AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
@@ -20,7 +24,7 @@ AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
 
 AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
 AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/stackforge/akanda-horizon}
-AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-master}
+AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-stable/juno}
 
 AKANDA_CONF_DIR=/etc/akanda-rug
 AKANDA_RUG_CONF=$AKANDA_CONF_DIR/rug.ini
@@ -110,6 +114,7 @@ function install_akanda() {
     # For now, inject `blessed` into the global requirements so that akanda-rug can install
     echo "blessed" >> /opt/stack/requirements/global-requirements.txt
 
+    git_clone $AKANDA_RUG_REPO $AKANDA_RUG_DIR $AKANDA_RUG_BRANCH
     git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
     setup_develop $AKANDA_NEUTRON_DIR
     setup_develop $AKANDA_RUG_DIR
