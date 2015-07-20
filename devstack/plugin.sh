@@ -87,6 +87,11 @@ function configure_akanda() {
 
 function configure_akanda_nova() {
     iniset $NOVA_CONF DEFAULT service_neutron_metadata_proxy True
+    iniset $NOVA_CONF DEFAULT use_ipv6 True
+    # NOTE(adam_g): Pull down this WIP patch until https://launchpad.net/bugs/1476402
+    # is fixed in Nova
+    (cd $NOVA_DIR &&
+     git fetch https://review.openstack.org/openstack/nova refs/changes/46/203846/1 && git cherry-pick FETCH_HEAD)
 }
 
 function configure_akanda_neutron() {
