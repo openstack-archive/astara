@@ -197,8 +197,7 @@ def listen(notification_queue):
     # NOTE(adam_g): We previously consumed dhcp_agent messages as well
     # as agent messgaes with hostname appended, do we need them still?
     connection.consume_in_threads()
-    while True:
-        pass
+    connection.close()
 
 
 class Sender(object):
