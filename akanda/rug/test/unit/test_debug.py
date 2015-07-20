@@ -18,7 +18,7 @@
 import mock
 import unittest2 as unittest
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from akanda.rug import debug
 
