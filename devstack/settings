@@ -1,9 +1,0 @@
-AKANDA_RUG_DIR=$DEST/akanda-rug
-
-for svc in q-dhcp q-l3 q-fwaas q-lbaas q-meta q-vpn; do
-    if is_service_enabled $svc; then
-        echo "Disabling $svc in favor of Akanda."
-        disable_service $svc
-    fi
-done
-Q_USE_DEBUG_COMMAND=False
