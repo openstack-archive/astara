@@ -1,9 +1,16 @@
-netaddr
-httplib2
-python-neutronclient>=2.3.0,<3
-oslo.config>=1.2.0
-kombu>=2.4.8
-WebOb>=1.2.3,<1.3
-python-novaclient>=2.15.0
-cliff>=1.4.3
+# The order of packages is significant, because pip processes them in the order
+# of appearance. Changing the order has an impact on the overall integration
+# process, which may cause wedges in the gate later.
+stevedore<=1.3.0,>=1.0.0 # Apache-2.0
+netaddr<=0.7.13,>=0.7.12
+httplib2<=0.9,>=0.7.5
+python-neutronclient<2.4.0,>=2.3.6
+oslo.config<=1.6.0,>=1.4.0 # Apache-2.0
+kombu<=3.0.7,>=2.5.0
+WebOb<=1.3.1,>=1.2.3
+python-novaclient<=2.20.0,>=2.18.0
+cliff<=1.9.0,>=1.7.0 # Apache-2.0
+
+# NOTE: Note in global-requirements.txt
 blessed>=1.9.1
+
