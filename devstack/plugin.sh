@@ -170,6 +170,14 @@ function pre_start_akanda() {
     iniset $AKANDA_RUG_CONF DEFAULT management_subnet_id $mgt_subnet_id
 
     # Remove the private network created by devstack
+    typeset private_subnet_id=$(neutron $auth_args subnet-show $PRIVATE_SUBNET_NAME | grep ' id ' | awk '{ print $4 }')
+
+    for rid in $(neutron $auth_args router-list | awk '{ print $2 }' | grep -v "^id"); do
+	neutron $auth_args router-interface-delete $rid $private_subnet_id || true
+    done
+    for pid in $(neutron $auth_args port-list | grep $private_subnet_id | awk '{ print $2 }' | grep -v "^id"); do
+	neutron $auth_args port-delete $pid
+    done
     neutron $auth_args subnet-delete $PRIVATE_SUBNET_NAME
     neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
