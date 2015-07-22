@@ -24,6 +24,8 @@ from oslo_config import cfg
 from akanda.rug import state
 from akanda.rug import worker
 
+from akanda.rug.common import config
+
 
 DEBUG_OPTS = [
     cfg.StrOpt(
@@ -48,8 +50,9 @@ def bandwidth_callback(self, *args, **kwargs):
 def debug_one_router(args=sys.argv[1:]):
     # Add our extra option for specifying the router-id to debug
     cfg.CONF.register_cli_opts(DEBUG_OPTS)
-    cfg.CONF(args, project='akanda-rug')
     cfg.CONF.set_override('boot_timeout', 60000)
+    cfg.CONF.import_opt('host', 'akanda.rug.main')
+    config.parse_config(args)
 
     logging.basicConfig(
         level=logging.DEBUG,
