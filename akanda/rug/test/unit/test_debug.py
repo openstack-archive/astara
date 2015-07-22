@@ -16,14 +16,14 @@
 
 
 import mock
-import unittest2 as unittest
 
 from oslo_config import cfg
 
 from akanda.rug import debug
+from akanda.rug.test.unit import base
 
 
-class TestDebug(unittest.TestCase):
+class TestDebug(base.RugTestBase):
     def tearDown(self):
         # The router-id CLI opt is added at runtime and needs to be removed
         # post-test to avoid polluting other tests' config namespace
@@ -38,7 +38,7 @@ class TestDebug(unittest.TestCase):
         ctx.return_value.neutron.get_router_detail.return_value = mock.Mock(
             tenant_id='123'
         )
-        debug.debug_one_router(['--router-id', 'X'])
+        debug.debug_one_router(self.argv + ['--router-id', 'X'])
 
         ctx.return_value.neutron.get_router_detail.assert_called_once_with('X')
         assert set_trace.called
