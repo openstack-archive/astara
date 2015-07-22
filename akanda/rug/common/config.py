@@ -18,8 +18,12 @@ from oslo_log import log
 
 LOG = log.getLogger(__name__)
 
+DEFAULT_CONFIG_FILES = [
+    '/etc/akanda-rug/rug.ini'
+]
 
-def parse_config(argv, default_config_files=None):
+
+def parse_config(argv, default_config_files=DEFAULT_CONFIG_FILES):
     log.register_options(cfg.CONF)
     # Set the logging format to include the process and thread, since
     # those aren't included in standard openstack logs but are useful
