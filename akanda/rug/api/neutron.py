@@ -50,7 +50,7 @@ neutron_opts = [
     cfg.StrOpt('interface_driver'),
 
 ]
-cfg.CONF.register_opts(neutron_opts)
+CONF.register_opts(neutron_opts)
 
 
 # copied from Neutron source
