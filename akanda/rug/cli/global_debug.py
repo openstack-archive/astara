@@ -1,6 +1,6 @@
-# Copyright 2014 DreamHost, LLC
+# Copyright 2015 Akanda, Inc.
 #
-# Author: DreamHost, LLC
+# Author: Akanda, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -23,14 +23,17 @@ from akanda.rug import commands
 from akanda.rug.cli import message
 
 
-class _TenantCmd(message.MessageSending):
+class GlobalDebug(message.MessageSending):
+    """Enable or disable global debug mode"""
+
+    _COMMAND = commands.GLOBAL_DEBUG
 
     log = logging.getLogger(__name__)
 
     def get_parser(self, prog_name):
-        p = super(_TenantCmd, self).get_parser(prog_name)
+        p = super(GlobalDebug, self).get_parser(prog_name)
         p.add_argument(
-            'tenant_id',
+            'status',
         )
         p.add_argument(
             '--reason',
@@ -38,25 +41,21 @@ class _TenantCmd(message.MessageSending):
         return p
 
     def make_message(self, parsed_args):
+        status = parsed_args.status.lower()
+        if status not in ['enable', 'disable']:
+            m = "Invalid global-debug command, must 'enable' or 'disable'"
+            raise ValueError(m)
+
+        if status == 'enable':
+            enabled = 1
+        else:
+            enabled = 0
+
         self.log.info(
-            'sending %s instruction for tenant with uuid %r',
-            self._COMMAND,
-            parsed_args.tenant_id,
+            "sending instruction to %s global debug mode" % status
         )
         return {
             'command': self._COMMAND,
-            'tenant_id': parsed_args.tenant_id,
+            'enabled': enabled,
             'reason': parsed_args.reason,
         }
-
-
-class TenantDebug(_TenantCmd):
-    """debug a single tenant"""
-
-    _COMMAND = commands.TENANT_DEBUG
-
-
-class TenantManage(_TenantCmd):
-    """manage a single tenant"""
-
-    _COMMAND = commands.TENANT_MANAGE
