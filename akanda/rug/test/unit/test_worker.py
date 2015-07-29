@@ -33,7 +33,9 @@ from akanda.rug import worker
 from akanda.rug.api import neutron
 
 
-class WorkerTestBase(unittest.TestCase):
+from akanda.rug.test.unit.db import base
+
+class WorkerTestBase(base.DbTestCase):
     def setUp(self):
         super(WorkerTestBase, self).setUp()
         cfg.CONF.boot_timeout = 1
@@ -244,7 +246,8 @@ class TestDebugRouters(WorkerTestBase):
         self.assertEqual(set(), self.w._debug_routers)
 
     def testDebugging(self):
-        self.w._debug_routers = set(['ac194fc5-f317-412e-8611-fb290629f624'])
+        self.dbapi.enable_router_debug(
+            router_uuid='ac194fc5-f317-412e-8611-fb290629f624')
 
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
@@ -294,14 +297,16 @@ class TestIgnoreRouters(WorkerTestBase):
         self.assertEqual(set(['this-router-id']), ignored)
 
     def testManage(self):
-        self.w._debug_routers = set(['this-router-id'])
+        from pprint import pprint;         import pdb; pdb.set_trace() ############################## Breakpoint ##############################
+        self.dbapi.enable_router_debug(
+            router_uuid='this-router-id')
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
                         {'command': commands.ROUTER_MANAGE,
                          'router_id': 'this-router-id'}),
         )
-        self.assertEqual(set(), self.w._debug_routers)
+        self.assertEqual(self.dbapi.routers_in_debug(), [])
 
     def testIgnoring(self):
         tmpdir = tempfile.mkdtemp()

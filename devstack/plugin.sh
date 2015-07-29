@@ -80,6 +80,8 @@ function configure_akanda() {
 
     iniset $AKANDA_RUG_CONF DEFAULT router_ssh_public_key $AKANDA_APPLIANCE_SSH_PUBLIC_KEY
 
+    iniset $AKANDA_RUG_CONF database connection `database_connection_url akanda`
+
     if [ "$LOG_COLOR" == "True" ] && [ "$SYSLOG" == "False" ]; then
         colorize_logging
     fi
@@ -153,7 +155,11 @@ function _remove_subnets() {
 }
 
 function pre_start_akanda() {
-    typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
+    # Create and init the database
+    recreate_database akanda
+    akanda-rug-dbsync --config-file $AKANDA_RUG_CONF upgrade
+
+     typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
     if ! neutron net-show $PUBLIC_NETWORK_NAME; then
         neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
     fi
