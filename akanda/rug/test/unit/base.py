@@ -34,3 +34,9 @@ class RugTestBase(testtools.TestCase):
             'etc', 'rug.ini'
         )
         self.argv = ['--config-file', test_config_file]
+
+    def config(self, **kw):
+        """Override config options for a test."""
+        group = kw.pop('group', None)
+        for k, v in kw.items():
+            cfg.CONF.set_override(k, v, group)
