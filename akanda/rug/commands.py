@@ -45,3 +45,5 @@ CONFIG_RELOAD = 'config-reload'
 
 # Force a poll of all routers right now
 POLL = 'poll'
+
+GLOBAL_DEBUG = 'global-debug'

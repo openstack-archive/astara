@@ -1,4 +1,4 @@
-# Copyright 2015 Akanda, Inc
+# Copyright 2015 Akanda, Inc.
 #
 # Author: Akanda, Inc
 #
