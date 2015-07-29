@@ -39,3 +39,6 @@ test.conf
 
 #pycharm cruft
 .idea/*
+
+*.db
+*.db_clean
