@@ -15,8 +15,6 @@
 # under the License.
 
 
-import os
-import tempfile
 import threading
 
 import mock
@@ -33,7 +31,10 @@ from akanda.rug import worker
 from akanda.rug.api import neutron
 
 
-class WorkerTestBase(unittest.TestCase):
+from akanda.rug.test.unit.db import base
+
+
+class WorkerTestBase(base.DbTestCase):
     def setUp(self):
         super(WorkerTestBase, self).setUp()
         cfg.CONF.boot_timeout = 1
@@ -56,6 +57,57 @@ class WorkerTestBase(unittest.TestCase):
     def tearDown(self):
         self.w._shutdown()
         super(WorkerTestBase, self).tearDown()
+
+    def enable_debug(self, router_uuid=None, tenant_uuid=None):
+        if router_uuid:
+            self.dbapi.enable_router_debug(router_uuid=router_uuid)
+            is_debug, _ = self.dbapi.router_in_debug(router_uuid)
+        if tenant_uuid:
+            self.dbapi.enable_tenant_debug(tenant_uuid=tenant_uuid)
+            is_debug, _ = self.dbapi.tenant_in_debug(tenant_uuid)
+        self.assertTrue(is_debug)
+
+    def assert_not_in_debug(self, router_uuid=None, tenant_uuid=None):
+        if router_uuid:
+            is_debug, _ = self.dbapi.router_in_debug(router_uuid)
+            in_debug = self.dbapi.routers_in_debug()
+            uuid = router_uuid
+        if tenant_uuid:
+            is_debug, _ = self.dbapi.tenant_in_debug(tenant_uuid)
+            in_debug = self.dbapi.tenants_in_debug()
+            uuid = tenant_uuid
+        self.assertFalse(is_debug)
+        self.assertNotIn(uuid, in_debug)
+
+
+class TestWorker(WorkerTestBase):
+    tenant_id = '1040f478-3c74-11e5-a72a-173606e0a6d0'
+    router_id = '18ffa532-3c74-11e5-a0e7-eb9f90a17ffb'
+
+    def setUp(self):
+        super(TestWorker, self).setUp()
+        self.target = self.tenant_id
+        self.msg = event.Event(
+            tenant_id=self.tenant_id,
+            router_id=self.router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+
+    def test__should_process_true(self):
+        self.assertEqual(
+            self.msg,
+            self.w._should_process(self.msg))
+
+    def test__should_process_global_debug(self):
+        self.dbapi.enable_global_debug()
+        self.assertFalse(
+            self.w._should_process(self.msg))
+
+    def test__should_process_tenant_debug(self):
+        self.dbapi.enable_tenant_debug(tenant_uuid=self.tenant_id)
+        self.assertFalse(
+            self.w._should_process(self.msg))
 
 
 class TestCreatingRouter(WorkerTestBase):
@@ -80,7 +132,7 @@ class TestCreatingRouter(WorkerTestBase):
     def test_message_enqueued(self):
         trm = self.w.tenant_managers[self.tenant_id]
         sm = trm.get_state_machines(self.msg, worker.WorkerContext())[0]
-        self.assertEqual(1, len(sm._queue))
+        self.assertEqual(len(sm._queue), 1)
 
 
 class TestWildcardMessages(WorkerTestBase):
@@ -106,16 +158,16 @@ class TestWildcardMessages(WorkerTestBase):
     def test_wildcard_to_all(self):
         trms = self.w._get_trms('*')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
-                          'ac194fc5-f317-412e-8611-fb290629f624'],
-                         ids)
+        self.assertEqual(ids,
+                         ['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
+                          'ac194fc5-f317-412e-8611-fb290629f624'])
 
     def test_wildcard_to_error(self):
         trms = self.w._get_trms('error')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
-                          'ac194fc5-f317-412e-8611-fb290629f624'],
-                         ids)
+        self.assertEqual(ids,
+                         ['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
+                          'ac194fc5-f317-412e-8611-fb290629f624'])
 
 
 class TestShutdown(WorkerTestBase):
@@ -197,19 +249,21 @@ class TestReportStatus(WorkerTestBase):
 
 class TestDebugRouters(WorkerTestBase):
     def testNoDebugs(self):
-        self.assertEqual(set(), self.w._debug_routers)
+        self.assertEqual(self.dbapi.routers_in_debug(), set())
 
     def testWithDebugs(self):
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
                         {'command': commands.ROUTER_DEBUG,
-                         'router_id': 'this-router-id'}),
+                         'router_id': 'this-router-id',
+                         'reason': 'foo'}),
         )
-        self.assertEqual(set(['this-router-id']), self.w._debug_routers)
+        self.enable_debug(router_uuid='this-router-id')
+        self.assertIn(('this-router-id', 'foo'), self.dbapi.routers_in_debug())
 
     def testManage(self):
-        self.w._debug_routers = set(['this-router-id'])
+        self.enable_debug(router_uuid='this-router-id')
         lock = mock.Mock()
         self.w._router_locks['this-router-id'] = lock
         self.w.handle_message(
@@ -218,21 +272,21 @@ class TestDebugRouters(WorkerTestBase):
                         {'command': commands.ROUTER_MANAGE,
                          'router_id': 'this-router-id'}),
         )
-        self.assertEqual(set(), self.w._debug_routers)
+        self.assert_not_in_debug(router_uuid='this-router-id')
         self.assertEqual(lock.release.call_count, 1)
 
     def testManageNoLock(self):
-        self.w._debug_routers = set(['this-router-id'])
+        self.enable_debug(router_uuid='this-router-id')
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
                         {'command': commands.ROUTER_MANAGE,
                          'router_id': 'this-router-id'}),
         )
-        self.assertEqual(set(), self.w._debug_routers)
+        self.assert_not_in_debug(router_uuid='this-router-id')
 
     def testManageUnlocked(self):
-        self.w._debug_routers = set(['this-router-id'])
+        self.enable_debug(router_uuid='this-router-id')
         lock = threading.Lock()
         self.w._router_locks['this-router-id'] = lock
         self.w.handle_message(
@@ -241,13 +295,12 @@ class TestDebugRouters(WorkerTestBase):
                         {'command': commands.ROUTER_MANAGE,
                          'router_id': 'this-router-id'}),
         )
-        self.assertEqual(set(), self.w._debug_routers)
+        self.assert_not_in_debug(router_uuid='this-router-id')
 
     def testDebugging(self):
-        self.w._debug_routers = set(['ac194fc5-f317-412e-8611-fb290629f624'])
-
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        self.enable_debug(router_uuid=router_id)
         msg = event.Event(
             tenant_id=tenant_id,
             router_id=router_id,
@@ -265,100 +318,35 @@ class TestDebugRouters(WorkerTestBase):
             self.w.handle_message(tenant_id, msg)
 
 
-class TestIgnoreRouters(WorkerTestBase):
-    def setUp(self):
-        tmpdir = tempfile.mkdtemp()
-        cfg.CONF.ignored_router_directory = tmpdir
-        fullname = os.path.join(tmpdir, 'this-router-id')
-        with open(fullname, 'a'):
-            os.utime(fullname, None)
-        self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
-        super(TestIgnoreRouters, self).setUp()
-
-    @mock.patch('os.listdir')
-    def testNoIgnorePath(self, mock_listdir):
-        mock_listdir.side_effect = OSError()
-        ignored = self.w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
-
-    def testNoIgnores(self):
-        tmpdir = tempfile.mkdtemp()
-        cfg.CONF.ignored_router_directory = tmpdir
-        self.addCleanup(lambda: os.rmdir(tmpdir))
-        w = worker.Worker(mock.Mock())
-        ignored = w._get_routers_to_ignore()
-        self.assertEqual(set(), ignored)
-
-    def testWithIgnores(self):
-        ignored = self.w._get_routers_to_ignore()
-        self.assertEqual(set(['this-router-id']), ignored)
-
-    def testManage(self):
-        self.w._debug_routers = set(['this-router-id'])
-        self.w.handle_message(
-            '*',
-            event.Event('*', '', event.COMMAND,
-                        {'command': commands.ROUTER_MANAGE,
-                         'router_id': 'this-router-id'}),
-        )
-        self.assertEqual(set(), self.w._debug_routers)
-
-    def testIgnoring(self):
-        tmpdir = tempfile.mkdtemp()
-        cfg.CONF.ignored_router_directory = tmpdir
-        fullname = os.path.join(tmpdir, 'ac194fc5-f317-412e-8611-fb290629f624')
-        with open(fullname, 'a'):
-            os.utime(fullname, None)
-        self.addCleanup(lambda: os.unlink(fullname) and os.rmdir(tmpdir))
-
-        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
-        msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
-        # Create the router manager and state machine so we can
-        # replace the send_message() method with a mock.
-        trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
-        w = worker.Worker(mock.Mock())
-        with mock.patch.object(sm, 'send_message') as meth:
-            # The router id is being ignored, so the send_message()
-            # method shouldn't ever be invoked.
-            meth.side_effect = AssertionError('send_message was called')
-            w.handle_message(tenant_id, msg)
-
-
 class TestDebugTenants(WorkerTestBase):
     def testNoDebugs(self):
-        self.assertEqual(set(), self.w._debug_tenants)
+        self.assertEqual(self.dbapi.tenants_in_debug(), set())
 
     def testWithDebugs(self):
+        self.enable_debug(tenant_uuid='this-tenant-id')
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
                         {'command': commands.TENANT_DEBUG,
                          'tenant_id': 'this-tenant-id'}),
         )
-        self.assertEqual(set(['this-tenant-id']), self.w._debug_tenants)
+        is_debug, _ = self.dbapi.tenant_in_debug('this-tenant-id')
+        self.assertTrue(is_debug)
 
     def testManage(self):
-        self.w._debug_tenants = set(['this-tenant-id'])
+        self.enable_debug(tenant_uuid='this-tenant-id')
         self.w.handle_message(
             '*',
             event.Event('*', '', event.COMMAND,
                         {'command': commands.TENANT_MANAGE,
                          'tenant_id': 'this-tenant-id'}),
         )
-        self.assertEqual(set(), self.w._debug_tenants)
+        self.assert_not_in_debug(tenant_uuid='this-tenant-id')
 
     def testDebugging(self):
-        self.w._debug_tenants = set(['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'])
-
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        self.enable_debug(tenant_uuid=tenant_id)
         msg = event.Event(
             tenant_id=tenant_id,
             router_id=router_id,
@@ -398,16 +386,33 @@ class TestNormalizeUUID(unittest.TestCase):
 
     def test_upper(self):
         self.assertEqual(
-            'ac194fc5-f317-412e-8611-fb290629f624',
             worker._normalize_uuid(
-                'ac194fc5-f317-412e-8611-fb290629f624'.upper()
-            )
-        )
+                'ac194fc5-f317-412e-8611-fb290629f624'.upper()),
+            'ac194fc5-f317-412e-8611-fb290629f624')
 
     def test_no_dashes(self):
         self.assertEqual(
-            'ac194fc5-f317-412e-8611-fb290629f624',
-            worker._normalize_uuid(
-                'ac194fc5f317412e8611fb290629f624'
-            )
+            worker._normalize_uuid('ac194fc5f317412e8611fb290629f624'),
+            'ac194fc5-f317-412e-8611-fb290629f624')
+
+
+class TestGlobalDebug(WorkerTestBase):
+    def test_global_debug_no_message_sent(self):
+        self.dbapi.enable_global_debug()
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        msg = event.Event(
+            tenant_id=tenant_id,
+            router_id=router_id,
+            crud=event.CREATE,
+            body={'key': 'value'},
         )
+        # Create the router manager and state machine so we can
+        # replace the send_message() method with a mock.
+        trm = self.w._get_trms(tenant_id)[0]
+        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+        with mock.patch.object(sm, 'send_message') as meth:
+            # The tenant id is being ignored, so the send_message()
+            # method shouldn't ever be invoked.
+            meth.side_effect = AssertionError('send_message was called')
+            self.w.handle_message(tenant_id, msg)
