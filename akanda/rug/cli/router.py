@@ -39,10 +39,14 @@ class _TenantRouterCmd(message.MessageSending):
         p.add_argument(
             'router_id',
         )
+        p.add_argument(
+            '--reason',
+        )
         return p
 
     def make_message(self, parsed_args):
         router_id = parsed_args.router_id.lower()
+        reason = parsed_args.reason
         if router_id == 'error':
             tenant_id = 'error'
         elif router_id == '*':
@@ -82,6 +86,7 @@ class _TenantRouterCmd(message.MessageSending):
             'command': self._COMMAND,
             'router_id': router_id,
             'tenant_id': tenant_id,
+            'reason': reason,
         }
 
 

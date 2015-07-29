@@ -1,6 +1,6 @@
-# Copyright 2015 Akanda, Inc
+# Copyright 2015 Akanda, Inc.
 #
-# Author: Akanda, Inc
+# Author: Akanda, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
