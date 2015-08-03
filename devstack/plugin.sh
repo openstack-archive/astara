@@ -1,11 +1,13 @@
 # -*- mode: shell-script -*-
 
 # Set up default directories
-AKANDA_NEUTRON_DIR=$DEST/akanda-neutron
+AKANDA_RUG_DIR=${AKANDA_RUG_DIR:-$DEST/akanda-rug}
+
+AKANDA_NEUTRON_DIR=${AKANDA_NEUTRON_DIR:-$DEST/akanda-neutron}
 AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/stackforge/akanda-neutron.git}
 AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
 
-AKANDA_APPLIANCE_DIR=$DEST/akanda-appliance
+AKANDA_APPLIANCE_DIR=${AKANDA_APPLIANCE_DIR:-$DEST/akanda-appliance}
 AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/stackforge/akanda-appliance.git}
 AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-master}
 
