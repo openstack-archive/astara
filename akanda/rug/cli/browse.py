@@ -42,6 +42,8 @@ from akanda.rug.cli import message
 
 logging.getLogger("urllib3").setLevel(logging.ERROR)
 
+cfg.CONF.import_opt('host', 'akanda.rug.main')
+
 
 class FakeConfig(object):
 
