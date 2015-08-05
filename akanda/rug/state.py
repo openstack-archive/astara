@@ -256,6 +256,8 @@ class CheckBoot(State):
         return action
 
     def transition(self, action, worker_context):
+        if self.instance.state == vm_manager.REPLUG:
+            return ReplugVM(self.params)
         if self.instance.state in (instance_manager.DOWN,
                                    instance_manager.GONE):
             return StopInstance(self.params)
