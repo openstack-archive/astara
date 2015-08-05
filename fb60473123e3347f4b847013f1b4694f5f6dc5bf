@@ -1,0 +1,9 @@
+Verified+2: Jenkins
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Code-Review+2: Ryan Petrello <ryan@ryanpetrello.com>
+Workflow+1: Ryan Petrello <ryan@ryanpetrello.com>
+Submitted-by: Jenkins
+Submitted-at: Wed, 05 Aug 2015 17:55:18 +0000
+Reviewed-on: https://review.openstack.org/204789
+Project: stackforge/akanda-rug
+Branch: refs/heads/stable/juno
