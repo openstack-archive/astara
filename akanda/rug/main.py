@@ -84,6 +84,35 @@ def shuffle_notifications(notification_queue, sched):
 
 
 def main(argv=sys.argv[1:]):
+    """This is the main entry point into the rug:
+
+    Performs the following:
+    a. parses the ak_cfg file and sets up log 'akanda-rug'.
+    b. Brings up the External and Mgmt port
+    c. Queue is setup to listen for events that includes
+       i.   notification-listener
+       ii.  metadata_proxy for changes to mgmt ip addr
+       iii. various 'rug-api' events which are recieved through
+            the mgmt ip interface
+    d. Publishing changes(if any) to the listening ceilometer interface
+    e. A pool of Worker threads are spawned that are scheduled to
+       perform various tasks and these threads are scheduled to be
+       (?What kind of scheduling is followed, RR or Prio based?) executed.
+    f. A periodic heartbeat check is started to monitor the health
+       of the scheduler and action initiated on timer expiry.
+    g. This main process waits in an infinite loop process the
+       various events heard on the Queue.
+
+   :param argv: Path to the Akanda Config file
+
+   :returns: None
+
+   :raises: None
+
+    """
+    # TODO(rama) Error Handling to be added as part of the docstring
+    # description
+
     # Change the process and thread name so the logs are cleaner.
 
     p = multiprocessing.current_process()
