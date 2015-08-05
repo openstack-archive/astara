@@ -84,6 +84,27 @@ def shuffle_notifications(notification_queue, sched):
 
 
 def main(argv=sys.argv[1:]):
+    """Main Entry point into the akanda-rug
+
+    This is the main entry point into the akanda-rug. On invocation of
+    this method, logging, local network connectivity setup is performed.
+    This information is obtained through the 'ak-config' file, passed as
+    arguement to this method. Worker threads are spawned for handling
+    various tasks that are associated with processing as well as
+    responding to different Neutron events prior to starting a notification
+    dispatch loop.
+
+    :param argv: list of Command line arguements
+    argv[1] Path to the Akanda Config file [/etc/akanda/rug.ini]
+
+    :returns: None
+
+    :raises: None
+
+    """
+    # TODO(rama) Error Handling to be added as part of the docstring
+    # description
+
     # Change the process and thread name so the logs are cleaner.
 
     p = multiprocessing.current_process()
