@@ -39,16 +39,7 @@ class TestTenantRouterManager(unittest.TestCase):
             queue_warning_threshold=10,
             reboot_error_threshold=5,
         )
-        # Establish a fake default router for the tenant for tests
-        # that try to use it. We mock out the class above to avoid
-        # errors instantiating the client without enough config
-        # settings, but we have to attach to the mock instance created
-        # when we set the return value for get_router_for_tenant().
         self.ctx = mock.Mock()
-        self.default_router = mock.MagicMock(name='default_router')
-        self.default_router.configure_mock(id='9ABC')
-        grt = self.ctx.neutron.get_router_for_tenant
-        grt.return_value = self.default_router
 
     def test_new_router(self):
         msg = event.Event(
@@ -61,16 +52,15 @@ class TestTenantRouterManager(unittest.TestCase):
         self.assertEqual(sm.router_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
 
-    def test_default_router(self):
+    def test_get_state_machine_no_router_id(self):
         msg = event.Event(
             tenant_id='1234',
             router_id=None,
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        sm = self.trm.get_state_machines(msg, self.ctx)[0]
-        self.assertEqual(sm.router_id, self.default_router.id)
-        self.assertIn(self.default_router.id, self.trm.state_machines)
+        self.assertRaises(tenant.InvalidIncomingMessage,
+                          self.trm.get_state_machines, msg, self.ctx)
 
     def test_all_routers(self):
         self.trm.state_machines.state_machines = {

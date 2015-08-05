@@ -21,6 +21,7 @@
 import collections
 import threading
 
+from akanda.rug.common.i18n import _LE
 from akanda.rug import state
 from akanda.rug.openstack.common import timeutils
 
@@ -28,6 +29,10 @@ from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
+
+
+class InvalidIncomingMessage(Exception):
+    pass
 
 
 class RouterContainer(object):
@@ -116,21 +121,9 @@ class TenantRouterManager(object):
         """
         router_id = message.router_id
         if not router_id:
-            LOG.debug('looking for router for %s', message.tenant_id)
-            if self._default_router_id is None:
-                # TODO(mark): handle muliple router lookup
-                router = worker_context.neutron.get_router_for_tenant(
-                    message.tenant_id,
-                )
-                if not router:
-                    LOG.debug(
-                        'router not found for tenant %s',
-                        message.tenant_id
-                    )
-                    return []
-                self._default_router_id = router.id
-            router_id = self._default_router_id
-            LOG.debug('using router id %s', router_id)
+            LOG.error(_LE('Cannot get state machine for message with '
+                          'no router_id'))
+            raise InvalidIncomingMessage()
 
         # Ignore messages to deleted routers.
         if self.state_machines.has_been_deleted(router_id):
