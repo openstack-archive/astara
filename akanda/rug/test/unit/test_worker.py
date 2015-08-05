@@ -34,6 +34,10 @@ from akanda.rug.api import neutron
 from akanda.rug.test.unit.db import base
 
 
+class FakeFetchedRouter(object):
+    id = 'fake_fetched_router_id'
+
+
 class WorkerTestBase(base.DbTestCase):
     def setUp(self):
         super(WorkerTestBase, self).setUp()
@@ -43,14 +47,15 @@ class WorkerTestBase(base.DbTestCase):
         cfg.CONF.management_prefix = 'fdca:3ba5:a17a:acda::/64'
         cfg.CONF.num_worker_threads = 0
 
-        mock.patch('akanda.rug.worker.nova').start()
+        self.fake_nova = mock.patch('akanda.rug.worker.nova').start()
         fake_neutron_obj = mock.patch.object(
             neutron, 'Neutron', autospec=True).start()
         fake_neutron_obj.get_ports_for_instance.return_value = (
             'mgt_port', ['ext_port', 'int_port'])
-
-        mock.patch.object(neutron, 'Neutron',
-                          return_value=fake_neutron_obj).start()
+        fake_neutron_obj.get_router_for_tenant.return_value = (
+            FakeFetchedRouter())
+        self.fake_neutron = mock.patch.object(
+            neutron, 'Neutron', return_value=fake_neutron_obj).start()
         self.w = worker.Worker(mock.Mock())
         self.addCleanup(mock.patch.stopall)
 
@@ -90,6 +95,9 @@ class TestWorker(WorkerTestBase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
+        self.fake_router_cache = worker.TenantRouterCache()
+        self.fake_router_cache.get_by_tenant = mock.MagicMock()
+        self.w.router_cache = self.fake_router_cache
 
     def test__should_process_true(self):
         self.assertEqual(
@@ -105,6 +113,93 @@ class TestWorker(WorkerTestBase):
         self.dbapi.enable_tenant_debug(tenant_uuid='foo_tenant_id')
         self.assertFalse(
             self.w._should_process(self.msg))
+
+    def test__should_process_no_router_id(self):
+        self.fake_router_cache.get_by_tenant.return_value = 'fake_router_id'
+        msg = event.Event(
+            tenant_id='foo_tenant_id',
+            router_id=None,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        expected = event.Event(
+            tenant_id='foo_tenant_id',
+            router_id='fake_router_id',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        self.assertEquals(expected, self.w._should_process(msg))
+
+    def test__should_process_no_router_id_no_router_found(self):
+        self.fake_router_cache.get_by_tenant.return_value = None
+        msg = event.Event(
+            tenant_id='foo_tenant_id',
+            router_id=None,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        self.assertFalse(self.w._should_process(msg))
+
+    def test__populate_router_id_not_needed(self):
+        self.assertEqual(
+            self.w._populate_router_id(self.msg),
+            self.msg,
+        )
+
+    def test__populate_router_id(self):
+        self.msg = event.Event(
+            tenant_id='foo_tenant_id',
+            router_id=None,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        self.fake_router_cache.get_by_tenant.return_value = 'foo_router_id2'
+        expected_msg = event.Event(
+            tenant_id='foo_tenant_id',
+            router_id='foo_router_id2',
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        res = self.w._populate_router_id(self.msg)
+        self.assertEqual(res, expected_msg)
+        self.fake_router_cache.get_by_tenant.assert_called_with(
+            'foo_tenant_id', self.w._context)
+
+    def test__populate_router_id_not_found(self):
+        self.msg = event.Event(
+            tenant_id='foo_tenant_id',
+            router_id=None,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        self.fake_router_cache.get_by_tenant.return_value = None
+        res = self.w._populate_router_id(self.msg)
+        self.assertEqual(res, self.msg)
+        self.fake_router_cache.get_by_tenant.assert_called_with(
+            'foo_tenant_id', self.w._context)
+
+
+class TestRouterCache(WorkerTestBase):
+    def setUp(self):
+        super(TestRouterCache, self).setUp()
+        self.router_cache = worker.TenantRouterCache()
+        self.worker_context = worker.WorkerContext()
+
+    def test_router_cache_hit(self):
+        self.router_cache._tenant_routers = {
+            'fake_tenant_id': 'fake_cached_router_id',
+        }
+        res = self.router_cache.get_by_tenant(
+            tenant_uuid='fake_tenant_id', worker_context=self.worker_context)
+        self.assertEqual(res, 'fake_cached_router_id')
+        self.assertFalse(self.w._context.neutron.get_router_for_tenant.called)
+
+    def test_router_cache_miss(self):
+        res = self.router_cache.get_by_tenant(
+            tenant_uuid='fake_tenant_id', worker_context=self.worker_context)
+        self.assertEqual(res, 'fake_fetched_router_id')
+        self.w._context.neutron.get_router_for_tenant.assert_called_with(
+            'fake_tenant_id')
 
 
 class TestCreatingRouter(WorkerTestBase):
