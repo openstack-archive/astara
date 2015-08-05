@@ -382,6 +382,13 @@ class TestCheckBootState(BaseTestStateCase):
             instance_manager.UP
         )
 
+    def test_transition_hotplug(self):
+        self._test_transition_hlpr(
+            event.REPLUG,
+            state.ReplugVM,
+            vm_manager.BOOTING
+        )
+
     def test_transition_instance_booting(self):
         self._test_transition_hlpr(
             event.UPDATE,
