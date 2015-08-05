@@ -68,6 +68,27 @@ def _normalize_uuid(value):
     return str(uuid.UUID(value.replace('-', '')))
 
 
+class TenantRouterCache(object):
+    """Holds a cache of default router_ids for tenants. This is constructed
+    and consulted when we receieve messages with no associated router_id and
+    avoids a Neutron call per-message of this type.
+    """
+    # NOTE(adam_g): This is a pretty dumb caching layer and can be backed
+    # by an external system like memcache to further optimize lookups
+    # across mulitple rugs.
+    _tenant_routers = {}
+
+    def get_by_tenant(self, tenant_uuid, worker_context):
+        if tenant_uuid not in self._tenant_routers:
+            router_uuid = worker_context.neutron.get_router_for_tenant(
+                tenant_uuid)
+            if not router_uuid:
+                LOG.debug('router not found for tenant %s' % tenant_uuid)
+                return None
+            self._tenant_routers[tenant_uuid] = router_uuid
+        return self._tenant_routers[tenant_uuid]
+
+
 class WorkerContext(object):
     """Holds resources owned by the worker and used by the Automaton.
     """
@@ -92,6 +113,8 @@ class Worker(object):
         self.lock = threading.Lock()
         self._keep_going = True
         self.tenant_managers = {}
+        self.router_cache = TenantRouterCache()
+
         # This process-global context should not be used in the
         # threads, since the clients are not thread-safe.
         self._context = WorkerContext()
@@ -236,6 +259,34 @@ class Worker(object):
             )
         return [self.tenant_managers[tenant_id]]
 
+    def _populate_router_id(self, message):
+        """Ensure message is populated with a router_id if it does
+        not contain one.  If not, attempt to lookup by tenant
+
+        :param message: event.Event object
+        :returns: a new event.Event object with a populated router_id if
+                  found.
+        """
+        if message.router_id:
+            return message
+        LOG.debug("Looking for router for %s", message.tenant_id)
+        router_id = self.router_cache.get_by_tenant(
+            message.tenant_id, self._context)
+        if not router_id:
+            LOG.warn('Router not found for tenant %s.' %
+                     message.tenant_id)
+        else:
+            new_message = event.Event(
+                router_id=router_id,
+                tenant_id=message.tenant_id,
+                crud=message.crud,
+                body=message.body,
+            )
+            message = new_message
+            LOG.debug("Using router %s for tenant %s",
+                      router_id, message.tenant_id)
+        return message
+
     def _should_process(self, message):
         """Determines whether a message should be processed or not."""
         global_debug, reason = self.db_api.global_debug()
@@ -243,6 +294,7 @@ class Worker(object):
             LOG.info('Skipping incoming event, cluster in global debug '
                      'mode. (reason: %s)' % reason)
             return False
+
         should_ignore, reason = self.db_api.tenant_in_debug(message.tenant_id)
         if should_ignore:
             LOG.info(
@@ -251,6 +303,22 @@ class Worker(object):
                 message.tenant_id, reason, message,
             )
             return False
+
+        message = self._populate_router_id(message)
+        if not message.router_id:
+            LOG.info('Ignoring message with no router found.')
+            return False
+
+        should_ignore, reason = self.db_api.router_in_debug(
+            message.router_id)
+        if should_ignore:
+            LOG.info(
+                'Ignoring message intended for router %s in '
+                'debug mode (reason: %s): %s',
+                message.router_id, reason, message,
+            )
+            return False
+
         return True
 
     def handle_message(self, target, message):
@@ -266,6 +334,7 @@ class Worker(object):
         else:
             if not self._should_process(message):
                 return
+
             # This is an update command for the router, so deliver it
             # to the state machine.
             with self.lock:
@@ -368,21 +437,10 @@ class Worker(object):
     def _deliver_message(self, target, message):
         LOG.debug('preparing to deliver %r to %r', message, target)
         trms = self._get_trms(target)
+
         for trm in trms:
             sms = trm.get_state_machines(message, self._context)
             for sm in sms:
-                # NOTE(adam_g): We dont necessarily know the router_id
-                # till the sm has been created. this check should move to
-                # _should_process() once thats changed.
-                should_ignore, reason = self.db_api.router_in_debug(
-                    sm.router_id)
-                if should_ignore:
-                    LOG.info(
-                        'Ignoring message intended for router %s in '
-                        'debug mode (reason: %s): %s',
-                        sm.router_id, reason, message,
-                    )
-                    continue
                 # Add the message to the state machine's inbox. If
                 # there is already a thread working on the router,
                 # that thread will pick up the new work when it is
