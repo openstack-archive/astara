@@ -24,7 +24,20 @@ from oslo_log import log as logging
 
 
 def ignore_signals():
-    """Ignore signals that might interrupt processing.
+    """Ignore signals that might interrupt processing
+
+    Since the RUG doesn't want to be asynchronousyly interrupted,
+    various signals received needs to be ignored. The registered
+    signals including SIGHUP, SIGALRM, and default signals
+    SIGUSR1 and SIGUSR2 are captured and ignored through the SIG_IGN
+    action.
+
+    :param: None
+
+    :returns: None
+
+    :raises: None
+
     """
     for s in [signal.SIGHUP, signal.SIGUSR1, signal.SIGUSR2, signal.SIGALRM]:
         logging.getLogger(__name__).info('ignoring signal %s', s)
