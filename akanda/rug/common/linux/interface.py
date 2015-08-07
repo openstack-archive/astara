@@ -200,7 +200,7 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
             if self.conf.ovs_use_veth:
                 root_dev.link.set_up()
         else:
-            LOG.warn(_LW("Device %s already exists"), device_name)
+            LOG.warning(_LW("Device %s already exists"), device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""
@@ -256,7 +256,7 @@ class BridgeInterfaceDriver(LinuxInterfaceDriver):
             ns_veth.link.set_up()
 
         else:
-            LOG.warn(_LW("Device %s already exists"), device_name)
+            LOG.warning(_LW("Device %s already exists"), device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""

@@ -119,12 +119,12 @@ class MetadataProxyHandler(object):
                 'The remote metadata server responded with Forbidden. This '
                 'response usually occurs when shared secrets do not match.'
             )
-            LOG.warn(msg)
+            LOG.warning(msg)
             return webob.exc.HTTPForbidden()
         elif resp.status == 404:
             return webob.exc.HTTPNotFound()
         elif resp.status == 500:
-            LOG.warn(
+            LOG.warning(
                 'Remote metadata server experienced an internal server error.'
             )
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
@@ -157,8 +157,8 @@ class MetadataProxy(object):
             except socket.error as err:
                 if err.errno != 99:
                     raise
-                LOG.warn('Could not create metadata proxy socket: %s', err)
-                LOG.warn('Sleeping %s before trying again', i + 1)
+                LOG.warning('Could not create metadata proxy socket: %s', err)
+                LOG.warning('Sleeping %s before trying again', i + 1)
                 eventlet.sleep(i + 1)
             else:
                 break

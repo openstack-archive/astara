@@ -92,8 +92,8 @@ class RugAPIServer(object):
             except socket.error as err:
                 if err.errno != 99:  # EADDRNOTAVAIL
                     raise
-                LOG.warn('Could not create rug-api socket: %s', err)
-                LOG.warn('Sleeping %s before trying again', i + 1)
+                LOG.warning('Could not create rug-api socket: %s', err)
+                LOG.warning('Sleeping %s before trying again', i + 1)
                 eventlet.sleep(i + 1)
             else:
                 break

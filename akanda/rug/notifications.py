@@ -111,8 +111,8 @@ L3_AGENT_TOPIC = 'l3_agent'
 
 def _handle_connection_error(exception, interval):
     """ Log connection retry attempts."""
-    LOG.warn("Error establishing connection: %s", exception)
-    LOG.warn("Retrying in %d seconds", interval)
+    LOG.warning("Error establishing connection: %s", exception)
+    LOG.warning("Retrying in %d seconds", interval)
 
 
 def _kombu_configuration(conf):
