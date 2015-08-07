@@ -326,7 +326,7 @@ class Worker(object):
                 cfg.CONF.log_opt_values(LOG, INFO)
 
         else:
-            LOG.warn('unrecognized command: %s', instructions)
+            LOG.warning('unrecognized command: %s', instructions)
 
     def _get_routers_to_ignore(self):
         ignores = set()
