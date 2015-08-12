@@ -196,12 +196,12 @@ def main(argv=sys.argv[1:]):
     try:
         shuffle_notifications(notification_queue, sched)
     finally:
-        # Terminate the scheduler and its workers
-        LOG.info(_LI('stopping processing'))
+        LOG.info(_LI('Stopping scheduler.'))
         sched.stop()
-        # Terminate the listening process
-        LOG.debug(_('stopping %s'), notification_proc.name)
-        notification_proc.terminate()
-        LOG.debug(_('stopping %s'), metadata_proc.name)
-        metadata_proc.terminate()
-        LOG.info(_LI('exiting'))
+        LOG.info(_LI('Stopping notification publisher.'))
+        publisher.stop()
+
+        # Terminate the subprocesses
+        for subproc in [notification_proc, metadata_proc, rug_api_proc]:
+            LOG.debug(_('Stopping %s.'), subproc.name)
+            subproc.terminate()
