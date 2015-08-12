@@ -26,7 +26,7 @@ import threading
 from oslo_config import cfg
 from oslo_log import log
 
-from akanda.rug.common.i18n import _, _LE, _LI
+from akanda.rug.common.i18n import _LE, _LI
 from akanda.rug.common import config as ak_cfg
 from akanda.rug import daemon
 from akanda.rug import health
@@ -196,12 +196,12 @@ def main(argv=sys.argv[1:]):
     try:
         shuffle_notifications(notification_queue, sched)
     finally:
-        # Terminate the scheduler and its workers
-        LOG.info(_LI('stopping processing'))
+        LOG.info(_LI('Stopping scheduler.'))
         sched.stop()
-        # Terminate the listening process
-        LOG.debug(_('stopping %s'), notification_proc.name)
-        notification_proc.terminate()
-        LOG.debug(_('stopping %s'), metadata_proc.name)
-        metadata_proc.terminate()
-        LOG.info(_LI('exiting'))
+        LOG.info(_LI('Stopping notification publisher.'))
+        publisher.stop()
+
+        # Terminate the subprocesses
+        for subproc in [notification_proc, metadata_proc, rug_api_proc]:
+            LOG.info(_LI('Stopping %s.'), subproc.name)
+            subproc.terminate()
