@@ -703,3 +703,9 @@ class TestAutomaton(unittest.TestCase):
         with mock.patch.object(self.sm, 'instance') as instance:
             instance.state = instance_manager.UP
             self.assertFalse(self.sm.has_error())
+
+    def test_drop_queue(self):
+        self.sm._queue.append('foo_item')
+        self.assertEqual(1, len(self.sm._queue))
+        self.sm.drop_queue()
+        self.assertEqual(0, len(self.sm._queue))
