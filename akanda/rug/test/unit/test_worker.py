@@ -716,6 +716,21 @@ class TestGlobalDebug(WorkerTestBase):
 
 class TestRebalance(WorkerTestBase):
     def test_rebalance(self):
+        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
+        resource_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        r = event.Resource(
+            tenant_id=tenant_id,
+            id=resource_id,
+            driver='router',
+        )
+        msg = event.Event(
+            resource=r,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        trm = self.w._get_trms(tenant_id)[0]
+        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+
         self.w.hash_ring_mgr.rebalance(['foo'])
         self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo']))
         r = event.Resource(
@@ -728,5 +743,7 @@ class TestRebalance(WorkerTestBase):
             crud=event.REBALANCE,
             body={'members': ['foo', 'bar']},
         )
-        self.w.handle_message('*', msg)
+        with mock.patch.object(sm, 'drop_queue') as meth:
+            self.w.handle_message('*', msg)
+            self.assertTrue(meth.called)
         self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo', 'bar']))

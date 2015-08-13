@@ -416,6 +416,25 @@ class Worker(object):
             trms = self._get_trms(resource.tenant_id)
             for trm in trms:
                 trm.get_state_machines(e, self._context)
+        # rebalance our hash ring according to new cluster membership
+        self.hash_ring_mgr.rebalance(message.body.get('members'))
+
+        # loop through all local state machines and drop all pending work
+        # for those that are no longer managed here, as per newly balanced
+        # hash ring
+        trms = self._get_trms('*')
+        for trm in trms:
+            sms = trm.get_state_machines(message, self._context)
+            for sm in sms:
+                target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                    sm.resource_id)
+                if self.host not in target_hosts:
+                    sm.drop_queue()
+
+        # NOTE(adam_g): If somethings queued up on a SM, it means the SM
+        # is currently executing something thats probably long running
+        # (ie a create).  We should add some smarts here to transfer the
+        # currently executing task to the new owner
 
     def _should_process_command(self, message):
         command = message.body['command']
