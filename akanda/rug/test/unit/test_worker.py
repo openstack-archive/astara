@@ -445,7 +445,15 @@ class TestUpdateStateMachine(WorkerTestBase):
         self.worker_context = worker.WorkerContext()
         self.w._should_process_message = mock.MagicMock(return_value=self.msg)
 
-    def test(self):
+    def _test(self, fake_hash, negative=False):
+        fake_ring_manager = fake_hash.HashRingManager()
+        if not negative:
+            fake_ring_manager.ring.get_hosts.return_value = [self.w.host]
+        else:
+            fake_ring_manager.ring.get_hosts.return_value = []
+
+        self.w.hash_ring_mgr = fake_ring_manager
+
         # Create the router manager and state machine so we can
         # replace the update() method with a mock.
         trm = self.w._get_trms(self.tenant_id)[0]
@@ -461,7 +469,19 @@ class TestUpdateStateMachine(WorkerTestBase):
             # work) so we just invoke the thread target ourselves to
             # pretend.
             used_context = self.w._thread_target()
-            meth.assert_called_once_with(used_context)
+
+            if not negative:
+                meth.assert_called_once_with(used_context)
+            else:
+                self.assertFalse(meth.called)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test_host_mapped(self, fake_hash):
+        self._test(fake_hash)
+
+    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    def test_host_not_mapped(self, fake_hash):
+        self._test(fake_hash, negative=True)
 
 
 class TestReportStatus(WorkerTestBase):

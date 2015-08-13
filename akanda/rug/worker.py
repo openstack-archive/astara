@@ -179,6 +179,28 @@ class Worker(object):
                 LOG.debug('Skipping update of router %s in debug mode. '
                           '(reason: %s)', sm.router_id, reason)
                 continue
+
+            # In the event that a rebalance took place while processing an
+            # event, it may have been put back into the work queue. Check
+            # the hash table once more to find out if we still manage it
+            # and do some cleanup if not.
+            # XXX(adam_g): Could this instead be moved lower before we
+            #              requeue?
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                sm.router_id)
+            if self.host not in target_hosts:
+                LOG.debug('Skipping update of router %s, it no longer '
+                          'maps here.', sm.router_id)
+
+                # XXX(adam_g): Need to clear this sm from our local TRM.
+                #              expose this better?
+                sm._do_delete()
+
+                self.work_queue.task_done()
+                with self.lock:
+                    self._release_router_lock(sm)
+                continue
+
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
