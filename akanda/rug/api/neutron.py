@@ -30,6 +30,7 @@ from oslo_context import context
 from oslo_log import log as logging
 from oslo_utils import importutils
 
+from akanda.rug.common.i18n import _, _LI
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.common import rpc
 
@@ -159,7 +160,7 @@ class Subnet(object):
             self.cidr = netaddr.IPNetwork(cidr)
         except (TypeError, netaddr.AddrFormatError) as e:
             raise ValueError(
-                'Invalid CIDR %r for subnet %s of network %s: %s' % (
+                _('Invalid CIDR %r for subnet %s of network %s: %s') % (
                     cidr, id_, network_id, e,
                 )
             )
@@ -167,7 +168,7 @@ class Subnet(object):
             self.gateway_ip = netaddr.IPAddress(gateway_ip)
         except (TypeError, netaddr.AddrFormatError) as e:
             self.gateway_ip = None
-            LOG.info('Bad gateway_ip on subnet %s: %r (%s)',
+            LOG.info(_LI('Bad gateway_ip on subnet %s: %r (%s)'),
                      id_, gateway_ip, e)
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers
@@ -315,7 +316,7 @@ class Neutron(object):
         try:
             return Router.from_dict(router[0])
         except IndexError:
-            raise RouterGone('the router is no longer available')
+            raise RouterGone(_('the router is no longer available'))
 
     def get_router_for_tenant(self, tenant_id):
         response = self.api_client.list_routers(tenant_id=tenant_id)
@@ -340,7 +341,7 @@ class Neutron(object):
             try:
                 response.append(Subnet.from_dict(s))
             except Exception as e:
-                LOG.info('ignoring subnet %s (%s) on network %s: %s',
+                LOG.info(_LI('ignoring subnet %s (%s) on network %s: %s'),
                          s.get('id'), s.get('cidr'),
                          network_id, e)
         return response
@@ -379,8 +380,8 @@ class Neutron(object):
         response = self.api_client.create_port(dict(port=port_dict))
         port_data = response.get('port')
         if not port_data:
-            raise ValueError(
-                'Unable to create %s port for %s on network %s' %
+            raise ValueError(_(
+                'Unable to create %s port for %s on network %s') %
                 (label, object_id, network_id)
             )
         port = Port.from_dict(port_data)
@@ -439,7 +440,7 @@ class Neutron(object):
 
             if len(ports):
                 port = Port.from_dict(ports[0])
-                LOG.debug('Found router external port: %s' % port.id)
+                LOG.debug('Found router external port: %s', port.id)
                 return port
             time.sleep(self.conf.retry_delay)
         raise RouterGatewayMissing()
@@ -462,10 +463,10 @@ class Neutron(object):
 
         if ports:
             port = Port.from_dict(ports[0])
-            LOG.info('already have local %s port, using %r',
+            LOG.info(_LI('already have local %s port, using %r'),
                      network_type, port)
         else:
-            LOG.info('creating a new local %s port', network_type)
+            LOG.info(_LI('creating a new local %s port'), network_type)
             port_dict = {
                 'admin_state_up': True,
                 'network_id': network_id,
@@ -488,7 +489,7 @@ class Neutron(object):
             )
             port.device_owner = DEVICE_OWNER_RUG
 
-            LOG.info('new local %s port: %r', network_type, port)
+            LOG.info(_LI('new local %s port: %r'), network_type, port)
 
         # create the tap interface if it doesn't already exist
         if not ip_lib.device_exists(driver.get_device_name(port)):
@@ -545,8 +546,8 @@ class Neutron(object):
             # We don't want to die just because we can't tell neutron
             # what the status of the router should be. Log the error
             # but otherwise ignore it.
-            LOG.info(
-                'ignoring failure to update status for router %s to %s: %s',
+            LOG.info(_LI(
+                'ignoring failure to update status for router %s to %s: %s'),
                 router_id, status, e,
             )
 

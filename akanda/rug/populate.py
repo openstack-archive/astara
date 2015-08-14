@@ -29,6 +29,8 @@ from neutronclient.common import exceptions as q_exceptions
 from akanda.rug import event
 from akanda.rug.api import neutron
 
+from akanda.rug.common.i18n import _LW
+
 LOG = logging.getLogger(__name__)
 
 
@@ -51,12 +53,12 @@ def _pre_populate_workers(scheduler):
             neutron_routers = neutron_client.get_routers(detailed=False)
             break
         except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
-            LOG.warning('PrePopulateWorkers thread failed: %s', err)
+            LOG.warning(_LW('PrePopulateWorkers thread failed: %s'), err)
             return
         except Exception as err:
             LOG.warning(
-                '%s: %s' % ('Could not fetch routers from neutron', err))
-            LOG.warning('sleeping %s seconds before retrying' % nap_time)
+                _LW('Could not fetch routers from neutron: %s'), err)
+            LOG.warning(_LW('sleeping %s seconds before retrying'), nap_time)
             time.sleep(nap_time)
             # FIXME(rods): should we get max_sleep from the config file?
             nap_time = min(nap_time * 2, max_sleep)

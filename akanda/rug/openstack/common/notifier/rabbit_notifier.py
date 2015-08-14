@@ -31,7 +31,7 @@
 #    under the License.
 
 
-from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.common.i18n import _
 from akanda.rug.openstack.common import log as logging
 from akanda.rug.openstack.common.notifier import rpc_notifier
 

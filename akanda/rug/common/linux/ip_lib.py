@@ -56,7 +56,7 @@ class SubProcessBase(object):
 
     def _as_root(self, options, command, args, use_root_namespace=False):
         if not self.root_helper:
-            raise Exception('Sudo is required to run this command')
+            raise Exception(_('Sudo is required to run this command'))
 
         namespace = self.namespace if not use_root_namespace else None
 

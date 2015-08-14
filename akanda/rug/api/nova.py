@@ -22,6 +22,8 @@ from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from akanda.rug.common.i18n import _LW
+
 LOG = logging.getLogger(__name__)
 
 OPTIONS = [
@@ -245,7 +247,7 @@ def _router_ssh_key():
         with open(key) as out:
             return out.read()
     except IOError:
-        LOG.warning('Could not load router ssh public key from %s' % key)
+        LOG.warning(_LW('Could not load router ssh public key from %s'), key)
         return ''
 
 

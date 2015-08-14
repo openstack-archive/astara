@@ -21,10 +21,11 @@
 import collections
 import threading
 
+from oslo_log import log as logging
+
+from akanda.rug.common.i18n import _LE
 from akanda.rug import state
 from akanda.rug.openstack.common import timeutils
-
-from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
@@ -95,8 +96,8 @@ class TenantRouterManager(object):
             try:
                 sm.service_shutdown()
             except Exception:
-                LOG.exception(
-                    'Failed to shutdown state machine for %s' % rid
+                LOG.exception(_LE(
+                    'Failed to shutdown state machine for %s'), rid
                 )
 
     def _report_bandwidth(self, router_id, bandwidth):

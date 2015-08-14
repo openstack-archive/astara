@@ -39,7 +39,7 @@ import sys
 from eventlet import event
 from eventlet import greenthread
 
-from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.common.i18n import _LE, _LW
 from akanda.rug.openstack.common import log as logging
 from akanda.rug.openstack.common import timeutils
 
@@ -87,15 +87,15 @@ class LoopingCall(object):
                         break
                     delay = interval - timeutils.delta_seconds(start, end)
                     if delay <= 0:
-                        LOG.warning(
-                            _('task run outlasted interval by %s sec'), -delay
+                        LOG.warning(_LW(
+                            'task run outlasted interval by %s sec'), -delay
                         )
                     greenthread.sleep(delay if delay > 0 else 0)
             except LoopingCallDone, e:
                 self.stop()
                 done.send(e.retvalue)
             except Exception:
-                LOG.exception(_('in looping call'))
+                LOG.exception(_LE('in looping call'))
                 done.send_exception(*sys.exc_info())
                 return
             else:

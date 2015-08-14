@@ -28,6 +28,7 @@ import itertools
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from akanda.rug.common.i18n import _LE, _LI, _LW
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
 from akanda.rug import instance_manager
 
@@ -103,7 +104,7 @@ class CalcAction(State):
             elif action in (CREATE, UPDATE) and queue[0] == REBUILD:
                 # upgrade to REBUILD from CREATE/UPDATE by taking the next
                 # item from the queue
-                self.log.debug('upgrading from %s to rebuild' % action)
+                self.log.debug('upgrading from %s to rebuild', action)
                 action = queue.popleft()
                 continue
 
@@ -224,7 +225,7 @@ class CreateInstance(State):
         # Check for a loop where the router keeps failing to boot or
         # accept the configuration.
         if self.instance.attempts >= self.params.reboot_error_threshold:
-            self.log.info('dropping out of boot loop after %s trials',
+            self.log.info(_LI('Dropping out of boot loop after %s trials'),
                           self.instance.attempts)
             self.instance.set_error(worker_context)
             return action
@@ -445,7 +446,7 @@ class Automaton(object):
                                    self.instance.state)
                 except:
                     self.log.exception(
-                        '%s.execute() failed for action: %s',
+                        _LE('%s.execute() failed for action: %s'),
                         self.state,
                         self.action
                     )
@@ -487,16 +488,16 @@ class Automaton(object):
         # do any work.
         if message.crud == POLL and \
                 self.instance.state == instance_manager.ERROR:
-            self.log.info(
-                'Router status is ERROR, ignoring POLL message: %s',
+            self.log.info(_LI(
+                'Router status is ERROR, ignoring POLL message: %s'),
                 message,
             )
             return False
 
         if message.crud == REBUILD:
             if message.body.get('router_image_uuid'):
-                self.log.info(
-                    'Router is being REBUILT with custom image %s',
+                self.log.info(_LI(
+                    'Router is being REBUILT with custom image %s'),
                     message.body['router_image_uuid']
                 )
                 self.router_image_uuid = message.body['router_image_uuid']
@@ -509,7 +510,7 @@ class Automaton(object):
             logger = self.log.warning
         else:
             logger = self.log.debug
-        logger('incoming message brings queue length to %s', queue_len)
+        logger(_LW('incoming message brings queue length to %s'), queue_len)
         return True
 
     @property

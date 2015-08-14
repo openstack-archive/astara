@@ -45,6 +45,8 @@ import sys
 
 from setuptools.command import sdist
 
+from akanda.rug.common.i18n import _
+
 
 def parse_mailmap(mailmap='.mailmap'):
     mapping = {}
@@ -141,7 +143,7 @@ def _run_shell_command(cmd, throw_on_error=False):
                                   stderr=subprocess.PIPE)
     out = output.communicate()
     if output.returncode and throw_on_error:
-        raise Exception("%s returned %d" % cmd, output.returncode)
+        raise Exception(_("%s returned %d") % cmd, output.returncode)
     if len(out) == 0:
         return None
     if len(out[0].strip()) == 0:
@@ -375,5 +377,5 @@ def get_version(package_name, pre_version=None):
     version = _get_version_from_git(pre_version)
     if version:
         return version
-    raise Exception("Versioning for this project requires either an sdist"
-                    " tarball, or access to an upstream git repository.")
+    raise Exception(_("Versioning for this project requires either an sdist"
+                      " tarball, or access to an upstream git repository."))

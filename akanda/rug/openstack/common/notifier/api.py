@@ -34,8 +34,8 @@ import uuid
 
 from oslo_config import cfg
 
+from akanda.rug.common.i18n import _, _LE
 from akanda.rug.openstack.common import context
-from akanda.rug.openstack.common.gettextutils import _
 from akanda.rug.openstack.common import importutils
 from akanda.rug.openstack.common import jsonutils
 from akanda.rug.openstack.common import log as logging
@@ -156,10 +156,10 @@ def notify(context, publisher_id, event_type, priority, payload):
         try:
             driver.notify(context, msg)
         except Exception as e:
-            LOG.exception(_("Problem '%(e)s' attempting to "
-                            "send to notification system. "
-                            "Payload=%(payload)s")
-                          % dict(e=e, payload=payload))
+            LOG.exception(_LE("Problem '%(e)s' attempting to "
+                              "send to notification system. "
+                              "Payload=%(payload)s"),
+                          dict(e=e, payload=payload))
 
 
 _drivers = None
@@ -186,8 +186,8 @@ def add_driver(notification_driver):
             driver = importutils.import_module(notification_driver)
             _drivers[notification_driver] = driver
         except ImportError:
-            LOG.exception(_("Failed to load notifier %s. "
-                            "These notifications will not be sent.") %
+            LOG.exception(_LE("Failed to load notifier %s. "
+                              "These notifications will not be sent."),
                           notification_driver)
     else:
         # Driver is already loaded; just add the object.

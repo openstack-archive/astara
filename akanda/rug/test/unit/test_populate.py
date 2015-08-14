@@ -70,9 +70,11 @@ class TestPrePopulateWorkers(unittest.TestCase):
         exc = q_exceptions.Forbidden
         self._exit_loop_bad_auth(mocked_neutron_api, log, exc)
 
-    @mock.patch('akanda.rug.populate.LOG')
+    @mock.patch('akanda.rug.populate.LOG.warning')
+    @mock.patch('akanda.rug.populate.LOG.debug')
     @mock.patch('akanda.rug.api.neutron.Neutron')
-    def test_retry_loop_logging(self, mocked_neutron_api, log):
+    def test_retry_loop_logging(
+            self, mocked_neutron_api, log_debug, log_warning):
         neutron_client = mock.Mock()
         message = mock.Mock(tenant_id='1', router_id='2')
         returned_value = [
@@ -85,14 +87,8 @@ class TestPrePopulateWorkers(unittest.TestCase):
 
         sched = mock.Mock()
         populate._pre_populate_workers(sched)
-        expected = [
-            mock.call.warning(u'Could not fetch routers from neutron: '
-                              'An unknown exception occurred.'),
-            mock.call.warning('sleeping 1 seconds before retrying'),
-            mock.call.debug('Start pre-populating the workers '
-                            'with %d fetched routers', 1)
-        ]
-        self.assertEqual(log.mock_calls, expected)
+        self.assertEqual(2, log_warning.call_count)
+        self.assertEqual(1, log_debug.call_count)
 
     @mock.patch('akanda.rug.event.Event')
     @mock.patch('akanda.rug.api.neutron.Neutron')
