@@ -142,7 +142,7 @@ class TestGetCRUD(unittest.TestCase):
             fake_tenant.return_value = fake_tenant_id
             f(**kwargs)
             if not self.queue.qsize():
-                    return None
+                return None
             tenant, event = self.queue.get()
             self.assertEqual(tenant, fake_tenant_id)
             return event

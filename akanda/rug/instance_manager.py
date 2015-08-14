@@ -24,6 +24,7 @@ from oslo_config import cfg
 from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api
 from akanda.rug.api import neutron
+from akanda.rug.common.i18n import _LE, _LI, _LW
 
 DOWN = 'down'
 BOOTING = 'booting'
@@ -149,7 +150,7 @@ class InstanceManager(object):
                 self.router_id
             )
             if instance is None and self.state != ERROR:
-                self.log.info('No instance was found; rebooting')
+                self.log.info(_LI('No instance was found; rebooting'))
                 self.state = DOWN
                 self.instance_info = None
 
@@ -172,9 +173,10 @@ class InstanceManager(object):
             # duration to log.
             self.instance_info.confirm_up()
             if self.instance_info.boot_duration:
-                self.log.info('Router booted in %s seconds after %s attempts',
-                              self.instance_info.boot_duration.total_seconds(),
-                              self._boot_counter.count)
+                self.log.info(
+                    _LI('Router booted in %s seconds after %s attempts'),
+                    self.instance_info.boot_duration.total_seconds(),
+                    self._boot_counter.count)
             # Always reset the boot counter, even if we didn't boot
             # the server ourself, so we don't accidentally think we
             # have an erroring router.
@@ -184,10 +186,10 @@ class InstanceManager(object):
     def boot(self, worker_context, router_image_uuid):
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.info('not booting deleted router')
+            self.log.info(_LI('Not booting deleted router'))
             return
 
-        self.log.info('Booting router')
+        self.log.info(_LI('Booting router'))
         self.state = DOWN
         self._boot_counter.start()
 
@@ -217,14 +219,14 @@ class InstanceManager(object):
                 make_vrrp_ports
             )
             if not instance_info:
-                self.log.info('Previous router is deleting')
+                self.log.info(_LI('Previous router is deleting'))
                 # Reset the VM manager, causing the state machine to start
                 # again with a new VM.
                 self.reset_boot_counter()
                 self.instance_info = None
                 return
         except:
-            self.log.exception('Router failed to start boot')
+            self.log.exception(_LE('Router failed to start boot'))
             # TODO(mark): attempt clean-up of failed ports
             return
         else:
@@ -236,13 +238,13 @@ class InstanceManager(object):
     def check_boot(self, worker_context):
         ready_states = (UP, CONFIGURED)
         if self.update_state(worker_context, silent=True) in ready_states:
-            self.log.info('Router has booted, attempting initial config')
+            self.log.info(_LI('Router has booted, attempting initial config'))
             self.configure(worker_context, BOOTING, attempts=1)
             if self.state != CONFIGURED:
                 self._check_boot_timeout()
             return self.state == CONFIGURED
 
-        self.log.debug('Router is %s' % self.state.upper())
+        self.log.debug('Router is %s', self.state.upper())
         return False
 
     @synchronize_router_status
@@ -294,15 +296,15 @@ class InstanceManager(object):
     def stop(self, worker_context):
         self._ensure_cache(worker_context)
         if self.state == GONE:
-            self.log.info('Destroying router neutron has deleted')
+            self.log.info(_LI('Destroying router neutron has deleted'))
         else:
-            self.log.info('Destroying router')
+            self.log.info(_LI('Destroying router'))
 
         try:
             nova_client = worker_context.nova_client
             nova_client.destroy_instance(self.instance_info)
         except Exception:
-            self.log.exception('Error deleting router instance')
+            self.log.exception(_LE('Error deleting router instance'))
 
         start = time.time()
         while time.time() - start < cfg.CONF.boot_timeout:
@@ -312,8 +314,8 @@ class InstanceManager(object):
                 return
             self.log.debug('Router has not finished stopping')
             time.sleep(cfg.CONF.retry_delay)
-        self.log.error(
-            'Router failed to stop within %d secs',
+        self.log.error(_LE(
+            'Router failed to stop within %d secs'),
             cfg.CONF.boot_timeout)
 
     def configure(self, worker_context, failure_state=RESTART, attempts=None):
@@ -381,7 +383,7 @@ class InstanceManager(object):
             except Exception:
                 if i == attempts - 1:
                     # Only log the traceback if we encounter it many times.
-                    self.log.exception('failed to update config')
+                    self.log.exception(_LE('Failed to update config'))
                 else:
                     self.log.debug(
                         'failed to update config, attempt %d',
@@ -390,7 +392,7 @@ class InstanceManager(object):
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.state = CONFIGURED
-                self.log.info('Router config updated')
+                self.log.info(_LI('Router config updated'))
                 return
         else:
             # FIXME: We failed to configure the router too many times,
@@ -412,8 +414,8 @@ class InstanceManager(object):
         if instance_macs != actual_macs:
             # our cached copy of the ports is wrong reboot and clean up
             self.log.warning(
-                ('Instance macs(%s) do not match actual macs (%s). Instance '
-                 'cache appears out-of-sync'),
+                _LW('Instance macs(%s) do not match actual macs (%s). '
+                    'Instance cache appears out-of-sync'),
                 instance_macs, actual_macs
             )
             self.state = RESTART
@@ -443,7 +445,7 @@ class InstanceManager(object):
                 try:
                     instance.interface_attach(port.id, None, None)
                 except:
-                    self.log.exception('Interface attach failed')
+                    self.log.exception(_LE('Interface attach failed'))
                     self.state = RESTART
                     return
                 self.instance_info.ports.append(port)
@@ -458,7 +460,7 @@ class InstanceManager(object):
                 try:
                     instance.interface_detach(port.id)
                 except:
-                    self.log.exception('Interface detach failed')
+                    self.log.exception(_LE('Interface detach failed'))
                     self.state = RESTART
                     return
 
@@ -528,7 +530,7 @@ class InstanceManager(object):
                 # If the instance was created more than `boot_timeout` seconds
                 # ago, log an error and set the state set to DOWN
                 self.log.info(
-                    'Router is DOWN.  Created over %d secs ago.',
+                    _LI('Router is DOWN.  Created over %d secs ago.'),
                     cfg.CONF.boot_timeout)
                 # Do not reset the state if we have an error condition
                 # already. The state will be reset when the router starts

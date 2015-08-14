@@ -26,7 +26,7 @@ import threading
 from oslo_config import cfg
 from oslo_log import log
 
-from akanda.rug.common.i18n import _, _LE, _LI
+from akanda.rug.common.i18n import _LE, _LI
 from akanda.rug.common import config as ak_cfg
 from akanda.rug import daemon
 from akanda.rug import health
@@ -200,8 +200,8 @@ def main(argv=sys.argv[1:]):
         LOG.info(_LI('stopping processing'))
         sched.stop()
         # Terminate the listening process
-        LOG.debug(_('stopping %s'), notification_proc.name)
+        LOG.debug('stopping %s', notification_proc.name)
         notification_proc.terminate()
-        LOG.debug(_('stopping %s'), metadata_proc.name)
+        LOG.debug('stopping %s', metadata_proc.name)
         metadata_proc.terminate()
         LOG.info(_LI('exiting'))

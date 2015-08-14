@@ -30,6 +30,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from akanda.rug import commands
+from akanda.rug.common.i18n import _LE, _LI, _LW
 from akanda.rug import event
 from akanda.rug import tenant
 from akanda.rug.api import nova
@@ -140,7 +141,7 @@ class Worker(object):
             except Queue.Empty:
                 continue
             if sm is None:
-                LOG.info('received stop message')
+                LOG.info(_LI('received stop message'))
                 break
             # Make sure we didn't already have some updates under way
             # for a router we've been told to ignore for debug mode.
@@ -157,7 +158,7 @@ class Worker(object):
                 self._thread_status[my_id] = 'updating %s' % sm.router_id
                 sm.update(context)
             except:
-                LOG.exception('could not complete update for %s',
+                LOG.exception(_LE('could not complete update for %s'),
                               sm.router_id)
             finally:
                 self._thread_status[my_id] = (
@@ -262,23 +263,23 @@ class Worker(object):
         elif instructions['command'] == commands.ROUTER_DEBUG:
             router_id = instructions['router_id']
             if router_id in commands.WILDCARDS:
-                LOG.warning(
-                    'Ignoring instruction to debug all routers with %r',
+                LOG.warning(_LW(
+                    'Ignoring instruction to debug all routers with %r'),
                     router_id)
             else:
-                LOG.info('Placing router %s in debug mode', router_id)
+                LOG.info(_LI('Placing router %s in debug mode'), router_id)
                 self._debug_routers.add(router_id)
 
         elif instructions['command'] == commands.ROUTER_MANAGE:
             router_id = instructions['router_id']
             try:
                 self._debug_routers.remove(router_id)
-                LOG.info('Resuming management of router %s', router_id)
+                LOG.info(_LI('Resuming management of router %s'), router_id)
             except KeyError:
                 pass
             try:
                 self._router_locks[router_id].release()
-                LOG.info('Unlocked router %s', router_id)
+                LOG.info(_LI('Unlocked router %s'), router_id)
             except KeyError:
                 pass
             except threading.ThreadError:
@@ -293,27 +294,27 @@ class Worker(object):
                 body=instructions,
             )
             # Use handle_message() to ensure we acquire the lock
-            LOG.info('sending %s instruction to %s',
+            LOG.info(_LI('sending %s instruction to %s'),
                      instructions['command'], message.tenant_id)
             self.handle_message(new_msg.tenant_id, new_msg)
-            LOG.info('forced %s for %s complete',
+            LOG.info(_LI('forced %s for %s complete'),
                      instructions['command'], message.tenant_id)
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
             if tenant_id in commands.WILDCARDS:
-                LOG.warning(
-                    'Ignoring instruction to debug all tenants with %r',
+                LOG.warning(_LW(
+                    'Ignoring instruction to debug all tenants with %r'),
                     tenant_id)
             else:
-                LOG.info('Placing tenant %s in debug mode', tenant_id)
+                LOG.info(_LI('Placing tenant %s in debug mode'), tenant_id)
                 self._debug_tenants.add(tenant_id)
 
         elif instructions['command'] == commands.TENANT_MANAGE:
             tenant_id = instructions['tenant_id']
             try:
                 self._debug_tenants.remove(tenant_id)
-                LOG.info('Resuming management of tenant %s', tenant_id)
+                LOG.info(_LI('Resuming management of tenant %s'), tenant_id)
             except KeyError:
                 pass
 
@@ -321,12 +322,12 @@ class Worker(object):
             try:
                 cfg.CONF()
             except Exception:
-                LOG.exception('Could not reload configuration')
+                LOG.exception(_LE('Could not reload configuration'))
             else:
                 cfg.CONF.log_opt_values(LOG, INFO)
 
         else:
-            LOG.warning('unrecognized command: %s', instructions)
+            LOG.warning(_LW('unrecognized command: %s'), instructions)
 
     def _get_routers_to_ignore(self):
         ignores = set()
@@ -339,8 +340,8 @@ class Worker(object):
 
     def _deliver_message(self, target, message):
         if target in self._debug_tenants:
-            LOG.info(
-                'Ignoring message intended for tenant %s: %s',
+            LOG.info(_LI(
+                'Ignoring message intended for tenant %s: %s'),
                 target, message,
             )
             return
@@ -353,8 +354,8 @@ class Worker(object):
             sms = trm.get_state_machines(message, self._context)
             for sm in sms:
                 if sm.router_id in routers_to_ignore:
-                    LOG.info(
-                        'Ignoring message intended for %s: %s',
+                    LOG.info(_LI(
+                        'Ignoring message intended for %s: %s'),
                         sm.router_id, message,
                     )
                     continue
@@ -387,31 +388,31 @@ class Worker(object):
     def report_status(self, show_config=True):
         if show_config:
             cfg.CONF.log_opt_values(LOG, INFO)
-        LOG.info(
-            'Number of state machines in work queue: %d',
+        LOG.info(_LI(
+            'Number of state machines in work queue: %d'),
             self.work_queue.qsize()
         )
-        LOG.info(
-            'Number of tenant router managers managed: %d',
+        LOG.info(_LI(
+            'Number of tenant router managers managed: %d'),
             len(self.tenant_managers)
         )
         for thread in self.threads:
-            LOG.info(
-                'Thread %s is %s. Last seen: %s',
+            LOG.info(_LI(
+                'Thread %s is %s. Last seen: %s'),
                 thread.name,
                 'alive' if thread.isAlive() else 'DEAD',
                 self._thread_status.get(thread.name, 'UNKNOWN'),
             )
         for tid in sorted(self._debug_tenants):
-            LOG.info('Debugging tenant: %s', tid)
+            LOG.info(_LI('Debugging tenant: %s'), tid)
         if not self._debug_tenants:
-            LOG.info('No tenants in debug mode')
+            LOG.info(_LI('No tenants in debug mode'))
         for rid in sorted(self._debug_routers):
-            LOG.info('Debugging router: %s', rid)
+            LOG.info(_LI('Debugging router: %s'), rid)
         if not self._debug_routers:
-            LOG.info('No routers in debug mode')
+            LOG.info(_LI('No routers in debug mode'))
         ignored_routers = sorted(self._get_routers_to_ignore())
         for rid in ignored_routers:
-            LOG.info('Ignoring router: %s', rid)
+            LOG.info(_LI('Ignoring router: %s'), rid)
         if not ignored_routers:
-            LOG.info('No routers being ignored')
+            LOG.info(_LI('No routers being ignored'))
