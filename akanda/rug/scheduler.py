@@ -22,11 +22,11 @@ import multiprocessing
 import uuid
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from akanda.rug import commands
+from akanda.rug.common.i18n import _, _LE, _LI, _LW
 from akanda.rug import daemon
-
-from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def _worker(inq, worker_factory):
         try:
             worker.handle_message(target, message)
         except Exception:
-            LOG.exception('Error processing data %s' % unicode(data))
+            LOG.exception(_LE('Error processing data %s'), unicode(data))
         if data is None:
             break
     LOG.debug('exiting')
@@ -86,8 +86,8 @@ class Dispatcher(object):
         try:
             idx = uuid.UUID(target).int % len(self.workers)
         except (TypeError, ValueError) as e:
-            LOG.warning(
-                'could not determine UUID from %r: %s, ignoring message',
+            LOG.warning(_LW(
+                'Could not determine UUID from %r: %s, ignoring message'),
                 target, e,
             )
             return []
@@ -110,7 +110,7 @@ class Scheduler(object):
         """
         self.num_workers = cfg.CONF.num_worker_processes
         if self.num_workers < 1:
-            raise ValueError('Need at least one worker process')
+            raise ValueError(_('Need at least one worker process'))
         self.workers = []
         # Create several worker processes, each with its own queue for
         # sending it instructions based on the notifications we get
@@ -146,7 +146,7 @@ class Scheduler(object):
             w['queue'].close()
             LOG.debug('waiting for worker %s', w['worker'].name)
             w['worker'].join()
-        LOG.info('scheduler shutdown')
+        LOG.info(_LI('scheduler shutdown'))
 
     def handle_message(self, target, message):
         """Call this method when a new notification message is delivered. The

@@ -109,7 +109,7 @@ class LinuxInterfaceDriver(object):
 
     def check_bridge_exists(self, bridge):
         if not ip_lib.device_exists(bridge):
-            raise Exception('Bridge %s does not exist' % bridge)
+            raise Exception(_('Bridge %s does not exist') % bridge)
 
     def get_device_name(self, port):
         return (self.DEV_NAME_PREFIX + port.id)[:self.DEV_NAME_LEN]
@@ -263,7 +263,7 @@ class BridgeInterfaceDriver(LinuxInterfaceDriver):
         device = ip_lib.IPDevice(device_name, self.root_helper, namespace)
         try:
             device.link.delete()
-            LOG.debug(_("Unplugged interface '%s'"), device_name)
+            LOG.debug("Unplugged interface '%s'", device_name)
         except RuntimeError:
             LOG.exception(_LE(
                 "Failed unplugging interface '%s'"), device_name)

@@ -49,6 +49,8 @@ import webob.exc
 from oslo_log import log as logging
 from oslo_log import loggers
 
+from akanda.rug.common.i18n import _, _LE, _LI, _LW
+
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -84,7 +86,7 @@ class MetadataProxyHandler(object):
                 return webob.exc.HTTPNotFound()
 
         except Exception:
-            LOG.exception("Unexpected error.")
+            LOG.exception(_LE("Unexpected error."))
             msg = ('An unknown error has occurred. '
                    'Please try your request again.')
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
@@ -115,7 +117,7 @@ class MetadataProxyHandler(object):
             LOG.debug(str(resp))
             return content
         elif resp.status == 403:
-            msg = (
+            msg = _LW(
                 'The remote metadata server responded with Forbidden. This '
                 'response usually occurs when shared secrets do not match.'
             )
@@ -124,12 +126,13 @@ class MetadataProxyHandler(object):
         elif resp.status == 404:
             return webob.exc.HTTPNotFound()
         elif resp.status == 500:
-            LOG.warning(
+            msg = _(
                 'Remote metadata server experienced an internal server error.'
-            )
+                )
+            LOG.warning(msg)
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
         else:
-            raise Exception('Unexpected response code: %s' % resp.status)
+            raise Exception(_('Unexpected response code: %s') % resp.status)
 
     def _sign_instance_id(self, instance_id):
         return hmac.new(cfg.CONF.neutron_metadata_proxy_shared_secret,
@@ -144,9 +147,9 @@ class MetadataProxy(object):
     def run(self, ip_address, port=RUG_META_PORT):
         app = MetadataProxyHandler()
         for i in xrange(5):
-            LOG.info(
-                'Starting the metadata proxy on %s/%s',
-                ip_address, port,
+            LOG.info(_LI(
+                'Starting the metadata proxy on %s/%s'),
+                ip_address, port
             )
             try:
                 sock = eventlet.listen(
@@ -157,14 +160,15 @@ class MetadataProxy(object):
             except socket.error as err:
                 if err.errno != 99:
                     raise
-                LOG.warning('Could not create metadata proxy socket: %s', err)
-                LOG.warning('Sleeping %s before trying again', i + 1)
+                LOG.warning(
+                    _LW('Could not create metadata proxy socket: %s'), err)
+                LOG.warning(_LW('Sleeping %s before trying again'), i + 1)
                 eventlet.sleep(i + 1)
             else:
                 break
         else:
             raise RuntimeError(
-                'Could not establish metadata proxy socket on %s/%s' %
+                _('Could not establish metadata proxy socket on %s/%s') %
                 (ip_address, port)
             )
         eventlet.wsgi.server(

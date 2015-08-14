@@ -29,6 +29,8 @@ from oslo_config import cfg
 from oslo_context import context
 from oslo_log import log as logging
 
+from akanda.rug.common.i18n import _LE, _LW
+
 
 cfg.CONF.register_group(cfg.OptGroup(name='rabbit',
                                      title='RabbitMQ options'))
@@ -111,8 +113,8 @@ L3_AGENT_TOPIC = 'l3_agent'
 
 def _handle_connection_error(exception, interval):
     """ Log connection retry attempts."""
-    LOG.warning("Error establishing connection: %s", exception)
-    LOG.warning("Retrying in %d seconds", interval)
+    LOG.warning(_LW("Error establishing connection: %s"), exception)
+    LOG.warning(_LW("Retrying in %d seconds"), interval)
 
 
 def _kombu_configuration(conf):
@@ -265,7 +267,7 @@ class Publisher(Sender):
             try:
                 self.send(event_type=msg['event_type'], message=msg['payload'])
             except Exception:
-                LOG.exception('could not publish notification')
+                LOG.exception(_LE('could not publish notification'))
 
 
 class NoopPublisher(Publisher):

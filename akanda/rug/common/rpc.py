@@ -21,6 +21,8 @@ from oslo_log import log as logging
 from oslo_config import cfg
 import oslo_messaging
 
+from akanda.rug.common.i18n import _LW
+
 LOG = logging.getLogger(__name__)
 
 
@@ -32,9 +34,9 @@ def _deprecated_amqp_url():
     url = cfg.CONF.amqp_url
     if not url:
         return
-    LOG.warning(
+    LOG.warning(_LW(
         'Use of amqp_url is deprecated. Please instead use options defined in '
-        'oslo_messaging_rabbit to declare your AMQP connection.')
+        'oslo_messaging_rabbit to declare your AMQP connection.'))
     url = urlparse.urlsplit(url)
     if url.scheme == 'amqp':
         scheme = 'rabbit'
@@ -112,7 +114,7 @@ class Connection(object):
         """
         target = get_target(topic=topic, fanout=True, server=cfg.CONF.host)
         server = get_server(target, endpoints)
-        LOG.debug('Created RPC server on topic %s' % topic)
+        LOG.debug('Created RPC server on topic %s', topic)
         self._add_server_thread(server)
 
     def create_notification_listener(self, endpoints, exchange=None,
@@ -134,15 +136,15 @@ class Connection(object):
         server = oslo_messaging.get_notification_listener(
             transport, [target], endpoints, pool=pool)
         LOG.debug(
-            'Created RPC notification listener on topic:%s/exchange:%s.' %
-            (topic, exchange))
+            'Created RPC notification listener on topic:%s/exchange:%s.',
+            topic, exchange)
         self._add_server_thread(server)
 
     def consume_in_threads(self):
         """Start all RPC consumers in threads"""
         for server, thread in self._server_threads.items():
-            LOG.debug('Started RPC connection thread:%s/server:%s' %
-                      (thread, server))
+            LOG.debug('Started RPC connection thread:%s/server:%s',
+                      thread, server)
             thread.start()
 
     def close(self):

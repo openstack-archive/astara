@@ -41,7 +41,7 @@ import logging
 import sys
 import traceback
 
-from akanda.rug.openstack.common.gettextutils import _
+from akanda.rug.common.i18n import _LE
 
 
 @contextlib.contextmanager
@@ -62,7 +62,7 @@ def save_and_reraise_exception():
     try:
         yield
     except Exception:
-        logging.error(_('Original exception being dropped: %s'),
+        logging.error(_LE('Original exception being dropped: %s'),
                       traceback.format_exception(type_, value, tb))
         raise
     raise type_, value, tb

@@ -22,13 +22,12 @@ import webob
 import webob.dec
 import webob.exc
 
-from akanda.rug.cli import app
-
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_log import loggers
 
-
-from oslo_config import cfg
+from akanda.rug.cli import app
+from akanda.rug.common.i18n import _, _LE, _LI, _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -66,9 +65,9 @@ class RugAPI(object):
         except ValueError:
             return webob.exc.HTTPNotFound()
         except Exception:
-            LOG.exception("Unexpected error.")
-            msg = ('An unknown error has occurred. '
-                   'Please try your request again.')
+            LOG.exception(_LE("Unexpected error."))
+            msg = _('An unknown error has occurred. '
+                    'Please try your request again.')
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
 
 
@@ -79,8 +78,8 @@ class RugAPIServer(object):
     def run(self, ip_address, port=cfg.CONF.rug_api_port):
         app = RugAPI()
         for i in xrange(5):
-            LOG.info(
-                'Starting the rug-api on %s/%s',
+            LOG.info(_LI(
+                'Starting the rug-api on %s/%s'),
                 ip_address, port,
             )
             try:
@@ -92,14 +91,14 @@ class RugAPIServer(object):
             except socket.error as err:
                 if err.errno != 99:  # EADDRNOTAVAIL
                     raise
-                LOG.warning('Could not create rug-api socket: %s', err)
-                LOG.warning('Sleeping %s before trying again', i + 1)
+                LOG.warning(_LW('Could not create rug-api socket: %s'), err)
+                LOG.warning(_LW('Sleeping %s before trying again'), i + 1)
                 eventlet.sleep(i + 1)
             else:
                 break
         else:
-            raise RuntimeError(
-                'Could not establish rug-api socket on %s/%s' %
+            raise RuntimeError(_(
+                'Could not establish rug-api socket on %s/%s') %
                 (ip_address, port)
             )
         eventlet.wsgi.server(
