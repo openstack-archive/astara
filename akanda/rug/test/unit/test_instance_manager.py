@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from akanda.rug import instance_manager
 from akanda.rug.api import neutron, nova
 
+
 instance_manager.RETRY_DELAY = 0.4
 instance_manager.BOOT_WAIT = 1
 
@@ -81,7 +82,7 @@ class TestInstanceManager(unittest.TestCase):
             instance_id='fake_instance_id',
             name='fake_name',
             image_uuid='fake_image_id',
-            booting=False,
+            status='ACTIVE',
             last_boot=(datetime.utcnow() - timedelta(minutes=15)),
             ports=[fake_int_port, fake_ext_port, fake_mgt_port],
             management_port=fake_mgt_port,
@@ -118,6 +119,8 @@ class TestInstanceManager(unittest.TestCase):
     @mock.patch('akanda.rug.instance_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
     def test_router_status_sync(self, config, router_api):
+        self.ctx.nova_client.update_instance_info.return_value = (
+            self.INSTANCE_INFO)
         self.update_state_p.stop()
         router_api.is_alive.return_value = False
         rtr = mock.sentinel.router
