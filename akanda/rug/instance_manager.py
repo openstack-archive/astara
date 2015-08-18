@@ -188,16 +188,19 @@ class InstanceManager(object):
 
         # After the instance is all the way up, record how long it took
         # to boot and accept a configuration.
-        if self.instance_info.booting and self.state == states.CONFIGURED:
-            # If we didn't boot the instance (because we were restarted
+        self.instance_info = (
+            worker_context.nova_client.update_instance_info(
+                self.instance_info))
+
+        if not self.instance_info.booting and self.state == states.CONFIGURED:
+            # If we didn't boot the server (because we were restarted
             # while it remained running, for example), we won't have a
             # duration to log.
-            self.instance_info.confirm_up()
-            if self.instance_info.boot_duration:
-                self.log.info('%s booted in %s seconds after %s attempts',
-                              self.driver.RESOURCE_NAME,
-                              self.instance_info.boot_duration.total_seconds(),
-                              self._boot_counter.count)
+            self.log.info('%s booted in %s seconds after %s attempts',
+                          self.driver.RESOURCE_NAME,
+                          self.instance_info.time_since_boot.total_seconds(),
+                          self._boot_counter.count)
+
             # Always reset the boot counter, even if we didn't boot
             # the server ourself, so we don't accidentally think we
             # have an erroring router.
