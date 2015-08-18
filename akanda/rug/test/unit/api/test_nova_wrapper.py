@@ -15,13 +15,22 @@
 # under the License.
 
 
-import datetime
+from datetime import datetime, timedelta
+
 import mock
 import unittest2 as unittest
 from six.moves import builtins as __builtins__
 from akanda.rug.api import nova
 
 from novaclient import exceptions as novaclient_exceptions
+
+
+class FakeNovaServer(object):
+    id = '6f05906e-4538-11e5-bb22-5254003ff1ae'
+    name = 'ak-796aafbc-4538-11e5-88e0-5254003ff1ae'
+    image = {'id': '83031410-4538-11e5-abd2-5254003ff1ae'}
+    status = 'ACTIVE'
+    created = '2012-08-20T21:11:09Z'
 
 
 class FakeModel(object):
@@ -59,7 +68,8 @@ fake_nova_instance = FakeModel(
     'instance_id',
     name='ak-appliance',
     status=None,
-    image={'id': 'fake_image_uuid'}
+    image={'id': 'fake_image_uuid'},
+    created='2012-08-20T21:11:09Z'
 )
 
 
@@ -125,14 +135,15 @@ class TestNovaWrapper(unittest.TestCase):
             instance_id='fake_instance_id',
             name='fake_name',
             image_uuid='fake_image_id',
-            booting=False,
-            last_boot=datetime.datetime.utcnow(),
-            ports=(fake_ext_port, fake_int_port),
+            status='ACTIVE',
+            last_boot=(datetime.utcnow() - timedelta(minutes=15)),
+            ports=[fake_int_port, fake_ext_port, fake_mgt_port],
             management_port=fake_mgt_port,
         )
 
     @mock.patch.object(nova, '_format_userdata')
     def test_create_instance(self, mock_userdata):
+        self.client.servers.create.return_value = fake_nova_instance
         mock_userdata.return_value = 'fake_userdata'
         expected = [
             mock.call.servers.create(
@@ -343,3 +354,21 @@ class TestNovaWrapper(unittest.TestCase):
         self.assertEqual(res.nova_status, 'BUILD')
         self.assertEqual(res.id_, fake_instance.id)
         self.assertIsInstance(res, nova.InstanceInfo)
+
+    def test_from_nova(self):
+        fake_server = FakeNovaServer()
+        last_boot = datetime.strptime(
+            fake_server.created, "%Y-%m-%dT%H:%M:%SZ")
+        instance_info = nova.InstanceInfo.from_nova(fake_server)
+        self.assertEqual(fake_server.id, instance_info.id_)
+        self.assertEqual(fake_server.name, instance_info.name)
+        self.assertEqual(fake_server.image['id'], instance_info.image_uuid)
+        self.assertEqual(last_boot, instance_info.last_boot)
+
+    def test_booting_false(self):
+        self.INSTANCE_INFO.nova_status = 'ACTIVE'
+        self.assertFalse(self.INSTANCE_INFO.booting)
+
+    def test_booting_true(self):
+        self.INSTANCE_INFO.nova_status = 'BUILDING'
+        self.assertTrue(self.INSTANCE_INFO.booting)

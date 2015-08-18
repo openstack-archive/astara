@@ -96,7 +96,7 @@ class TestInstanceManager(unittest.TestCase):
             management_port=fake_mgt_port,
             ports=[fake_int_port, fake_ext_port, fake_mgt_port],
             image_uuid='9f3dbe8e-66d8-11e5-9952-525400cfc326',
-            booting=False,
+            status='ACTIVE',
             last_boot=(datetime.utcnow() - timedelta(minutes=15)),
         )
 
@@ -128,6 +128,8 @@ class TestInstanceManager(unittest.TestCase):
 
     @mock.patch('time.sleep', lambda *a: None)
     def test_router_status_sync(self):
+        self.ctx.nova_client.update_instance_info.return_value = (
+            self.INSTANCE_INFO)
         self.update_state_p.stop()
         self.fake_driver.is_alive.return_value = False
 
