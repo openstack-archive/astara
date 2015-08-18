@@ -36,19 +36,21 @@ cfg.CONF.register_opts(OPTIONS)
 
 class InstanceInfo(object):
     def __init__(self, instance_id, name, management_port=None, ports=(),
-                 image_uuid=None, booting=False, last_boot=None):
+                 image_uuid=None, status=None, last_boot=None):
         self.id_ = instance_id
         self.name = name
         self.image_uuid = image_uuid
-        self.booting = booting
-        self.last_boot = datetime.utcnow() if booting else last_boot
 
-        self.instance_up = True
         self.boot_duration = None
-        self.nova_status = None
+        self.nova_status = status
 
         self.management_port = management_port
         self._ports = ports
+        self.last_boot = last_boot
+
+    @property
+    def booting(self):
+        return 'BUILD' in self.nova_status
 
     @property
     def management_address(self):
@@ -72,6 +74,30 @@ class InstanceInfo(object):
             self.booting = False
             if self.last_boot:
                 self.boot_duration = (datetime.utcnow() - self.last_boot)
+
+    @classmethod
+    def from_nova(cls, instance):
+        """
+        Returns an instantiated InstanceInfo object with data gathered from
+        an existing Nova server.
+
+        :param instance: novaclient.v2.servers.Server object for an existing
+                         nova instance.
+        :returns: InstanceInfo instance
+        """
+        # NOTE(adam_g): We do not yet actually rebuild any instances.
+        #               A rug REBUILD is actually a delete/create, so it
+        #               should be safe to track last_boot as the timestamp
+        #               the instance was last booted.
+        last_boot = datetime.strptime(
+            instance.created, "%Y-%m-%dT%H:%M:%SZ")
+        return cls(
+            instance_id=instance.id,
+            name=instance.name,
+            image_uuid=instance.image['id'],
+            status=instance.status,
+            last_boot=last_boot,
+        )
 
 
 class Nova(object):
@@ -105,17 +131,16 @@ class Nova(object):
         )
 
         instance_info = InstanceInfo(
-            server.id,
-            name,
-            mgt_port,
-            instance_ports,
-            image_uuid,
-            True
+            instance_id=server.id,
+            name=name,
+            management_port=mgt_port,
+            ports=instance_ports,
+            image_uuid=image_uuid,
+            status=server.status,
         )
 
         assert server and server.created
 
-        instance_info.nova_status = server.status
         return instance_info
 
     def get_instance_info_for_obj(self, router_id):
@@ -128,11 +153,7 @@ class Nova(object):
         instance = self.get_instance_for_obj(router_id)
 
         if instance:
-            return InstanceInfo(
-                instance.id,
-                instance.name,
-                image_uuid=instance.image['id']
-            )
+            return InstanceInfo.from_nova(instance)
 
     def get_instance_for_obj(self, router_id):
         """Retreives a nova server for a given router_id, based on instance
@@ -185,11 +206,7 @@ class Nova(object):
                     prev_instance_info.nova_status = instance.status
                     instance_info = prev_instance_info
                 else:
-                    instance_info = InstanceInfo(
-                        instance.id,
-                        instance.name,
-                        image_uuid=instance.image['id']
-                    )
+                    instance_info = InstanceInfo.from_nova(instance)
                 return instance_info
             self.client.servers.delete(instance.id)
             return None

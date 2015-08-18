@@ -81,7 +81,7 @@ class TestInstanceManager(unittest.TestCase):
             instance_id='fake_instance_id',
             name='fake_name',
             image_uuid='fake_image_id',
-            booting=False,
+            status='ACTIVE',
             last_boot=(datetime.utcnow() - timedelta(minutes=15)),
             ports=[fake_int_port, fake_ext_port, fake_mgt_port],
             management_port=fake_mgt_port,
