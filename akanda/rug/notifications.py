@@ -22,6 +22,7 @@ import Queue
 import threading
 
 from akanda.rug import commands
+from akanda.rug import drivers
 from akanda.rug import event
 from akanda.rug.common import rpc
 
@@ -29,7 +30,7 @@ from oslo_config import cfg
 from oslo_context import context
 from oslo_log import log as logging
 
-from akanda.rug.common.i18n import _LE, _LW
+from akanda.rug.common.i18n import _LE
 
 
 cfg.CONF.register_group(cfg.OptGroup(name='rabbit',
@@ -93,12 +94,12 @@ def _get_tenant_id_for_message(context, payload=None):
     return None
 
 
-_INTERFACE_NOTIFICATIONS = set([
+_ROUTER_INTERFACE_NOTIFICATIONS = set([
     'router.interface.create',
     'router.interface.delete',
 ])
 
-_INTERESTING_NOTIFICATIONS = set([
+_ROUTER_INTERESTING_NOTIFICATIONS = set([
     'subnet.create.end',
     'subnet.change.end',
     'subnet.delete.end',
@@ -111,21 +112,6 @@ _INTERESTING_NOTIFICATIONS = set([
 L3_AGENT_TOPIC = 'l3_agent'
 
 
-def _handle_connection_error(exception, interval):
-    """ Log connection retry attempts."""
-    LOG.warning(_LW("Error establishing connection: %s"), exception)
-    LOG.warning(_LW("Retrying in %d seconds"), interval)
-
-
-def _kombu_configuration(conf):
-    """Return a dict of kombu connection parameters from oslo.config."""
-    cfg_keys = ('max_retries',
-                'interval_start',
-                'interval_step',
-                'interval_max')
-    return {k: getattr(conf.CONF.rabbit, k) for k in cfg_keys}
-
-
 class L3RPCEndpoint(object):
     """A RPC endpoint for servicing L3 Agent RPC requests"""
     def __init__(self, notification_queue):
@@ -133,9 +119,12 @@ class L3RPCEndpoint(object):
 
     def router_deleted(self, ctxt, router_id):
         tenant_id = _get_tenant_id_for_message(ctxt)
+
+        resource = event.Resource('router', router_id, tenant_id)
+
         crud = event.DELETE
-        e = event.Event(tenant_id, router_id, crud, None)
-        self.notification_queue.put((e.tenant_id, e))
+        e = event.Event(resource, crud, None)
+        self.notification_queue.put((e.resource.tenant_id, e))
 
 
 class NotificationsEndpoint(object):
@@ -144,45 +133,46 @@ class NotificationsEndpoint(object):
         self.notification_queue = notification_queue
 
     def info(self, ctxt, publisher_id, event_type, payload, metadata):
-        # Router id is not always present, but look for it as though
-        # it is to avoid duplicating this line a few times.
-        router_id = payload.get('router', {}).get('id')
         tenant_id = _get_tenant_id_for_message(ctxt, payload)
         crud = event.UPDATE
-        if event_type.startswith('routerstatus.update'):
-            # We generate these events ourself, so ignore them.
-            return None
-        if event_type == 'router.create.end':
-            crud = event.CREATE
-        elif event_type == 'router.delete.end':
-            crud = event.DELETE
-            router_id = payload.get('router_id')
-        elif event_type in _INTERFACE_NOTIFICATIONS:
-            crud = event.UPDATE
-            router_id = payload.get('router.interface', {}).get('id')
-        elif event_type in _INTERESTING_NOTIFICATIONS:
-            crud = event.UPDATE
-        elif event_type.endswith('.end'):
-            crud = event.UPDATE
-        elif event_type.startswith('akanda.rug.command'):
+        e = None
+        events = []
+        if event_type.startswith('akanda.rug.command'):
             LOG.debug('received a command: %r', payload)
-            # If the message does not specify a tenant, send it to everyone
-            tenant_id = payload.get('tenant_id', '*')
-            router_id = payload.get('router_id')
             crud = event.COMMAND
             if payload.get('command') == commands.POLL:
                 e = event.Event(
-                    tenant_id='*',
-                    router_id='*',
+                    resource='*',
                     crud=event.POLL,
                     body={})
-                self.notification_queue.put((e.tenant_id, e))
+                self.notification_queue.put(('*', e))
                 return
+            else:
+                # If the message does not specify a tenant, send it to everyone
+                tenant_id = payload.get('tenant_id', '*')
+                router_id = payload.get('router_id')
+                resource = event.Resource(
+                    driver='*',
+                    id=router_id,
+                    tenant_id=tenant_id)
+                events.append(event.Event(resource, crud, payload))
         else:
+            for driver in drivers.enabled_drivers():
+                driver_event = driver.process_notification(
+                    tenant_id, event_type, payload)
+                if driver_event:
+                    events.append(driver_event)
+
+        if not events:
+            LOG.debug('Could not construct any events from %s /w payload: %s',
+                      event_type, payload)
             return
 
-        e = event.Event(tenant_id, router_id, crud, payload)
-        self.notification_queue.put((e.tenant_id, e))
+        LOG.debug('Generated %s events from %s /w payload: %s',
+                  len(events), event_type, payload)
+
+        for e in events:
+            self.notification_queue.put((e.resource.tenant_id, e))
 
 
 def listen(notification_queue):
