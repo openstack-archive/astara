@@ -42,3 +42,7 @@ test.conf
 
 *.db
 *.db_clean
+
+#macos hidden files
+.DS_Store
+._.DS_Store

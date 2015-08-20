@@ -32,14 +32,14 @@ import sqlalchemy as sa
 
 def upgrade():
     op.create_table(
-        'router_debug',
+        'resource_debug',
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('uuid', sa.String(length=36), nullable=False),
         sa.Column('reason', sa.String(length=255), nullable=True),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('uuid', name='uniq_debug_router0uuid'),
+        sa.UniqueConstraint('uuid', name='uniq_debug_resource0uuid'),
     )
     op.create_table(
         'tenant_debug',

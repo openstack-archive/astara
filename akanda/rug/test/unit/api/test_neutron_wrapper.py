@@ -19,12 +19,13 @@ import copy
 
 import mock
 import netaddr
-import unittest2 as unittest
+
+from akanda.rug.test.unit import base
 
 from akanda.rug.api import neutron
 
 
-class TestuNeutronModels(unittest.TestCase):
+class TestuNeutronModels(base.RugTestBase):
     def test_router(self):
         r = neutron.Router(
             '1', 'tenant_id', 'name', True, 'ACTIVE', 'ext', ['int'], ['fip'])
@@ -243,7 +244,7 @@ class FakeConf:
     auth_region = 'RegionOne'
 
 
-class TestNeutronWrapper(unittest.TestCase):
+class TestNeutronWrapper(base.RugTestBase):
 
     @mock.patch('akanda.rug.api.neutron.cfg')
     @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
@@ -268,14 +269,14 @@ class TestNeutronWrapper(unittest.TestCase):
 
     @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_neutron_router_status_update_error(self, client_wrapper):
-        urs = client_wrapper.return_value.update_router_status
+        urs = client_wrapper.return_value.update_status
         urs.side_effect = RuntimeError('should be caught')
         conf = mock.Mock()
         neutron_wrapper = neutron.Neutron(conf)
         neutron_wrapper.update_router_status('router-id', 'new-status')
 
 
-class TestExternalPort(unittest.TestCase):
+class TestExternalPort(base.RugTestBase):
 
     EXTERNAL_NET_ID = 'a0c63b93-2c42-4346-909e-39c690f53ba0'
     EXTERNAL_PORT_ID = '089ae859-10ec-453c-b264-6c452fc355e5'
@@ -361,6 +362,7 @@ class TestExternalPort(unittest.TestCase):
     ]
 
     def setUp(self):
+        super(TestExternalPort, self).setUp()
         self.conf = mock.Mock()
         self.conf.external_network_id = 'ext'
         self.conf.max_retries = 3

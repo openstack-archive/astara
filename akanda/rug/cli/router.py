@@ -21,18 +21,28 @@ import argparse
 import subprocess
 import sys
 
+from akanda.rug.common.i18n import _LW
 from akanda.rug import commands
 from akanda.rug.cli import message
 from akanda.rug.api import nova, neutron
 
 from novaclient import exceptions
 from oslo_config import cfg
+from oslo_log import log as logging
+
 from neutronclient.v2_0 import client
+
+
+LOG = logging.getLogger(__name__)
 
 
 class _TenantRouterCmd(message.MessageSending):
 
     def get_parser(self, prog_name):
+        new_cmd = str(prog_name).replace('router', 'resource')
+        LOG.warning(_LW(
+            "WARNING: '%s' is deprecated in favor of '%s' and will be removed "
+            "in the Mitaka release.") % (prog_name, new_cmd))
         # Bypass the direct base class to let us put the tenant id
         # argument first
         p = super(_TenantRouterCmd, self).get_parser(prog_name)
