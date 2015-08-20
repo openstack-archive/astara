@@ -11,9 +11,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from akanda.rug.drivers.router import Router
 
 # TODO: (david) make available drivers a config section
-available_drivers = {}
+available_drivers = {'router': Router}
 
 
 class MissingDriverException(Exception):
