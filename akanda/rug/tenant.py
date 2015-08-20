@@ -15,7 +15,7 @@
 # under the License.
 
 
-"""Manage the routers for a given tenant.
+"""Manage the resources for a given tenant.
 """
 
 import collections
@@ -25,6 +25,7 @@ from oslo_log import log as logging
 
 from akanda.rug.common.i18n import _LE
 from akanda.rug import state
+from akanda.rug import drivers
 from akanda.rug.openstack.common import timeutils
 
 
@@ -35,7 +36,7 @@ class InvalidIncomingMessage(Exception):
     pass
 
 
-class RouterContainer(object):
+class ResourceContainer(object):
 
     def __init__(self):
         self.state_machines = {}
@@ -55,9 +56,9 @@ class RouterContainer(object):
         with self.lock:
             return list(self.state_machines.values())
 
-    def has_been_deleted(self, router_id):
+    def has_been_deleted(self, resource_id):
         with self.lock:
-            return router_id in self.deleted
+            return resource_id in self.deleted
 
     def __getitem__(self, item):
         with self.lock:
@@ -72,8 +73,9 @@ class RouterContainer(object):
             return item in self.state_machines
 
 
-class TenantRouterManager(object):
-    """Keep track of the state machines for the routers for a given tenant.
+class TenantResourceManager(object):
+    """Keep track of the state machines for the logical resources for a given
+    tenant.
     """
 
     def __init__(self, tenant_id, notify_callback,
@@ -83,62 +85,61 @@ class TenantRouterManager(object):
         self.notify = notify_callback
         self._queue_warning_threshold = queue_warning_threshold
         self._reboot_error_threshold = reboot_error_threshold
-        self.state_machines = RouterContainer()
-        self._default_router_id = None
+        self.state_machines = ResourceContainer()
+        self._default_resource_id = None
 
-    def _delete_router(self, router_id):
-        "Called when the Automaton decides the router can be deleted"
-        if router_id in self.state_machines:
-            LOG.debug('deleting state machine for %s', router_id)
-            del self.state_machines[router_id]
-        if self._default_router_id == router_id:
-            self._default_router_id = None
+    def _delete_resource(self, resource_id):
+        "Called when the Automaton decides the resource can be deleted"
+        if resource_id in self.state_machines:
+            LOG.debug('deleting state machine for %s', resource_id)
+            del self.state_machines[resource_id]
+        if self._default_resource_id == resource_id:
+            self._default_resource_id = None
 
     def shutdown(self):
         LOG.info('shutting down')
-        for rid, sm in self.state_machines.items():
+        for resource_id, sm in self.state_machines.items():
             try:
                 sm.service_shutdown()
             except Exception:
                 LOG.exception(_LE(
-                    'Failed to shutdown state machine for %s'), rid
+                    'Failed to shutdown state machine for %s'), resource_id
                 )
 
-    def _report_bandwidth(self, router_id, bandwidth):
-        LOG.debug('reporting bandwidth for %s', router_id)
+    def _report_bandwidth(self, resource_id, bandwidth):
+        LOG.debug('reporting bandwidth for %s', resource_id)
         msg = {
             'tenant_id': self.tenant_id,
             'timestamp': timeutils.isotime(),
             'event_type': 'akanda.bandwidth.used',
             'payload': dict((b.pop('name'), b) for b in bandwidth),
-            'router_id': router_id,
+            'uuid': resource_id,
         }
         self.notify(msg)
 
     def get_state_machines(self, message, worker_context):
         """Return the state machines and the queue for sending it messages for
-        the router being addressed by the message.
+        the logical resource being addressed by the message.
         """
-        router_id = message.router_id
-        if not router_id:
+        if not message.resource:
             LOG.error(_LE('Cannot get state machine for message with '
-                          'no router_id'))
+                          'no message.resource'))
             raise InvalidIncomingMessage()
-
-        # Ignore messages to deleted routers.
-        if self.state_machines.has_been_deleted(router_id):
-            LOG.debug('dropping message for deleted router')
-            return []
 
         state_machines = []
 
-        # Send to all of our routers.
-        if router_id == '*':
+        # Send to all of our resources.
+        if message.resource == '*':
             LOG.debug('routing to all state machines')
             state_machines = self.state_machines.values()
 
-        # Send to routers that have an ERROR status
-        elif router_id == 'error':
+        # Ignore messages to deleted resources.
+        elif self.state_machines.has_been_deleted(message.resource.id):
+            LOG.debug('dropping message for deleted resource')
+            return []
+
+        # Send to resources that have an ERROR status
+        elif message.resource == 'error':
             state_machines = [
                 sm for sm in self.state_machines.values()
                 if sm.has_error()
@@ -147,14 +148,32 @@ class TenantRouterManager(object):
                       len(state_machines))
 
         # Create a new state machine for this router.
-        elif router_id not in self.state_machines:
-            LOG.debug('creating state machine for %s', router_id)
+        elif message.resource.id not in self.state_machines:
+            LOG.debug('creating state machine for %s', message.resource.id)
+
+            # load the driver
+            if not message.resource.driver:
+                LOG.error(_LE('cannot create state machine without specifying'
+                              'a driver.'))
+                return []
+
+            # load the driver
+            driver_obj = \
+                drivers.get(message.resource.driver)(worker_context,
+                                                     message.resource.id)
+
+            if not driver_obj:
+                # this means the driver didn't load for some reason..
+                # this might not be needed at all.
+                LOG.debug('for some reason loading the driver failed')
+                return []
 
             def deleter():
-                self._delete_router(router_id)
+                self._delete_resource(message.resource.id)
 
-            sm = state.Automaton(
-                router_id=router_id,
+            new_state_machine = state.Automaton(
+                driver=driver_obj,
+                resource_id=message.resource.id,
                 tenant_id=self.tenant_id,
                 delete_callback=deleter,
                 bandwidth_callback=self._report_bandwidth,
@@ -162,18 +181,17 @@ class TenantRouterManager(object):
                 queue_warning_threshold=self._queue_warning_threshold,
                 reboot_error_threshold=self._reboot_error_threshold,
             )
-            self.state_machines[router_id] = sm
-            state_machines = [sm]
+            self.state_machines[message.resource.id] = new_state_machine
+            state_machines = [new_state_machine]
 
         # Send directly to an existing router.
-        elif router_id:
-            sm = self.state_machines[router_id]
-            state_machines = [sm]
+        elif message.resource.id:
+            state_machines = [self.state_machines[message.resource.id]]
 
         # Filter out any deleted state machines.
         return [
             machine
             for machine in state_machines
             if (not machine.deleted and
-                not self.state_machines.has_been_deleted(machine.router_id))
+                not self.state_machines.has_been_deleted(machine.resource_id))
         ]

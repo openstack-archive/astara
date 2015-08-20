@@ -27,18 +27,21 @@ from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import notifications
 from akanda.rug import worker
+from akanda.rug import resource
 
 from akanda.rug.api import neutron
-
 
 from akanda.rug.test.unit.db import base
 
 
-class FakeFetchedRouter(object):
-    id = 'fake_fetched_router_id'
+class FakeFetchedResource(object):
+    id = 'fake_fetched_resource_id'
 
 
 class WorkerTestBase(base.DbTestCase):
+    tenant_id = '1040f478-3c74-11e5-a72a-173606e0a6d0'
+    router_id = '18ffa532-3c74-11e5-a0e7-eb9f90a17ffb'
+
     def setUp(self):
         super(WorkerTestBase, self).setUp()
         cfg.CONF.boot_timeout = 1
@@ -53,54 +56,72 @@ class WorkerTestBase(base.DbTestCase):
         fake_neutron_obj.get_ports_for_instance.return_value = (
             'mgt_port', ['ext_port', 'int_port'])
         fake_neutron_obj.get_router_for_tenant.return_value = (
-            FakeFetchedRouter())
+            FakeFetchedResource())
         self.fake_neutron = mock.patch.object(
             neutron, 'Neutron', return_value=fake_neutron_obj).start()
+
         self.w = worker.Worker(mock.Mock())
         self.addCleanup(mock.patch.stopall)
+
+        self.target = self.tenant_id
+        r = resource.Resource(
+            tenant_id=self.tenant_id,
+            id=self.router_id,
+            driver='router',
+        )
+        self.msg = event.Event(
+            resource=r,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
 
     def tearDown(self):
         self.w._shutdown()
         super(WorkerTestBase, self).tearDown()
 
-    def enable_debug(self, router_uuid=None, tenant_uuid=None):
-        if router_uuid:
-            self.dbapi.enable_router_debug(router_uuid=router_uuid)
-            is_debug, _ = self.dbapi.router_in_debug(router_uuid)
-        if tenant_uuid:
-            self.dbapi.enable_tenant_debug(tenant_uuid=tenant_uuid)
-            is_debug, _ = self.dbapi.tenant_in_debug(tenant_uuid)
+    def enable_debug(self, resource_id=None, tenant_id=None):
+        if resource_id:
+            self.dbapi.enable_resource_debug(resource_uuid=resource_id)
+            is_debug, _ = self.dbapi.resource_in_debug(resource_id)
+        if tenant_id:
+            self.dbapi.enable_tenant_debug(tenant_uuid=tenant_id)
+            is_debug, _ = self.dbapi.tenant_in_debug(tenant_id)
         self.assertTrue(is_debug)
 
-    def assert_not_in_debug(self, router_uuid=None, tenant_uuid=None):
-        if router_uuid:
-            is_debug, _ = self.dbapi.router_in_debug(router_uuid)
-            in_debug = self.dbapi.routers_in_debug()
-            uuid = router_uuid
-        if tenant_uuid:
-            is_debug, _ = self.dbapi.tenant_in_debug(tenant_uuid)
+    def assert_not_in_debug(self, resource_id=None, tenant_id=None):
+        if resource_id:
+            is_debug, _ = self.dbapi.resource_in_debug(resource_id)
+            in_debug = self.dbapi.resources_in_debug()
+            uuid = resource_id
+        if tenant_id:
+            is_debug, _ = self.dbapi.tenant_in_debug(tenant_id)
             in_debug = self.dbapi.tenants_in_debug()
-            uuid = tenant_uuid
+            uuid = tenant_id
         self.assertFalse(is_debug)
         self.assertNotIn(uuid, in_debug)
 
 
 class TestWorker(WorkerTestBase):
     tenant_id = '1040f478-3c74-11e5-a72a-173606e0a6d0'
-    router_id = '18ffa532-3c74-11e5-a0e7-eb9f90a17ffb'
+    resource_id = '18ffa532-3c74-11e5-a0e7-eb9f90a17ffb'
+    driver = 'router'
+    resource = None
 
     def setUp(self):
         super(TestWorker, self).setUp()
         self.target = self.tenant_id
+        self.resource = resource.Resource(
+            self.driver,
+            self.resource_id,
+            self.tenant_id)
         self.msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=self.router_id,
+            resource=self.resource,
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        self.fake_router_cache = worker.TenantRouterCache()
-        self.fake_router_cache.get_by_tenant = mock.MagicMock()
-        self.w.router_cache = self.fake_router_cache
+        self.fake_cache = worker.TenantResourceCache()
+        self.fake_cache.get_by_tenant = mock.MagicMock()
+        self.w.resource_cache = self.fake_cache
 
     def test__should_process_true(self):
         self.assertEqual(
@@ -118,70 +139,43 @@ class TestWorker(WorkerTestBase):
             self.w._should_process(self.msg))
 
     def test__should_process_no_router_id(self):
-        self.fake_router_cache.get_by_tenant.return_value = (
+        self.fake_cache.get_by_tenant.return_value = (
             '9846d012-3c75-11e5-b476-8321b3ff1a1d')
+        r = resource.Resource(
+            driver='router',
+            id=None,
+            tenant_id='fake_tenant_id',
+        )
+        expected_r = resource.Resource(
+            driver='router',
+            id='9846d012-3c75-11e5-b476-8321b3ff1a1d',
+            tenant_id='fake_tenant_id',
+        )
         msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=None,
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         expected = event.Event(
-            tenant_id=self.tenant_id,
-            router_id='9846d012-3c75-11e5-b476-8321b3ff1a1d',
+            resource=expected_r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         self.assertEquals(expected, self.w._should_process(msg))
 
     def test__should_process_no_router_id_no_router_found(self):
-        self.fake_router_cache.get_by_tenant.return_value = None
+        self.fake_cache.get_by_tenant.return_value = None
+        r = resource.Resource(
+            driver='router',
+            id=None,
+            tenant_id='fake_tenant_id',
+        )
         msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=None,
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         self.assertFalse(self.w._should_process(msg))
-
-    def test__populate_router_id_not_needed(self):
-        self.assertEqual(
-            self.w._populate_router_id(self.msg),
-            self.msg,
-        )
-
-    def test__populate_router_id(self):
-        self.msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=None,
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
-        self.fake_router_cache.get_by_tenant.return_value = (
-            'ccd7048c-3c75-11e5-b6a7-53233f5cf591')
-        expected_msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id='ccd7048c-3c75-11e5-b6a7-53233f5cf591',
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
-        res = self.w._populate_router_id(self.msg)
-        self.assertEqual(res, expected_msg)
-        self.fake_router_cache.get_by_tenant.assert_called_with(
-            self.tenant_id, self.w._context)
-
-    def test__populate_router_id_not_found(self):
-        self.msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=None,
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
-        self.fake_router_cache.get_by_tenant.return_value = None
-        res = self.w._populate_router_id(self.msg)
-        self.assertEqual(res, self.msg)
-        self.fake_router_cache.get_by_tenant.assert_called_with(
-            self.tenant_id, self.w._context)
 
     @mock.patch('akanda.rug.worker.Worker._deliver_message')
     @mock.patch('akanda.rug.worker.Worker._should_process')
@@ -190,9 +184,13 @@ class TestWorker(WorkerTestBase):
         # ensure we plumb through the return of should_process to
         # deliver_message, in case some processing has been done on
         # it
+        r = resource.Resource(
+            driver='router',
+            id='fake_router_id',
+            tenant_id='fake_tenant_id',
+        )
         new_msg = event.Event(
-            tenant_id='0e50fe44-3c77-11e5-9b4c-d75b3be53047',
-            router_id='11df3102-3c77-11e5-9c6f-2fd3b676e508',
+            resource=self.resource,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -212,49 +210,75 @@ class TestWorker(WorkerTestBase):
         fake_should_process.assert_called_with(self.msg)
 
 
-class TestRouterCache(WorkerTestBase):
+class TestResourceCache(WorkerTestBase):
     def setUp(self):
-        super(TestRouterCache, self).setUp()
-        self.router_cache = worker.TenantRouterCache()
+        super(TestResourceCache, self).setUp()
+        self.resource_cache = worker.TenantResourceCache()
         self.worker_context = worker.WorkerContext()
 
-    def test_router_cache_hit(self):
-        self.router_cache._tenant_routers = {
-            'fake_tenant_id': 'fake_cached_router_id',
+    def test_resource_cache_hit(self):
+        self.resource_cache._tenant_resources = {
+            'router': {
+                'fake_tenant_id': 'fake_cached_resource_id',
+            }
         }
-        res = self.router_cache.get_by_tenant(
-            tenant_uuid='fake_tenant_id', worker_context=self.worker_context)
-        self.assertEqual(res, 'fake_cached_router_id')
+        r = resource.Resource(
+            tenant_id='fake_tenant_id',
+            id='fake_resource_id',
+            driver='router',
+        )
+        msg = event.Event(resource=r, crud=event.UPDATE, body={})
+        res = self.resource_cache.get_by_tenant(
+            resource=r, worker_context=self.worker_context, message=msg)
+        self.assertEqual(res, 'fake_cached_resource_id')
         self.assertFalse(self.w._context.neutron.get_router_for_tenant.called)
 
-    def test_router_cache_miss(self):
-        res = self.router_cache.get_by_tenant(
-            tenant_uuid='fake_tenant_id', worker_context=self.worker_context)
-        self.assertEqual(res, 'fake_fetched_router_id')
+    def test_resource_cache_miss(self):
+        r = resource.Resource(
+            tenant_id='fake_tenant_id',
+            id='fake_fetched_resource_id',
+            driver='router',
+        )
+        msg = event.Event(
+            resource=r,
+            crud=event.UPDATE,
+            body={},
+        )
+        res = self.resource_cache.get_by_tenant(
+            resource=r,
+            worker_context=self.worker_context,
+            message=msg)
+        self.assertEqual(res, 'fake_fetched_resource_id')
         self.w._context.neutron.get_router_for_tenant.assert_called_with(
             'fake_tenant_id')
 
 
-class TestCreatingRouter(WorkerTestBase):
+class TestCreatingResource(WorkerTestBase):
     def setUp(self):
-        super(TestCreatingRouter, self).setUp()
+        super(TestCreatingResource, self).setUp()
         self.tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
         self.router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         self.hostname = 'akanda'
+
+        self.resource = resource.Resource('router',
+                                          self.router_id,
+                                          self.tenant_id)
+
         self.msg = event.Event(
-            tenant_id=self.tenant_id,
-            router_id=self.router_id,
+            resource=self.resource,
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        self.w.handle_message(self.tenant_id, self.msg)
+        self.w._should_process_message = mock.MagicMock(return_value=self.msg)
 
     def test_in_tenant_managers(self):
+        self.w.handle_message(self.tenant_id, self.msg)
         self.assertIn(self.tenant_id, self.w.tenant_managers)
         trm = self.w.tenant_managers[self.tenant_id]
         self.assertEqual(self.tenant_id, trm.tenant_id)
 
     def test_message_enqueued(self):
+        self.w.handle_message(self.tenant_id, self.msg)
         trm = self.w.tenant_managers[self.tenant_id]
         sm = trm.get_state_machines(self.msg, worker.WorkerContext())[0]
         self.assertEqual(len(sm._queue), 1)
@@ -264,35 +288,40 @@ class TestWildcardMessages(WorkerTestBase):
 
     def setUp(self):
         super(TestWildcardMessages, self).setUp()
+
+        self.tenant_id_1 ='a8f964d4-6631-11e5-a79f-525400cfc32a'
+        self.tenant_id_2 ='ef1a6e90-6631-11e5-83cb-525400cfc326'
+
         # Create some tenants
         for msg in [
                 event.Event(
-                    tenant_id='98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
-                    router_id='ABCD',
+                    resource=resource.Resource(
+                        driver='router',
+                        id='ABCD',
+                        tenant_id=self.tenant_id_1,
+                    ),
                     crud=event.CREATE,
                     body={'key': 'value'},
                 ),
                 event.Event(
-                    tenant_id='ac194fc5-f317-412e-8611-fb290629f624',
-                    router_id='EFGH',
+                    resource=resource.Resource(
+                        driver='router',
+                        id='EFGH',
+                        tenant_id=self.tenant_id_2),
                     crud=event.CREATE,
                     body={'key': 'value'},
                 )]:
-            self.w.handle_message(msg.tenant_id, msg)
+            self.w.handle_message(msg.resource.tenant_id, msg)
 
     def test_wildcard_to_all(self):
         trms = self.w._get_trms('*')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(ids,
-                         ['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
-                          'ac194fc5-f317-412e-8611-fb290629f624'])
+        self.assertEqual(ids, [self.tenant_id_1, self.tenant_id_2])
 
     def test_wildcard_to_error(self):
         trms = self.w._get_trms('error')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(ids,
-                         ['98dd9c41-d3ac-4fd6-8927-567afa0b8fc3',
-                          'ac194fc5-f317-412e-8611-fb290629f624'])
+        self.assertEqual(ids, [self.tenant_id_1, self.tenant_id_2])
 
 
 class TestShutdown(WorkerTestBase):
@@ -326,20 +355,12 @@ class TestUpdateStateMachine(WorkerTestBase):
         self.worker_context = worker.WorkerContext()
 
     def test(self):
-        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
-        msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
-            crud=event.CREATE,
-            body={'key': 'value'},
-        )
         # Create the router manager and state machine so we can
         # replace the update() method with a mock.
-        trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, self.worker_context)[0]
+        trm = self.w._get_trms(self.tenant_id)[0]
+        sm = trm.get_state_machines(self.msg, self.worker_context)[0]
         with mock.patch.object(sm, 'update') as meth:
-            self.w.handle_message(tenant_id, msg)
+            self.w.handle_message(self.tenant_id, self.msg)
             # Add a null message so the worker loop will exit. We have
             # to do this directly, because if we do it through
             # handle_message() that triggers shutdown logic that keeps
@@ -357,7 +378,7 @@ class TestReportStatus(WorkerTestBase):
         with mock.patch.object(self.w, 'report_status') as meth:
             self.w.handle_message(
                 'debug',
-                event.Event('*', '', event.COMMAND,
+                event.Event('*', event.COMMAND,
                             {'command': commands.WORKERS_DEBUG})
             )
             meth.assert_called_once_with()
@@ -366,69 +387,82 @@ class TestReportStatus(WorkerTestBase):
         with mock.patch('akanda.rug.worker.cfg.CONF') as conf:
             self.w.handle_message(
                 'debug',
-                event.Event('*', '', event.COMMAND,
+                event.Event('*', event.COMMAND,
                             {'command': commands.WORKERS_DEBUG})
             )
             self.assertTrue(conf.log_opt_values.called)
 
 
 class TestDebugRouters(WorkerTestBase):
+    def setUp(self):
+        super(TestDebugRouters, self).setUp()
+        self.w._should_process_command = mock.MagicMock(return_value=self.msg)
+
     def testNoDebugs(self):
-        self.assertEqual(self.dbapi.routers_in_debug(), set())
+        self.assertEqual(self.dbapi.resources_in_debug(), set())
 
     def testWithDebugs(self):
         self.w.handle_message(
             '*',
-            event.Event('*', '', event.COMMAND,
-                        {'command': commands.ROUTER_DEBUG,
-                         'router_id': 'this-router-id',
+            event.Event('*', event.COMMAND,
+                        {'command': commands.RESOURCE_DEBUG,
+                         'resource_id': 'this-resource-id',
                          'reason': 'foo'}),
         )
-        self.enable_debug(router_uuid='this-router-id')
-        self.assertIn(('this-router-id', 'foo'), self.dbapi.routers_in_debug())
+        self.enable_debug(resource_id='this-resource-id')
+        self.assertIn(('this-resource-id', 'foo'),
+                      self.dbapi.resources_in_debug())
 
     def testManage(self):
-        self.enable_debug(router_uuid='this-router-id')
+        self.enable_debug(resource_id='this-resource-id')
         lock = mock.Mock()
-        self.w._router_locks['this-router-id'] = lock
+        self.w._resource_locks['this-resource-id'] = lock
+        r = resource.Resource(
+            tenant_id='*',
+            id='*',
+            driver=None,
+        )
         self.w.handle_message(
             '*',
-            event.Event('*', '', event.COMMAND,
-                        {'command': commands.ROUTER_MANAGE,
-                         'router_id': 'this-router-id'}),
+            event.Event(
+                resource=r,
+                crud=event.COMMAND,
+                body={'command': commands.RESOURCE_MANAGE,
+                      'resource_id': 'this-resource-id'}),
         )
-        self.assert_not_in_debug(router_uuid='this-router-id')
+        self.assert_not_in_debug(resource_id='this-resource-id')
         self.assertEqual(lock.release.call_count, 1)
 
     def testManageNoLock(self):
-        self.enable_debug(router_uuid='this-router-id')
+        self.enable_debug(resource_id='this-resource-id')
         self.w.handle_message(
             '*',
-            event.Event('*', '', event.COMMAND,
-                        {'command': commands.ROUTER_MANAGE,
-                         'router_id': 'this-router-id'}),
+            event.Event('*', event.COMMAND,
+                        {'command': commands.RESOURCE_MANAGE,
+                         'resource_id': 'this-resource-id'}),
         )
-        self.assert_not_in_debug(router_uuid='this-router-id')
+        self.assert_not_in_debug(resource_id='this-resource-id')
 
     def testManageUnlocked(self):
-        self.enable_debug(router_uuid='this-router-id')
+        self.enable_debug(resource_id='this-resource-id')
         lock = threading.Lock()
-        self.w._router_locks['this-router-id'] = lock
+        self.w._resource_locks['this-resource-id'] = lock
         self.w.handle_message(
             '*',
-            event.Event('*', '', event.COMMAND,
-                        {'command': commands.ROUTER_MANAGE,
-                         'router_id': 'this-router-id'}),
+            event.Event('*', event.COMMAND,
+                        {'command': commands.RESOURCE_MANAGE,
+                         'resource_id': 'this-resource-id'}),
         )
-        self.assert_not_in_debug(router_uuid='this-router-id')
+        self.assert_not_in_debug(resource_id='this-resource-id')
 
     def testDebugging(self):
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
-        self.enable_debug(router_uuid=router_id)
+        resource_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        self.enable_debug(resource_id=resource_id)
         msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
+            resource=resource.Resource('router',
+                                       resource_id,
+                                       tenant_id),
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -444,14 +478,18 @@ class TestDebugRouters(WorkerTestBase):
 
 
 class TestDebugTenants(WorkerTestBase):
+    def setUp(self):
+        super(TestDebugTenants, self).setUp()
+        self.w._should_process_command = mock.MagicMock(return_value=self.msg)
+
     def testNoDebugs(self):
         self.assertEqual(self.dbapi.tenants_in_debug(), set())
 
     def testWithDebugs(self):
-        self.enable_debug(tenant_uuid='this-tenant-id')
+        self.enable_debug(tenant_id='this-tenant-id')
         self.w.handle_message(
             '*',
-            event.Event('*', '', event.COMMAND,
+            event.Event('*', event.COMMAND,
                         {'command': commands.TENANT_DEBUG,
                          'tenant_id': 'this-tenant-id'}),
         )
@@ -459,22 +497,23 @@ class TestDebugTenants(WorkerTestBase):
         self.assertTrue(is_debug)
 
     def testManage(self):
-        self.enable_debug(tenant_uuid='this-tenant-id')
+        self.enable_debug(tenant_id='this-tenant-id')
         self.w.handle_message(
             '*',
-            event.Event('*', '', event.COMMAND,
+            event.Event('*', event.COMMAND,
                         {'command': commands.TENANT_MANAGE,
                          'tenant_id': 'this-tenant-id'}),
         )
-        self.assert_not_in_debug(tenant_uuid='this-tenant-id')
+        self.assert_not_in_debug(tenant_id='this-tenant-id')
 
     def testDebugging(self):
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
-        self.enable_debug(tenant_uuid=tenant_id)
+        resource_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        self.enable_debug(tenant_id=tenant_id)
         msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
+            resource=resource.Resource('router',
+                                       resource_id,
+                                       tenant_id),
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -495,10 +534,9 @@ class TestConfigReload(WorkerTestBase):
         mock_cfg.CONF = mock.MagicMock(
             log_opt_values=mock.MagicMock())
         tenant_id = '*'
-        router_id = '*'
+        resource_id = '*'
         msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
+            resource=resource_id,
             crud=event.COMMAND,
             body={'command': commands.CONFIG_RELOAD}
         )
@@ -525,10 +563,11 @@ class TestGlobalDebug(WorkerTestBase):
     def test_global_debug_no_message_sent(self):
         self.dbapi.enable_global_debug()
         tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        router_id = 'ac194fc5-f317-412e-8611-fb290629f624'
+        resource_id = 'ac194fc5-f317-412e-8611-fb290629f624'
         msg = event.Event(
-            tenant_id=tenant_id,
-            router_id=router_id,
+            resource=resource.Resource('router',
+                                       resource_id,
+                                       tenant_id),
             crud=event.CREATE,
             body={'key': 'value'},
         )

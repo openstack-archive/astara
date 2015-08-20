@@ -1,6 +1,4 @@
-# Copyright 2014 DreamHost, LLC
-#
-# Author: DreamHost, LLC
+# Copyright (c) 2015 AKANDA, INC. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,20 +13,9 @@
 # under the License.
 
 
-"""Common event format for events passed within the RUG
-"""
-
 import collections
 
-Event = collections.namedtuple(
-    'Event',
-    ['resource', 'crud', 'body'],
+Resource = collections.namedtuple(
+    'Resource',
+    ['driver', 'id', 'tenant_id'],
 )
-
-CREATE = 'create'
-READ = 'read'
-UPDATE = 'update'
-DELETE = 'delete'
-POLL = 'poll'
-COMMAND = 'command'  # an external command to be processed
-REBUILD = 'rebuild'

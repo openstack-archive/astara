@@ -64,6 +64,7 @@ class TestPrePopulateWorkers(unittest.TestCase):
         exc = q_exceptions.Unauthorized
         self._exit_loop_bad_auth(mocked_neutron_api, log, exc)
 
+    @mock.patch('akanda.rug.populate.LOG.warning')
     @mock.patch('akanda.rug.populate.LOG')
     @mock.patch('akanda.rug.api.neutron.Neutron')
     def test_exit_loop_forbidden(self, mocked_neutron_api, log):
