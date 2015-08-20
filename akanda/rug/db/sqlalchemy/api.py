@@ -96,24 +96,24 @@ class Connection(api.Connection):
         res = model_query(model).all()
         return set((r.uuid, r.reason) for r in res)
 
-    def enable_router_debug(self, router_uuid, reason=None):
+    def enable_resource_debug(self, resource_uuid, reason=None):
         self._enable_debug(
-            model=models.RouterDebug(),
-            uuid=router_uuid,
+            model=models.ResourceDebug(),
+            uuid=resource_uuid,
             reason=reason,
         )
 
-    def disable_router_debug(self, router_uuid):
+    def disable_resource_debug(self, resource_uuid):
         self._disable_debug(
-            model=models.RouterDebug,
-            uuid=router_uuid,
+            model=models.ResourceDebug,
+            uuid=resource_uuid,
         )
 
-    def router_in_debug(self, router_uuid):
-        return self._check_debug(models.RouterDebug, router_uuid)
+    def resource_in_debug(self, resource_uuid):
+        return self._check_debug(models.ResourceDebug, resource_uuid)
 
-    def routers_in_debug(self):
-        return self._list_debug(models.RouterDebug)
+    def resources_in_debug(self):
+        return self._list_debug(models.ResourceDebug)
 
     def enable_tenant_debug(self, tenant_uuid, reason=None):
         self._enable_debug(
