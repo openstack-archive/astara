@@ -136,7 +136,7 @@ class TestNovaWrapper(unittest.TestCase):
         mock_userdata.return_value = 'fake_userdata'
         expected = [
             mock.call.servers.create(
-                'ak-router_id',
+                'ak-resource_id',
                 nics=[{'port-id': '2',
                        'net-id': 'mgt-net',
                        'v4-fixed-ip': ''},
@@ -154,7 +154,7 @@ class TestNovaWrapper(unittest.TestCase):
         ]
 
         self.nova.create_instance(
-            'router_id', 'GLANCE-IMAGE-123', fake_make_ports_callback)
+            'resource_id', 'GLANCE-IMAGE-123', fake_make_ports_callback)
         self.client.assert_has_calls(expected)
 
     def test_get_instance_for_obj(self):
@@ -162,10 +162,10 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.servers.list.return_value = [instance]
 
         expected = [
-            mock.call.servers.list(search_opts={'name': 'ak-router_id'})
+            mock.call.servers.list(search_opts={'name': 'ak-resource_id'})
         ]
 
-        result = self.nova.get_instance_for_obj('router_id')
+        result = self.nova.get_instance_for_obj('resource_id')
         self.client.assert_has_calls(expected)
         self.assertEqual(result, instance)
 
@@ -173,10 +173,10 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.servers.list.return_value = []
 
         expected = [
-            mock.call.servers.list(search_opts={'name': 'ak-router_id'})
+            mock.call.servers.list(search_opts={'name': 'ak-resource_id'})
         ]
 
-        result = self.nova.get_instance_for_obj('router_id')
+        result = self.nova.get_instance_for_obj('resource_id')
         self.client.assert_has_calls(expected)
         self.assertIsNone(result)
 
@@ -195,30 +195,30 @@ class TestNovaWrapper(unittest.TestCase):
         result = self.nova.get_instance_by_id('instance_id')
         self.assertEqual(result, None)
 
-    def test_destroy_router_instance(self):
+    def test_destroy_instance(self):
         self.nova.destroy_instance(self.INSTANCE_INFO)
         self.client.servers.delete.assert_called_with(self.INSTANCE_INFO.id_)
 
-    @mock.patch.object(nova, '_router_ssh_key')
+    @mock.patch.object(nova, '_ssh_key')
     def test_format_userdata(self, fake_ssh_key):
         fake_ssh_key.return_value = 'fake_key'
         result = nova._format_userdata(fake_int_port)
         self.assertEqual(result.strip(), EXPECTED_USERDATA.strip())
 
     @mock.patch.object(__builtins__, 'open', autospec=True)
-    def test_router_ssh_key(self, fake_open):
+    def test_ssh_key(self, fake_open):
         mock_key_file = mock.MagicMock(spec=file)
         mock_key_file.read.return_value = 'fake-key'
         mock_key_file.__enter__.return_value = mock_key_file
         fake_open.return_value = mock_key_file
-        result = nova._router_ssh_key()
+        result = nova._ssh_key()
         self.assertEqual(result, 'fake-key')
 
     @mock.patch.object(nova, 'LOG', autospec=True)
     @mock.patch.object(__builtins__, 'open', autospec=True)
-    def test_router_ssh_key_not_found(self, fake_open, fake_log):
+    def test_ssh_key_not_found(self, fake_open, fake_log):
         fake_open.side_effect = IOError
-        result = nova._router_ssh_key()
+        result = nova._ssh_key()
         self.assertEqual(result, '')
         self.assertTrue(fake_log.warning.called)
 
@@ -228,16 +228,16 @@ class TestNovaWrapper(unittest.TestCase):
         fake_create_instance.return_value = 'fake_new_instance_info'
         res = self.nova.boot_instance(
             prev_instance_info=None,
-            router_id='foo_router_id',
-            router_image_uuid='foo_image',
+            resource_id='foo_resource_id',
+            image_uuid='foo_image',
             make_ports_callback='foo_callback',
         )
         fake_create_instance.assert_called_with(
-            'foo_router_id',
+            'foo_resource_id',
             'foo_image',
             'foo_callback',
         )
-        fake_get.assert_called_with('foo_router_id')
+        fake_get.assert_called_with('foo_resource_id')
         self.assertEqual(res, 'fake_new_instance_info')
 
     @mock.patch.object(nova.Nova, 'create_instance')
@@ -250,11 +250,11 @@ class TestNovaWrapper(unittest.TestCase):
         fake_create_instance.return_value = 'fake_new_instance_info'
         res = self.nova.boot_instance(
             prev_instance_info=None,
-            router_id='foo_router_id',
-            router_image_uuid='foo_image',
+            resource_id='foo_resource_id',
+            image_uuid='foo_image',
             make_ports_callback='foo_callback',
         )
-        fake_get.assert_called_with('foo_router_id')
+        fake_get.assert_called_with('foo_resource_id')
         self.client.servers.delete.assert_called_with('existing_instance_id')
         self.assertIsNone(res)
 
@@ -268,11 +268,11 @@ class TestNovaWrapper(unittest.TestCase):
         fake_create_instance.return_value = 'fake_new_instance_info'
         res = self.nova.boot_instance(
             prev_instance_info=None,
-            router_id='foo_router_id',
-            router_image_uuid='foo_image',
+            resource_id='foo_resource_id',
+            image_uuid='foo_image',
             make_ports_callback='foo_callback',
         )
-        fake_get.assert_called_with('foo_router_id')
+        fake_get.assert_called_with('foo_resource_id')
         self.assertIsInstance(res, nova.InstanceInfo)
         self.assertEqual(res.id_, 'existing_instance_id')
         self.assertEqual(res.name, 'ak-appliance')
@@ -284,13 +284,13 @@ class TestNovaWrapper(unittest.TestCase):
         fake_create_instance.return_value = 'fake_new_instance_info'
         res = self.nova.boot_instance(
             prev_instance_info=self.INSTANCE_INFO,
-            router_id='foo_router_id',
-            router_image_uuid='foo_image',
+            resource_id='foo_resource_id',
+            image_uuid='foo_image',
             make_ports_callback='foo_callback',
         )
         fake_get.assert_called_with(self.INSTANCE_INFO.id_)
         fake_create_instance.assert_called_with(
-            'foo_router_id',
+            'foo_resource_id',
             'foo_image',
             'foo_callback',
         )
@@ -307,8 +307,8 @@ class TestNovaWrapper(unittest.TestCase):
         fake_create_instance.return_value = 'fake_new_instance_info'
         res = self.nova.boot_instance(
             prev_instance_info=self.INSTANCE_INFO,
-            router_id='foo_router_id',
-            router_image_uuid='foo_image',
+            resource_id='foo_resource_id',
+            image_uuid='foo_image',
             make_ports_callback='foo_callback',
         )
         fake_get.assert_called_with(self.INSTANCE_INFO.id_)
@@ -326,8 +326,8 @@ class TestNovaWrapper(unittest.TestCase):
         fake_create_instance.return_value = 'fake_new_instance_info'
         res = self.nova.boot_instance(
             prev_instance_info=self.INSTANCE_INFO,
-            router_id='foo_router_id',
-            router_image_uuid='foo_image',
+            resource_id='foo_resource_id',
+            image_uuid='foo_image',
             make_ports_callback='foo_callback',
         )
         # assert we get back the same instance_info but with updated status

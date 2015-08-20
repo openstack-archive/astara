@@ -27,13 +27,13 @@ WORKERS_DEBUG = 'workers-debug'
 # Router commands expect a 'router_id' argument in the payload with
 # the UUID of the router
 
-# Put a router in debug/manage mode
-ROUTER_DEBUG = 'router-debug'
-ROUTER_MANAGE = 'router-manage'
-# Send an updated config to the router whether it is needed or not
-ROUTER_UPDATE = 'router-update'
-# Rebuild a router from scratch
-ROUTER_REBUILD = 'router-rebuild'
+# Put a resource in debug/manage mode
+RESOURCE_DEBUG = 'resource-debug'
+RESOURCE_MANAGE = 'resource-manage'
+# Send an updated config to the resource whether it is needed or not
+RESOURCE_UPDATE = 'resource-update'
+# Rebuild a resource from scratch
+RESOURCE_REBUILD = 'resource-rebuild'
 
 # Put a tenant in debug/manage mode
 # Expects a 'tenant_id' argument in the payload with the UUID of the tenant
@@ -43,7 +43,7 @@ TENANT_MANAGE = 'tenant-manage'
 # Configuration commands
 CONFIG_RELOAD = 'config-reload'
 
-# Force a poll of all routers right now
+# Force a poll of all resources right now
 POLL = 'poll'
 
 GLOBAL_DEBUG = 'global-debug'
