@@ -44,7 +44,7 @@ class TestDBDebugModes(base.DbTestCase):
 
     def test_router_debug(self):
         r_id = uuid.uuid4().hex
-        self.dbapi.enable_router_debug(
+        self.dbapi.enable_resource_debug(
             router_uuid=r_id)
         enabled, reason = self.dbapi.router_in_debug(
             router_uuid=r_id)
@@ -54,7 +54,7 @@ class TestDBDebugModes(base.DbTestCase):
 
     def test_router_debug_with_reason(self):
         r_id = uuid.uuid4().hex
-        self.dbapi.enable_router_debug(
+        self.dbapi.enable_resource_debug(
             router_uuid=r_id, reason='foo')
         enabled, reason = self.dbapi.router_in_debug(
             router_uuid=r_id)
@@ -64,7 +64,7 @@ class TestDBDebugModes(base.DbTestCase):
     def test_routers_in_debug(self):
         r_ids = [uuid.uuid4().hex for i in range(1, 3)]
         for r_id in r_ids:
-            self.dbapi.enable_router_debug(
+            self.dbapi.enable_resource_debug(
                 router_uuid=r_id, reason='router %s is broken' % r_id)
         for debug_r_id, reason in self.dbapi.routers_in_debug():
             self.assertIn(debug_r_id, r_ids)

@@ -12,13 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 from oslo_config import cfg
+from akanda.rug.drivers.router import Router
 
-DRIVER_OPTS = [cfg.ListOpt('available_drivers',
-                           help='list of drivers the rug process will load'), ]
+DRIVER_OPTS = [
+    cfg.ListOpt('enabled_drivers',
+                default=['router', ],
+                help='list of drivers the rug process will load'),
+]
 
 cfg.CONF.register_opts(DRIVER_OPTS)
 
-AVAILABLE_DRIVERS = {}
+AVAILABLE_DRIVERS = {'router': Router}
 
 
 class InvalidDriverException(Exception):
@@ -40,3 +44,13 @@ def get(requested_driver):
     raise InvalidDriverException(
         'Failed loading driver: %s' % requested_driver
     )
+
+
+def enabled_drivers():
+    enabled = ['router']
+    for driver in enabled:
+        try:
+            d = get(driver)
+        except InvalidDriverException:
+            pass
+        yield d
