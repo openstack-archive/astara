@@ -42,33 +42,33 @@ class TestDBDebugModes(base.DbTestCase):
         self.assertFalse(enabled)
         self.assertIsNone(reason)
 
-    def test_router_debug(self):
+    def test_resource_debug(self):
         r_id = uuid.uuid4().hex
-        self.dbapi.enable_router_debug(
-            router_uuid=r_id)
-        enabled, reason = self.dbapi.router_in_debug(
-            router_uuid=r_id)
+        self.dbapi.enable_resource_debug(
+            resource_uuid=r_id)
+        enabled, reason = self.dbapi.resource_in_debug(
+            resource_uuid=r_id)
         self.assertTrue(enabled)
         self.assertIsNone(reason)
-        self.dbapi.router_in_debug('foo_router')
+        self.dbapi.resource_in_debug('foo_resource')
 
-    def test_router_debug_with_reason(self):
+    def test_resource_debug_with_reason(self):
         r_id = uuid.uuid4().hex
-        self.dbapi.enable_router_debug(
-            router_uuid=r_id, reason='foo')
-        enabled, reason = self.dbapi.router_in_debug(
-            router_uuid=r_id)
+        self.dbapi.enable_resource_debug(
+            resource_uuid=r_id, reason='foo')
+        enabled, reason = self.dbapi.resource_in_debug(
+            resource_uuid=r_id)
         self.assertTrue(enabled)
         self.assertEqual(reason, 'foo')
 
-    def test_routers_in_debug(self):
+    def test_resources_in_debug(self):
         r_ids = [uuid.uuid4().hex for i in range(1, 3)]
         for r_id in r_ids:
-            self.dbapi.enable_router_debug(
-                router_uuid=r_id, reason='router %s is broken' % r_id)
-        for debug_r_id, reason in self.dbapi.routers_in_debug():
+            self.dbapi.enable_resource_debug(
+                resource_uuid=r_id, reason='resource %s is broken' % r_id)
+        for debug_r_id, reason in self.dbapi.resources_in_debug():
             self.assertIn(debug_r_id, r_ids)
-            self.assertEqual(reason, 'router %s is broken' % debug_r_id)
+            self.assertEqual(reason, 'resource %s is broken' % debug_r_id)
 
     def test_tenant_debug(self):
         t_id = uuid.uuid4().hex

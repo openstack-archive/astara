@@ -80,7 +80,7 @@ function configure_akanda() {
         iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
     fi
 
-    iniset $AKANDA_RUG_CONF DEFAULT router_ssh_public_key $AKANDA_APPLIANCE_SSH_PUBLIC_KEY
+    iniset $AKANDA_RUG_CONF DEFAULT ssh_public_key $AKANDA_APPLIANCE_SSH_PUBLIC_KEY
 
     iniset $AKANDA_RUG_CONF database connection `database_connection_url akanda`
 
