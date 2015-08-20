@@ -24,16 +24,16 @@ from akanda.rug import state
 from akanda.rug import instance_manager
 
 
-class TestTenantRouterManager(unittest.TestCase):
+class TestTenantResourceManager(unittest.TestCase):
 
     def setUp(self):
-        super(TestTenantRouterManager, self).setUp()
+        super(TestTenantResourceManager, self).setUp()
 
         self.instance_mgr = \
             mock.patch('akanda.rug.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.notifier = mock.Mock()
-        self.trm = tenant.TenantRouterManager(
+        self.trm = tenant.TenantResourceManager(
             '1234',
             notify_callback=self.notifier,
             queue_warning_threshold=10,
