@@ -97,7 +97,7 @@ class Dispatcher(object):
 
 
 class Scheduler(object):
-    """Managers a worker pool and redistributes messages.
+    """Manages a worker pool and redistributes messages.
     """
 
     def __init__(self, worker_factory):

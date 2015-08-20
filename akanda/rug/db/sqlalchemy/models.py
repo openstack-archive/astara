@@ -74,12 +74,12 @@ class AkandaBase(models.TimestampMixin,
 Base = declarative_base(cls=AkandaBase)
 
 
-class RouterDebug(Base):
-    """Represents a router in debug mode."""
+class ResourceDebug(Base):
+    """Represents a resource in debug mode."""
 
-    __tablename__ = 'router_debug'
+    __tablename__ = 'resource_debug'
     __table_args__ = (
-        schema.UniqueConstraint('uuid', name='uniq_debug_router0uuid'),
+        schema.UniqueConstraint('uuid', name='uniq_debug_resource0uuid'),
         table_args()
     )
     id = Column(Integer, primary_key=True)

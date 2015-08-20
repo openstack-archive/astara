@@ -17,23 +17,28 @@
 
 import mock
 import unittest2 as unittest
+import uuid
 
 from akanda.rug import event
 from akanda.rug import tenant
+from akanda.rug.drivers import router
 from akanda.rug import state
-from akanda.rug import instance_manager
+from akanda.rug.drivers import states
+from akanda.rug.test.unit import fakes
 
 
-class TestTenantRouterManager(unittest.TestCase):
+class TestTenantResourceManager(unittest.TestCase):
 
     def setUp(self):
-        super(TestTenantRouterManager, self).setUp()
+        super(TestTenantResourceManager, self).setUp()
 
+        self.fake_driver = fakes.fake_driver()
+        self.tenant_id = 'cfb48b9c-66f6-11e5-a7be-525400cfc326'
         self.instance_mgr = \
             mock.patch('akanda.rug.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.notifier = mock.Mock()
-        self.trm = tenant.TenantRouterManager(
+        self.trm = tenant.TenantResourceManager(
             '1234',
             notify_callback=self.notifier,
             queue_warning_threshold=10,
@@ -41,36 +46,56 @@ class TestTenantRouterManager(unittest.TestCase):
         )
         self.ctx = mock.Mock()
 
-    def test_new_router(self):
+    def test_new_resource(self):
+        r = event.Resource(
+            tenant_id=self.tenant_id,
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
         msg = event.Event(
-            tenant_id='1234',
-            router_id='5678',
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         sm = self.trm.get_state_machines(msg, self.ctx)[0]
-        self.assertEqual(sm.router_id, '5678')
+        self.assertEqual(sm.resource_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
 
-    def test_get_state_machine_no_router_id(self):
+    def test_get_state_machine_no_resoruce_id(self):
+        r = event.Resource(
+            tenant_id=self.tenant_id,
+            id=None,
+            driver=router.Router.RESOURCE_NAME,
+        )
         msg = event.Event(
-            tenant_id='1234',
-            router_id=None,
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         self.assertRaises(tenant.InvalidIncomingMessage,
                           self.trm.get_state_machines, msg, self.ctx)
 
-    def test_all_routers(self):
-        self.trm.state_machines.state_machines = {
-            str(i): state.Automaton(str(i), '1234',
-                                    None, None, None, 5, 5)
-            for i in range(5)
-        }
+    def test_all_resources(self):
+        for i in range(5):
+            rid = str(uuid.uuid4())
+            driver = fakes.fake_driver(rid)
+            sm = state.Automaton(
+                driver=driver,
+                worker_context=self.ctx,
+                resource_id=driver.id,
+                tenant_id=self.tenant_id,
+                delete_callback=None,
+                bandwidth_callback=None,
+                queue_warning_threshold=5,
+                reboot_error_threshold=5)
+            self.trm.state_machines[rid] = sm
+        r = event.Resource(
+            tenant_id=self.tenant_id,
+            id='*',
+            driver=router.Router.RESOURCE_NAME,
+        )
         msg = event.Event(
-            tenant_id='1234',
-            router_id='*',
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -80,30 +105,51 @@ class TestTenantRouterManager(unittest.TestCase):
     def test_errored_routers(self):
         self.trm.state_machines.state_machines = {}
         for i in range(5):
-            sm = state.Automaton(str(i), '1234',
-                                 None, None, None, 5, 5)
+            rid = str(uuid.uuid4())
+            driver = fakes.fake_driver(rid)
+            sm = state.Automaton(
+                driver=driver,
+                worker_context=self.ctx,
+                resource_id=i,
+                tenant_id=self.tenant_id,
+                delete_callback=None,
+                bandwidth_callback=None,
+                queue_warning_threshold=5,
+                reboot_error_threshold=5)
+            self.trm.state_machines[rid] = sm
+
             # Replace the default mock with one that has 'state' set.
             if i == 2:
-                status = instance_manager.ERROR
+                status = states.ERROR
             else:
-                status = instance_manager.UP
+                status = states.UP
+
             sm.instance = mock.Mock(state=status)
             self.trm.state_machines.state_machines[str(i)] = sm
+
+        r = event.Resource(
+            tenant_id=self.tenant_id,
+            id='2',
+            driver=router.Router.RESOURCE_NAME,
+        )
         msg = event.Event(
-            tenant_id='1234',
-            router_id='error',
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(1, len(sms))
-        self.assertEqual('2', sms[0].router_id)
+        self.assertEqual(2, sms[0].resource_id)
         self.assertIs(self.trm.state_machines.state_machines['2'], sms[0])
 
-    def test_existing_router(self):
+    def test_existing_resource(self):
+        r = event.Resource(
+            tenant_id=self.tenant_id,
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
         msg = event.Event(
-            tenant_id='1234',
-            router_id='5678',
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -114,54 +160,67 @@ class TestTenantRouterManager(unittest.TestCase):
         self.assertIs(sm1, sm2)
         self.assertIs(sm1._queue, sm2._queue)
 
-    def test_existing_router_of_many(self):
+    def test_existing_resource_of_many(self):
         sms = {}
-        for router_id in ['5678', 'ABCD', 'EFGH']:
+        for resource_id in ['5678', 'ABCD', 'EFGH']:
+            r = event.Resource(
+                tenant_id=self.tenant_id,
+                id=resource_id,
+                driver=router.Router.RESOURCE_NAME,
+            )
             msg = event.Event(
-                tenant_id='1234',
-                router_id=router_id,
+                resource=r,
                 crud=event.CREATE,
                 body={'key': 'value'},
             )
             # First time creates...
             sm1 = self.trm.get_state_machines(msg, self.ctx)[0]
-            sms[router_id] = sm1
+            sms[resource_id] = sm1
+
         # Second time should return the same objects...
+        r = event.Resource(
+            id='5678',
+            tenant_id=self.tenant_id,
+            driver=router.Router.RESOURCE_NAME,
+        )
         msg = event.Event(
-            tenant_id='1234',
-            router_id='5678',
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
         sm2 = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertIs(sm2, sms['5678'])
 
-    def test_delete_router(self):
+    def test_delete_resource(self):
         self.trm.state_machines['1234'] = mock.Mock()
-        self.trm._delete_router('1234')
+        self.trm._delete_resource('1234')
         self.assertNotIn('1234', self.trm.state_machines)
 
-    def test_delete_default_router(self):
-        self.trm._default_router_id = '1234'
+    def test_delete_default_resource(self):
+        self.trm._default_resource_id = '1234'
         self.trm.state_machines['1234'] = mock.Mock()
-        self.trm._delete_router('1234')
+        self.trm._delete_resource('1234')
         self.assertNotIn('1234', self.trm.state_machines)
-        self.assertIs(None, self.trm._default_router_id)
+        self.assertIs(None, self.trm._default_resource_id)
 
-    def test_delete_not_default_router(self):
-        self.trm._default_router_id = 'abcd'
+    def test_delete_not_default_resource(self):
+        self.trm._default_resource_id = 'abcd'
         self.trm.state_machines['1234'] = mock.Mock()
-        self.trm._delete_router('1234')
-        self.assertEqual('abcd', self.trm._default_router_id)
+        self.trm._delete_resource('1234')
+        self.assertEqual('abcd', self.trm._default_resource_id)
 
-    def test_no_update_deleted_router(self):
-        self.trm._default_router_id = 'abcd'
+    def test_no_update_deleted_resource(self):
+        self.trm._default_resource_id = 'abcd'
         self.trm.state_machines['5678'] = mock.Mock()
-        self.trm._delete_router('5678')
+        self.trm._delete_resource('5678')
         self.assertEqual(self.trm.state_machines.values(), [])
-        msg = event.Event(
+        r = event.Resource(
             tenant_id='1234',
-            router_id='5678',
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
+        msg = event.Event(
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -170,9 +229,13 @@ class TestTenantRouterManager(unittest.TestCase):
         self.assertIn('5678', self.trm.state_machines.deleted)
 
     def test_deleter_callback(self):
-        msg = event.Event(
+        r = event.Resource(
             tenant_id='1234',
-            router_id='5678',
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
+        msg = event.Event(
+            resource=r,
             crud=event.CREATE,
             body={'key': 'value'},
         )
@@ -195,7 +258,7 @@ class TestTenantRouterManager(unittest.TestCase):
         )
         n = notifications[0]
         self.assertEqual('1234', n['tenant_id'])
-        self.assertIn('5678', n['router_id'])
+        self.assertIn('5678', n['uuid'])
         self.assertIn('timestamp', n)
         self.assertEqual('akanda.bandwidth.used', n['event_type'])
         self.assertIn('a', n['payload'])
