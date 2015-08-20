@@ -39,3 +39,7 @@ test.conf
 
 #pycharm cruft
 .idea/*
+
+#macos hidden files
+.DS_Store
+._.DS_Store
