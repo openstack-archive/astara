@@ -105,7 +105,6 @@ def main(argv=sys.argv[1:]):
     # description
 
     # Change the process and thread name so the logs are cleaner.
-
     p = multiprocessing.current_process()
     p.name = 'pmain'
     t = threading.current_thread()

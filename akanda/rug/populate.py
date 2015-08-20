@@ -19,61 +19,40 @@
 """
 
 import threading
-import time
 
-from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutronclient.common import exceptions as q_exceptions
-
 from akanda.rug import event
-from akanda.rug.api import neutron
-
-from akanda.rug.common.i18n import _LW
+from akanda.rug import drivers
 
 LOG = logging.getLogger(__name__)
 
 
 def _pre_populate_workers(scheduler):
-    """Fetch the existing routers from neutron.
-
-    Wait for neutron to return the list of the existing routers.
-    Pause up to max_sleep seconds between each attempt and ignore
-    neutron client exceptions.
-
+    """Loops through enabled drivers triggering each drivers pre_populate_hook
+    which is a static method for each driver.
 
     """
-    nap_time = 1
-    max_sleep = 15
+    for driver in drivers.enabled_drivers():
+        resources = driver.pre_populate_hook()
 
-    neutron_client = neutron.Neutron(cfg.CONF)
+        if not resources:
+            # just skip to the next one the drivers pre_populate_hook already
+            # handled the exception or error and outputs to logs
+            LOG.debug('No %s resources found to pre-populate', driver)
+            continue
 
-    while True:
-        try:
-            neutron_routers = neutron_client.get_routers(detailed=False)
-            break
-        except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
-            LOG.warning(_LW('PrePopulateWorkers thread failed: %s'), err)
-            return
-        except Exception as err:
-            LOG.warning(
-                _LW('Could not fetch routers from neutron: %s'), err)
-            LOG.warning(_LW('sleeping %s seconds before retrying'), nap_time)
-            time.sleep(nap_time)
-            # FIXME(rods): should we get max_sleep from the config file?
-            nap_time = min(nap_time * 2, max_sleep)
+        LOG.debug('Start pre-populating %d workers for the %s driver',
+                  len(resources),
+                  driver.RESOURCE_NAME)
 
-    LOG.debug('Start pre-populating the workers with %d fetched routers',
-              len(neutron_routers))
-
-    for router in neutron_routers:
-        message = event.Event(
-            tenant_id=router.tenant_id,
-            router_id=router.id,
-            crud=event.POLL,
-            body={}
-        )
-        scheduler.handle_message(router.tenant_id, message)
+        for resource in resources:
+            message = event.Event(
+                resource=resource,
+                crud=event.POLL,
+                body={}
+            )
+            scheduler.handle_message(resource.tenant_id, message)
 
 
 def pre_populate_workers(scheduler):

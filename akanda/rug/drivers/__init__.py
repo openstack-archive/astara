@@ -1,4 +1,4 @@
-# Copyright (c) 2015 AKANDA, INC. All Rights Reserved.
+# Copyright (c) 2015 Akanda, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -12,13 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 from oslo_config import cfg
+from akanda.rug.drivers.router import Router
 
-DRIVER_OPTS = [cfg.ListOpt('available_drivers',
-                           help='list of drivers the rug process will load'), ]
+DRIVER_OPTS = [
+    cfg.ListOpt('enabled_drivers',
+                default=['router', ],
+                help='list of drivers the rug process will load'),
+]
 
 cfg.CONF.register_opts(DRIVER_OPTS)
 
-AVAILABLE_DRIVERS = {}
+AVAILABLE_DRIVERS = {'router': Router}
 
 
 class InvalidDriverException(Exception):
@@ -40,3 +44,12 @@ def get(requested_driver):
     raise InvalidDriverException(
         'Failed loading driver: %s' % requested_driver
     )
+
+
+def enabled_drivers():
+    for driver in cfg.CONF.enabled_drivers:
+        try:
+            d = get(driver)
+        except InvalidDriverException:
+            pass
+        yield d
