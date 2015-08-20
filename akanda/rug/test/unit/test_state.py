@@ -15,7 +15,6 @@
 # under the License.
 
 
-import logging
 from collections import deque
 
 import mock
@@ -24,7 +23,10 @@ import unittest2 as unittest
 from akanda.rug import event
 from akanda.rug import state
 from akanda.rug import instance_manager
+from akanda.rug.drivers import states
 from akanda.rug.api.neutron import RouterGone
+
+from akanda.rug.test.unit import fakes
 
 
 class BaseTestStateCase(unittest.TestCase):
@@ -32,23 +34,22 @@ class BaseTestStateCase(unittest.TestCase):
 
     def setUp(self):
         self.ctx = mock.Mock()  # worker context
-        log = logging.getLogger(__name__)
+        self.fake_driver = fakes.fake_driver()
         instance_mgr_cls = \
             mock.patch('akanda.rug.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.instance = instance_mgr_cls.return_value
         self.params = state.StateParams(
+            driver=self.fake_driver,
             instance=self.instance,
-            log=log,
             queue=deque(),
             bandwidth_callback=mock.Mock(),
             reboot_error_threshold=3,
-            router_image_uuid='GLANCE-IMAGE-123'
         )
         self.state = self.state_cls(self.params)
 
     def _test_transition_hlpr(self, action, expected_class,
-                              instance_state=state.instance_manager.UP):
+                              instance_state=state.states.UP):
         self.instance.state = instance_state
         result = self.state.transition(action, self.ctx)
         self.assertIsInstance(result, expected_class)
@@ -135,7 +136,7 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CheckBoot,
-            instance_manager.BOOTING
+            states.BOOTING
         )
 
     def test_transition_update_missing_router_not_down(self):
@@ -144,7 +145,7 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CheckBoot,
-            instance_manager.BOOTING
+            states.BOOTING
         )
 
     def test_transition_delete_missing_router_down(self):
@@ -153,7 +154,7 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.DELETE,
             state.StopInstance,
-            instance_manager.DOWN
+            states.DOWN
         )
 
     def test_transition_delete_missing_router_not_down(self):
@@ -162,13 +163,13 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.DELETE,
             state.StopInstance,
-            instance_manager.BOOTING
+            states.BOOTING
         )
 
     def test_transition_delete_down_instance(self):
         self._test_transition_hlpr(event.DELETE,
                                    state.StopInstance,
-                                   instance_manager.DOWN)
+                                   states.DOWN)
 
     def test_transition_delete_up_instance(self):
         self._test_transition_hlpr(event.DELETE, state.StopInstance)
@@ -177,18 +178,18 @@ class TestCalcActionState(BaseTestStateCase):
         for evt in [event.POLL, event.READ, event.UPDATE, event.CREATE]:
             self._test_transition_hlpr(evt,
                                        state.CreateInstance,
-                                       instance_manager.DOWN)
+                                       states.DOWN)
 
     def test_transition_poll_up_instance(self):
         self._test_transition_hlpr(event.POLL,
                                    state.Alive,
-                                   instance_manager.UP)
+                                   states.UP)
 
     def test_transition_poll_configured_instance(self):
         self._test_transition_hlpr(
             event.POLL,
             state.Alive,
-            instance_manager.CONFIGURED
+            states.CONFIGURED
         )
 
     def test_transition_other_up_instance(self):
@@ -200,7 +201,7 @@ class TestCalcActionState(BaseTestStateCase):
         result = self._test_transition_hlpr(
             event.UPDATE,
             state.ClearError,
-            instance_manager.ERROR,
+            states.ERROR,
         )
         self.assertIsInstance(result._next_state, state.Alive)
 
@@ -209,14 +210,14 @@ class TestCalcActionState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CalcAction,
-            instance_manager.ERROR,
+            states.ERROR,
         )
 
     def test_transition_poll_error_instance(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
-            instance_manager.ERROR,
+            states.ERROR,
         )
 
 
@@ -234,34 +235,34 @@ class TestAliveState(BaseTestStateCase):
         for evt in [event.POLL, event.READ, event.UPDATE, event.CREATE]:
             self._test_transition_hlpr(evt,
                                        state.CreateInstance,
-                                       instance_manager.DOWN)
+                                       states.DOWN)
 
     def test_transition_poll_instance_configured(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
-            instance_manager.CONFIGURED
+            states.CONFIGURED
         )
 
     def test_transition_read_instance_configured(self):
         self._test_transition_hlpr(
             event.READ,
             state.ReadStats,
-            instance_manager.CONFIGURED
+            states.CONFIGURED
         )
 
     def test_transition_up_to_configured(self):
         self._test_transition_hlpr(
             event.CREATE,
             state.ConfigureInstance,
-            instance_manager.UP
+            states.UP
         )
 
     def test_transition_configured_instance_configured(self):
         self._test_transition_hlpr(
             event.CREATE,
             state.ConfigureInstance,
-            instance_manager.CONFIGURED
+            states.CONFIGURED
         )
 
 
@@ -274,8 +275,7 @@ class TestCreateInstanceState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.instance.boot.assert_called_once_with(self.ctx,
-                                                   'GLANCE-IMAGE-123')
+        self.instance.boot.assert_called_once_with(self.ctx)
 
     def test_execute_too_many_attempts(self):
         self.instance.attempts = self.params.reboot_error_threshold
@@ -290,26 +290,26 @@ class TestCreateInstanceState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.READ,
             state.CheckBoot,
-            instance_manager.BOOTING
+            states.BOOTING
         )
 
     def test_transition_instance_up(self):
         self._test_transition_hlpr(
             event.READ,
             state.CheckBoot,
-            instance_state=state.instance_manager.BOOTING
+            instance_state=state.states.BOOTING
         )
 
     def test_transition_instance_missing(self):
         self._test_transition_hlpr(
             event.READ,
             state.CreateInstance,
-            instance_state=state.instance_manager.DOWN
+            instance_state=state.states.DOWN
         )
 
     def test_transition_instance_error(self):
         self._test_transition_hlpr(event.READ, state.CalcAction,
-                                   instance_state=state.instance_manager.ERROR)
+                                   instance_state=state.states.ERROR)
 
 
 class TestRebuildInstanceState(BaseTestStateCase):
@@ -323,7 +323,7 @@ class TestRebuildInstanceState(BaseTestStateCase):
         self.instance.stop.assert_called_once_with(self.ctx)
 
     def test_execute_gone(self):
-        self.instance.state = instance_manager.GONE
+        self.instance.state = states.GONE
         self.assertEqual(
             self.state.execute('ignored', self.ctx),
             event.DELETE,
@@ -342,7 +342,7 @@ class TestClearErrorState(BaseTestStateCase):
         self.instance.clear_error.assert_called_once_with(self.ctx)
 
     def test_execute_after_error(self):
-        self.instance.state = instance_manager.ERROR
+        self.instance.state = states.ERROR
         self.assertEqual(
             self.state.execute('passthrough', self.ctx),
             'passthrough',
@@ -379,21 +379,21 @@ class TestCheckBootState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.ConfigureInstance,
-            instance_manager.UP
+            states.UP
         )
 
     def test_transition_hotplug(self):
         self._test_transition_hlpr(
             event.UPDATE,
             state.ReplugInstance,
-            instance_manager.REPLUG
+            states.REPLUG
         )
 
     def test_transition_instance_booting(self):
         self._test_transition_hlpr(
             event.UPDATE,
             state.CalcAction,
-            instance_manager.BOOTING
+            states.BOOTING
         )
 
 
@@ -413,12 +413,12 @@ class TestStopInstanceState(BaseTestStateCase):
     def test_transition_delete_instance_down(self):
         self._test_transition_hlpr(event.DELETE,
                                    state.Exit,
-                                   instance_manager.DOWN)
+                                   states.DOWN)
 
     def test_transition_restart_instance_down(self):
         self._test_transition_hlpr(event.READ,
                                    state.CreateInstance,
-                                   instance_manager.DOWN)
+                                   states.DOWN)
 
 
 class TestReplugState(BaseTestStateCase):
@@ -435,14 +435,14 @@ class TestReplugState(BaseTestStateCase):
         self._test_transition_hlpr(
             event.UPDATE,
             state.ConfigureInstance,
-            instance_manager.REPLUG
+            states.REPLUG
         )
 
     def test_transition_hotplug_failed(self):
         self._test_transition_hlpr(
             event.UPDATE,
             state.StopInstance,
-            instance_manager.RESTART
+            states.RESTART
         )
 
 
@@ -454,13 +454,13 @@ class TestConfigureInstanceState(BaseTestStateCase):
     state_cls = state.ConfigureInstance
 
     def test_execute_read_configure_success(self):
-        self.instance.state = instance_manager.CONFIGURED
+        self.instance.state = states.CONFIGURED
         self.assertEqual(self.state.execute(event.READ, self.ctx),
                          event.READ)
         self.instance.configure.assert_called_once_with(self.ctx)
 
     def test_execute_update_configure_success(self):
-        self.instance.state = instance_manager.CONFIGURED
+        self.instance.state = states.CONFIGURED
         self.assertEqual(self.state.execute(event.UPDATE, self.ctx),
                          event.POLL)
         self.instance.configure.assert_called_once_with(self.ctx)
@@ -475,30 +475,30 @@ class TestConfigureInstanceState(BaseTestStateCase):
     def test_transition_not_configured_down(self):
         self._test_transition_hlpr(event.READ,
                                    state.StopInstance,
-                                   instance_manager.DOWN)
+                                   states.DOWN)
 
     def test_transition_not_configured_restart(self):
         self._test_transition_hlpr(event.READ,
                                    state.StopInstance,
-                                   instance_manager.RESTART)
+                                   states.RESTART)
 
     def test_transition_not_configured_up(self):
         self._test_transition_hlpr(event.READ,
                                    state.PushUpdate,
-                                   instance_manager.UP)
+                                   states.UP)
 
     def test_transition_read_configured(self):
         self._test_transition_hlpr(
             event.READ,
             state.ReadStats,
-            instance_manager.CONFIGURED
+            states.CONFIGURED
         )
 
     def test_transition_other_configured(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
-            instance_manager.CONFIGURED
+            states.CONFIGURED
         )
 
 
@@ -524,6 +524,7 @@ class TestAutomaton(unittest.TestCase):
         super(TestAutomaton, self).setUp()
 
         self.ctx = mock.Mock()  # worker context
+        self.fake_driver = fakes.fake_driver()
 
         self.instance_mgr_cls = \
             mock.patch('akanda.rug.instance_manager.InstanceManager').start()
@@ -533,7 +534,8 @@ class TestAutomaton(unittest.TestCase):
         self.bandwidth_callback = mock.Mock()
 
         self.sm = state.Automaton(
-            router_id='9306bbd8-f3cc-11e2-bd68-080027e60b25',
+            driver=self.fake_driver,
+            resource_id=self.fake_driver.id,
             tenant_id='tenant-id',
             delete_callback=self.delete_callback,
             bandwidth_callback=self.bandwidth_callback,
@@ -545,7 +547,7 @@ class TestAutomaton(unittest.TestCase):
     def test_send_message(self):
         message = mock.Mock()
         message.crud = 'update'
-        with mock.patch.object(self.sm, 'log') as logger:
+        with mock.patch.object(self.sm.driver, 'log') as logger:
             self.sm.send_message(message)
             self.assertEqual(len(self.sm._queue), 1)
             logger.debug.assert_called_with(
@@ -558,7 +560,7 @@ class TestAutomaton(unittest.TestCase):
         message.crud = 'update'
         for i in range(3):
             self.sm.send_message(message)
-        with mock.patch.object(self.sm, 'log') as logger:
+        with mock.patch.object(self.sm.driver, 'log') as logger:
             self.sm.send_message(message)
             logger.warning.assert_called_with(
                 'incoming message brings queue length to %s',
@@ -575,7 +577,7 @@ class TestAutomaton(unittest.TestCase):
 
     def test_send_message_in_error(self):
         instance = self.instance_mgr_cls.return_value
-        instance.state = state.instance_manager.ERROR
+        instance.state = state.states.ERROR
         message = mock.Mock()
         message.crud = 'poll'
         self.sm.send_message(message)
@@ -584,7 +586,7 @@ class TestAutomaton(unittest.TestCase):
 
         # Non-POLL events should *not* be ignored for routers in ERROR state
         message.crud = 'create'
-        with mock.patch.object(self.sm, 'log') as logger:
+        with mock.patch.object(self.sm.driver, 'log') as logger:
             self.sm.send_message(message)
             self.assertEqual(len(self.sm._queue), 1)
             logger.debug.assert_called_with(
@@ -594,31 +596,29 @@ class TestAutomaton(unittest.TestCase):
 
     def test_send_rebuild_message_with_custom_image(self):
         instance = self.instance_mgr_cls.return_value
-        instance.state = state.instance_manager.DOWN
-        with mock.patch.object(instance_manager.cfg, 'CONF') as conf:
-            conf.router_image_uuid = 'DEFAULT'
-            self.sm.state.params.router_image_uuid = conf.router_image_uuid
-
+        instance.state = state.states.DOWN
+        with mock.patch.object(instance_manager.cfg, 'CONF'):
+            # rebuilds with custom
             message = mock.Mock()
             message.crud = 'rebuild'
-            message.body = {'router_image_uuid': 'ABC123'}
-            self.assertEqual(self.sm.router_image_uuid, conf.router_image_uuid)
+            message.body = {'image_uuid': 'ABC123'}
             self.sm.send_message(message)
-            self.assertEqual(self.sm.router_image_uuid, 'ABC123')
+            self.assertEqual(self.sm.image_uuid, 'ABC123')
 
+            # rebuilds with image default.
             message = mock.Mock()
             message.crud = 'rebuild'
             message.body = {}
             self.sm.send_message(message)
-            self.assertEqual(self.sm.router_image_uuid, 'DEFAULT')
+            self.assertEqual(self.sm.image_uuid, self.fake_driver.image_uuid)
 
     def test_has_more_work(self):
-        with mock.patch.object(self.sm, '_queue') as queue:  # noqa
+        with mock.patch.object(self.sm, '_queue'):
             self.assertTrue(self.sm.has_more_work())
 
     def test_has_more_work_deleting(self):
         self.sm.deleted = True
-        with mock.patch.object(self.sm, '_queue') as queue:  # noqa
+        with mock.patch.object(self.sm, '_queue'):
             self.assertFalse(self.sm.has_more_work())
 
     def test_update_no_work(self):
@@ -645,7 +645,7 @@ class TestAutomaton(unittest.TestCase):
         self.sm.action = 'fake'
         self.sm.state = fake_state
 
-        with mock.patch.object(self.sm, 'log') as log:
+        with mock.patch.object(self.sm.driver, 'log') as log:
             self.sm.update(self.ctx)
 
             log.exception.assert_called_once_with(mock.ANY, fake_state, 'fake')
@@ -696,10 +696,10 @@ class TestAutomaton(unittest.TestCase):
 
     def test_has_error(self):
         with mock.patch.object(self.sm, 'instance') as instance:
-            instance.state = instance_manager.ERROR
+            instance.state = states.ERROR
             self.assertTrue(self.sm.has_error())
 
     def test_has_no_error(self):
         with mock.patch.object(self.sm, 'instance') as instance:
-            instance.state = instance_manager.UP
+            instance.state = states.UP
             self.assertFalse(self.sm.has_error())

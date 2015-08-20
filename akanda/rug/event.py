@@ -18,12 +18,33 @@
 """Common event format for events passed within the RUG
 """
 
-import collections
 
-Event = collections.namedtuple(
-    'Event',
-    ['tenant_id', 'router_id', 'crud', 'body'],
-)
+class Event(object):
+    def __init__(self, resource, crud, body):
+        self.resource = resource
+        self.crud = crud
+        self.body = body
+
+    def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+        for k, v in vars(self).iteritems():
+            if k not in vars(other):
+                return False
+            if vars(other)[k] != v:
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        return '<%s (resource=%s, crud=%s, body=%s)>' % (
+            self.__class__.__name__,
+            self.resource,
+            self.crud,
+            self.body)
+
 
 CREATE = 'create'
 READ = 'read'

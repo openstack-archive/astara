@@ -152,7 +152,7 @@ class TestGetCRUD(unittest.TestCase):
             method='router_deleted',
             router_id='fake_router_id')
         self.assertEqual(event.DELETE, e.crud)
-        self.assertEqual(e.router_id, 'fake_router_id')
+        self.assertEqual(e.resource.id, 'fake_router_id')
 
     def test_notification_port(self):
         e = self._get_event_notification('port.create.start')
@@ -209,7 +209,8 @@ class TestGetCRUD(unittest.TestCase):
             }
         }
         e = self._get_event_notification('router.create.end', payload)
-        self.assertEqual(e.router_id, u'f95fb32d-0072-4675-b4bd-61d829a46aca')
+        self.assertEqual(e.resource.id,
+                         u'f95fb32d-0072-4675-b4bd-61d829a46aca')
 
     def test_interface_create_and_delete(self):
         for action in ('create', 'delete'):
@@ -227,7 +228,7 @@ class TestGetCRUD(unittest.TestCase):
             self.assertEqual(event.UPDATE, e.crud)
             self.assertEqual(
                 u'58868681-4a58-4f69-8dc0-b20955e7923f',
-                e.router_id
+                e.resource.id
             )
 
     def test_notification_akanda(self):
