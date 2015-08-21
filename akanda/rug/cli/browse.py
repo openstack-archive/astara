@@ -224,6 +224,8 @@ class BrowseRouters(message.MessageSending):
         self.term = Terminal()
         self.position = 0
         self.routers = []
+        self.fh = None
+        self.conn = None
         super(BrowseRouters, self).__init__(*a, **kw)
 
     def init_database(self):

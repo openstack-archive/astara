@@ -156,9 +156,9 @@ class CalcAction(State):
                 # here.
                 next_action = self
             elif self.instance.error_cooldown:
-                    self.log.debug('Router is in ERROR cooldown, ignoring '
-                                   'event.')
-                    next_action = self
+                self.log.debug('Router is in ERROR cooldown, ignoring '
+                               'event.')
+                next_action = self
             else:
                 # If this isn't a POLL, and the configured `error_cooldown`
                 # has passed, clear the error status before doing what we
