@@ -200,8 +200,8 @@ class OVSBridge:
     def db_get_map(self, table, record, column):
         output = self.run_vsctl(["get", table, record, column])
         if output:
-            str = output.rstrip("\n\r")
-            return self.db_str_to_map(str)
+            strg = output.rstrip("\n\r")
+            return self.db_str_to_map(strg)
         return {}
 
     def db_get_val(self, table, record, column):
@@ -210,9 +210,9 @@ class OVSBridge:
             return output.rstrip("\n\r")
 
     def db_str_to_map(self, full_str):
-        list = full_str.strip("{}").split(", ")
+        lst = full_str.strip("{}").split(", ")
         ret = {}
-        for e in list:
+        for e in lst:
             if e.find("=") == -1:
                 continue
             arr = e.split("=")

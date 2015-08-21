@@ -378,6 +378,8 @@ class InstanceManager(object):
                     cfg.CONF.akanda_mgt_service_port,
                     config
                 )
+                if i == attempts - 1:
+                    break
             except Exception:
                 if i == attempts - 1:
                     # Only log the traceback if we encounter it many times.
