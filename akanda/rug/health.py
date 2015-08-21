@@ -39,10 +39,9 @@ HEALTH_INSPECTOR_OPTS = [
 CONF.register_opts(HEALTH_INSPECTOR_OPTS)
 
 
-def _health_inspector(scheduler):
+def _health_inspector(period, scheduler):
     """Runs in the thread.
     """
-    period = CONF.health_check_period
     while True:
         time.sleep(period)
         LOG.debug('waking up')
@@ -60,7 +59,7 @@ def start_inspector(period, scheduler):
     """
     t = threading.Thread(
         target=_health_inspector,
-        args=(scheduler,),
+        args=(period, scheduler,),
         name='HealthInspector',
     )
     t.setDaemon(True)

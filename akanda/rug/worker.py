@@ -242,7 +242,7 @@ class Worker(object):
             self._shutdown()
             return
         if message.crud == event.COMMAND:
-            self._dispatch_command(target, message)
+            self._dispatch_command(message)
         else:
             # This is an update command for the router, so deliver it
             # to the state machine.
@@ -254,7 +254,7 @@ class Worker(object):
         commands.ROUTER_REBUILD: event.REBUILD,
     }
 
-    def _dispatch_command(self, target, message):
+    def _dispatch_command(self, message):
         instructions = message.body
         if instructions['command'] == commands.WORKERS_DEBUG:
             self.report_status()
