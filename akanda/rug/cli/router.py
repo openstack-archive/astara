@@ -117,9 +117,9 @@ class RouterRebuild(_TenantRouterCmd):
         return super(RouterRebuild, self).take_action(parsed_args)
 
     def make_message(self, parsed_args):
-        message = super(RouterRebuild, self).make_message(parsed_args)
-        message['router_image_uuid'] = parsed_args.router_image_uuid
-        return message
+        msg = super(RouterRebuild, self).make_message(parsed_args)
+        msg['router_image_uuid'] = parsed_args.router_image_uuid
+        return msg
 
 
 class RouterDebug(_TenantRouterCmd):

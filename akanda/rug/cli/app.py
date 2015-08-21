@@ -32,6 +32,7 @@ class RugController(app.App):
     log = logging.getLogger(__name__)
 
     def __init__(self):
+        self.rug_ini = None
         dist = pkg_resources.get_distribution('akanda-rug')
         super(RugController, self).__init__(
             description='controller for the Akanda RUG service',

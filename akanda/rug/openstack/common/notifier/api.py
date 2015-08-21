@@ -106,10 +106,10 @@ def publisher_id(service, host=None):
     return "%s.%s" % (service, host)
 
 
-def notify(context, publisher_id, event_type, priority, payload):
+def notify(ctxt, pub_id, event_type, priority, payload):
     """Sends a notification using the specified driver
 
-    :param publisher_id: the source worker_type.host of the message
+    :param pub_id: the source worker_type.host of the message
     :param event_type:   the literal type of event (ex. Instance Creation)
     :param priority:     patterned after the enumeration of Python logging
                          levels in the set (DEBUG, WARN, INFO, ERROR, CRITICAL)
@@ -146,7 +146,7 @@ def notify(context, publisher_id, event_type, priority, payload):
     payload = jsonutils.to_primitive(payload, convert_instances=True)
 
     msg = dict(message_id=str(uuid.uuid4()),
-               publisher_id=publisher_id,
+               publisher_id=pub_id,
                event_type=event_type,
                priority=priority,
                payload=payload,
@@ -154,12 +154,12 @@ def notify(context, publisher_id, event_type, priority, payload):
 
     for driver in _get_drivers():
         try:
-            driver.notify(context, msg)
+            driver.notify(ctxt, msg)
         except Exception as e:
             LOG.exception(_("Problem '%(e)s' attempting to "
                             "send to notification system. "
-                            "Payload=%(payload)s")
-                          % dict(e=e, payload=payload))
+                            "Payload=%(payload)s"),
+                          dict(e=e, payload=payload))
 
 
 _drivers = None

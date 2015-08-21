@@ -246,7 +246,8 @@ class TestBridgeInterfaceDriver(TestBase):
         with mock.patch('akanda.rug.common.linux.interface.LOG') as log:
             br = interface.BridgeInterfaceDriver(self.conf)
             br.unplug('tap0')
-            [mock.call(), mock.call('tap0', 'sudo'), mock.call().link.delete()]
+            # TODO(smcginnis): Add assert that the following is called
+            # [mock.call(), mock.call('tap0', 'sudo'), mock.call().link.delete()]
             self.assertEqual(log.exception.call_count, 1)
 
     def test_unplug(self):

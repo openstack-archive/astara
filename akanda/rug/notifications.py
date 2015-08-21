@@ -69,7 +69,7 @@ cfg.CONF.register_opts(NOTIFICATIONS_OPTS)
 LOG = logging.getLogger(__name__)
 
 
-def _get_tenant_id_for_message(context, payload=None):
+def _get_tenant_id_for_message(ctxt, payload=None):
     """Find the tenant id in the incoming message."""
 
     # give priority to the tenant_id in the router dict if one
@@ -81,8 +81,8 @@ def _get_tenant_id_for_message(context, payload=None):
                 return val
 
     for key in ['tenant_id', 'project_id']:
-        if key in context:
-            val = context[key]
+        if key in ctxt:
+            val = ctxt[key]
             # Some notifications have None as the tenant id, but we
             # can't shard on None in the dispatcher, so treat those as
             # invalid.

@@ -1,4 +1,14 @@
-
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
 import ConfigParser
 import mock
 import os
@@ -41,37 +51,37 @@ class AkandaFunctionalBase(testtools.TestCase):
         self._management_address = None
 
     def _get_config(self):
-            config_file = os.environ.get('AKANDA_TEST_CONFIG',
-                                         DEFAULT_CONFIG)
-            config = ConfigParser.SafeConfigParser()
-            if not config.read(config_file):
-                self.skipTest('Skipping, no test config found @ %s' %
-                              config_file)
+        config_file = os.environ.get('AKANDA_TEST_CONFIG',
+                                     DEFAULT_CONFIG)
+        config = ConfigParser.SafeConfigParser()
+        if not config.read(config_file)
+            self.skipTest('Skipping, no test config found @ %s' %
+                          config_file)
 
-            req_conf_settings = ['os_auth_url', 'os_username', 'os_password',
-                                 'os_tenant_name', 'service_tenant_name',
-                                 'service_tenant_id', 'appliance_api_port',
-                                 'akanda_test_router_uuid']
-            out = {}
-            for c in req_conf_settings:
-                try:
-                    out[c] = config.get('functional', c)
-                except ConfigParser.NoOptionError:
-                    out[c] = None
-            missing = [k for k, v in out.items() if not v]
-            if missing:
-                    self.fail('Missing required setting in test.conf (%s)'
-                              (config_file, ','.join(missing)))
+        req_conf_settings = ['os_auth_url', 'os_username', 'os_password',
+                             'os_tenant_name', 'service_tenant_name',
+                             'service_tenant_id', 'appliance_api_port',
+                             'akanda_test_router_uuid']
+        out = {}
+        for c in req_conf_settings:
+            try:
+                out[c] = config.get('functional', c)
+            except ConfigParser.NoOptionError:
+                out[c] = None
+        missing = [k for k, v in out.items() if not v]
+        if missing:
+            self.fail('Missing required setting in test.conf (%s)'
+                      (config_file, ','.join(missing)))
 
-            opt_conf_settings = {
-                'appliance_active_timeout': DEFAULT_ACTIVE_TIMEOUT,
-            }
-            for setting, default in opt_conf_settings.items():
-                try:
-                    out[setting] = config.get('functional', setting)
-                except ConfigParser.NoOptionError:
-                    out[setting] = default
-            return out
+        opt_conf_settings = {
+            'appliance_active_timeout': DEFAULT_ACTIVE_TIMEOUT,
+        }
+        for setting, default in opt_conf_settings.items():
+            try:
+                out[setting] = config.get('functional', setting)
+            except ConfigParser.NoOptionError:
+                out[setting] = default
+        return out
 
     @property
     def management_address(self):

@@ -128,9 +128,9 @@ class TestGetCRUD(unittest.TestCase):
             if not self.queue.qsize():
                 # message was discarded and not queued
                 return None
-            tenant, event = self.queue.get()
+            tenant, evnt = self.queue.get()
             self.assertEqual(tenant, fake_tenant_id)
-            return event
+            return evnt
 
     def _get_event_l3_rpc(self, method, **kwargs):
         self.assertTrue(hasattr(self.l3_rpc_endpoint, method))
@@ -142,10 +142,10 @@ class TestGetCRUD(unittest.TestCase):
             fake_tenant.return_value = fake_tenant_id
             f(**kwargs)
             if not self.queue.qsize():
-                    return None
-            tenant, event = self.queue.get()
+                return None
+            tenant, evnt = self.queue.get()
             self.assertEqual(tenant, fake_tenant_id)
-            return event
+            return evnt
 
     def test_rpc_router_deleted(self):
         e = self._get_event_l3_rpc(
