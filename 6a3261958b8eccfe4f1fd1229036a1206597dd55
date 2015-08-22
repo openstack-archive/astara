@@ -1,0 +1,9 @@
+Verified+2: Jenkins
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Code-Review+2: Sean Roberts <seanroberts66@gmail.com>
+Workflow+1: Sean Roberts <seanroberts66@gmail.com>
+Submitted-by: Jenkins
+Submitted-at: Sat, 22 Aug 2015 01:38:22 +0000
+Reviewed-on: https://review.openstack.org/198176
+Project: stackforge/akanda-rug
+Branch: refs/heads/master
