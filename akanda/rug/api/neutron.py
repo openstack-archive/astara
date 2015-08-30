@@ -43,11 +43,10 @@ neutron_opts = [
     cfg.StrOpt('external_network_id'),
     cfg.StrOpt('management_subnet_id'),
     cfg.StrOpt('external_subnet_id'),
-    cfg.StrOpt('router_image_uuid'),
     cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
     cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
     cfg.IntOpt('akanda_mgt_service_port', default=5000),
-    cfg.StrOpt('router_instance_flavor', default=1),
+    cfg.StrOpt('default_instance_flavor', default=1),
     cfg.StrOpt('interface_driver'),
 
 ]
@@ -307,6 +306,7 @@ class Neutron(object):
         if detailed:
             return [Router.from_dict(r) for r in
                     self.rpc_client.get_routers()]
+
         routers = self.api_client.list_routers().get('routers', [])
         return [Router.from_dict(r) for r in routers]
 
@@ -547,8 +547,8 @@ class Neutron(object):
             # what the status of the router should be. Log the error
             # but otherwise ignore it.
             LOG.info(_LI(
-                'ignoring failure to update status for router %s to %s: %s'),
-                router_id, status, e,
+                'ignoring failure to update status for %s to %s: %s'),
+                id, status, e,
             )
 
     def clear_device_id(self, port):
