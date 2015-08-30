@@ -43,11 +43,10 @@ neutron_opts = [
     cfg.StrOpt('external_network_id'),
     cfg.StrOpt('management_subnet_id'),
     cfg.StrOpt('external_subnet_id'),
-    cfg.StrOpt('router_image_uuid'),
     cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
     cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
     cfg.IntOpt('akanda_mgt_service_port', default=5000),
-    cfg.StrOpt('router_instance_flavor', default=1),
+    cfg.StrOpt('default_instance_flavor', default=1),
     cfg.StrOpt('interface_driver'),
 
 ]
@@ -256,13 +255,13 @@ class FloatingIP(object):
 class AkandaExtClientWrapper(client.Client):
     """Add client support for Akanda Extensions. """
 
-    routerstatus_path = '/dhrouterstatus'
+    status_path = '/akandastatus'
 
     @client.APIParamsCall
-    def update_router_status(self, router, status):
+    def update_status(self, id, status):
         return self.put(
-            '%s/%s' % (self.routerstatus_path, router),
-            body={'routerstatus': {'status': status}}
+            '%s/%s' % (self.status_path, id),
+            body={'status': {'status': status}}
         )
 
 
@@ -388,7 +387,7 @@ class Neutron(object):
 
         return port
 
-    def create_router_external_port(self, router):
+    def create_external_port(self, router):
         # FIXME: Need to make this smarter in case the switch is full.
         network_args = {'network_id': self.conf.external_network_id}
         update_args = {
@@ -539,16 +538,16 @@ class Neutron(object):
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
 
-    def update_router_status(self, router_id, status):
+    def update_status(self, id, status):
         try:
-            self.api_client.update_router_status(router_id, status)
+            self.api_client.update_status(id, status)
         except Exception as e:
             # We don't want to die just because we can't tell neutron
             # what the status of the router should be. Log the error
             # but otherwise ignore it.
             LOG.info(_LI(
-                'ignoring failure to update status for router %s to %s: %s'),
-                router_id, status, e,
+                'ignoring failure to update status for %s to %s: %s'),
+                id, status, e,
             )
 
     def clear_device_id(self, port):

@@ -26,6 +26,7 @@ class BaseDriver(object):
         """
         self.id = id
         self.external_port = None
+        self.details = []
         self.flavor = None
         self.image_uuid = None
         self.name = 'ak-%s-%s' % (self.RESOURCE_NAME, self.id)
@@ -83,5 +84,11 @@ class BaseDriver(object):
         state.
 
         :param state: a valid state
+        """
+        pass
+
+    @staticmethod
+    def pre_populate_hook():
+        """called in populate.py durring driver loading loop.
         """
         pass

@@ -28,9 +28,9 @@ LOG = logging.getLogger(__name__)
 
 OPTIONS = [
     cfg.StrOpt(
-        'router_ssh_public_key',
+        'ssh_public_key',
         help="Path to the SSH public key for the 'akanda' user within "
-             "router appliance instances",
+             "appliance instances",
         default='/etc/akanda-rug/akanda.pub')
 ]
 cfg.CONF.register_opts(OPTIONS)
@@ -87,20 +87,21 @@ class Nova(object):
             auth_system=conf.auth_strategy,
             region_name=conf.auth_region)
 
-    def create_instance(self, router_id, image_uuid, make_ports_callback):
+    def create_instance(self, name, image_uuid, flavor, make_ports_callback):
         mgt_port, instance_ports = make_ports_callback()
 
-        nics = [{'net-id': p.network_id, 'v4-fixed-ip': '', 'port-id': p.id}
+        nics = [{'net-id': p.network_id,
+                 'v4-fixed-ip': '',
+                 'port-id': p.id}
                 for p in ([mgt_port] + instance_ports)]
 
-        LOG.debug('creating instance for router %s with image %s',
-                  router_id, image_uuid)
-        name = 'ak-' + router_id
+        LOG.debug('creating instance %s with image %s',
+                  name, image_uuid)
 
         server = self.client.servers.create(
             name,
             image=image_uuid,
-            flavor=self.conf.router_instance_flavor,
+            flavor=flavor,
             nics=nics,
             config_drive=True,
             userdata=_format_userdata(mgt_port)
@@ -120,32 +121,31 @@ class Nova(object):
         instance_info.nova_status = server.status
         return instance_info
 
-    def get_instance_info_for_obj(self, router_id):
-        """Retrieves an InstanceInfo object for a given router_id
+    def get_instance_info(self, name):
+        """Retrieves an InstanceInfo object for a given instance name
 
-        :param router_id: UUID of the router being queried
+        :param name: name of the instance being queried
 
         :returns: an InstanceInfo object representing the router instance
         """
-        instance = self.get_instance_for_obj(router_id)
+        instance = self.get_instance_for_obj(name)
 
         if instance:
             return InstanceInfo(
                 instance.id,
-                instance.name,
+                name,
                 image_uuid=instance.image['id']
             )
 
-    def get_instance_for_obj(self, router_id):
-        """Retreives a nova server for a given router_id, based on instance
-        name.
+    def get_instance_for_obj(self, name):
+        """Retreives a nova server for a given instance        name.
 
-        :param router_id: UUID of the router being queried
+        :param name: name of the instance being queried
 
         :returns: a novaclient.v2.servers.Server object or None
         """
         instances = self.client.servers.list(
-            search_opts=dict(name='ak-' + router_id)
+            search_opts=dict(name=name)
         )
 
         if instances:
@@ -170,11 +170,11 @@ class Nova(object):
             LOG.debug('deleting instance for router %s', instance_info.name)
             self.client.servers.delete(instance_info.id_)
 
-    def boot_instance(self, prev_instance_info, router_id, router_image_uuid,
+    def boot_instance(self, prev_instance_info, name, image_uuid, flavor,
                       make_ports_callback):
 
         if not prev_instance_info:
-            instance = self.get_instance_for_obj(router_id)
+            instance = self.get_instance_for_obj(name)
         else:
             instance = self.get_instance_by_id(prev_instance_info.id_)
 
@@ -198,8 +198,9 @@ class Nova(object):
 
         # it is now safe to attempt boot
         instance_info = self.create_instance(
-            router_id,
-            router_image_uuid,
+            name,
+            image_uuid,
+            flavor,
             make_ports_callback
         )
         return instance_info
@@ -239,8 +240,8 @@ final_message: "Akanda appliance is running"
 """  # noqa
 
 
-def _router_ssh_key():
-    key = cfg.CONF.router_ssh_public_key
+def _ssh_key():
+    key = cfg.CONF.ssh_public_key
     if not key:
         return ''
     try:
@@ -253,7 +254,7 @@ def _router_ssh_key():
 
 def _format_userdata(mgt_port):
     ctxt = {
-        'ssh_public_key': _router_ssh_key(),
+        'ssh_public_key': _ssh_key(),
         'mac_address': mgt_port.mac_address,
         'ip_address': mgt_port.fixed_ips[0].ip_address,
     }

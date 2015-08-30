@@ -69,7 +69,7 @@ def _normalize_uuid(value):
     return str(uuid.UUID(value.replace('-', '')))
 
 
-class TenantRouterCache(object):
+class TenantResourceCache(object):
     """Holds a cache of default router_ids for tenants. This is constructed
     and consulted when we receieve messages with no associated router_id and
     avoids a Neutron call per-message of this type.
@@ -77,17 +77,17 @@ class TenantRouterCache(object):
     # NOTE(adam_g): This is a pretty dumb caching layer and can be backed
     # by an external system like memcache to further optimize lookups
     # across mulitple rugs.
-    _tenant_routers = {}
+    _tenant_resources = {}
 
     def get_by_tenant(self, tenant_uuid, worker_context):
-        if tenant_uuid not in self._tenant_routers:
+        if tenant_uuid not in self._tenant_resources:
             router = worker_context.neutron.get_router_for_tenant(
                 tenant_uuid)
             if not router:
                 LOG.debug('Router not found for tenant %s.', tenant_uuid)
                 return None
-            self._tenant_routers[tenant_uuid] = router.id
-        return self._tenant_routers[tenant_uuid]
+            self._tenant_resources[tenant_uuid] = router.id
+        return self._tenant_resources[tenant_uuid]
 
 
 class WorkerContext(object):
@@ -114,7 +114,7 @@ class Worker(object):
         self.lock = threading.Lock()
         self._keep_going = True
         self.tenant_managers = {}
-        self.router_cache = TenantRouterCache()
+        self.resource_cache = TenantResourceCache()
 
         # This process-global context should not be used in the
         # threads, since the clients are not thread-safe.
@@ -124,7 +124,7 @@ class Worker(object):
         # happens inside the worker process and not the parent.
         self.notifier.start()
 
-        # The DB is used for trakcing debug modes
+        # The DB is used for tracking debug modes
         self.db_api = db_api.get_instance()
 
         # Thread locks for the routers so we only put one copy in the
@@ -172,23 +172,23 @@ class Worker(object):
             # for a router we've been told to ignore for debug mode.
             should_ignore, reason = self.db_api.router_in_debug(sm.router_id)
             if should_ignore:
-                LOG.debug('Skipping update of router %s in debug mode. '
+                LOG.debug('Skipping update of resource %s in debug mode. '
                           '(reason: %s)', sm.router_id, reason)
                 continue
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
             LOG.debug('performing work on %s for tenant %s',
-                      sm.router_id, sm.tenant_id)
+                      sm.name, sm.tenant_id)
             try:
-                self._thread_status[my_id] = 'updating %s' % sm.router_id
+                self._thread_status[my_id] = 'updating %s' % sm.name
                 sm.update(context)
             except:
                 LOG.exception(_LE('could not complete update for %s'),
-                              sm.router_id)
+                              sm.name)
             finally:
                 self._thread_status[my_id] = (
-                    'finalizing task for %s' % sm.router_id
+                    'finalizing task for %s' % sm.name
                 )
                 self.work_queue.task_done()
                 with self.lock:
@@ -206,8 +206,8 @@ class Worker(object):
                     # the queue.
                     if sm.has_more_work():
                         LOG.debug('%s has more work, returning to work queue',
-                                  sm.router_id)
-                        self._add_router_to_work_queue(sm)
+                                  sm.name)
+                        self._add_resource_to_work_queue(sm)
                     else:
                         LOG.debug('%s has no more work', sm.router_id)
         # Return the context object so tests can look at it
@@ -342,11 +342,6 @@ class Worker(object):
             with self.lock:
                 self._deliver_message(target, message)
 
-    _EVENT_COMMANDS = {
-        commands.ROUTER_UPDATE: event.UPDATE,
-        commands.ROUTER_REBUILD: event.REBUILD,
-    }
-
     def _dispatch_command(self, target, message):
         instructions = message.body
         if instructions['command'] == commands.WORKERS_DEBUG:
@@ -455,20 +450,20 @@ class Worker(object):
                 if sm.send_message(message):
                     self._add_router_to_work_queue(sm)
 
-    def _add_router_to_work_queue(self, sm):
-        """Queue up the state machine by router id.
+    def _add_resource_to_work_queue(self, sm):
+        """Queue up the state machine by resource name.
 
         The work queue lock should be held before calling this method.
         """
-        l = self._router_locks[sm.router_id]
+        l = self._router_locks[sm.name]
         locked = l.acquire(False)
         if locked:
             self.work_queue.put(sm)
         else:
-            LOG.debug('%s is already in the work queue', sm.router_id)
+            LOG.debug('%s is already in the work queue', sm.name)
 
     def _release_router_lock(self, sm):
-        self._router_locks[sm.router_id].release()
+        self._router_locks[sm.name].release()
 
     def report_status(self, show_config=True):
         if show_config:
