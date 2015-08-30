@@ -1,6 +1,4 @@
-# Copyright 2014 DreamHost, LLC
-#
-# Author: DreamHost, LLC
+# Copyright (c) 2015 AKANDA, INC. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -13,22 +11,19 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+"""Reference states.
 
-
-"""Common event format for events passed within the RUG
+Each driver maps these to which ever neutron or other
+services state.
 """
+DOWN = 'down'
+BOOTING = 'booting'
+UP = 'up'
+CONFIGURED = 'configured'
+RESTART = 'restart'
+REPLUG = 'replug'
+GONE = 'gone'
+ERROR = 'error'
 
-import collections
-
-Event = collections.namedtuple(
-    'Event',
-    ['driver', 'tenant_id', 'resource_id', 'crud', 'body'],
-)
-
-CREATE = 'create'
-READ = 'read'
-UPDATE = 'update'
-DELETE = 'delete'
-POLL = 'poll'
-COMMAND = 'command'  # an external command to be processed
-REBUILD = 'rebuild'
+# base list of ready states, driver can use its own list.
+READY_STATES = (UP, CONFIGURED)

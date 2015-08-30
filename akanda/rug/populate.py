@@ -19,61 +19,50 @@
 """
 
 import threading
-import time
+
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutronclient.common import exceptions as q_exceptions
-
 from akanda.rug import event
-from akanda.rug.api import neutron
-
-from akanda.rug.common.i18n import _LW
+from akanda.rug import drivers
 
 LOG = logging.getLogger(__name__)
 
 
 def _pre_populate_workers(scheduler):
-    """Fetch the existing routers from neutron.
-
-    Wait for neutron to return the list of the existing routers.
-    Pause up to max_sleep seconds between each attempt and ignore
-    neutron client exceptions.
-
+    """Loops through enabled drivers triggering each drivers pre_populate_hook
+    which is a static method for each driver.
 
     """
-    nap_time = 1
-    max_sleep = 15
+    for driver in cfg.CONF.enabled_drivers:
+        # get the driver object, if a config option has been set for a
+        # non-existant trigger
+        driver_obj = drivers.get(driver)
 
-    neutron_client = neutron.Neutron(cfg.CONF)
+        if not driver_obj:
+            continue
 
-    while True:
-        try:
-            neutron_routers = neutron_client.get_routers(detailed=False)
-            break
-        except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
-            LOG.warning(_LW('PrePopulateWorkers thread failed: %s'), err)
-            return
-        except Exception as err:
-            LOG.warning(
-                _LW('Could not fetch routers from neutron: %s'), err)
-            LOG.warning(_LW('sleeping %s seconds before retrying'), nap_time)
-            time.sleep(nap_time)
-            # FIXME(rods): should we get max_sleep from the config file?
-            nap_time = min(nap_time * 2, max_sleep)
+        driver_resources = driver_obj.pre_populate_hook()
 
-    LOG.debug('Start pre-populating the workers with %d fetched routers',
-              len(neutron_routers))
+        if not driver_resources:
+            # just skip to the next one the drivers pre_populate_hook already
+            # handled the exception or error and outputs to logs
+            continue
 
-    for router in neutron_routers:
-        message = event.Event(
-            tenant_id=router.tenant_id,
-            router_id=router.id,
-            crud=event.POLL,
-            body={}
-        )
-        scheduler.handle_message(router.tenant_id, message)
+        LOG.debug('Start pre-populating %d workers for the %d driver',
+                  len(driver_resources),
+                  driver_obj.RESOURCE_NAME)
+
+        for resource in driver_resources:
+            message = event.Event(
+                driver=driver,
+                tenant_id=resource.tenant_id,
+                resource_id=resource.id,
+                crud=event.POLL,
+                body={}
+            )
+            scheduler.handle_message(resource.tenant_id, message)
 
 
 def pre_populate_workers(scheduler):
