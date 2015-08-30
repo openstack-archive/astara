@@ -24,6 +24,7 @@ import threading
 from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug.common import rpc
+from akanda.rug.resource import Resource
 
 from oslo_config import cfg
 from oslo_context import context
@@ -133,8 +134,11 @@ class L3RPCEndpoint(object):
 
     def router_deleted(self, ctxt, router_id):
         tenant_id = _get_tenant_id_for_message(ctxt)
+
+        resource = Resource('router', router_id, tenant_id)
+
         crud = event.DELETE
-        e = event.Event(tenant_id, router_id, crud, None)
+        e = event.Event(resource, crud, None)
         self.notification_queue.put((e.tenant_id, e))
 
 
