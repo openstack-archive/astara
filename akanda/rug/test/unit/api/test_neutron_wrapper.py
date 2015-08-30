@@ -268,11 +268,11 @@ class TestNeutronWrapper(unittest.TestCase):
 
     @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_neutron_router_status_update_error(self, client_wrapper):
-        urs = client_wrapper.return_value.update_router_status
+        urs = client_wrapper.return_value.update_status
         urs.side_effect = RuntimeError('should be caught')
         conf = mock.Mock()
         neutron_wrapper = neutron.Neutron(conf)
-        neutron_wrapper.update_router_status('router-id', 'new-status')
+        neutron_wrapper.update_status('router-id', 'new-status')
 
 
 class TestExternalPort(unittest.TestCase):
@@ -379,7 +379,7 @@ class TestExternalPort(unittest.TestCase):
         neutron_wrapper = neutron.Neutron(self.conf)
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
-            port = neutron_wrapper.create_router_external_port(self.router)
+            port = neutron_wrapper.create_external_port(self.router)
             self.assertEqual(port.id, self.EXTERNAL_PORT_ID)
 
     @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
@@ -397,7 +397,7 @@ class TestExternalPort(unittest.TestCase):
             gns.return_value = self.SUBNETS
             self.assertRaises(
                 neutron.RouterGatewayMissing,
-                neutron_wrapper.create_router_external_port,
+                neutron_wrapper.create_external_port,
                 self.router
             )
 
@@ -418,7 +418,7 @@ class TestExternalPort(unittest.TestCase):
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             try:
-                neutron_wrapper.create_router_external_port(self.router)
+                neutron_wrapper.create_external_port(self.router)
             except neutron.MissingIPAllocation as e:
                 self.assertEqual(4, e.missing[0][0])
             else:
@@ -441,7 +441,7 @@ class TestExternalPort(unittest.TestCase):
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             try:
-                neutron_wrapper.create_router_external_port(self.router)
+                neutron_wrapper.create_external_port(self.router)
             except neutron.MissingIPAllocation as e:
                 self.assertEqual(6, e.missing[0][0])
             else:
@@ -465,7 +465,7 @@ class TestExternalPort(unittest.TestCase):
         with mock.patch.object(neutron_wrapper, 'get_network_subnets') as gns:
             gns.return_value = self.SUBNETS
             try:
-                neutron_wrapper.create_router_external_port(self.router)
+                neutron_wrapper.create_external_port(self.router)
             except neutron.MissingIPAllocation as e:
                 self.assertEqual(4, e.missing[0][0])
                 self.assertEqual(6, e.missing[1][0])

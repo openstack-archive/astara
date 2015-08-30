@@ -40,37 +40,37 @@ class Connection(object):
         pass
 
     @abc.abstractmethod
-    def enable_router_debug(self, router_uuid, reason=None):
-        """Enter a router into debug mode
+    def enable_resource_debug(self, resource_uuid, reason=None):
+        """Enter a resource into debug mode
 
-        :param router_uuid: str uuid of the router to be placed into debug
+        :param resource_uuid: str uuid of the resource to be placed into debug
                             mode
-        :param reason: str (optional) reason for entering router into debug
+        :param reason: str (optional) reason for entering resource into debug
                        mode
         """
 
     @abc.abstractmethod
-    def disable_router_debug(self, router_uuid):
-        """Remove a router into debug mode
+    def disable_resource_debug(self, resource_uuid):
+        """Remove a resource into debug mode
 
-        :param router_uuid: str uuid of the router to be removed from debug
+        :param resource_uuid: str uuid of the resource to be removed from debug
                             mode
         """
 
     @abc.abstractmethod
-    def router_in_debug(self, router_uuid):
-        """Determines if a router is in debug mode
+    def resource_in_debug(self, resource_uuid):
+        """Determines if a resource is in debug mode
 
-        :param router_uuid: str the uuid of the router to query
-        :returns: tuple (False, None) if router is not in debug mode or
+        :param resource_uuid: str the uuid of the resource to query
+        :returns: tuple (False, None) if resource is not in debug mode or
                   (True, "reason") if it is.
         """
 
     @abc.abstractmethod
-    def routers_in_debug(self):
-        """Queries all routers in debug mode
+    def resources_in_debug(self):
+        """Queries all resources in debug mode
 
-        :returns: a set of (router_uuid, reason) tuples
+        :returns: a set of (resource_uuid, reason) tuples
         """
 
     @abc.abstractmethod

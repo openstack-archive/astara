@@ -69,7 +69,7 @@ def _normalize_uuid(value):
     return str(uuid.UUID(value.replace('-', '')))
 
 
-class TenantRouterCache(object):
+class TenantResourceCache(object):
     """Holds a cache of default router_ids for tenants. This is constructed
     and consulted when we receieve messages with no associated router_id and
     avoids a Neutron call per-message of this type.
@@ -77,17 +77,17 @@ class TenantRouterCache(object):
     # NOTE(adam_g): This is a pretty dumb caching layer and can be backed
     # by an external system like memcache to further optimize lookups
     # across mulitple rugs.
-    _tenant_routers = {}
+    _tenant_resources = {}
 
     def get_by_tenant(self, tenant_uuid, worker_context):
-        if tenant_uuid not in self._tenant_routers:
-            router = worker_context.neutron.get_router_for_tenant(
-                tenant_uuid)
+        if tenant_uuid not in self._tenant_resources:
+            router = \
+                worker_context.neutron.get_router_for_tenant(tenant_uuid)
             if not router:
                 LOG.debug('Router not found for tenant %s.', tenant_uuid)
                 return None
-            self._tenant_routers[tenant_uuid] = router.id
-        return self._tenant_routers[tenant_uuid]
+            self._tenant_resources[tenant_uuid] = router.id
+        return self._tenant_resources[tenant_uuid]
 
 
 class WorkerContext(object):
@@ -114,7 +114,7 @@ class Worker(object):
         self.lock = threading.Lock()
         self._keep_going = True
         self.tenant_managers = {}
-        self.router_cache = TenantRouterCache()
+        self.resource_cache = TenantResourceCache()
 
         # This process-global context should not be used in the
         # threads, since the clients are not thread-safe.
@@ -124,12 +124,12 @@ class Worker(object):
         # happens inside the worker process and not the parent.
         self.notifier.start()
 
-        # The DB is used for trakcing debug modes
+        # The DB is used for tracking debug modes
         self.db_api = db_api.get_instance()
 
         # Thread locks for the routers so we only put one copy in the
         # work queue at a time
-        self._router_locks = collections.defaultdict(threading.Lock)
+        self._resource_locks = collections.defaultdict(threading.Lock)
         # Messages about what each thread is doing, keyed by thread id
         # and reported by the debug command.
         self._thread_status = {}
@@ -170,25 +170,26 @@ class Worker(object):
 
             # Make sure we didn't already have some updates under way
             # for a router we've been told to ignore for debug mode.
-            should_ignore, reason = self.db_api.router_in_debug(sm.router_id)
+            should_ignore, reason = \
+                self.db_api.resource_in_debug(sm.resource_id)
             if should_ignore:
-                LOG.debug('Skipping update of router %s in debug mode. '
-                          '(reason: %s)', sm.router_id, reason)
+                LOG.debug('Skipping update of resource %s in debug mode. '
+                          '(reason: %s)', sm.resource_id, reason)
                 continue
             # FIXME(dhellmann): Need to look at the router to see if
             # it belongs to a tenant which is in debug mode, but we
             # don't have that data in the sm, yet.
             LOG.debug('performing work on %s for tenant %s',
-                      sm.router_id, sm.tenant_id)
+                      sm.name, sm.tenant_id)
             try:
-                self._thread_status[my_id] = 'updating %s' % sm.router_id
+                self._thread_status[my_id] = 'updating %s' % sm.name
                 sm.update(context)
             except:
                 LOG.exception(_LE('could not complete update for %s'),
-                              sm.router_id)
+                              sm.name)
             finally:
                 self._thread_status[my_id] = (
-                    'finalizing task for %s' % sm.router_id
+                    'finalizing task for %s' % sm.name
                 )
                 self.work_queue.task_done()
                 with self.lock:
@@ -199,17 +200,17 @@ class Worker(object):
                     # queue lock so the main thread cannot put the
                     # state machine back into the queue until we
                     # release that lock.
-                    self._release_router_lock(sm)
+                    self._release_resource_lock(sm)
                     # The state machine has indicated that it is done
                     # by returning. If there is more work for it to
                     # do, reschedule it by placing it at the end of
                     # the queue.
                     if sm.has_more_work():
                         LOG.debug('%s has more work, returning to work queue',
-                                  sm.router_id)
-                        self._add_router_to_work_queue(sm)
+                                  sm.name)
+                        self._add_resource_to_work_queue(sm)
                     else:
-                        LOG.debug('%s has no more work', sm.router_id)
+                        LOG.debug('%s has no more work', sm.name)
         # Return the context object so tests can look at it
         self._thread_status[my_id] = 'exiting'
         return context
@@ -260,34 +261,6 @@ class Worker(object):
             )
         return [self.tenant_managers[tenant_id]]
 
-    def _populate_router_id(self, message):
-        """Ensure message is populated with a router_id if it does
-        not contain one.  If not, attempt to lookup by tenant
-
-        :param message: event.Event object
-        :returns: a new event.Event object with a populated router_id if
-                  found.
-        """
-        if message.router_id:
-            return message
-        LOG.debug("Looking for router for %s", message.tenant_id)
-        router_id = self.router_cache.get_by_tenant(
-            message.tenant_id, self._context)
-        if not router_id:
-            LOG.warning(_LW(
-                'Router not found for tenant %s.'), message.tenant_id)
-        else:
-            new_message = event.Event(
-                router_id=router_id,
-                tenant_id=message.tenant_id,
-                crud=message.crud,
-                body=message.body,
-            )
-            message = new_message
-            LOG.debug("Using router %s for tenant %s",
-                      router_id, message.tenant_id)
-        return message
-
     def _should_process(self, message):
         """Determines whether a message should be processed or not."""
         global_debug, reason = self.db_api.global_debug()
@@ -296,29 +269,30 @@ class Worker(object):
                      'mode. (reason: %s)', reason)
             return False
 
-        should_ignore, reason = self.db_api.tenant_in_debug(message.tenant_id)
-        if should_ignore:
-            LOG.info(
-                'Ignoring message intended for tenant %s in debug mode '
-                '(reason: %s): %s',
-                message.tenant_id, reason, message,
-            )
+        if not message.resource:
+            LOG.info(_LI('Ignoring message with no resource found.'))
             return False
 
-        message = self._populate_router_id(message)
-        if not message.router_id:
-            LOG.info(_LI('Ignoring message with no router found.'))
-            return False
+        if message.resource not in commands.WILDCARDS:
+            should_ignore, reason = \
+                self.db_api.tenant_in_debug(message.resource.tenant_id)
+            if should_ignore:
+                LOG.info(
+                    'Ignoring message intended for tenant %s in debug mode '
+                    '(reason: %s): %s',
+                    message.resource.tenant_id, reason, message,
+                )
+                return False
 
-        should_ignore, reason = self.db_api.router_in_debug(
-            message.router_id)
-        if should_ignore:
-            LOG.info(
-                'Ignoring message intended for router %s in '
-                'debug mode (reason: %s): %s',
-                message.router_id, reason, message,
-            )
-            return False
+            should_ignore, reason = self.db_api.resource_in_debug(
+                message.resource.id)
+            if should_ignore:
+                LOG.info(
+                    'Ignoring message intended for resource %s in '
+                    'debug mode (reason: %s): %s',
+                    message.resource.id, reason, message,
+                )
+                return False
 
         return message
 
@@ -342,38 +316,34 @@ class Worker(object):
             with self.lock:
                 self._deliver_message(target, message)
 
-    _EVENT_COMMANDS = {
-        commands.ROUTER_UPDATE: event.UPDATE,
-        commands.ROUTER_REBUILD: event.REBUILD,
-    }
-
     def _dispatch_command(self, target, message):
         instructions = message.body
         if instructions['command'] == commands.WORKERS_DEBUG:
             self.report_status()
 
         elif instructions['command'] == commands.ROUTER_DEBUG:
-            router_id = instructions['router_id']
+            resource_id = instructions['resource_id']
             reason = instructions.get('reason')
-            if router_id in commands.WILDCARDS:
+            if resource_id in commands.WILDCARDS:
                 LOG.warning(_LW(
-                    'Ignoring instruction to debug all routers with %r'),
-                    router_id)
+                    'Ignoring instruction to debug all resources with %r'),
+                    resource_id)
             else:
                 LOG.info(_LI('Placing router %s in debug mode (reason: %s)'),
-                         router_id, reason)
-                self.db_api.enable_router_debug(router_id, reason)
+                         resource_id, reason)
+                self.db_api.enable_resource_debug(resource_id, reason)
 
-        elif instructions['command'] == commands.ROUTER_MANAGE:
-            router_id = instructions['router_id']
+        elif instructions['command'] == commands.RESOURCE_MANAGE:
+            resource_id = instructions['resource_id']
             try:
-                self.db_api.disable_router_debug(router_id)
-                LOG.info(_LI('Resuming management of router %s'), router_id)
+                self.db_api.disable_resource_debug(resource_id)
+                LOG.info(_LI('Resuming management of resource %s'),
+                         resource_id)
             except KeyError:
                 pass
             try:
-                self._router_locks[router_id].release()
-                LOG.info(_LI('Unlocked router %s'), router_id)
+                self._resource_locks[resource_id].release()
+                LOG.info(_LI('Unlocked resource %s'), resource_id)
             except KeyError:
                 pass
             except threading.ThreadError:
@@ -382,17 +352,16 @@ class Worker(object):
 
         elif instructions['command'] in self._EVENT_COMMANDS:
             new_msg = event.Event(
-                tenant_id=message.tenant_id,
-                router_id=message.router_id,
+                resource=message.resource,
                 crud=self._EVENT_COMMANDS[instructions['command']],
                 body=instructions,
             )
             # Use handle_message() to ensure we acquire the lock
             LOG.info(_LI('sending %s instruction to %s'),
-                     instructions['command'], message.tenant_id)
+                     instructions['command'], message.resource.tenant_id)
             self.handle_message(new_msg.tenant_id, new_msg)
             LOG.info(_LI('forced %s for %s complete'),
-                     instructions['command'], message.tenant_id)
+                     instructions['command'], message.resource.tenant_id)
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
@@ -453,22 +422,22 @@ class Worker(object):
                 # at the same time as the thread trying to decide if
                 # the router is done.
                 if sm.send_message(message):
-                    self._add_router_to_work_queue(sm)
+                    self._add_resource_to_work_queue(sm)
 
-    def _add_router_to_work_queue(self, sm):
-        """Queue up the state machine by router id.
+    def _add_resource_to_work_queue(self, sm):
+        """Queue up the state machine by resource name.
 
         The work queue lock should be held before calling this method.
         """
-        l = self._router_locks[sm.router_id]
+        l = self._resource_locks[sm.name]
         locked = l.acquire(False)
         if locked:
             self.work_queue.put(sm)
         else:
-            LOG.debug('%s is already in the work queue', sm.router_id)
+            LOG.debug('%s is already in the work queue', sm.name)
 
-    def _release_router_lock(self, sm):
-        self._router_locks[sm.router_id].release()
+    def _release_resource_lock(self, sm):
+        self._resource_locks[sm.name].release()
 
     def report_status(self, show_config=True):
         if show_config:
@@ -478,7 +447,7 @@ class Worker(object):
             self.work_queue.qsize()
         )
         LOG.info(_LI(
-            'Number of tenant router managers managed: %d'),
+            'Number of tenant resource managers managed: %d'),
             len(self.tenant_managers)
         )
         for thread in self.threads:
@@ -496,10 +465,10 @@ class Worker(object):
         else:
             LOG.info(_LI('No tenants in debug mode'))
 
-        debug_routers = self.db_api.routers_in_debug()
-        if self.db_api.routers_in_debug():
-            for r_uuid, reason in debug_routers:
-                LOG.info(_LI('Debugging router: %s (reason: %s)'),
-                         r_uuid, reason)
+        debug_resources = self.db_api.resources_in_debug()
+        if debug_resources:
+            for resource_id, reason in debug_resources:
+                LOG.info(_LI('Debugging resource: %s (reason: %s)'),
+                         resource_id, reason)
         else:
-            LOG.info(_LI('No routers in debug mode'))
+            LOG.info(_LI('No resources in debug mode'))
