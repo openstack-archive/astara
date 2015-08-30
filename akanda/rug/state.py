@@ -20,28 +20,27 @@
 """
 
 # See state machine diagram and description:
-# https://docs.google.com/a/dreamhost.com/document/d/1Ed5wDqCHW-CUt67ufjOUq4uYj0ECS5PweHxoueUoYUI/edit # noqa
+# http://akanda.readthedocs.org/en/latest/rug.html#state-machine-workers-and-router-lifecycle
 
 import collections
 import itertools
 
-from oslo_config import cfg
-from oslo_log import log as logging
-
 from akanda.rug.common.i18n import _LE, _LI, _LW
 from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
 from akanda.rug import instance_manager
+from akanda.rug.drivers import states
 
 
 class StateParams(object):
-    def __init__(self, instance, log, queue, bandwidth_callback,
-                 reboot_error_threshold, router_image_uuid):
+    def __init__(self, driver, instance, queue, bandwidth_callback,
+                 reboot_error_threshold):
+        self.driver = driver
         self.instance = instance
-        self.log = log
+        self.log = driver.log
         self.queue = queue
         self.bandwidth_callback = bandwidth_callback
         self.reboot_error_threshold = reboot_error_threshold
-        self.router_image_uuid = router_image_uuid
+        self.image_uuid = driver.image_uuid
 
 
 class State(object):
@@ -62,8 +61,8 @@ class State(object):
         return self.params.instance
 
     @property
-    def router_image_uuid(self):
-        return self.params.router_image_uuid
+    def image_uuid(self):
+        return self.params.image_uuid
 
     @property
     def name(self):
@@ -83,11 +82,11 @@ class CalcAction(State):
     def execute(self, action, worker_context):
         queue = self.queue
         if DELETE in queue:
-            self.log.debug('shortcutting to delete')
+            self.params.driver.log.debug('shortcutting to delete')
             return DELETE
 
         while queue:
-            self.log.debug(
+            self.params.driver.log.debug(
                 'action = %s, len(queue) = %s, queue = %s',
                 action,
                 len(queue),
@@ -97,21 +96,22 @@ class CalcAction(State):
             if action == UPDATE and queue[0] == CREATE:
                 # upgrade to CREATE from UPDATE by taking the next
                 # item from the queue
-                self.log.debug('upgrading from update to create')
+                self.params.driver.log.debug('upgrading from update to create')
                 action = queue.popleft()
                 continue
 
             elif action in (CREATE, UPDATE) and queue[0] == REBUILD:
                 # upgrade to REBUILD from CREATE/UPDATE by taking the next
                 # item from the queue
-                self.log.debug('upgrading from %s to rebuild', action)
+                self.params.driver.log.debug('upgrading from %s to rebuild',
+                                             action)
                 action = queue.popleft()
                 continue
 
             elif action == CREATE and queue[0] == UPDATE:
                 # CREATE implies an UPDATE so eat the update event
                 # without changing the action
-                self.log.debug('merging create and update')
+                self.params.driver.log.debug('merging create and update')
                 queue.popleft()
                 continue
 
@@ -119,8 +119,9 @@ class CalcAction(State):
                 # Throw away a poll following any other valid action,
                 # because a create or update will automatically handle
                 # the poll and repeated polls are not needed.
-                self.log.debug('discarding poll event following action %s',
-                               action)
+                self.params.driver.log.debug('discarding poll event following '
+                                             'action %s',
+                                             action)
                 queue.popleft()
                 continue
 
@@ -128,28 +129,28 @@ class CalcAction(State):
                 # We are not polling and the next action is something
                 # different from what we are doing, so just do the
                 # current action.
-                self.log.debug('done collapsing events')
+                self.params.driver.log.debug('done collapsing events')
                 break
 
-            self.log.debug('popping action from queue')
+            self.params.driver.log.debug('popping action from queue')
             action = queue.popleft()
 
         return action
 
     def transition(self, action, worker_context):
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             next_action = StopInstance(self.params)
         elif action == DELETE:
             next_action = StopInstance(self.params)
         elif action == REBUILD:
             next_action = RebuildInstance(self.params)
-        elif self.instance.state == instance_manager.BOOTING:
+        elif self.instance.state == states.BOOTING:
             next_action = CheckBoot(self.params)
-        elif self.instance.state == instance_manager.DOWN:
+        elif self.instance.state == states.DOWN:
             next_action = CreateInstance(self.params)
         else:
             next_action = Alive(self.params)
-        if self.instance.state == instance_manager.ERROR:
+        if self.instance.state == states.ERROR:
             if action == POLL:
                 # If the selected action is to poll, and we are in an
                 # error state, then an event slipped through the
@@ -157,8 +158,10 @@ class CalcAction(State):
                 # here.
                 next_action = self
             elif self.instance.error_cooldown:
-                    self.log.debug('Router is in ERROR cooldown, ignoring '
-                                   'event.')
+                    self.params.driver.log.debug(
+                        'Resource is in ERROR cooldown, '
+                        'ignoring event.'
+                    )
                     next_action = self
             else:
                 # If this isn't a POLL, and the configured `error_cooldown`
@@ -206,15 +209,15 @@ class Alive(State):
         return action
 
     def transition(self, action, worker_context):
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             return StopInstance(self.params)
-        elif self.instance.state == instance_manager.DOWN:
+        elif self.instance.state == states.DOWN:
             return CreateInstance(self.params)
         elif action == POLL and \
-                self.instance.state == instance_manager.CONFIGURED:
+                self.instance.state == states.CONFIGURED:
             return CalcAction(self.params)
         elif action == READ and \
-                self.instance.state == instance_manager.CONFIGURED:
+                self.instance.state == states.CONFIGURED:
             return ReadStats(self.params)
         else:
             return ConfigureInstance(self.params)
@@ -222,25 +225,26 @@ class Alive(State):
 
 class CreateInstance(State):
     def execute(self, action, worker_context):
-        # Check for a loop where the router keeps failing to boot or
+        # Check for a loop where the resource keeps failing to boot or
         # accept the configuration.
         if self.instance.attempts >= self.params.reboot_error_threshold:
-            self.log.info(_LI('Dropping out of boot loop after %s trials'),
-                          self.instance.attempts)
+            self.params.driver.log.info(_LI('Dropping out of boot loop after '
+                                        ' %s trials'),
+                                        self.instance.attempts)
             self.instance.set_error(worker_context)
             return action
-        self.instance.boot(worker_context, self.router_image_uuid)
-        self.log.debug('CreateInstance attempt %s/%s',
-                       self.instance.attempts,
-                       self.params.reboot_error_threshold)
+        self.instance.boot(worker_context, self.params.image_uuid)
+        self.params.driver.log.debug('CreateInstance attempt %s/%s',
+                                     self.instance.attempts,
+                                     self.params.reboot_error_threshold)
         return action
 
     def transition(self, action, worker_context):
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             return StopInstance(self.params)
-        elif self.instance.state == instance_manager.ERROR:
+        elif self.instance.state == states.ERROR:
             return CalcAction(self.params)
-        elif self.instance.state == instance_manager.DOWN:
+        elif self.instance.state == states.DOWN:
             return CreateInstance(self.params)
         return CheckBoot(self.params)
 
@@ -251,18 +255,18 @@ class CheckBoot(State):
         # Put the action back on the front of the queue so that we can yield
         # and handle it in another state machine traversal (which will proceed
         # from CalcAction directly to CheckBoot).
-        if self.instance.state not in (instance_manager.DOWN,
-                                       instance_manager.GONE):
+        if self.instance.state not in (states.DOWN,
+                                       states.GONE):
             self.queue.appendleft(action)
         return action
 
     def transition(self, action, worker_context):
-        if self.instance.state == instance_manager.REPLUG:
+        if self.instance.state == states.REPLUG:
             return ReplugInstance(self.params)
-        if self.instance.state in (instance_manager.DOWN,
-                                   instance_manager.GONE):
+        if self.instance.state in (states.DOWN,
+                                   states.GONE):
             return StopInstance(self.params)
-        if self.instance.state == instance_manager.UP:
+        if self.instance.state == states.UP:
             return ConfigureInstance(self.params)
         return CalcAction(self.params)
 
@@ -273,7 +277,7 @@ class ReplugInstance(State):
         return action
 
     def transition(self, action, worker_context):
-        if self.instance.state == instance_manager.RESTART:
+        if self.instance.state == states.RESTART:
             return StopInstance(self.params)
         return ConfigureInstance(self.params)
 
@@ -281,17 +285,17 @@ class ReplugInstance(State):
 class StopInstance(State):
     def execute(self, action, worker_context):
         self.instance.stop(worker_context)
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             # Force the action to delete since the router isn't there
             # any more.
             return DELETE
         return action
 
     def transition(self, action, worker_context):
-        if self.instance.state not in (instance_manager.DOWN,
-                                       instance_manager.GONE):
+        if self.instance.state not in (states.DOWN,
+                                       states.GONE):
             return self
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             return Exit(self.params)
         if action == DELETE:
             return Exit(self.params)
@@ -301,7 +305,7 @@ class StopInstance(State):
 class RebuildInstance(State):
     def execute(self, action, worker_context):
         self.instance.stop(worker_context)
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             # Force the action to delete since the router isn't there
             # any more.
             return DELETE
@@ -310,10 +314,10 @@ class RebuildInstance(State):
         return CREATE
 
     def transition(self, action, worker_context):
-        if self.instance.state not in (instance_manager.DOWN,
-                                       instance_manager.GONE):
+        if self.instance.state not in (states.DOWN,
+                                       states.GONE):
             return self
-        if self.instance.state == instance_manager.GONE:
+        if self.instance.state == states.GONE:
             return Exit(self.params)
         return CreateInstance(self.params)
 
@@ -325,7 +329,7 @@ class Exit(State):
 class ConfigureInstance(State):
     def execute(self, action, worker_context):
         self.instance.configure(worker_context)
-        if self.instance.state == instance_manager.CONFIGURED:
+        if self.instance.state == states.CONFIGURED:
             if action == READ:
                 return READ
             else:
@@ -334,15 +338,15 @@ class ConfigureInstance(State):
             return action
 
     def transition(self, action, worker_context):
-        if self.instance.state == instance_manager.REPLUG:
+        if self.instance.state == states.REPLUG:
             return ReplugInstance(self.params)
-        if self.instance.state in (instance_manager.RESTART,
-                                   instance_manager.DOWN,
-                                   instance_manager.GONE):
+        if self.instance.state in (states.RESTART,
+                                   states.DOWN,
+                                   states.GONE):
             return StopInstance(self.params)
-        if self.instance.state == instance_manager.UP:
+        if self.instance.state == states.UP:
             return PushUpdate(self.params)
-        # Below here, assume instance.state == instance_manager.CONFIGURED
+        # Below here, assume instance.state == states.CONFIGURED
         if action == READ:
             return ReadStats(self.params)
         return CalcAction(self.params)
@@ -359,13 +363,13 @@ class ReadStats(State):
 
 
 class Automaton(object):
-    def __init__(self, router_id, tenant_id,
+    def __init__(self, driver, resource_id, tenant_id,
                  delete_callback, bandwidth_callback,
                  worker_context, queue_warning_threshold,
                  reboot_error_threshold):
         """
-        :param router_id: UUID of the router being managed
-        :type router_id: str
+        :param resource_id: UUID of the resource being managed
+        :type resource_id: str
         :param tenant_id: UUID of the tenant being managed
         :type tenant_id: str
         :param delete_callback: Invoked when the Automaton decides
@@ -384,7 +388,8 @@ class Automaton(object):
                                        the router puts it into an error state.
         :type reboot_error_threshold: int
         """
-        self.router_id = router_id
+        self.driver = driver
+        self.resource_id = resource_id
         self.tenant_id = tenant_id
         self._delete_callback = delete_callback
         self._queue_warning_threshold = queue_warning_threshold
@@ -392,20 +397,17 @@ class Automaton(object):
         self.deleted = False
         self.bandwidth_callback = bandwidth_callback
         self._queue = collections.deque()
-        self.log = logging.getLogger(__name__ + '.' + router_id)
 
         self.action = POLL
-        self.instance = instance_manager.InstanceManager(router_id,
-                                                         tenant_id,
-                                                         self.log,
+        self.instance = instance_manager.InstanceManager(self.driver,
+                                                         self.resource_id,
                                                          worker_context)
         self._state_params = StateParams(
+            self.driver,
             self.instance,
-            self.log,
             self._queue,
             self.bandwidth_callback,
             self._reboot_error_threshold,
-            cfg.CONF.router_image_uuid
         )
         self.state = CalcAction(self._state_params)
 
@@ -414,7 +416,7 @@ class Automaton(object):
 
     def _do_delete(self):
         if self._delete_callback is not None:
-            self.log.debug('calling delete callback')
+            self.driver.log.debug('calling delete callback')
             self._delete_callback()
             # Avoid calling the delete callback more than once.
             self._delete_callback = None
@@ -426,26 +428,26 @@ class Automaton(object):
         while self._queue:
             while True:
                 if self.deleted:
-                    self.log.debug(
+                    self.driver.log.debug(
                         'skipping update because the router is being deleted'
                     )
                     return
 
                 try:
-                    self.log.debug('%s.execute(%s) instance.state=%s',
-                                   self.state,
-                                   self.action,
-                                   self.instance.state)
+                    self.driver.log.debug('%s.execute(%s) instance.state=%s',
+                                          self.state,
+                                          self.action,
+                                          self.instance.state)
                     self.action = self.state.execute(
                         self.action,
                         worker_context,
                     )
-                    self.log.debug('%s.execute -> %s instance.state=%s',
-                                   self.state,
-                                   self.action,
-                                   self.instance.state)
+                    self.driver.log.debug('%s.execute -> %s instance.state=%s',
+                                          self.state,
+                                          self.action,
+                                          self.instance.state)
                 except:
-                    self.log.exception(
+                    self.driver.log.exception(
                         _LE('%s.execute() failed for action: %s'),
                         self.state,
                         self.action
@@ -456,9 +458,13 @@ class Automaton(object):
                     self.action,
                     worker_context,
                 )
-                self.log.debug('%s.transition(%s) -> %s instance.state=%s',
-                               old_state, self.action, self.state,
-                               self.instance.state)
+                self.driver.log.debug(
+                    '%s.transition(%s) -> %s instance.state=%s',
+                    old_state,
+                    self.action,
+                    self.state,
+                    self.instance.state
+                )
 
                 # Yield control each time we stop to figure out what
                 # to do next.
@@ -475,7 +481,7 @@ class Automaton(object):
         "Called when the worker put a message in the state machine queue"
         if self.deleted:
             # Ignore any more incoming messages
-            self.log.debug(
+            self.driver.log.debug(
                 'deleted state machine, ignoring incoming message %s',
                 message)
             return False
@@ -487,43 +493,43 @@ class Automaton(object):
         # process something on a router that isn't going to actually
         # do any work.
         if message.crud == POLL and \
-                self.instance.state == instance_manager.ERROR:
-            self.log.info(_LI(
-                'Router status is ERROR, ignoring POLL message: %s'),
+                self.instance.state == states.ERROR:
+            self.driver.log.info(_LI(
+                'Resource status is ERROR, ignoring POLL message: %s'),
                 message,
             )
             return False
 
         if message.crud == REBUILD:
-            if message.body.get('router_image_uuid'):
-                self.log.info(_LI(
-                    'Router is being REBUILT with custom image %s'),
-                    message.body['router_image_uuid']
+            if message.body.get('image_uuid'):
+                self.driver.log.info(_LI(
+                    'Resource is being REBUILT with custom image %s'),
+                    message.body['image_uuid']
                 )
-                self.router_image_uuid = message.body['router_image_uuid']
+                self.image_uuid = message.body['image_uuid']
             else:
-                self.router_image_uuid = cfg.CONF.router_image_uuid
+                self.image_uuid = self.driver.image_uuid
 
         self._queue.append(message.crud)
         queue_len = len(self._queue)
         if queue_len > self._queue_warning_threshold:
-            logger = self.log.warning
+            logger = self.driver.log.warning
         else:
-            logger = self.log.debug
+            logger = self.driver.log.debug
         logger(_LW('incoming message brings queue length to %s'), queue_len)
         return True
 
     @property
-    def router_image_uuid(self):
-        return self.state.params.router_image_uuid
+    def image_uuid(self):
+        return self.state.params.image_uuid
 
-    @router_image_uuid.setter
-    def router_image_uuid(self, value):
-        self.state.params.router_image_uuid = value
+    @image_uuid.setter
+    def image_uuid(self, value):
+        self.state.params.image_uuid = value
 
     def has_more_work(self):
         "Called to check if there are more messages in the state machine queue"
         return (not self.deleted) and bool(self._queue)
 
     def has_error(self):
-        return self.instance.state == instance_manager.ERROR
+        return self.instance.state == states.ERROR

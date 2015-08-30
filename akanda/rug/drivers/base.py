@@ -26,6 +26,7 @@ class BaseDriver(object):
         """
         self.id = id
         self.external_port = None
+        self.details = []
         self.flavor = None
         self.image_uuid = None
         self.name = 'ak-%s-%s' % (self.RESOURCE_NAME, self.id)
@@ -83,5 +84,21 @@ class BaseDriver(object):
         state.
 
         :param state: a valid state
+        """
+        pass
+
+    def make_ports(self):
+        """make ports call back for the nova client.
+
+        :param _make_ports: a valid state
+        """
+        def _make_ports():
+            pass
+
+        return _make_ports
+
+    @staticmethod
+    def pre_populate_hook():
+        """called in populate.py durring driver loading loop.
         """
         pass
