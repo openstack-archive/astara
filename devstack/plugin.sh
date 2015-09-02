@@ -223,7 +223,7 @@ function pre_start_akanda() {
     upload_image $akanda_dev_image_src $TOKEN
 
     local image_name=$(basename $akanda_dev_image_src | cut -d. -f1)
-    typeset image_id=$(glance $auth_args image-show $image_name | grep ' id ' | awk '{print $4}')
+    typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
 
     die_if_not_set $LINENO image_id "Failed to find akanda image"
     iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
