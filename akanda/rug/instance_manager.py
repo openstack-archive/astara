@@ -129,6 +129,11 @@ class InstanceManager(object):
             return self.state
 
         addr = self.instance_info.management_address
+        if not addr:
+            self.log.debug('waiting for instance ports to be attached')
+            self.state = BOOTING
+            return self.state
+
         for i in xrange(cfg.CONF.max_retries):
             if router_api.is_alive(addr, cfg.CONF.akanda_mgt_service_port):
                 if self.state != CONFIGURED:
@@ -503,20 +508,19 @@ class InstanceManager(object):
             self.state = GONE
             self.router_obj = None
 
-        if not self.instance_info:
-            self.instance_info = (
-                worker_context.nova_client.get_instance_info_for_obj(
-                    self.router_id
-                )
+        self.instance_info = (
+            worker_context.nova_client.get_instance_info_for_obj(
+                self.router_id
             )
+        )
 
-            if self.instance_info:
-                (
-                    self.instance_info.management_port,
-                    self.instance_info.ports
-                ) = worker_context.neutron.get_ports_for_instance(
-                    self.instance_info.id_
-                )
+        if self.instance_info:
+            (
+                self.instance_info.management_port,
+                self.instance_info.ports
+            ) = worker_context.neutron.get_ports_for_instance(
+                self.instance_info.id_
+            )
 
     def _check_boot_timeout(self):
         time_since_boot = self.instance_info.time_since_boot
