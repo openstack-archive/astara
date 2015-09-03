@@ -114,6 +114,27 @@ class TestInstanceManager(unittest.TestCase):
             self.INSTANCE_INFO.management_address,
             self.conf.akanda_mgt_service_port)
 
+    @mock.patch('akanda.rug.instance_manager.router_api.is_alive')
+    def test_update_state_no_backing_instance(self, mock_is_alive):
+        # this tests that a mgr gets its instance_info updated to None
+        # when the backing instance is no longer present.
+        self.ctx.nova_client.get_instance_info_for_obj.return_value = None
+        self.update_state_p.stop()
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         instance_manager.DOWN)
+        self.assertFalse(mock_is_alive.called)
+
+    @mock.patch('akanda.rug.instance_manager.router_api.is_alive')
+    def test_update_state_instance_no_ports_still_booting(self, mock_is_alive):
+        self.update_state_p.stop()
+        self.ctx.nova_client.get_instance_info_for_obj.return_value = \
+            self.INSTANCE_INFO
+        self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
+
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         instance_manager.BOOTING)
+        self.assertFalse(mock_is_alive.called)
+
     @mock.patch('time.sleep', lambda *a: None)
     @mock.patch('akanda.rug.instance_manager.router_api')
     @mock.patch('akanda.rug.api.configuration.build_config')
