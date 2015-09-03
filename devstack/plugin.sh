@@ -75,6 +75,12 @@ function configure_akanda() {
     iniset $AKANDA_RUG_CONF DEFAULT management_prefix $AKANDA_RUG_MANAGEMENT_PREFIX
     iniset $AKANDA_RUG_CONF DEFAULT akanda_mgt_service_port $AKANDA_RUG_MANAGEMENT_PORT
     iniset $AKANDA_RUG_CONF DEFAULT rug_api_port $AKANDA_RUG_API_PORT
+    iniset $AKANDA_RUG_CONF DEFAULT health_check_period 10
+
+    # NOTE(adam_g) When running in the gate on slow VMs, gunicorn workers in the appliance
+    # sometimes hang during config update and eventually timeout after 60s.  Update
+    # config_timeout in the RUG to reflect that timeout.
+    iniset $AKANDA_RUG_CONF DEFAULT config_timeout 60
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
