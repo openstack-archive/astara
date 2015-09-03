@@ -31,7 +31,7 @@ from oslo_context import context
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from akanda.rug.common.i18n import _, _LI
+from akanda.rug.common.i18n import _, _LI, _LW
 from akanda.rug.common.linux import ip_lib
 from akanda.rug.common import rpc
 
@@ -677,6 +677,16 @@ class Neutron(object):
         port = Port.from_dict(port_data)
 
         return port
+
+    def delete_vrrp_port(self, object_id, label='VRRP'):
+        name = 'AKANDA:%s:%s' % (label, object_id)
+        response = self.api_client.list_ports(name=name)
+        port_data = response.get('ports')
+        if not port_data:
+            LOG.warning(_LW(
+                'Unable to find VRRP port to delete with name %s.'), name)
+        for port in port_data:
+            self.api_client.delete_port(port['id'])
 
     def create_router_external_port(self, router):
         # FIXME: Need to make this smarter in case the switch is full.
