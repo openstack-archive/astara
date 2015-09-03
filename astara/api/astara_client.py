@@ -47,11 +47,12 @@ def _get_proxyless_session():
     return s
 
 
-def is_alive(host, port):
+def is_alive(host, port, timeout=None):
+    timeout = timeout or cfg.CONF.alive_timeout
     path = ASTARA_BASE_PATH + 'firewall/rules'
     try:
         s = _get_proxyless_session()
-        r = s.get(_mgt_url(host, port, path), timeout=cfg.CONF.alive_timeout)
+        r = s.get(_mgt_url(host, port, path), timeout=timeout)
         if r.status_code == 200:
             return True
     except Exception as e:

@@ -1,17 +1,42 @@
+[DEFAULT]
+
+
 [functional]
-# OpenStack credentials for the service user
-os_auth_url=http://127.0.0.1:5000/v2.0
-os_username=admin
-os_password=secretadmin
-os_tenant_name=admin
-service_tenant_name=service
-service_tenant_id=80095e2039db4af0a88351d6360c1977
 
-# The configured appliance API port
-appliance_api_port=5000
+#
+# From astara.test.functional
+#
 
-# The UUID of a running astara router that will be used for running
-# tests against. Devstack creates this for you but you may have one
-# that you wish to use instead. If not supplied here, tools/run_functional.sh
-# will attempt to find it for you.
-astara_test_router_uuid=650da79d-30ee-460f-bf91-8b7e04a5a5f6
+# Password of admin user (string value)
+#os_password = <None>
+
+# Tenant ID for the astara service user (string value)
+#service_tenant_id = <None>
+
+# Tenant name of admin user (string value)
+#os_tenant_name = <None>
+
+# (string value)
+#test_subnet_cidr = 10.1.1.0/24
+
+# Whether astara-neutron is configured to auto-add resources (boolean value)
+#astara_auto_add_resources = true
+
+# Keystone auth URL (string value)
+#os_auth_url = <None>
+
+# Username of admin user (string value)
+#os_username = <None>
+
+# Tenant name of the astara service user (string value)
+#service_tenant_name = <None>
+
+# Timeout (sec) for an appliance to become ACTIVE (integer value)
+#appliance_active_timeout = 340
+
+# The port on which appliance API servers listen (string value)
+#appliance_api_port = <None>
+
+# Time health_check_period astara-orchestrator is configured to use (integer
+# value)
+#health_check_period = 60
