@@ -54,7 +54,8 @@ class InstanceInfo(object):
 
     @property
     def management_address(self):
-        return str(self.management_port.fixed_ips[0].ip_address)
+        if self.management_port:
+            return str(self.management_port.fixed_ips[0].ip_address)
 
     @property
     def time_since_boot(self):
