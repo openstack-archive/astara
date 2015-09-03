@@ -34,7 +34,7 @@ AUTHORS
 ChangeLog
 
 orchestrator.ini.sample
-test.conf
+astara/test/functional/test.conf
 
 *.swp
 
