@@ -444,6 +444,18 @@ class TestInstanceManager(unittest.TestCase):
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO
         )
+
+        # the VRRP port gets deleted
+        self.assertIn(
+            mock.call(self.instance_mgr.router_id),
+            self.ctx.neutron.delete_vrrp_port.call_args_list
+        )
+        # the MGT port gets deleted
+        self.assertIn(
+            mock.call(self.instance_mgr.router_id, label='MGT'),
+            self.ctx.neutron.delete_vrrp_port.call_args_list
+        )
+
         self.assertEqual(self.instance_mgr.state, instance_manager.DOWN)
 
     @mock.patch('time.sleep')

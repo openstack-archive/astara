@@ -300,6 +300,9 @@ class InstanceManager(object):
         else:
             self.log.info(_LI('Destroying router'))
 
+        worker_context.neutron.delete_vrrp_port(self.router_id)
+        worker_context.neutron.delete_vrrp_port(self.router_id, label='MGT')
+
         try:
             nova_client = worker_context.nova_client
             nova_client.destroy_instance(self.instance_info)
