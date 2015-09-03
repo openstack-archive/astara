@@ -14,9 +14,10 @@ class AkandaApplianceInstanceTest(base.AkandaFunctionalBase):
         self.assert_router_is_active()
 
     def test_appliance_is_alive(self):
+        router_uuid = self.config['akanda_test_router_uuid']
         self.assertTrue(
             self.ak_client.is_alive(
-                host=self.management_address,
+                host=self.get_management_address(router_uuid),
                 port=self.config['appliance_api_port'],
             ),
         )
