@@ -156,6 +156,12 @@ class InstanceManager(object):
             self.state = states.DOWN
             return self.state
 
+        addr = self.instance_info.management_address
+        if not addr:
+            self.log.debug('waiting for instance ports to be attached')
+            self.state = states.BOOTING
+            return self.state
+
         for i in xrange(cfg.CONF.max_retries):
             if self.driver.is_alive(self.instance_info.management_address):
                 if self.state != states.CONFIGURED:
@@ -512,13 +518,13 @@ class InstanceManager(object):
                 worker_context.nova_client.get_instance_info(self.driver.name)
             )
 
-            if self.instance_info:
-                (
-                    self.instance_info.management_port,
-                    self.instance_info.ports
-                ) = worker_context.neutron.get_ports_for_instance(
-                    self.instance_info.id_
-                )
+        if self.instance_info:
+            (
+                self.instance_info.management_port,
+                self.instance_info.ports
+            ) = worker_context.neutron.get_ports_for_instance(
+                self.instance_info.id_
+            )
 
     def _check_boot_timeout(self):
         """If the instance was created more than `boot_timeout` seconds

@@ -100,6 +100,11 @@ class TestInstanceManager(unittest.TestCase):
             last_boot=(datetime.utcnow() - timedelta(minutes=15)),
         )
 
+        self.ctx.nova_client.get_instance_info_for_obj.return_value = (
+            self.INSTANCE_INFO)
+        self.ctx.neutron.get_ports_for_instance.return_value = (
+            fake_mgt_port, [fake_int_port, fake_ext_port])
+
         self.mock_update_state = self.update_state_p.start()
         self.instance_mgr = instance_manager.InstanceManager(
             self.fake_driver,
@@ -107,7 +112,6 @@ class TestInstanceManager(unittest.TestCase):
             self.ctx
         )
         self.instance_mgr.instance_info = self.INSTANCE_INFO
-        mock.patch.object(self.instance_mgr, '_ensure_cache', mock.Mock)
 
         self.next_state = None
 
@@ -125,6 +129,26 @@ class TestInstanceManager(unittest.TestCase):
                          states.UP)
         self.fake_driver.is_alive.assert_called_once_with(
             self.INSTANCE_INFO.management_address)
+
+    def test_update_state_no_backing_instance(self):
+        # this tests that a mgr gets its instance_info updated to None
+        # when the backing instance is no longer present.
+        self.instance_mgr.instance_info = None
+        self.ctx.nova_client.get_instance_info.return_value = None
+        self.update_state_p.stop()
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         states.DOWN)
+        self.assertFalse(self.fake_driver.is_alive.called)
+
+    def test_update_state_instance_no_ports_still_booting(self):
+        self.update_state_p.stop()
+        self.ctx.nova_client.get_instance_info_for_obj.return_value = \
+            self.INSTANCE_INFO
+        self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
+
+        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+                         states.BOOTING)
+        self.assertFalse(self.fake_driver.is_alive.called)
 
     @mock.patch('time.sleep', lambda *a: None)
     def test_router_status_sync(self):
