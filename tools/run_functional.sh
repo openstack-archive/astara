@@ -29,7 +29,7 @@ function find_router() {
 
 
 cat <<END >$CONFIG_FILE
-[functional]
+[DEFAULT]
 appliance_active_timeout=480
 os_auth_url=$OS_AUTH_URL
 os_username=$OS_USERNAME
@@ -38,6 +38,9 @@ os_tenant_name=$OS_TENANT_NAME
 service_tenant_name=$SERVICE_TENANT_NAME
 service_tenant_id=$SERVICE_TENANT_ID
 appliance_api_port=$APPLIANCE_API_PORT
+
+# Defaults for the gate
+health_check_timeout=10
 END
 
 if [ -z "$ASTARA_TEST_ROUTER_UUID" ]; then
