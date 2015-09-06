@@ -140,6 +140,19 @@ function install_akanda() {
     fi
 }
 
+function _auth_args() {
+    local username=$1
+    local password=$2
+    local tenant_name=$3
+    local auth_args="--os-username $username --os-password $password --os-auth-url $OS_AUTH_URL"
+    if [ "$OS_IDENTITY_API_VERSION" -eq "3" ]; then
+        auth_args="$auth_args --os-project-name $tenant_name"
+    else
+        auth_args="$auth_args --os-tenant-name $tenant_name"
+    fi
+    echo "$auth_args"
+}
+
 function create_akanda_nova_flavor() {
     nova flavor-create akanda $ROUTER_INSTANCE_FLAVOR_ID \
       $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
@@ -160,9 +173,8 @@ function pre_start_akanda() {
     # Create and init the database
     recreate_database akanda
     akanda-rug-dbsync --config-file $AKANDA_RUG_CONF upgrade
-
-     typeset auth_args="--os-username $Q_ADMIN_USERNAME --os-password $SERVICE_PASSWORD --os-tenant-name $SERVICE_TENANT_NAME --os-auth-url $OS_AUTH_URL"
-    if ! neutron net-show $PUBLIC_NETWORK_NAME; then
+    local auth_args="$(_auth_args $Q_ADMIN_USERNAME $SERVICE_PASSWORD $SERVICE_TENANT_NAME)"
+    if ! neutron $auth_args net-show $PUBLIC_NETWORK_NAME; then
         neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
     fi
 
@@ -218,7 +230,8 @@ function pre_start_akanda() {
         akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_URL
     fi
 
-    TOKEN=$(keystone token-get | grep ' id ' | get_field 2)
+    env
+    TOKEN=$(openstack token issue -c id -f value)
     die_if_not_set $LINENO TOKEN "Keystone fail to get token"
     upload_image $akanda_dev_image_src $TOKEN
 
@@ -228,7 +241,9 @@ function pre_start_akanda() {
     die_if_not_set $LINENO image_id "Failed to find akanda image"
     iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
 
-    iniset $AKANDA_RUG_CONF DEFAULT auth_url $OS_AUTH_URL
+    # NOTE(adam_g): Currently we only support keystone v2 auth so we need to
+    # hardcode the auth url accordingly. See (LP: #1492654)
+    iniset $AKANDA_RUG_CONF DEFAULT auth_url $KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:5000/v2.0
 
     if is_service_enabled horizon; then
         # _horizon_config_set depends on this being set
@@ -250,12 +265,9 @@ function start_akanda_rug() {
 
 function post_start_akanda() {
     echo "Creating demo user network and subnet"
-    neutron --os-username demo --os-password $ADMIN_PASSWORD \
-        --os-tenant-name demo --os-auth-url $OS_AUTH_URL \
-        net-create thenet
-    neutron --os-username demo --os-password $ADMIN_PASSWORD \
-        --os-tenant-name demo --os-auth-url $OS_AUTH_URL \
-        subnet-create thenet 192.168.0.0/24
+    local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
+    neutron $auth_args net-create thenet
+    neutron $auth_args subnet-create thenet 192.168.0.0/24
 
     # Restart neutron so that `akanda.floatingip_subnet` is properly set
     if [[ "$USE_SCREEN" == "True" ]]; then
@@ -289,7 +301,7 @@ function set_neutron_user_permission() {
 }
 
 function set_demo_tenant_sec_group_dhcp_rules() {
-    typeset auth_args="--os-username demo --os-password $OS_PASSWORD --os-tenant-name demo --os-auth-url $OS_AUTH_URL"
+    local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
     neutron $auth_args security-group-rule-create --direction ingress --ethertype IPv4 --protocol udp --port-range-min 68 --port-range-max 68 default
 }
 
