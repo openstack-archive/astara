@@ -295,6 +295,7 @@ class Neutron(object):
         self.api_client = AkandaExtClientWrapper(
             username=conf.admin_user,
             password=conf.admin_password,
+            project_name=conf.admin_tenant_name,
             tenant_name=conf.admin_tenant_name,
             auth_url=conf.auth_url,
             auth_strategy=conf.auth_strategy,
