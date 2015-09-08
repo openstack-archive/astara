@@ -1,4 +1,5 @@
 
+import datetime
 import time
 
 from akanda.rug.test.functional import base
@@ -45,16 +46,17 @@ class TestAkandaRouter(base.AkandaFunctionalBase):
         # above as setup, so just piggyback on it.
 
         old_server = self.get_router_appliance_server(router['id'])
+        print 'deleting server @ %s' % str(datetime.datetime.now())
         self.admin_clients.novaclient.servers.delete(old_server.id)
 
         # we need to sleep for the health_check_period to allow rug to notice
         # the instance is gone and trigger the rebuild. default is currently
         # 60s.
-        time.sleep(10)
+        time.sleep(60)
 
         # look for the new server, retry giving rug time to do its thing.
         new_server = self.get_router_appliance_server(
-            router['id'], retries=60, wait_for_active=True)
+            router['id'], retries=120, wait_for_active=True)
         self.assertNotEqual(old_server.id, new_server.id)
 
         # routers report as ACTIVE initially (LP: #1491673)
