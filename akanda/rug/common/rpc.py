@@ -74,7 +74,7 @@ def get_target(topic, fanout=True, exchange=None, version=None, server=None):
         server=server)
 
 
-def get_rpc_client(topic, exchange, version='1.0'):
+def get_rpc_client(topic, exchange=None, version='1.0'):
     """Creates an RPC client to be used to request methods be
     executed on remote RPC servers
     """

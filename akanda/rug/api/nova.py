@@ -103,7 +103,7 @@ class Nova(object):
             flavor=self.conf.router_instance_flavor,
             nics=nics,
             config_drive=True,
-            userdata=_format_userdata(mgt_port)
+            userdata=format_userdata(mgt_port)
         )
 
         instance_info = InstanceInfo(
@@ -251,7 +251,7 @@ def _router_ssh_key():
         return ''
 
 
-def _format_userdata(mgt_port):
+def format_userdata(mgt_port):
     ctxt = {
         'ssh_public_key': _router_ssh_key(),
         'mac_address': mgt_port.mac_address,
