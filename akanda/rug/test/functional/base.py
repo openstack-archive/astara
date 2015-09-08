@@ -303,6 +303,7 @@ class AkandaFunctionalBase(testtools.TestCase):
         """Returns a Nova server object for router"""
         i = 0
         while True:
+            print 'looking for instance for %s...' % router_uuid
             service_instance = \
                 [instance for instance in
                  self.admin_clients.novaclient.servers.list(
@@ -313,13 +314,21 @@ class AkandaFunctionalBase(testtools.TestCase):
 
             if service_instance:
                 service_instance = service_instance[0]
+                print 'found service instance %s' % service_instance
                 break
 
             if not service_instance:
+                print 'no instance....'
                 if i < retries:
                     i += 1
                     time.sleep(1)
                     continue
+                print 'giving up looking for instance'
+                servers = self.admin_clients.novaclient.servers.list(
+                    search_opts={
+                         'all_tenants': 1,
+                         'tenant_id': self.config['service_tenant_id']})
+                print '\n'.join([str((s.name, s.id)) for s in servers])
                 raise Exception(
                     'Could not get nova server for router %s' % router_uuid)
 
