@@ -60,11 +60,12 @@ def get_transport():
     return oslo_messaging.get_transport(conf=cfg.CONF, url=url)
 
 
-def get_server(target, endpoints):
+def get_server(target, endpoints, serializer=None):
     return oslo_messaging.get_rpc_server(
         transport=get_transport(),
         target=target,
         endpoints=endpoints,
+        serializer=serializer,
     )
 
 
@@ -74,7 +75,7 @@ def get_target(topic, fanout=True, exchange=None, version=None, server=None):
         server=server)
 
 
-def get_rpc_client(topic, exchange, version='1.0'):
+def get_rpc_client(topic, exchange=None, version='1.0'):
     """Creates an RPC client to be used to request methods be
     executed on remote RPC servers
     """
@@ -103,7 +104,7 @@ class Connection(object):
     def _add_server_thread(self, server):
         self._server_threads[server] = threading.Thread(target=server.start)
 
-    def create_rpc_consumer(self, topic, endpoints):
+    def create_rpc_consumer(self, topic, endpoints, serializer=None):
         """Creates an RPC server for this host that will execute RPCs requested
         by clients.  Adds the resulting consumer to the pool of RPC server
         threads.
@@ -113,7 +114,7 @@ class Connection(object):
                           the server will execute.
         """
         target = get_target(topic=topic, fanout=True, server=cfg.CONF.host)
-        server = get_server(target, endpoints)
+        server = get_server(target, endpoints, serializer=serializer)
         LOG.debug('Created RPC server on topic %s', topic)
         self._add_server_thread(server)
 
