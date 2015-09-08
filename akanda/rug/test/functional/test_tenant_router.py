@@ -1,4 +1,5 @@
 
+import datetime
 import time
 
 from akanda.rug.test.functional import base
@@ -45,6 +46,7 @@ class TestAkandaRouter(base.AkandaFunctionalBase):
         # above as setup, so just piggyback on it.
 
         old_server = self.get_router_appliance_server(router['id'])
+        print 'deleting server @ %s' % str(datetime.datetime.now())
         self.admin_clients.novaclient.servers.delete(old_server.id)
 
         # we need to sleep for the health_check_period to allow rug to notice
