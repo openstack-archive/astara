@@ -15,13 +15,48 @@
 # under the License.
 
 
+import threading
+
+from akanda.rug.pez import pool
+from akanda.rug.common.i18n import _
+
 from oslo_config import cfg
 
 CONF = cfg.CONF
-CONF.import_opt('host', 'akanda.rug.main')
 
+PEZ_OPTIONS = [
+    cfg.IntOpt('pool_size', default=1,
+               help=_('How many pre-allocated hot standby nodes to keep '
+                      'in the pez pool.')),
+    cfg.StrOpt('image_uuid',
+               help=_('Image uuid to boot XXX')),
+    cfg.StrOpt('flavor',
+               help=_('Nova flavor to boot XXX')),
+
+]
+CONF.register_group(cfg.OptGroup(name='pez'))
+CONF.register_opts(PEZ_OPTIONS, group='pez')
+
+
+CONF.import_opt('host', 'akanda.rug.main')
+CONF.import_opt('management_network_id', 'akanda.rug.api.neutron')
 RPC_TOPIC = 'akanda-pez'
+
 
 class PezManager(object):
     """The RPC server-side of the Pez service"""
     rpc_topic = 'akanda-pez'
+    def __init__(self):
+        self.image_uuid = CONF.pez.image_uuid
+        self.flavor = CONF.pez.flavor
+        self.mgt_net_id = CONF.management_network_id
+        self.pool_size = CONF.pez.pool_size
+        self.pool_mgr = pool.PezPoolManager(
+            self.image_uuid,
+            self.flavor,
+            self.pool_size,
+            self.mgt_net_id)
+
+    def start(self):
+        pooler_thread = threading.Thread(target=self.pool_mgr.start)
+        pooler_thread.start()

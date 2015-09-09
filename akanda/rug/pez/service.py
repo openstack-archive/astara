@@ -17,7 +17,7 @@
 import logging
 import sys
 
-from akanda.rug.common.i18n import _LI
+from akanda.rug.common.i18n import _LI, _
 from akanda.rug.common import config as ak_cfg
 
 from akanda.rug.common import rpc
@@ -28,6 +28,7 @@ from oslo_log import log
 from oslo_service import service
 
 CONF = cfg.CONF
+
 LOG = log.getLogger(__name__)
 
 
@@ -38,6 +39,7 @@ class PezService(service.Service):
     def __init__(self):
         super(PezService, self).__init__()
         self.manager = manager.PezManager()
+        self.manager.start()
         self._rpc_connection = None
         self.rpcserver = None
 
