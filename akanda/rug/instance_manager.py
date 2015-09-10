@@ -25,6 +25,7 @@ from akanda.rug.api import configuration
 from akanda.rug.api import akanda_client as router_api
 from akanda.rug.api import neutron
 from akanda.rug.common.i18n import _LE, _LI, _LW
+from akanda.rug.pez import rpcapi as pez_api
 
 DOWN = 'down'
 BOOTING = 'booting'

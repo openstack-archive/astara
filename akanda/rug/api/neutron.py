@@ -136,7 +136,7 @@ class Router(object):
             d['status'],
             external_port,
             internal_ports,
-            floating_ips=fips
+            floating_ips=fips,
         )
 
     @property
@@ -193,7 +193,7 @@ class Subnet(object):
 
 class Port(object):
     def __init__(self, id_, device_id='', fixed_ips=None, mac_address='',
-                 network_id='', device_owner='', name=''):
+                 network_id='', device_owner='', name='', neutron_port_dict=None):
         self.id = id_
         self.device_id = device_id
         self.fixed_ips = fixed_ips or []
@@ -201,6 +201,13 @@ class Port(object):
         self.network_id = network_id
         self.device_owner = device_owner
         self.name = name
+
+        # Unlike instance ports, management ports are created at boot and
+        # could be created on the Pez side.  We need to pass that info
+        # back to Rug via RPC so hang on to the original port data for
+        # easier serialization, allowing Rug to re-create (via from_dict).
+        # without another neutron call.
+        self._neutron_port_dict = neutron_port_dict
 
     def __eq__(self, other):
         return type(self) == type(other) and vars(self) == vars(other)
@@ -222,7 +229,11 @@ class Port(object):
             mac_address=d['mac_address'],
             network_id=d['network_id'],
             device_owner=d['device_owner'],
-            name=d['name'])
+            name=d['name'],
+            neutron_port_dict=d)
+
+    def to_dict(self):
+        return self._neutron_port_dict
 
 
 class FixedIp(object):

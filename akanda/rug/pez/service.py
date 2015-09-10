@@ -47,7 +47,7 @@ class PezService(service.Service):
         super(PezService, self).start()
         self._rpc_connection = rpc.Connection()
         self._rpc_connection.create_rpc_consumer(
-            topic=manager.RPC_TOPIC,
+            topic=cfg.CONF.pez.rpc_topic,
             endpoints=[self.manager],
             serializer=None)
         self._rpc_connection.consume_in_threads()
