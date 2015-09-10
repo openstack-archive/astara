@@ -32,6 +32,7 @@ PEZ_OPTIONS = [
                help=_('Image uuid to boot XXX')),
     cfg.StrOpt('flavor',
                help=_('Nova flavor to boot XXX')),
+    cfg.StrOpt('rpc_topic', default='akanda-pez'),
 
 ]
 CONF.register_group(cfg.OptGroup(name='pez'))
@@ -40,12 +41,10 @@ CONF.register_opts(PEZ_OPTIONS, group='pez')
 
 CONF.import_opt('host', 'akanda.rug.main')
 CONF.import_opt('management_network_id', 'akanda.rug.api.neutron')
-RPC_TOPIC = 'akanda-pez'
 
 
 class PezManager(object):
     """The RPC server-side of the Pez service"""
-    rpc_topic = 'akanda-pez'
     def __init__(self):
         self.image_uuid = CONF.pez.image_uuid
         self.flavor = CONF.pez.flavor
@@ -60,3 +59,11 @@ class PezManager(object):
     def start(self):
         pooler_thread = threading.Thread(target=self.pool_mgr.start)
         pooler_thread.start()
+
+    def get_instance(self, context, resource_id):
+        instance = self.pool_mgr.get_instance(resource_id=resource_id)
+        return {
+            'id': instance.id,
+            'name': instance.name,
+            'image_uuid': instance.image['id']
+        }
