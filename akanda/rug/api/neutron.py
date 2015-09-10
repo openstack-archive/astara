@@ -136,7 +136,7 @@ class Router(object):
             d['status'],
             external_port,
             internal_ports,
-            floating_ips=fips
+            floating_ips=fips,
         )
 
     @property
@@ -193,7 +193,7 @@ class Subnet(object):
 
 class Port(object):
     def __init__(self, id_, device_id='', fixed_ips=None, mac_address='',
-                 network_id='', device_owner='', name=''):
+                 network_id='', device_owner='', name='', neutron_port_dict=None):
         self.id = id_
         self.device_id = device_id
         self.fixed_ips = fixed_ips or []

@@ -20,6 +20,7 @@ import time
 from akanda.rug.common.i18n import _LE, _LI
 from akanda.rug.api import neutron
 from akanda.rug.api import nova
+from akanda.rug.api import neutron
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -30,7 +31,7 @@ LOG = logging.getLogger(__name__)
 
 
 # Unused instances are launched with a known name
-INSTANCE_FREE = 'AKANDA:UNUSED'
+INSTANCE_FREE = 'ak-unused'
 
 # When an instance is reserved, its renamed accordingly
 # XXX: Extend name to reflect resource type? ie, ak-router-$uuid
@@ -269,7 +270,7 @@ class PezPoolManager(object):
 
         while True:
             cur_pool = self.unused_instances
-            LOG.debug(_LI('Pool size: %s/%s'), len(cur_pool), self.pool_size)
+            LOG.debug('Pool size: %s/%s', len(cur_pool), self.pool_size)
 
             deficit = self.pool_size - len(cur_pool)
 

@@ -16,7 +16,9 @@
 
 from akanda.rug.common import rpc
 
+from oslo_config import cfg
 from oslo_context import context
+
 
 
 class AkandaPezAPI(object):
