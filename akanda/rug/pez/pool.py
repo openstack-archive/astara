@@ -19,6 +19,7 @@ import time
 
 from akanda.rug.common.i18n import _LE, _LI
 from akanda.rug.api import nova
+from akanda.rug.api import neutron
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -29,7 +30,7 @@ LOG = logging.getLogger(__name__)
 
 
 # Unused instances are launched with a known name
-INSTANCE_FREE = 'AKANDA:UNUSED'
+INSTANCE_FREE = 'ak-unused'
 
 # When an instance is reserved, its renamed accordingly
 # XXX: Extend name to reflect resource type? ie, ak-router-$uuid
@@ -55,7 +56,7 @@ class WorkerContext(object):
 
     def __init__(self):
         self.nova_client = nova.Nova(cfg.CONF)
-
+        self.neutron_client = neutron.Neutron(cfg.CONF)
 
 class PezPoolManager(object):
     def __init__(self, image_uuid, flavor, pool_size, mgt_net_id):
@@ -126,32 +127,61 @@ class PezPoolManager(object):
 
     def launch_instances(self, count):
         LOG.info(_LI('Launching %s instances.'), count)
-        nics = [{'net-id': self.mgt_net_id}]
-        res = self.ctxt.nova_client.client.servers.create(
-            name=INSTANCE_FREE,
-            image=self.image_uuid,
-            flavor=self.flavor,
-            min_count=count,
-            nics=nics,
-        )
-        return
+        for i in range(0, count):
+            # XXX we should probably rename the port as well as instance
+            # when we reserve it
+            mgt_port = self.ctxt.neutron_client.create_management_port(
+                'UNUSED')
+            nics = [{
+                'net-id': mgt_port.network_id,
+                'v4-fixed-ip': '',
+                'port-id': mgt_port.id}]
+
+            userdata = nova.format_userdata(mgt_port)
+            res = self.ctxt.nova_client.client.servers.create(
+                name=INSTANCE_FREE,
+                image=self.image_uuid,
+                flavor=self.flavor,
+                nics=nics,
+                config_drive=True,
+                userdata=nova.format_userdata(mgt_port),
+            )
 
     @lockutils.synchronized(PEZ_LOCK)
-    def get_instance(self, resource_id):
-        """Get an instance from the pool
+    def get_instance(self, resource_id, management_port=None,
+                     instance_ports=None):
+        """Get an instance from the pool.
+
+        This involves popping it out of the pool, updating its name and
+        attaching
+        any ports.
 
         :param resoruce_id: The uuid of the resource it will be used
                             for (ie, router id)
 
         :returns: A novaclient server object for the reserved server.
         """
+        instance_ports = instance_ports or []
+
         try:
             server = self.unused_instances[0]
         except IndexError:
             raise PezPoolExhausted()
+
+        port = instance_ports[0]
+        client = self.ctxt.nova_client.client
+
         name = IN_USE_TEMPLATE % locals()
+        LOG.info(_LI('Renaming instance %s to %s'), server.name, name)
         server = self.ctxt.nova_client.client.servers.update(
             server, name=name)
+
+        for port in instance_ports:
+            LOG.info(_LI('Attaching instance port %s to %s (%s)'),
+                     port['id'], server.name, server.id)
+            self.ctxt.nova_client.client.servers.interface_attach(
+                server=server, port_id=port['id'], net_id=None, fixed_ip=None)
+
         return self.ctxt.nova_client.client.servers.get(server.id)
 
     def start(self):

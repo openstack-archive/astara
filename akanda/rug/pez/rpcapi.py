@@ -15,20 +15,23 @@
 # under the License.
 
 from akanda.rug.common import rpc
-from akanda.rug.pez.manager import RPC_TOPIC
 
+from oslo_config import cfg
 from oslo_context import context
+
 
 
 class AkandaPezAPI(object):
     """"Client side of the Akanda Pez RPC API.
     """
-    def __init__(self):
-        self.topic = RPC_TOPIC
+    def __init__(self, rpc_topic):
+        self.topic = rpc_topic
         self.client = rpc.get_rpc_client(
             topic=self.topic)
         self.context =  context.get_admin_context().to_dict()
 
-    def list_instances(self):
+    def get_instance(self, resource_id, management_port, instance_ports):
         cctxt = self.client.prepare(topic=self.topic)
-        return cctxt.call(self.context, 'list_instances')
+        return cctxt.call(
+            self.context, 'get_instance', resource_id=resource_id,
+            management_port=management_port, instance_ports=instance_ports)
