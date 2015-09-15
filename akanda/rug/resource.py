@@ -13,14 +13,9 @@
 # under the License.
 
 
-class Resource(object):
-    def __init__(self, driver, _id, _tenant_id):
-        """This is generic resource object
+import collections
 
-        :params driver: a string, should match one in drivers.AVAILABLE_DRIVERS
-        :params id: the logical resources id, for a router it would be
-        a neutron router id.
-        """
-        self.driver = driver
-        self.id = _id
-        self.tenant_id = _tenant_id
+Resource = collections.namedtuple(
+    'Resource',
+    ['driver', 'id', 'tenant_id'],
+)

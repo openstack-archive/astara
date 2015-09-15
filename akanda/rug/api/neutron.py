@@ -388,7 +388,7 @@ class Neutron(object):
 
         return port
 
-    def create_external_port(self, router):
+    def create_router_external_port(self, router):
         # FIXME: Need to make this smarter in case the switch is full.
         network_args = {'network_id': self.conf.external_network_id}
         update_args = {
