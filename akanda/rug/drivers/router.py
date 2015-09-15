@@ -18,6 +18,7 @@ from oslo_log import log as logging
 from neutronclient.common import exceptions as q_exceptions
 
 from akanda.rug.api import configuration
+from akanda.rug import event
 from akanda.rug.api import neutron
 from akanda.rug.drivers.base import BaseDriver
 from akanda.rug.drivers import states
@@ -30,7 +31,7 @@ LOG = logging.getLogger(__name__)
 cfg.CONF.register_opts([
     cfg.StrOpt('router_image_uuid',
                help='image_uuid for router instances.'),
-    cfg.IntOpt('router_flavor',
+    cfg.IntOpt('router_instance_flavor',
                help='nova flavor to use for router instances')
 ])
 
@@ -41,6 +42,21 @@ STATUS_MAP = {
     states.CONFIGURED: neutron.STATUS_ACTIVE,
     states.ERROR: neutron.STATUS_ERROR,
 }
+
+
+_ROUTER_INTERFACE_NOTIFICATIONS = set([
+    'router.interface.create',
+    'router.interface.delete',
+])
+
+_ROUTER_INTERESTING_NOTIFICATIONS = set([
+    'subnet.create.end',
+    'subnet.change.end',
+    'subnet.delete.end',
+    'port.create.end',
+    'port.change.end',
+    'port.delete.end',
+])
 
 
 def ensure_router_cache(f):
@@ -54,9 +70,6 @@ def ensure_router_cache(f):
         try:
             self.details = worker_context.neutron.get_router_detail(self.id)
         except neutron.RouterGone:
-            # The router has been deleted, set our state accordingly
-            # and return without doing any more work.
-            self.state = self.GONE
             self.details = None
     return wrapper
 
@@ -64,6 +77,7 @@ def ensure_router_cache(f):
 class Router(BaseDriver):
 
     RESOURCE_NAME = 'router'
+    _last_synced_status = None
 
     def post_init(self, worker_context):
         """Called at end of __init__ in BaseDriver.
@@ -74,8 +88,25 @@ class Router(BaseDriver):
         :param worker_context:
         """
         self.image_uuid = cfg.CONF.router_image_uuid
-        self.flavor = cfg.CONF.router_flavor
-        self.details = worker_context.neutron.get_router_detail(self.id)
+        self.flavor = cfg.CONF.router_instance_flavor
+        self._ensure_cache(worker_context)
+
+    def _ensure_cache(self, worker_context):
+        try:
+            self.details = worker_context.neutron.get_router_detail(self.id)
+        except neutron.RouterGone:
+            self.details = None
+
+    @property
+    def ports(self):
+        """Lists ports associated with the resource.
+
+        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        """
+        if self.details:
+            return self.details.ports
+        else:
+            return []
 
     def pre_boot(self, worker_context):
         """pre boot hook
@@ -94,7 +125,6 @@ class Router(BaseDriver):
         """
         pass
 
-    @ensure_router_cache
     def build_config(self, worker_context, mgt_port, iface_map):
         """Builds / rebuilds config
 
@@ -103,6 +133,7 @@ class Router(BaseDriver):
         :param iface_map:
         :returns: configuration object
         """
+        self._ensure_cache(worker_context)
         return configuration.build_config(
             worker_context.neutron,
             self.details,
@@ -121,8 +152,9 @@ class Router(BaseDriver):
             # FIXME: Need to do some work to pick the right external
             # network for a tenant.
             self.log.debug('Adding external port to router')
-            self.external_port = \
-                worker_context.neutron.create_router_external_port()
+            ext_port = worker_context.neutron.create_router_external_port(
+                self.details)
+            self.external_port = ext_port
 
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
@@ -130,6 +162,7 @@ class Router(BaseDriver):
         :param _make_ports: a valid state
         """
         def _make_ports():
+            self._ensure_cache(worker_context)
             mgt_port = worker_context.neutron.create_management_port(
                 self.id
             )
@@ -164,9 +197,11 @@ class Router(BaseDriver):
                 neutron_routers = neutron_client.get_routers(detailed=False)
                 resources = []
                 for router in neutron_routers:
-                    resources.append(Resource(Router.RESOURCE_NAME,
-                                              router.id,
-                                              router.tenant_id))
+                    resources.append(
+                        Resource(driver=Router.RESOURCE_NAME,
+                                 id=router.id,
+                                 tenant_id=router.tenant_id)
+                    )
 
                 return resources
             except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
@@ -180,3 +215,89 @@ class Router(BaseDriver):
                 time.sleep(nap_time)
                 # FIXME(rods): should we get max_sleep from the config file?
                 nap_time = min(nap_time * 2, max_sleep)
+
+    @staticmethod
+    def get_resource_id_for_tenant(worker_context, tenant_id):
+        """Find the id of the router owned by tenant
+
+        :param tenant_id: The tenant uuid to search for
+
+        :returns: uuid of the router owned by the tenant
+        """
+        router = worker_context.neutron.get_router_for_tenant(tenant_id)
+        if not router:
+            LOG.debug('Router not found for tenant %s.',
+                      tenant_id)
+            return None
+        return router.id
+
+    @staticmethod
+    def process_notification(tenant_id, event_type, payload):
+        """Process an incoming notification event
+
+        This gets called from the notifications layer to determine whether
+        this driver should process an incoming notification event. It is
+        responsible for translating an incoming notificatino to an Event
+        object appropriate for this driver.
+
+        :param tenant_id: str The UUID tenant_id for the incoming event
+        :param event_type: str event type, for example router.create.end
+        :param payload: The payload body of the incoming event
+
+        :returns: A populated Event objet if it should process, or None if not
+        """
+        router_id = payload.get('router', {}).get('id')
+        crud = event.UPDATE
+
+        if event_type.startswith('routerstatus.update'):
+            # We generate these events ourself, so ignore them.
+            return
+
+        if event_type == 'router.create.end':
+            crud = event.CREATE
+        elif event_type == 'router.delete.end':
+            crud = event.DELETE
+            router_id = payload.get('router_id')
+        elif event_type in _ROUTER_INTERFACE_NOTIFICATIONS:
+            crud = event.UPDATE
+            router_id = payload.get('router.interface', {}).get('id')
+        elif event_type in _ROUTER_INTERESTING_NOTIFICATIONS:
+            crud = event.UPDATE
+        elif event_type.endswith('.end'):
+            crud = event.UPDATE
+        else:
+            LOG.debug('Not processing event: %s' % event_type)
+            return
+
+        resource = Resource(driver='router',
+                            id=router_id,
+                            tenant_id=tenant_id)
+        e = event.Event(
+            resource=resource,
+            crud=crud,
+            body=payload,
+        )
+        return e
+
+    def get_state(self, worker_context):
+        self._ensure_cache(worker_context)
+        if not self.details:
+            return states.GONE
+        else:
+            # NOTE(adam_g): We probably want to map this status back to
+            # an internal akanda status
+            return self.details.status
+
+    def synchronize_state(self, worker_context, state):
+        self._ensure_cache(worker_context)
+        if not self.details:
+            LOG.debug('Not synchronizing state with missing router %s',
+                      self.id)
+            return
+        new_status = STATUS_MAP.get(state)
+        old_status = self._last_synced_status
+        if not old_status or old_status != new_status:
+            LOG.debug('Synchronizing router %s state %s->%s',
+                      self.id, old_status, new_status)
+            worker_context.neutron.update_router_status(self.id, new_status)
+            self._last_synced_status = new_status

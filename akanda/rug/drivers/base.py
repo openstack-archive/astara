@@ -79,7 +79,7 @@ class BaseDriver(object):
         """
         pass
 
-    def synchronize_state(self, state):
+    def synchronize_state(self, worker_context, state):
         """sometimes a driver will need to update a service behind it with a new
         state.
 
@@ -102,3 +102,37 @@ class BaseDriver(object):
         """called in populate.py durring driver loading loop.
         """
         pass
+
+    @staticmethod
+    def get_resource_id_for_tenant(worker_context, tenant_id):
+        """Find the id of a resource for a given tenant id
+
+        :param tenant_id: The tenant uuid to search for
+
+        :returns: uuid of the resource owned by the tenant
+        """
+        pass
+
+    @staticmethod
+    def process_notification(tenant_id, event_type, payload):
+        """Process an incoming notification event
+
+        This gets called from the notifications layer to determine whether
+        a driver should process an incoming notification event. It is
+        responsible for translating an incoming notification to an Event
+        object appropriate for that driver.
+
+        :param tenant_id: str The UUID tenant_id for the incoming event
+        :param event_type: str event type, for example router.create.end
+        :param payload: The payload body of the incoming event
+
+        :returns: A populated Event objet if it should process, or None if not
+        """
+        pass
+
+    @property
+    def ports(self):
+        """Lists ports associated with the resource.
+
+        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        """
