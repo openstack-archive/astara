@@ -93,8 +93,8 @@ class TenantResourceManager(object):
         if resource_id in self.state_machines:
             LOG.debug('deleting state machine for %s', resource_id)
             del self.state_machines[resource_id]
-        if self._default_resource == resource_id:
-            self._default_resource = None
+        if self._default_resource_id == resource_id:
+            self._default_resource_id = None
 
     def shutdown(self):
         LOG.info('shutting down')
