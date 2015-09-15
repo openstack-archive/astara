@@ -34,12 +34,15 @@ def _pre_populate_workers(scheduler):
     which is a static method for each driver.
 
     """
+    LOG.debug('Pre-populating for configured drivers: %s',
+              cfg.CONF.enabled_drivers)
     for driver in cfg.CONF.enabled_drivers:
         # get the driver object, if a config option has been set for a
         # non-existant trigger
         driver_obj = drivers.get(driver)
 
         if not driver_obj:
+            LOG.debug('Could not load driver by name: %s', driver)
             continue
 
         resources = driver_obj.pre_populate_hook()
@@ -47,6 +50,7 @@ def _pre_populate_workers(scheduler):
         if not resources:
             # just skip to the next one the drivers pre_populate_hook already
             # handled the exception or error and outputs to logs
+            LOG.debug('No %s resources found to pre-populate', driver)
             continue
 
         LOG.debug('Start pre-populating %d workers for the %s driver',
