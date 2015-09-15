@@ -12,12 +12,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import time
+
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import timeutils
 
 from neutronclient.common import exceptions as q_exceptions
 
+from akanda.rug.common.i18n import _
+from akanda.rug.api import akanda_client
 from akanda.rug.api import configuration
+from akanda.rug import event
 from akanda.rug.api import neutron
 from akanda.rug.drivers.base import BaseDriver
 from akanda.rug.drivers import states
@@ -27,12 +32,28 @@ from akanda.rug.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
-cfg.CONF.register_opts([
-    cfg.StrOpt('router_image_uuid',
-               help='image_uuid for router instances.'),
-    cfg.IntOpt('router_flavor',
-               help='nova flavor to use for router instances')
-])
+
+ROUTER_OPTS = [
+    cfg.StrOpt('image_uuid',
+               help='image_uuid for router instances.',
+               deprecated_opts=[
+                    cfg.DeprecatedOpt('router_image_uuid',
+                                      group='DEFAULT')]),
+    cfg.IntOpt('instance_flavor',
+               help='nova flavor to use for router instances',
+               deprecated_opts=[
+                    cfg.DeprecatedOpt('router_instance_flavor',
+                                      group='DEFAULT')]),
+    cfg.IntOpt('mgt_service_port', default=5000,
+               help='The port on which the router API service listens on '
+                    'router appliances',
+               deprecated_opts=[
+                    cfg.DeprecatedOpt('akanda_mgt_service_port',
+                                      group='DEFAULT')]),
+]
+cfg.CONF.register_group(cfg.OptGroup(name='router'))
+cfg.CONF.register_opts(ROUTER_OPTS, 'router')
+
 
 STATUS_MAP = {
     states.DOWN: neutron.STATUS_DOWN,
@@ -41,6 +62,21 @@ STATUS_MAP = {
     states.CONFIGURED: neutron.STATUS_ACTIVE,
     states.ERROR: neutron.STATUS_ERROR,
 }
+
+
+_ROUTER_INTERFACE_NOTIFICATIONS = set([
+    'router.interface.create',
+    'router.interface.delete',
+])
+
+_ROUTER_INTERESTING_NOTIFICATIONS = set([
+    'subnet.create.end',
+    'subnet.change.end',
+    'subnet.delete.end',
+    'port.create.end',
+    'port.change.end',
+    'port.delete.end',
+])
 
 
 def ensure_router_cache(f):
@@ -54,9 +90,6 @@ def ensure_router_cache(f):
         try:
             self.details = worker_context.neutron.get_router_detail(self.id)
         except neutron.RouterGone:
-            # The router has been deleted, set our state accordingly
-            # and return without doing any more work.
-            self.state = self.GONE
             self.details = None
     return wrapper
 
@@ -64,6 +97,7 @@ def ensure_router_cache(f):
 class Router(BaseDriver):
 
     RESOURCE_NAME = 'router'
+    _last_synced_status = None
 
     def post_init(self, worker_context):
         """Called at end of __init__ in BaseDriver.
@@ -73,9 +107,28 @@ class Router(BaseDriver):
 
         :param worker_context:
         """
-        self.image_uuid = cfg.CONF.router_image_uuid
-        self.flavor = cfg.CONF.router_flavor
-        self.details = worker_context.neutron.get_router_detail(self.id)
+        self.image_uuid = cfg.CONF.router.image_uuid
+        self.flavor = cfg.CONF.router.instance_flavor
+        self.mgt_port = cfg.CONF.router.mgt_service_port
+
+        self._ensure_cache(worker_context)
+
+    def _ensure_cache(self, worker_context):
+        try:
+            self.details = worker_context.neutron.get_router_detail(self.id)
+        except neutron.RouterGone:
+            self.details = None
+
+    @property
+    def ports(self):
+        """Lists ports associated with the resource.
+
+        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        """
+        if self.details:
+            return [p for p in self.details.ports]
+        else:
+            return []
 
     def pre_boot(self, worker_context):
         """pre boot hook
@@ -94,7 +147,6 @@ class Router(BaseDriver):
         """
         pass
 
-    @ensure_router_cache
     def build_config(self, worker_context, mgt_port, iface_map):
         """Builds / rebuilds config
 
@@ -103,12 +155,27 @@ class Router(BaseDriver):
         :param iface_map:
         :returns: configuration object
         """
+        self._ensure_cache(worker_context)
         return configuration.build_config(
             worker_context.neutron,
             self.details,
             mgt_port,
             iface_map
         )
+
+    def update_config(self, management_address, config):
+        """Updates appliance configuration
+
+        This is responsible for pushing configuration to the managed
+        appliance
+        """
+        self.log.info(_('Updating config for %s'), self.name)
+        start_time = timeutils.utcnow()
+        akanda_client.update_config(
+            management_address, self.mgt_port, config)
+        delta = timeutils.delta_seconds(start_time, timeutils.utcnow())
+        self.log.info(_('Config updated for %s after %s seconds'),
+                      self.name, round(delta, 2))
 
     def pre_plug(self, worker_context):
         """pre-plug hook
@@ -117,19 +184,23 @@ class Router(BaseDriver):
         :param worker_context:
         :returs: None
         """
-        if self.external_port is None:
+        if self.details.external_port is None:
             # FIXME: Need to do some work to pick the right external
             # network for a tenant.
-            self.log.debug('Adding external port to router')
-            self.external_port = \
-                worker_context.neutron.create_router_external_port()
+            self.log.debug('Adding external port to router %s')
+            ext_port = worker_context.neutron.create_router_external_port(
+                self.details)
+            self.details.external_port = ext_port
 
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
 
-        :param _make_ports: a valid state
+        :param worker_context:
+
+        :returns: A tuple (managment_port, [instance_ports])
         """
         def _make_ports():
+            self._ensure_cache(worker_context)
             mgt_port = worker_context.neutron.create_management_port(
                 self.id
             )
@@ -164,9 +235,11 @@ class Router(BaseDriver):
                 neutron_routers = neutron_client.get_routers(detailed=False)
                 resources = []
                 for router in neutron_routers:
-                    resources.append(Resource(Router.RESOURCE_NAME,
-                                              router.id,
-                                              router.tenant_id))
+                    resources.append(
+                        Resource(driver=Router.RESOURCE_NAME,
+                                 id=router.id,
+                                 tenant_id=router.tenant_id)
+                    )
 
                 return resources
             except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
@@ -180,3 +253,107 @@ class Router(BaseDriver):
                 time.sleep(nap_time)
                 # FIXME(rods): should we get max_sleep from the config file?
                 nap_time = min(nap_time * 2, max_sleep)
+
+    @staticmethod
+    def get_resource_id_for_tenant(worker_context, tenant_id):
+        """Find the id of the router owned by tenant
+
+        :param tenant_id: The tenant uuid to search for
+
+        :returns: uuid of the router owned by the tenant
+        """
+        router = worker_context.neutron.get_router_for_tenant(tenant_id)
+        if not router:
+            LOG.debug('Router not found for tenant %s.',
+                      tenant_id)
+            return None
+        return router.id
+
+    @staticmethod
+    def process_notification(tenant_id, event_type, payload):
+        """Process an incoming notification event
+
+        This gets called from the notifications layer to determine whether
+        this driver should process an incoming notification event. It is
+        responsible for translating an incoming notificatino to an Event
+        object appropriate for this driver.
+
+        :param tenant_id: str The UUID tenant_id for the incoming event
+        :param event_type: str event type, for example router.create.end
+        :param payload: The payload body of the incoming event
+
+        :returns: A populated Event objet if it should process, or None if not
+        """
+        router_id = payload.get('router', {}).get('id')
+        crud = event.UPDATE
+
+        if event_type.startswith('routerstatus.update'):
+            # We generate these events ourself, so ignore them.
+            return
+
+        if event_type == 'router.create.end':
+            crud = event.CREATE
+        elif event_type == 'router.delete.end':
+            crud = event.DELETE
+            router_id = payload.get('router_id')
+        elif event_type in _ROUTER_INTERFACE_NOTIFICATIONS:
+            crud = event.UPDATE
+            router_id = payload.get('router.interface', {}).get('id')
+        elif event_type in _ROUTER_INTERESTING_NOTIFICATIONS:
+            crud = event.UPDATE
+        elif event_type.endswith('.end'):
+            crud = event.UPDATE
+        else:
+            LOG.debug('Not processing event: %s' % event_type)
+            return
+
+        resource = Resource(driver='router',
+                            id=router_id,
+                            tenant_id=tenant_id)
+        e = event.Event(
+            resource=resource,
+            crud=crud,
+            body=payload,
+        )
+        return e
+
+    def get_state(self, worker_context):
+        self._ensure_cache(worker_context)
+        if not self.details:
+            return states.GONE
+        else:
+            # NOTE(adam_g): We probably want to map this status back to
+            # an internal akanda status
+            return self.details.status
+
+    def synchronize_state(self, worker_context, state):
+        self._ensure_cache(worker_context)
+        if not self.details:
+            LOG.debug('Not synchronizing state with missing router %s',
+                      self.id)
+            return
+        new_status = STATUS_MAP.get(state)
+        old_status = self._last_synced_status
+        if not old_status or old_status != new_status:
+            LOG.debug('Synchronizing router %s state %s->%s',
+                      self.id, old_status, new_status)
+            worker_context.neutron.update_router_status(self.id, new_status)
+            self._last_synced_status = new_status
+
+    def get_interfaces(self, management_address):
+        """Lists interfaces attached to the resource.
+
+        This lists the interfaces attached to the resource from the POV
+        of the resource iteslf.
+
+        :returns: A list of interfaces
+        """
+        return akanda_client.get_interfaces(management_address,
+                                            self.mgt_port)
+
+    def is_alive(self, management_address):
+        """Determines whether the managed resource is alive
+
+        :returns: bool True if alive, False if not
+        """
+        return akanda_client.is_alive(management_address, self.mgt_port)

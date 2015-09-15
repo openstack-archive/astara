@@ -37,10 +37,10 @@ cfg.CONF.register_opts(OPTIONS)
 
 
 class InstanceInfo(object):
-    def __init__(self, instance_id, resource_id, management_port=None,
+    def __init__(self, instance_id, name, management_port=None,
                  ports=(), image_uuid=None, booting=False, last_boot=None):
         self.id_ = instance_id
-        self.resource_id = resource_id
+        self.name = name
         self.image_uuid = image_uuid
         self.booting = booting
         self.last_boot = datetime.utcnow() if booting else last_boot
@@ -88,7 +88,7 @@ class Nova(object):
             region_name=conf.auth_region)
 
     def create_instance(self,
-                        resource_id, image_uuid, flavor, make_ports_callback):
+                        name, image_uuid, flavor, make_ports_callback):
         mgt_port, instance_ports = make_ports_callback()
 
         nics = [{'net-id': p.network_id,
@@ -97,10 +97,10 @@ class Nova(object):
                 for p in ([mgt_port] + instance_ports)]
 
         LOG.debug('creating instance %s with image %s',
-                  resource_id, image_uuid)
+                  name, image_uuid)
 
         server = self.client.servers.create(
-            resource_id,
+            name,
             image=image_uuid,
             flavor=flavor,
             nics=nics,
@@ -110,7 +110,7 @@ class Nova(object):
 
         instance_info = InstanceInfo(
             server.id,
-            resource_id,
+            name,
             mgt_port,
             instance_ports,
             image_uuid,
@@ -122,31 +122,31 @@ class Nova(object):
         instance_info.nova_status = server.status
         return instance_info
 
-    def get_instance_info(self, resource_id):
+    def get_instance_info(self, name):
         """Retrieves an InstanceInfo object for a given instance name
 
         :param name: name of the instance being queried
 
         :returns: an InstanceInfo object representing the router instance
         """
-        instance = self.get_instance_for_obj(resource_id)
+        instance = self.get_instance_for_obj(name)
 
         if instance:
             return InstanceInfo(
                 instance.id,
-                resource_id,
+                name,
                 image_uuid=instance.image['id']
             )
 
-    def get_instance_for_obj(self, resource_id):
-        """Retreives a nova server for a given instance resource_id.
+    def get_instance_for_obj(self, name):
+        """Retreives a nova server for a given instance name.
 
         :param name: name of the instance being queried
 
         :returns: a novaclient.v2.servers.Server object or None
         """
         instances = self.client.servers.list(
-            search_opts=dict(resource_id=resource_id)
+            search_opts=dict(name=name)
         )
 
         if instances:
@@ -173,13 +173,13 @@ class Nova(object):
 
     def boot_instance(self,
                       prev_instance_info,
-                      resource_id,
+                      name,
                       image_uuid,
                       flavor,
                       make_ports_callback):
 
         if not prev_instance_info:
-            instance = self.get_instance_for_obj(resource_id)
+            instance = self.get_instance_for_obj(name)
         else:
             instance = self.get_instance_by_id(prev_instance_info.id_)
 
@@ -194,7 +194,7 @@ class Nova(object):
                 else:
                     instance_info = InstanceInfo(
                         instance.id,
-                        instance.resource_id,
+                        instance.name,
                         image_uuid=instance.image['id']
                     )
                 return instance_info
@@ -203,7 +203,7 @@ class Nova(object):
 
         # it is now safe to attempt boot
         instance_info = self.create_instance(
-            resource_id,
+            name,
             image_uuid,
             flavor,
             make_ports_callback

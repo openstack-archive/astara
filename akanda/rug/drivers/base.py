@@ -79,18 +79,31 @@ class BaseDriver(object):
         """
         pass
 
-    def synchronize_state(self, state):
-        """sometimes a driver will need to update a service behind it with a new
-        state.
+    def update_config(self,  management_address, config):
+        """Updates appliance configuratino
+
+        This is responsible for pushing configuration to the managed
+        appliance
+        """
+        pass
+
+    def synchronize_state(self, worker_context, state):
+        """sometimes a driver will need to update a service behind it with a
+        new state.
 
         :param state: a valid state
         """
         pass
 
-    def make_ports(self):
-        """make ports call back for the nova client.
+    def make_ports(self, worker_context):
+        """Make ports call back for the nova client.
 
-        :param _make_ports: a valid state
+        This is expected to create the management port for the instance
+        and any required instance ports.
+
+        :param worker_context:
+
+        :returns: A tuple (managment_port, [instance_ports])
         """
         def _make_ports():
             pass
@@ -102,3 +115,53 @@ class BaseDriver(object):
         """called in populate.py durring driver loading loop.
         """
         pass
+
+    @staticmethod
+    def get_resource_id_for_tenant(worker_context, tenant_id):
+        """Find the id of a resource for a given tenant id
+
+        :param tenant_id: The tenant uuid to search for
+
+        :returns: uuid of the resource owned by the tenant
+        """
+        pass
+
+    @staticmethod
+    def process_notification(tenant_id, event_type, payload):
+        """Process an incoming notification event
+
+        This gets called from the notifications layer to determine whether
+        a driver should process an incoming notification event. It is
+        responsible for translating an incoming notification to an Event
+        object appropriate for that driver.
+
+        :param tenant_id: str The UUID tenant_id for the incoming event
+        :param event_type: str event type, for example router.create.end
+        :param payload: The payload body of the incoming event
+
+        :returns: A populated Event objet if it should process, or None if not
+        """
+        pass
+
+    @property
+    def ports(self):
+        """Lists ports associated with the resource.
+
+        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        """
+
+    def get_interfaces(self, management_address):
+        """Lists interfaces attached to the resource.
+
+        This lists the interfaces attached to the resource from the POV
+        of the resource iteslf.
+
+        :returns: A list of interfaces
+        """
+        pass
+
+    def is_alive(self, management_address):
+        """Determines whether the managed resource is alive
+
+        :returns: bool True if alive, False if not
+        """

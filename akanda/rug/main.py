@@ -61,8 +61,6 @@ CONF.register_group(cfg.OptGroup(name='ceilometer',
                                  title='Ceilometer Reporting Options'))
 CONF.register_opts(CEILOMETER_OPTS, group='ceilometer')
 
-CONF.import_opt('router_image_uuid', 'akanda.rug.drivers.router')
-
 
 def shuffle_notifications(notification_queue, sched):
     """Copy messages from the notification queue into the scheduler.

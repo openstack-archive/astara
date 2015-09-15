@@ -255,13 +255,13 @@ class FloatingIP(object):
 class AkandaExtClientWrapper(client.Client):
     """Add client support for Akanda Extensions. """
 
-    status_path = '/akandastatus'
+    routerstatus_path = '/dhrouterstatus'
 
     @client.APIParamsCall
-    def update_status(self, id, status):
+    def update_router_status(self, router, status):
         return self.put(
-            '%s/%s' % (self.status_path, id),
-            body={'status': {'status': status}}
+            '%s/%s' % (self.routerstatus_path, router),
+            body={'routerstatus': {'status': status}}
         )
 
 
@@ -388,7 +388,7 @@ class Neutron(object):
 
         return port
 
-    def create_external_port(self, router):
+    def create_router_external_port(self, router):
         # FIXME: Need to make this smarter in case the switch is full.
         network_args = {'network_id': self.conf.external_network_id}
         update_args = {
@@ -539,9 +539,9 @@ class Neutron(object):
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
 
-    def update_status(self, id, status):
+    def update_router_status(self, router_id, status):
         try:
-            self.api_client.update_status(id, status)
+            self.api_client.update_router_status(router_id, status)
         except Exception as e:
             # We don't want to die just because we can't tell neutron
             # what the status of the router should be. Log the error
