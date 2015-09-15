@@ -102,3 +102,12 @@ class BaseDriver(object):
         """called in populate.py durring driver loading loop.
         """
         pass
+
+    @staticmethod
+    def get_resource_id_for_tenant(worker_context, tenant_id):
+        """Find the id of a resource for a given tenant id
+
+        :param tenant_id: The tenant uuid to search for
+
+        :returns: uuid of the resource owned by the tenant
+        """

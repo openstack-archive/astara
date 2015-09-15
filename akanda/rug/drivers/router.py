@@ -30,7 +30,7 @@ LOG = logging.getLogger(__name__)
 cfg.CONF.register_opts([
     cfg.StrOpt('router_image_uuid',
                help='image_uuid for router instances.'),
-    cfg.IntOpt('router_flavor',
+    cfg.IntOpt('router_instance_flavor',
                help='nova flavor to use for router instances')
 ])
 
@@ -54,9 +54,6 @@ def ensure_router_cache(f):
         try:
             self.details = worker_context.neutron.get_router_detail(self.id)
         except neutron.RouterGone:
-            # The router has been deleted, set our state accordingly
-            # and return without doing any more work.
-            self.state = self.GONE
             self.details = None
     return wrapper
 
@@ -74,8 +71,14 @@ class Router(BaseDriver):
         :param worker_context:
         """
         self.image_uuid = cfg.CONF.router_image_uuid
-        self.flavor = cfg.CONF.router_flavor
-        self.details = worker_context.neutron.get_router_detail(self.id)
+        self.flavor = cfg.CONF.router_instance_flavor
+        self._ensure_cache(worker_context)
+
+    def _ensure_cache(self, worker_context):
+        try:
+            self.details = worker_context.neutron.get_router_detail(self.id)
+        except neutron.RouterGone:
+            self.details = None
 
     def pre_boot(self, worker_context):
         """pre boot hook
@@ -94,7 +97,6 @@ class Router(BaseDriver):
         """
         pass
 
-    @ensure_router_cache
     def build_config(self, worker_context, mgt_port, iface_map):
         """Builds / rebuilds config
 
@@ -103,6 +105,7 @@ class Router(BaseDriver):
         :param iface_map:
         :returns: configuration object
         """
+        self._ensure_cache(worker_context)
         return configuration.build_config(
             worker_context.neutron,
             self.details,
@@ -122,7 +125,7 @@ class Router(BaseDriver):
             # network for a tenant.
             self.log.debug('Adding external port to router')
             self.external_port = \
-                worker_context.neutron.create_router_external_port()
+                worker_context.neutron.create_router_external_port(self.details)
 
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
@@ -164,9 +167,11 @@ class Router(BaseDriver):
                 neutron_routers = neutron_client.get_routers(detailed=False)
                 resources = []
                 for router in neutron_routers:
-                    resources.append(Resource(Router.RESOURCE_NAME,
-                                              router.id,
-                                              router.tenant_id))
+                    resources.append(
+                        Resource(driver=Router.RESOURCE_NAME,
+                                 id=router.id,
+                                 tenant_id=router.tenant_id)
+                    )
 
                 return resources
             except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
@@ -180,3 +185,19 @@ class Router(BaseDriver):
                 time.sleep(nap_time)
                 # FIXME(rods): should we get max_sleep from the config file?
                 nap_time = min(nap_time * 2, max_sleep)
+
+
+    @staticmethod
+    def get_resource_id_for_tenant(worker_context, tenant_id):
+        """Find the id of the router owned by tenant
+
+        :param tenant_id: The tenant uuid to search for
+
+        :returns: uuid of the router owned by the tenant
+        """
+        router = worker_context.neutron.get_router_for_tenant(tenant_id)
+        if not router:
+            LOG.debug('Router not found for tenant %s.',
+                      tenant_id)
+            return None
+        return router.id

@@ -233,7 +233,7 @@ class CreateInstance(State):
                                         self.instance.attempts)
             self.instance.set_error(worker_context)
             return action
-        self.instance.boot(worker_context, self.params.image_uuid)
+        self.instance.boot(worker_context)
         self.params.driver.log.debug('CreateInstance attempt %s/%s',
                                      self.instance.attempts,
                                      self.params.reboot_error_threshold)

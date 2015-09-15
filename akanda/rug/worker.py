@@ -29,6 +29,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from akanda.rug import commands
+from akanda.rug import drivers
 from akanda.rug.common.i18n import _LE, _LI, _LW
 from akanda.rug import event
 from akanda.rug import tenant
@@ -79,15 +80,24 @@ class TenantResourceCache(object):
     # across mulitple rugs.
     _tenant_resources = {}
 
-    def get_by_tenant(self, tenant_uuid, worker_context):
-        if tenant_uuid not in self._tenant_resources:
-            router = \
-                worker_context.neutron.get_router_for_tenant(tenant_uuid)
-            if not router:
-                LOG.debug('Router not found for tenant %s.', tenant_uuid)
+    def get_by_tenant(self, resource, worker_context):
+        tenant_id = resource.tenant_id
+        driver = resource.driver
+        cached_resources = self._tenant_resources.get(driver, {})
+        if tenant_id not in cached_resources:
+            resource_id = drivers.get(driver).get_resource_id_for_tenant(
+                worker_context, tenant_id)
+            if not resource_id:
+                LOG.debug('%s not found for tenant %s.',
+                          driver, tenant_id)
                 return None
-            self._tenant_resources[tenant_uuid] = router.id
-        return self._tenant_resources[tenant_uuid]
+
+            if not cached_resources:
+                self._tenant_resources[driver] = {}
+            self._tenant_resources[driver][tenant_id] = resource_id
+
+        print 'xxx returning resource from cache %s'  % self._tenant_resources[driver][tenant_id]
+        return self._tenant_resources[driver][tenant_id]
 
 
 class WorkerContext(object):
@@ -261,6 +271,44 @@ class Worker(object):
             )
         return [self.tenant_managers[tenant_id]]
 
+    def _populate_resource_id(self, message):
+        """Ensure message's resource is populated with a resource id if it
+        does not contain one.  If not, attempt to lookup by tenant using the
+        driver supplied functionality.
+
+        :param message: event.Event object
+        :returns: a new event.Event object with a populated outer_id resource.id
+                  if found.
+        """
+        if message.resource.id:
+            return message
+
+        LOG.debug("Looking for %s resource for for tenant %s",
+                  message.resource.driver, message.resource.tenant_id)
+
+        resource_id = self.resource_cache.get_by_tenant(
+            message.resource, self._context)
+
+        if not resource_id:
+            LOG.warning(_LW(
+                'Resource of type %s not found for tenant %s.'),
+                message.resource.driver, message.resource.tenant_id)
+        else:
+            new_resource = resource.Resource(
+                id=resource_id,
+                driver=message.resource.driver,
+                tenant_id=tenant_id,
+            )
+            new_message = event.Event(
+                resource=new_resource,
+                crud=message.crud,
+                body=message.body,
+            )
+            message = new_message
+            LOG.debug("Using resource %s.", new_resource)
+
+        return message
+
     def _should_process(self, message):
         """Determines whether a message should be processed or not."""
         global_debug, reason = self.db_api.global_debug()
@@ -269,11 +317,12 @@ class Worker(object):
                      'mode. (reason: %s)', reason)
             return False
 
-        if not message.resource:
-            LOG.info(_LI('Ignoring message with no resource found.'))
-            return False
-
         if message.resource not in commands.WILDCARDS:
+            message = self._populate_resource_id(message)
+            if not message.resource.id:
+                LOG.info(_LI('Ignoring message with no resource found.'))
+                return False
+
             should_ignore, reason = \
                 self.db_api.tenant_in_debug(message.resource.tenant_id)
             if should_ignore:
