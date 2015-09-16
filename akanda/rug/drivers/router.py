@@ -165,14 +165,17 @@ class Router(BaseDriver):
         while True:
             try:
                 neutron_routers = neutron_client.get_routers(detailed=False)
+                print 'xxx: %s' % neutron_routers
                 resources = []
                 for router in neutron_routers:
+                    print 'xxx: prepop router: %s' % router
                     resources.append(
                         Resource(driver=Router.RESOURCE_NAME,
                                  id=router.id,
                                  tenant_id=router.tenant_id)
                     )
 
+                print 'xxx: %s' % resources
                 return resources
             except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
                 LOG.warning(_LW('PrePopulateWorkers thread failed: %s'), err)
