@@ -307,6 +307,7 @@ class Neutron(object):
             return [Router.from_dict(r) for r in
                     self.rpc_client.get_routers()]
 
+        print 'xxx list_routers: %s' % self.api_client.list_routers()
         routers = self.api_client.list_routers().get('routers', [])
         return [Router.from_dict(r) for r in routers]
 
