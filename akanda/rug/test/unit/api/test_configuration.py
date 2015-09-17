@@ -169,7 +169,7 @@ class TestAkandaClient(unittest.TestCase):
                 'asn': 64512,
                 'neighbor_asn': 64512,
                 'tenant_id': 'tenant_id',
-                'hostname': 'router_name'
+                'hostname': 'ak-tenant_id'
             }
 
             self.assertEqual(config, expected)
