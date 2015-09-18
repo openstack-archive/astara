@@ -68,7 +68,6 @@ def get_interfaces(host, port):
 
 
 def update_config(host, port, config_dict):
-    path = AKANDA_BASE_PATH + 'system/config'
     headers = {'Content-type': 'application/json'}
 
     s = _get_proxyless_session()
@@ -82,7 +81,6 @@ def update_config(host, port, config_dict):
         raise Exception('Config update failed: %s' % r.text)
     else:
         return r.json()
-
 
 def read_labels(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'
