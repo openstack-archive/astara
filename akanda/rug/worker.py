@@ -81,13 +81,13 @@ class TenantResourceCache(object):
     # across mulitple rugs.
     _tenant_resources = {}
 
-    def get_by_tenant(self, resource, worker_context):
+    def get_by_tenant(self, resource, worker_context, message):
         tenant_id = resource.tenant_id
         driver = resource.driver
         cached_resources = self._tenant_resources.get(driver, {})
         if tenant_id not in cached_resources:
             resource_id = drivers.get(driver).get_resource_id_for_tenant(
-                worker_context, tenant_id)
+                worker_context, tenant_id, message)
             if not resource_id:
                 LOG.debug('%s not found for tenant %s.',
                           driver, tenant_id)
@@ -287,7 +287,7 @@ class Worker(object):
                   message.resource.driver, message.resource.tenant_id)
 
         resource_id = self.resource_cache.get_by_tenant(
-            message.resource, self._context)
+            message.resource, self._context, message)
 
         if not resource_id:
             LOG.warning(_LW(

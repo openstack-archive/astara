@@ -156,6 +156,7 @@ class NotificationsEndpoint(object):
                     driver='router', id=router_id, tenant_id=tenant_id)
                 e = event.Event(resource, crud, payload)
         else:
+
             for driver in drivers.enabled_drivers():
                 driver_event = driver.process_notification(
                     tenant_id, event_type, payload)

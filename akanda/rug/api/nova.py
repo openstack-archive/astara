@@ -198,6 +198,7 @@ class Nova(object):
                         image_uuid=instance.image['id']
                     )
                 return instance_info
+
             self.client.servers.delete(instance.id)
             return None
 
