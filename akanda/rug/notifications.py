@@ -134,6 +134,11 @@ class NotificationsEndpoint(object):
         self.notification_queue = notification_queue
 
     def info(self, ctxt, publisher_id, event_type, payload, metadata):
+        with open('/tmp/events', 'a+') as out:
+            out.write('xxxxxx\n')
+            out.write('event_type: %s\n' % event_type)
+            out.write('payload: %s\n' % payload)
+
         tenant_id = _get_tenant_id_for_message(ctxt, payload)
         crud = event.UPDATE
         e = None
@@ -156,6 +161,7 @@ class NotificationsEndpoint(object):
                     driver='router', id=router_id, tenant_id=tenant_id)
                 e = event.Event(resource, crud, payload)
         else:
+
             for driver in drivers.enabled_drivers():
                 driver_event = driver.process_notification(
                     tenant_id, event_type, payload)

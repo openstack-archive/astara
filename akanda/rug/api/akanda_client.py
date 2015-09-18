@@ -83,7 +83,6 @@ def update_config(host, port, config_dict):
     else:
         return r.json()
 
-
 def read_labels(host, port):
     path = AKANDA_BASE_PATH + 'firewall/labels'
     s = _get_proxyless_session()
