@@ -200,6 +200,7 @@ class Nova(object):
                     )
                     instance_info.nova_status = instance.status
                 return instance_info
+
             self.client.servers.delete(instance.id)
             return None
 
