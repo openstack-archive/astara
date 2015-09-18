@@ -13,6 +13,7 @@
 # under the License.
 from oslo_config import cfg
 from akanda.rug.drivers.router import Router
+from akanda.rug.drivers.lbaas import LoadBalancer
 
 DRIVER_OPTS = [
     cfg.ListOpt('enabled_drivers',
@@ -22,7 +23,10 @@ DRIVER_OPTS = [
 
 cfg.CONF.register_opts(DRIVER_OPTS)
 
-AVAILABLE_DRIVERS = {'router': Router}
+AVAILABLE_DRIVERS = {
+    Router.RESOURCE_NAME: Router,
+    LoadBalancer.RESOURCE_NAME: LoadBalancer,
+}
 
 
 class InvalidDriverException(Exception):
