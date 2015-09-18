@@ -252,7 +252,7 @@ class InstanceManager(object):
         state = self.update_state(worker_context, silent=True)
         if state in states.READY_STATES:
             self.log.info('Instance has booted, attempting initial config')
-            self.configure(worker_context, states.BOOTING, attempts=1)
+            self.configure(worker_context)
             if self.state != states.CONFIGURED:
                 self._check_boot_timeout()
             return self.state == states.CONFIGURED
@@ -313,7 +313,7 @@ class InstanceManager(object):
 
         if not self.instance_info:
             self.log.info(_LI('Instance already destroyed.'))
-            return
+            return states.GONE
 
         try:
             worker_context.nova_client.destroy_instance(self.instance_info)
@@ -333,8 +333,8 @@ class InstanceManager(object):
             'Router failed to stop within %d secs'),
             cfg.CONF.boot_timeout)
 
-    def configure(self, worker_context,
-                  failure_state=states.RESTART, attempts=None):
+    @synchronize_driver_state
+    def configure(self, worker_context):
         """Pushes config to instance
 
         :param worker_context:
@@ -344,11 +344,11 @@ class InstanceManager(object):
         """
         self.log.debug('Begin instance config')
         self.state = states.UP
-        attempts = attempts or cfg.CONF.max_retries
+        attempts = cfg.CONF.max_retries
 
         self._ensure_cache(worker_context)
         if self.driver.get_state(worker_context) == states.GONE:
-            return
+            return states.GONE
 
         interfaces = self.driver.get_interfaces(
             self.instance_info.management_address)
@@ -358,7 +358,7 @@ class InstanceManager(object):
             # interfaces.
             self.log.debug("Interfaces aren't plugged as expected.")
             self.state = states.REPLUG
-            return
+            return self.state
 
         # TODO(mark): We're in the first phase of VRRP, so we need
         # map the interface to the network ID.
@@ -402,11 +402,13 @@ class InstanceManager(object):
             else:
                 self.state = states.CONFIGURED
                 self.log.info('Instance config updated')
-                return
+                return self.state
         else:
-            self.state = failure_state
+            self.state = states.RESTART
+            return self.state
 
     def replug(self, worker_context):
+
         """Attempts to replug the network ports for an instance.
 
         :param worker_context:
