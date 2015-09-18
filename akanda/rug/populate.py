@@ -40,7 +40,8 @@ def _pre_populate_workers(scheduler):
         if not resources:
             # just skip to the next one the drivers pre_populate_hook already
             # handled the exception or error and outputs to logs
-            LOG.debug('No %s resources found to pre-populate', driver)
+            LOG.debug('No %s resources found to pre-populate',
+                      driver_obj.RESOURCE_NAME)
             continue
 
         LOG.debug('Start pre-populating %d workers for the %s driver',
