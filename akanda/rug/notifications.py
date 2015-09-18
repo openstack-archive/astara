@@ -157,6 +157,7 @@ class NotificationsEndpoint(object):
                     tenant_id=tenant_id)
                 events.append(event.Event(resource, crud, payload))
         else:
+
             for driver in drivers.enabled_drivers():
                 driver_event = driver.process_notification(
                     tenant_id, event_type, payload)
