@@ -15,6 +15,7 @@ BUILD_AKANDA_APPLIANCE_IMAGE=${BUILD_AKANDA_APPLIANCE_IMAGE:-False}
 AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dreamhost.com/akanda_cloud.qcow2}
 AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
 AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
+AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
 
 AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
 AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/stackforge/akanda-horizon}
@@ -212,18 +213,27 @@ function pre_start_akanda() {
     neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
     local akanda_dev_image_src=""
+    local lb_element=""
+
     if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
         if [[ $(type -P disk-image-create) == "" ]]; then
             pip_install "diskimage-builder<0.1.43"
         fi
+
+        if [[ "$AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS" =~ "loadbalancer" ]]; then
+            # We can make this more configurable as we add more LB backends
+            lb_element="nginx"
+        fi
+
         # Point DIB at the devstack checkout of the akanda-appliance repo
         DIB_REPOLOCATION_akanda=$AKANDA_APPLIANCE_DIR \
         DIB_REPOREF_akanda="$(cd $AKANDA_APPLIANCE_DIR && git rev-parse HEAD)" \
         DIB_AKANDA_APPLIANCE_DEBUG_USER=$ADMIN_USERNAME \
         DIB_AKANDA_APPLIANCE_DEBUG_PASSWORD=$ADMIN_PASSWORD \
+        DIB_AKANDA_ADVANCED_SERVICES=$AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS \
         http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
         ELEMENTS_PATH=$AKANDA_APPLIANCE_DIR/diskimage-builder/elements \
-        DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user \
+        DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user $lb_element \
         -o $TOP_DIR/files/akanda
         akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_FILE
     else

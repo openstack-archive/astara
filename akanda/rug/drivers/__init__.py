@@ -16,6 +16,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from akanda.rug.drivers.router import Router
+from akanda.rug.drivers.loadbalancer import LoadBalancer
 
 DRIVER_OPTS = [
     cfg.ListOpt('enabled_drivers',
@@ -27,7 +28,10 @@ cfg.CONF.register_opts(DRIVER_OPTS)
 
 LOG = logging.getLogger(__name__)
 
-AVAILABLE_DRIVERS = {'router': Router}
+AVAILABLE_DRIVERS = {
+    Router.RESOURCE_NAME: Router,
+    LoadBalancer.RESOURCE_NAME: LoadBalancer,
+}
 
 
 class InvalidDriverException(Exception):
