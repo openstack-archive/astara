@@ -117,10 +117,15 @@ class BaseDriver(object):
         pass
 
     @staticmethod
-    def get_resource_id_for_tenant(worker_context, tenant_id):
-        """Find the id of a resource for a given tenant id
+    def get_resource_id_for_tenant(worker_context, tenant_id, message):
+        """Find the id of a resource for a given tenant id and message.
 
+        For some resources simply searching by tenant_id is enough, for
+        others some context from the message payload may be necessary.
+
+        :param worker_context: A worker context with instantiated clients
         :param tenant_id: The tenant uuid to search for
+        :param message: The message associated with the request
 
         :returns: uuid of the resource owned by the tenant
         """
