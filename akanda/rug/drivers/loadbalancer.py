@@ -15,13 +15,12 @@ import time
 
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import timeutils
 
 from neutronclient.common import exceptions as q_exceptions
 
 from akanda.rug.common.i18n import _
 from akanda.rug.api import akanda_client
-from akanda.rug.api.config import router as configuration
+from akanda.rug.api.config import loadbalancer as config
 from akanda.rug import event
 from akanda.rug.api import neutron
 from akanda.rug.drivers.base import BaseDriver
@@ -33,77 +32,52 @@ LOG = logging.getLogger(__name__)
 
 ROUTER_OPTS = [
     cfg.StrOpt('image_uuid',
-               help='image_uuid for router instances.',
-               deprecated_opts=[
-                    cfg.DeprecatedOpt('router_image_uuid',
-                                      group='DEFAULT')]),
+               help='image_uuid for loadbalancer instances.'),
     cfg.IntOpt('instance_flavor',
-               help='nova flavor to use for router instances',
-               deprecated_opts=[
-                    cfg.DeprecatedOpt('router_instance_flavor',
-                                      group='DEFAULT')]),
+               help='nova flavor to use for router instances'),
     cfg.IntOpt('mgt_service_port', default=5000,
                help='The port on which the router API service listens on '
-                    'router appliances',
-               deprecated_opts=[
-                    cfg.DeprecatedOpt('akanda_mgt_service_port',
-                                      group='DEFAULT')]),
+                    'router appliances'),
 ]
-cfg.CONF.register_group(cfg.OptGroup(name='router'))
-cfg.CONF.register_opts(ROUTER_OPTS, 'router')
+cfg.CONF.register_group(cfg.OptGroup(name='loadbalancer'))
+cfg.CONF.register_opts(ROUTER_OPTS, 'loadbalancer')
 
 
 STATUS_MAP = {
-    states.DOWN: neutron.STATUS_DOWN,
-    states.BOOTING: neutron.STATUS_BUILD,
-    states.UP: neutron.STATUS_BUILD,
-    states.CONFIGURED: neutron.STATUS_ACTIVE,
-    states.ERROR: neutron.STATUS_ERROR,
+    states.DOWN: neutron.PLUGIN_DOWN,
+    states.BOOTING: neutron.PLUGIN_PENDING_CREATE,
+    states.UP: neutron.PLUGIN_PENDING_CREATE,
+    states.CONFIGURED: neutron.PLUGIN_ACTIVE,
+    states.ERROR: neutron.PLUGIN_ERROR,
+    states.REPLUG: neutron.PLUGIN_PENDING_UPDATE,
 }
 
 
-_ROUTER_INTERFACE_NOTIFICATIONS = set([
-    'router.interface.create',
-    'router.interface.delete',
-])
+class LoadBalancer(BaseDriver):
 
-_ROUTER_INTERESTING_NOTIFICATIONS = set([
-    'subnet.create.end',
-    'subnet.change.end',
-    'subnet.delete.end',
-    'port.create.end',
-    'port.change.end',
-    'port.delete.end',
-])
-
-
-DRIVER_NAME = 'router'
-
-
-class Router(BaseDriver):
-
-    RESOURCE_NAME = DRIVER_NAME
+    RESOURCE_NAME = 'loadbalancer'
     _last_synced_status = None
 
     def post_init(self, worker_context):
         """Called at end of __init__ in BaseDriver.
 
-        Populates the _router object from neutron and sets image_uuid and
+        Populates the details object from neutron and sets image_uuid and
         flavor from cfg.
 
         :param worker_context:
         """
-        self.image_uuid = cfg.CONF.router.image_uuid
-        self.flavor = cfg.CONF.router.instance_flavor
-        self.mgt_port = cfg.CONF.router.mgt_service_port
+        self.image_uuid = cfg.CONF.loadbalancer.image_uuid
+        self.flavor = cfg.CONF.loadbalancer.instance_flavor
+        self.mgt_port = cfg.CONF.loadbalancer.mgt_service_port
 
         self._ensure_cache(worker_context)
 
     def _ensure_cache(self, worker_context):
         try:
-            self._router = worker_context.neutron.get_router_detail(self.id)
-        except neutron.RouterGone:
-            self._router = None
+            lb = worker_context.neutron.get_loadbalancer_detail(self.id)
+            self._loadbalancer = lb
+        except neutron.LoadBalancerGone:
+            self._loadbalancer = None
 
     @property
     def ports(self):
@@ -111,8 +85,8 @@ class Router(BaseDriver):
 
         :returns: A list of akanda.rug.api.neutron.Port objects or []
         """
-        if self._router:
-            return [p for p in self._router.ports]
+        if self._loadbalancer:
+            return [p for p in self._loadbalancer.ports]
         else:
             return []
 
@@ -123,7 +97,7 @@ class Router(BaseDriver):
         :param worker_context:
         :returns: None
         """
-        self.pre_plug(worker_context)
+        pass
 
     def post_boot(self, worker_context):
         """post boot hook
@@ -141,13 +115,13 @@ class Router(BaseDriver):
         :param iface_map:
         :returns: configuration object
         """
+
         self._ensure_cache(worker_context)
-        return configuration.build_config(
+        return config.build_config(
             worker_context.neutron,
-            self._router,
+            self._loadbalancer,
             mgt_port,
-            iface_map
-        )
+            iface_map)
 
     def update_config(self, management_address, config):
         """Updates appliance configuration
@@ -156,13 +130,7 @@ class Router(BaseDriver):
         appliance
         """
         self.log.info(_('Updating config for %s'), self.name)
-        start_time = timeutils.utcnow()
-
-        akanda_client.update_config(
-            management_address, self.mgt_port, config)
-        delta = timeutils.delta_seconds(start_time, timeutils.utcnow())
-        self.log.info(_('Config updated for %s after %s seconds'),
-                      self.name, round(delta, 2))
+        akanda_client.update_config(management_address, self.mgt_port, config)
 
     def pre_plug(self, worker_context):
         """pre-plug hook
@@ -171,13 +139,6 @@ class Router(BaseDriver):
         :param worker_context:
         :returs: None
         """
-        if self._router.external_port is None:
-            # FIXME: Need to do some work to pick the right external
-            # network for a tenant.
-            self.log.debug('Adding external port to router %s')
-            ext_port = worker_context.neutron.create_router_external_port(
-                self._router)
-            self._router.external_port = ext_port
 
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
@@ -192,22 +153,29 @@ class Router(BaseDriver):
                 self.id
             )
 
-            # FIXME(mark): ideally this should be ordered and de-duped
-            instance_ports = [
-                worker_context.neutron.create_vrrp_port(self.id, n)
-                for n in (p.network_id for p in self._router.ports)
-            ]
+            # allocate a port on the same net as the LB VIP
+            lb_port = worker_context.neutron.create_vrrp_port(
+                object_id=self.id,
+                network_id=self._loadbalancer.vip_port.network_id,
+                label='LB',
+            )
 
-            return mgt_port, instance_ports
+            # this appears to be what octavia does on plug
+            worker_context.neutron.add_allowed_address_pair(
+                port_id=lb_port.id,
+                # XXX v6?
+                address=self._loadbalancer.vip_port.first_v4,
+            )
+            return mgt_port, [lb_port]
 
         return _make_ports
 
     @staticmethod
     def pre_populate_hook():
-        """Fetch the existing routers from neutrom then and returns list back
+        """Fetch the existing LBs from neutron then and returns list back
         to populate to be distributed to workers.
 
-        Wait for neutron to return the list of the existing routers.
+        Wait for neutron to return the list of the existing LBs.
         Pause up to max_sleep seconds between each attempt and ignore
         neutron client exceptions.
 
@@ -219,14 +187,12 @@ class Router(BaseDriver):
 
         while True:
             try:
-                neutron_routers = neutron_client.get_routers(detailed=False)
                 resources = []
-                for router in neutron_routers:
+                for lb in neutron_client.get_loadbalancers():
                     resources.append(
-                        event.Resource(driver=DRIVER_NAME,
-                                       id=router.id,
-                                       tenant_id=router.tenant_id)
-                    )
+                        event.Resource(driver=LoadBalancer.RESOURCE_NAME,
+                                       id=lb.id,
+                                       tenant_id=lb.tenant_id))
 
                 return resources
             except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
@@ -245,17 +211,42 @@ class Router(BaseDriver):
     def get_resource_id_for_tenant(worker_context, tenant_id, message):
         """Find the id of the router owned by tenant
 
+        Some events (ie, member.create.end) give us no context about which
+        LB the event is associated and only show us the tenant_id and member
+        id, so we for those we need to some resolution here.
+
         :param tenant_id: The tenant uuid to search for
-        :param message: message associated /w request (unused here)
+        :param message: Message associated /w the request
 
         :returns: uuid of the router owned by the tenant
         """
-        router = worker_context.neutron.get_router_for_tenant(tenant_id)
-        if not router:
-            LOG.debug('Router not found for tenant %s.',
-                      tenant_id)
-            return None
-        return router.id
+
+        lb_id = None
+
+        # loadbalancer.create.end contains the id in the payload
+        if message.body.get('loadbalancer'):
+            lb_id = message.body['loadbalancer'].get('id')
+        # listener.create.end references the loadbalancer directly
+        elif message.body.get('listener'):
+            lb_id = message.body['listener'].get('loadbalancer_id')
+        # pool.create.end references by listener
+        elif message.body.get('pool'):
+            listener_id = message.body['pool'].get('listener_id')
+            if listener_id:
+                lb = worker_context.neutron.get_loadbalancer_by_listener(
+                    listener_id, tenant_id)
+                if lb:
+                    lb_id = lb.id
+        # member.crate.end only gives us the member id itself.
+        elif message.body.get('member') or message.body.get('member_id'):
+            member_id = (message.body.get('member', {}).get('id') or
+                         message.body.get('member_id'))
+            if member_id:
+                lb = worker_context.neutron.get_loadbalancer_by_member(
+                    member_id=member_id, tenant_id=tenant_id)
+                if lb:
+                    lb_id = lb.id
+        return lb_id
 
     @staticmethod
     def process_notification(tenant_id, event_type, payload):
@@ -272,31 +263,40 @@ class Router(BaseDriver):
 
         :returns: A populated Event objet if it should process, or None if not
         """
-        router_id = payload.get('router', {}).get('id')
-        crud = event.UPDATE
+        if event_type.startswith('loadbalancerstatus.update'):
+            # these are generated when we sync state
+            return
+        lb_id = (
+            payload.get('loadbalancer', {}).get('id') or
+            payload.get('loadbalancer_id')
+        )
 
-        if event_type.startswith('routerstatus.update'):
-            # We generate these events ourself, so ignore them.
+        update_notifications = [
+            'listener.create.start',
+            'pool.create.start',
+            'member.create.end',
+            'member.delete.end',
+        ]
+
+        # some events do not contain a lb id.
+        if not lb_id and event_type not in update_notifications:
             return
 
-        if event_type == 'router.create.end':
+        if event_type == 'loadbalancer.create.end':
             crud = event.CREATE
-        elif event_type == 'router.delete.end':
+        elif event_type == 'loadbalancer.delete.end':
             crud = event.DELETE
-            router_id = payload.get('router_id')
-        elif event_type in _ROUTER_INTERFACE_NOTIFICATIONS:
-            crud = event.UPDATE
-            router_id = payload.get('router.interface', {}).get('id')
-        elif event_type in _ROUTER_INTERESTING_NOTIFICATIONS:
-            crud = event.UPDATE
-        elif event_type.endswith('.end'):
+        elif event_type in update_notifications:
             crud = event.UPDATE
         else:
-            LOG.debug('Not processing event: %s' % event_type)
+            crud = None
+
+        if not crud:
+            LOG.info('Could not determine CRUD for event: %s ', event_type)
             return
 
-        resource = event.Resource(driver=DRIVER_NAME,
-                                  id=router_id,
+        resource = event.Resource(driver=LoadBalancer.RESOURCE_NAME,
+                                  id=lb_id,
                                   tenant_id=tenant_id)
         e = event.Event(
             resource=resource,
@@ -307,26 +307,27 @@ class Router(BaseDriver):
 
     def get_state(self, worker_context):
         self._ensure_cache(worker_context)
-        if not self._router:
+        if not self._loadbalancer:
             return states.GONE
         else:
             # NOTE(adam_g): We probably want to map this status back to
             # an internal akanda status
-            return self._router.status
+            return self._loadbalancer.status
 
     def synchronize_state(self, worker_context, state):
         self._ensure_cache(worker_context)
-        if not self._router:
-            LOG.debug('Not synchronizing state with missing router %s',
+        if not self._loadbalancer:
+            LOG.debug('Not synchronizing state with missing loadbalancer %s',
                       self.id)
             return
+
         new_status = STATUS_MAP.get(state)
         old_status = self._last_synced_status
-        if not old_status or old_status != new_status:
-            LOG.debug('Synchronizing router %s state %s->%s',
-                      self.id, old_status, new_status)
-            worker_context.neutron.update_router_status(self.id, new_status)
-            self._last_synced_status = new_status
+        LOG.debug('Synchronizing loadbalancer %s state %s->%s',
+                  self.id, old_status, new_status)
+        worker_context.neutron.update_loadbalancer_status(
+            self.id, new_status)
+        self._last_synced_status = new_status
 
     def get_interfaces(self, management_address):
         """Lists interfaces attached to the resource.
