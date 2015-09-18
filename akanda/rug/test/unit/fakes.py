@@ -19,6 +19,57 @@ from akanda.rug.api import neutron, nova
 from akanda.rug import worker
 
 
+def fake_loadbalancer():
+    lb_dict = {
+        'name': u'balancer1',
+        'status': u'ACTIVE',
+        'tenant_id': u'd22b149cee9b4eac8349c517eda00b89',
+        'vip_address': u'192.168.0.132',
+        'provisioning_status': 'ACTIVE',
+        'admin_state_up': True,
+        'id': u'66636dbe-86f3-48e3-843f-13b05f93dd84',
+        'listeners': [
+            {
+                'id': u'e3491d85-4d41-4c2d-99ed-e2410343b163',
+                'name': u'listener1',
+                'protocol': u'HTTP',
+                'protocol_port': 80,
+                'tenant_id': u'd22b149cee9b4eac8349c517eda00b89',
+                'admin_state_up': True,
+                'default_pool': {
+                    'name': u'pool1',
+                    'protocol': u'HTTP',
+                    'session_persistence': None,
+                    'tenant_id': u'd22b149cee9b4eac8349c517eda00b89',
+                    'admin_state_up': True,
+                    'healthmonitor': None,
+                    'id': u'ad75ea75-43e1-4f4a-9053-c66dd7235ff1',
+                    'lb_algorithm': u'ROUND_ROBIN',
+                    'members': [{
+                        'address': '192.168.0.194',
+                        'admin_state_up': True,
+                        'id': u'ae70e3cd-41c9-4253-ade6-e555693d38bb',
+                        'protocol_port': 80,
+                        'subnet': None,
+                        'tenant_id': u'd22b149cee9b4eac8349c517eda00b89',
+                        'weight': 1}]}}],
+        'vip_port': {
+            'id': u'a3f398c5-a02a-4daa-8c9f-810b5a85ecdf',
+            'mac_address': u'fa:16:3e:ff:32:7c',
+            'name': u'loadbalancer-66636dbe-86f3-48e3-843f-13b05f93dd84',
+            'network_id': u'b7fc9b39-401c-47cc-a07d-9f8cde75ccbf',
+            'device_id': u'66636dbe-86f3-48e3-843f-13b05f93dd84',
+            'device_owner': u'neutron:LOADBALANCERV2',
+            'fixed_ips': [
+                {'ip_address': '192.168.0.132',
+                 'subnet_id': u'8c58b558-be54-45de-9873-169fe845bb80'},
+                {'ip_address': 'fdd6:a1fa:cfa8:6af6:f816:3eff:feff:327c',
+                 'subnet_id': u'89fe7a9d-be92-469c-9a1e-503a39462ed1'}]
+            }
+    }
+    return neutron.LoadBalancer.from_dict(lb_dict)
+
+
 def fake_router():
     router_gateway_port = {
         'id': 'ext',
