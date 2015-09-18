@@ -357,11 +357,7 @@ class TestInstanceManager(unittest.TestCase):
                 )
                 assert self.instance_mgr.check_boot(self.ctx) is True
                 update_state.assert_called_once_with(self.ctx, silent=True)
-                configure.assert_called_once_with(
-                    self.ctx,
-                    states.BOOTING,
-                    attempts=1
-                )
+                configure.assert_called_once_with(self.ctx)
 
     def test_boot_check_configured(self):
         with mock.patch.object(
@@ -380,11 +376,7 @@ class TestInstanceManager(unittest.TestCase):
                 )
                 assert self.instance_mgr.check_boot(self.ctx) is True
                 update_state.assert_called_once_with(self.ctx, silent=True)
-                configure.assert_called_once_with(
-                    self.ctx,
-                    states.BOOTING,
-                    attempts=1
-                )
+                configure.assert_called_once_with(self.ctx)
 
     def test_boot_check_still_booting(self):
         with mock.patch.object(
@@ -412,11 +404,7 @@ class TestInstanceManager(unittest.TestCase):
                 )
                 assert self.instance_mgr.check_boot(self.ctx) is False
                 update_state.assert_called_once_with(self.ctx, silent=True)
-                configure.assert_called_once_with(
-                    self.ctx,
-                    states.BOOTING,
-                    attempts=1
-                )
+                configure.assert_called_once_with(self.ctx)
 
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):

@@ -92,7 +92,7 @@ class RouterDriverTest(base.RugTestBase):
         rtr.pre_boot(self.ctx)
         mock_pre_plug.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.api.configuration.build_config')
+    @mock.patch('akanda.rug.api.config.router.build_config')
     @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
     def test_build_config(self, mock_ensure_cache, mock_build_config):
         rtr = self._init_driver()
