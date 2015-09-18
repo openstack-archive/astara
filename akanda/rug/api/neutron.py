@@ -59,15 +59,39 @@ DEVICE_OWNER_ROUTER_INT = "network:router_interface"
 DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:akanda"
-PLUGIN_RPC_TOPIC = 'q-l3-plugin'
+
+PLUGIN_ROUTER_RPC_TOPIC = 'q-l3-plugin'
 
 STATUS_ACTIVE = 'ACTIVE'
 STATUS_BUILD = 'BUILD'
 STATUS_DOWN = 'DOWN'
 STATUS_ERROR = 'ERROR'
 
+# Service operation status constants
+# Copied from neutron.plugings.common.constants.py
+# prefaced here with PLUGIN_
+PLUGIN_ACTIVE = "ACTIVE"
+PLUGIN_DOWN = "DOWN"
+PLUGIN_CREATED = "CREATED"
+PLUGIN_PENDING_CREATE = "PENDING_CREATE"
+PLUGIN_PENDING_UPDATE = "PENDING_UPDATE"
+PLUGIN_PENDING_DELETE = "PENDING_DELETE"
+PLUGIN_INACTIVE = "INACTIVE"
+PLUGIN_ERROR = "ERROR"
+
+# XXX not sure these are needed?
+ACTIVE_PENDING_STATUSES = (
+    PLUGIN_ACTIVE,
+    PLUGIN_PENDING_CREATE,
+    PLUGIN_PENDING_UPDATE
+)
+
 
 class RouterGone(Exception):
+    pass
+
+
+class LoadBalancerGone(Exception):
     pass
 
 
@@ -252,16 +276,141 @@ class FloatingIP(object):
         )
 
 
+class LoadBalancer(object):
+    def __init__(self, id_, tenant_id, name, admin_state_up, status,
+                 vip_port=None, listeners=()):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.admin_state_up = admin_state_up
+        self.status = status
+        self.vip_port = vip_port
+        self.listeners = listeners
+
+    def __repr__(self):
+        return '<%s (%s:%s)>' % (self.__class__.__name__,
+                                 self.name,
+                                 self.tenant_id)
+
+    def __eq__(self, other):
+        return type(self) == type(other) and vars(self) == vars(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def ports(self):
+        if self.vip_port:
+            return [self.vip_port]
+        else:
+            return []
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            d['provisioning_status']
+        )
+
+
+class Listener(object):
+    def __init__(self,
+                 id_,
+                 tenant_id, name, admin_state_up, protocol, protocol_port):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.admin_state_up = admin_state_up
+        self.protocol = protocol
+        self.protocol_port = protocol_port
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            d['protocol'],
+            d['protocol_port']
+        )
+
+
+class Pool(object):
+    def __init__(self, id_, tenant_id, name, admin_state_up, lb_algorithm,
+                 protocol, healthmonitor=None, session_persistence=None,
+                 members=()):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.admin_state_up = admin_state_up
+        self.lb_algorithm = lb_algorithm
+        self.protocol = protocol
+        self.healthmonitor = healthmonitor
+        self.session_persistence = session_persistence
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['admin_state_up'],
+            d['lb_algorithm'],
+            d['protocol'],
+        )
+
+
+class Member(object):
+    def __init__(self, id_, tenant_id, admin_state_up, address, protocol_port,
+                 weight, subnet=None):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.admin_state_up = admin_state_up
+        self.address = netaddr.IPAddress(address)
+        self.protocol_port = protocol_port
+        self.weight = weight
+        self.subnet = subnet
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['admin_state_up'],
+            d['address'],
+            d['protocol_port'],
+            d['weight'],
+        )
+
+
 class AkandaExtClientWrapper(client.Client):
     """Add client support for Akanda Extensions. """
 
     routerstatus_path = '/dhrouterstatus'
+    lbstatus_path = '/akloadbalancerstatus'
 
     @client.APIParamsCall
     def update_router_status(self, router, status):
         return self.put(
             '%s/%s' % (self.routerstatus_path, router),
             body={'routerstatus': {'status': status}}
+        )
+
+    @client.APIParamsCall
+    def update_loadbalancer_status(self, load_balancer, status):
+        return self.put(
+            '%s/%s' % (self.lbstatus_path, load_balancer),
+            # XXX We should be differentiating between these 2 states
+            body={
+                'loadbalancerstatus': {
+                    'provisioning_status': status,
+                    'operating_status': status,
+                }
+            }
         )
 
 
@@ -299,20 +448,80 @@ class Neutron(object):
             auth_strategy=conf.auth_strategy,
             region_name=conf.auth_region
         )
-        self.rpc_client = L3PluginApi(PLUGIN_RPC_TOPIC, cfg.CONF.host)
+        self.l3_rpc_client = L3PluginApi(PLUGIN_ROUTER_RPC_TOPIC,
+                                         cfg.CONF.host)
+
+    def update_loadbalancer_status(self, loadbalancer_id, status):
+        try:
+            self.api_client.update_loadbalancer_status(loadbalancer_id, status)
+        except Exception as e:
+            # We don't want to die just because we can't tell neutron
+            # what the status of the router should be. Log the error
+            # but otherwise ignore it.
+            LOG.info(_LI(
+                'ignoring failure to update status for %s to %s: %s'),
+                id, status, e,
+            )
+
+    def get_loadbalancers(self):
+        return [
+            LoadBalancer.from_dict(lb_data) for lb_data in
+            self.api_client.list_loadbalancers().get('loadbalancers', [])
+        ]
+
+    def get_loadbalancer_detail(self, lb_id):
+        lb_data = self.api_client.show_loadbalancer(lb_id)['loadbalancer']
+        if not lb_data:
+            raise LoadBalancerGone(
+                'No load balancer with id %s found.' % lb_id)
+
+        lb = LoadBalancer.from_dict(lb_data)
+
+        lb.vip_port = Port.from_dict(
+            self.api_client.show_port(lb_data['vip_port_id'])['port']
+        )
+
+        lb.listeners = [
+            self.get_listener_detail(l['id']) for l in lb_data['listeners']
+        ]
+
+        return lb
+
+    def get_listener_detail(self, listener_id):
+        data = self.api_client.show_listener(listener_id)['listener']
+        listener = Listener.from_dict(data)
+        if data.get('default_pool_id'):
+            listener.default_pool = self.\
+                get_pool_detail(data['default_pool_id'])
+        return listener
+
+    def get_pool_detail(self, pool_id):
+        data = self.api_client.show_lbaas_pool(pool_id)['pool']
+        pool = Pool.from_dict(data)
+        if data.get('members'):
+            pool.members = [
+                Member.from_dict(m) for m in
+                self.api_client.list_lbaas_members(pool_id)['members']
+            ]
+        return pool
+
+    def get_member_detail(self, pool_id, member_id):
+        data = self.api_client.show_lbaas_member(member_id, pool_id)['member']
+        member = Member.from_dict(data)
+        return member
 
     def get_routers(self, detailed=True):
         """Return a list of routers."""
         if detailed:
             return [Router.from_dict(r) for r in
-                    self.rpc_client.get_routers()]
+                    self.l3_rpc_client.get_routers()]
 
         routers = self.api_client.list_routers().get('routers', [])
         return [Router.from_dict(r) for r in routers]
 
     def get_router_detail(self, router_id):
         """Return detailed information about a router and it's networks."""
-        router = self.rpc_client.get_routers(router_id=router_id)
+        router = self.l3_rpc_client.get_routers(router_id=router_id)
         try:
             return Router.from_dict(router[0])
         except IndexError:
@@ -358,6 +567,16 @@ class Neutron(object):
             else:
                 intf_ports.append(port)
         return mgt_port, intf_ports
+
+    def add_allowed_address_pair(self, port_id, address):
+        update_dict = {
+            'port': {
+                'allowed_address_pairs': [
+                    {'ip_address': address}
+                ]
+            }
+        }
+        self.api_client.update_port(port_id, update_dict)
 
     def create_management_port(self, object_id):
         return self.create_vrrp_port(

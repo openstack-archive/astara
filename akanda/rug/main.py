@@ -114,7 +114,6 @@ def main(argv=sys.argv[1:]):
     cfg.CONF.log_opt_values(LOG, logging.INFO)
 
     neutron = neutron_api.Neutron(cfg.CONF)
-
     # TODO(mark): develop better way restore after machine reboot
     # neutron.purge_management_interface()
 
