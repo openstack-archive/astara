@@ -16,6 +16,12 @@ AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dre
 AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
 AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
 
+# When BUILD_AKANDA_APPLIANCE=True, this option will set up the appliance to
+# mount the akanda-appliance repository via NFS in the booted appliance from
+# the devstack host, allowing you to hack on code without having to rebuild
+# the appliance image with every change.
+AKANDA_DEV_APPLIANCE_DEV_ENV=${AKANDA_DEV_APPLIANCE_DEV_ENV:-"False"}
+
 AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
 AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/stackforge/akanda-horizon}
 AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-master}
@@ -49,6 +55,22 @@ function colorize_logging {
     iniset $AKANDA_RUG_CONF DEFAULT logging_debug_format_suffix "[00;33mfrom (pid=%(process)d) %(funcName)s %(pathname)s:%(lineno)d[00m"
     iniset $AKANDA_RUG_CONF DEFAULT logging_default_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[00;36m-%(color)s] [01;35m%(color)s%(message)s[00m"
     iniset $AKANDA_RUG_CONF DEFAULT logging_context_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[01;36m%(request_id)s [00;36m%(user)s %(tenant)s%(color)s] [01;35m%(color)s%(message)s[00m"
+}
+
+# Sets up the devstack host to export the akanda-appliance repo via
+# NFS so that it may be mounted and run within live service VMs.
+function setup_appliance_dev_env() {
+  sudo apt-get -y install nfs-kernel-server
+  if ! cat /etc/exports | grep -q "^$AKANDA_APPLIANCE_DIR"; then
+    # share the akanda applinace code out to all appliances via NFS over the mgt network
+    echo "$AKANDA_APPLIANCE_DIR fdca:3ba5:a17a:acda::/64(rw,fsid=0,sync,no_root_squash,subtree_check)" | sudo tee -a /etc/exports
+  fi
+  sudo exportfs -a
+  for proto in tcp udp; do
+      for port in 2049 111; do
+          sudo ip6tables -I INPUT -m state --state NEW -m $proto -p $proto --dport $port -j ACCEPT
+      done
+  done
 }
 
 function configure_akanda() {
@@ -216,6 +238,12 @@ function pre_start_akanda() {
         if [[ $(type -P disk-image-create) == "" ]]; then
             pip_install "diskimage-builder<0.1.43"
         fi
+        if [[ "$AKANDA_DEV_APPLIANCE_DEV_ENV" == "True" ]]; then
+            export DIB_AKANDA_NFS_DEV="True"
+            # This address is brought up on first start of akanda-rug
+            export DIB_AKANDA_NFS_DEV_SERVER="fdca:3ba5:a17a:acda::1"
+            export DIB_AKANDA_NFS_DEV_EXPORT="$AKANDA_APPLIANCE_DIR"
+        fi
         # Point DIB at the devstack checkout of the akanda-appliance repo
         DIB_REPOLOCATION_akanda=$AKANDA_APPLIANCE_DIR \
         DIB_REPOREF_akanda="$(cd $AKANDA_APPLIANCE_DIR && git rev-parse HEAD)" \
@@ -252,6 +280,10 @@ function pre_start_akanda() {
     fi
 
     create_akanda_nova_flavor
+
+    if [[ "$AKANDA_DEV_APPLIANCE_DEV_ENV" == "True" ]]; then
+        setup_appliance_dev_env
+    fi
 
 }
 
