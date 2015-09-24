@@ -62,7 +62,7 @@ def build_config(client, router, management_port, interfaces):
         'labels': provider_rules.get('labels', {}),
         'floating_ips': generate_floating_config(router),
         'tenant_id': router.tenant_id,
-        'hostname': router.name
+        'hostname': 'ak-%s' % router.tenant_id
     }
 
 
