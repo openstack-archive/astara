@@ -227,7 +227,7 @@ class TestGetCRUD(unittest.TestCase):
             self.assertEqual(event.UPDATE, e.crud)
             self.assertEqual(
                 u'58868681-4a58-4f69-8dc0-b20955e7923f',
-                e.router_id
+                e.Resource.id
             )
 
     def test_notification_akanda(self):
