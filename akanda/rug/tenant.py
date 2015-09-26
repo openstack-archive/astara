@@ -48,6 +48,9 @@ class RouterContainer(object):
             self.deleted.append(item)
 
     def items(self):
+        """Get all state machines.
+           :returns: all state machines in this RouterContainer
+        """
         with self.lock:
             return list(self.state_machines.items())
 
@@ -56,6 +59,11 @@ class RouterContainer(object):
             return list(self.state_machines.values())
 
     def has_been_deleted(self, router_id):
+        """Check if a router has been deleted.
+
+           :param router_id: The router's id to check against the deleted list
+           :returns: Returns True if the router_id has been deleted.
+        """
         with self.lock:
             return router_id in self.deleted
 
