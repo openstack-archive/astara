@@ -222,11 +222,17 @@ class Sender(object):
 class Publisher(Sender):
 
     def __init__(self, topic=None):
+        """Initialize the Publisher
+        :param topic: The topic of this Publisher object 
+        """
         super(Publisher, self).__init__(topic)
         self._q = Queue.Queue()
         self._t = None
 
     def start(self):
+        """Start this Publisher
+        :returns: returns nothing
+        """
         ready = threading.Event()
         self._t = threading.Thread(
             name='notification-publisher',
@@ -241,6 +247,9 @@ class Publisher(Sender):
         LOG.debug('started %s', self._t.getName())
 
     def stop(self):
+        """Stop this Publisher
+        :returns: returns nothing
+        """
         if self._t:
             LOG.debug('stopping %s', self._t.getName())
             self._q.put(None)
@@ -248,6 +257,10 @@ class Publisher(Sender):
             self._t = None
 
     def publish(self, incoming):
+        """Publish a specific item
+        :param incoming: The specific item to publish
+        :returns: returns nothing
+        """
         self._q.put(incoming)
 
     def _send(self, ready):
