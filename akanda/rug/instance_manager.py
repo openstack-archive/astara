@@ -82,16 +82,32 @@ def synchronize_router_status(f):
 
 class BootAttemptCounter(object):
     def __init__(self):
+        """Initializes the boot counter
+
+        :returns: returns nothing
+        """
         self._attempts = 0
 
     def start(self):
+        """Increments the Boot Attempt Counter
+
+        :returns: returns nothing
+        """
         self._attempts += 1
 
     def reset(self):
+        """Resets the Boot Attempt Counter
+
+        :returns: returns nothing
+        """
         self._attempts = 0
 
     @property
     def count(self):
+        """Boot Attempt Counter Property
+
+        :returns: returns a count of the number of boot attempts
+        """
         return self._attempts
 
 
@@ -111,13 +127,29 @@ class InstanceManager(object):
 
     @property
     def attempts(self):
+        """Returns the number of attempts this Instance has attempted to boot.
+
+        :returns: returns the number of attempts this instance has attempted to
+            boot
+        """
         return self._boot_counter.count
 
     def reset_boot_counter(self):
+        """Resets the number of attempts this Instance has attempted to boot.
+
+        :returns: returns nothing
+        """
         self._boot_counter.reset()
 
     @synchronize_router_status
     def update_state(self, worker_context, silent=False):
+        """Updates the status of a particular instance
+
+        :param worker_context: The WorkerContext of the instance
+        :param silent: sets the verbosity of this function during it's Alive
+            Check
+        :returns: the updated state
+        """
         self._ensure_cache(worker_context)
         if self.state == GONE:
             self.log.debug('not updating state of deleted router')
@@ -184,6 +216,12 @@ class InstanceManager(object):
         return self.state
 
     def boot(self, worker_context, router_image_uuid):
+        """Attempt to boot an instance
+
+        :param worker_context:  The WorkerContext of the instance
+        :param router_image_uuid: Glance UUID for the image to boot
+        :returns: returns nothing
+        """
         self._ensure_cache(worker_context)
         if self.state == GONE:
             self.log.info(_LI('Not booting deleted router'))
@@ -255,6 +293,10 @@ class InstanceManager(object):
         is "broken". We don't use it internally because this class is
         supposed to do what it's told and not make decisions about
         whether or not the router is fatally broken.
+
+        :param worker_context: The WorkerContext of the instance
+        :param slient: currently ignored
+        :returns: updated state
         """
         self._ensure_cache(worker_context)
         if self.state == GONE:
@@ -272,6 +314,10 @@ class InstanceManager(object):
         router rebuild, so that the state machine that checks our
         status won't think we are broken unless we actually break
         again.
+
+        :param worker_context: The WorkerContext of the instance
+        :param silent: currently ignored
+        :returns: updated state
         """
         # Clear the boot counter.
         self._boot_counter.reset()
@@ -284,7 +330,10 @@ class InstanceManager(object):
 
     @property
     def error_cooldown(self):
-        # Returns True if the router was recently set to ERROR state.
+        """Check if there was recently an error.
+
+        :returns: Returns True if the router was recently set to ERROR state.
+        """
         if self.last_error and self.state == ERROR:
             seconds_since_error = (
                 datetime.utcnow() - self.last_error
@@ -294,6 +343,11 @@ class InstanceManager(object):
         return False
 
     def stop(self, worker_context):
+        """Stop an instance.
+
+        :params worker_context: The WorkerContext of the instance
+        :returns: returns nothing
+        """
         self._ensure_cache(worker_context)
         if self.state == GONE:
             self.log.info(_LI('Destroying router neutron has deleted'))
@@ -319,6 +373,13 @@ class InstanceManager(object):
             cfg.CONF.boot_timeout)
 
     def configure(self, worker_context, failure_state=RESTART, attempts=None):
+        """Configures a booted instance
+
+        :params worker_context: The WorkerContext of the instance
+        :params failure_state: State to return to if we fail to configure
+        :params attempts: Number of attempts to try to configure
+        :returns: returns nothing
+        """
         self.log.debug('Begin router config')
         self.state = UP
         attempts = attempts or cfg.CONF.max_retries
@@ -400,6 +461,11 @@ class InstanceManager(object):
             self.state = failure_state
 
     def replug(self, worker_context):
+        """Attempt to replug this instance's interfaces
+
+        :params worker_context: The WorkerContext of the instance
+        :returns: returns nothing
+        """
         self.log.debug('Attempting to replug...')
         self._ensure_provider_ports(self.router_obj, worker_context)
 
@@ -490,6 +556,11 @@ class InstanceManager(object):
         self.state = RESTART
 
     def _ensure_cache(self, worker_context):
+        """Set all Instance cache data from primary sources.
+
+        :params worker_context: The WorkerContext of the instance
+        :returns: returns nothing
+        """
         try:
             self.router_obj = worker_context.neutron.get_router_detail(
                 self.router_id
@@ -516,6 +587,10 @@ class InstanceManager(object):
                 )
 
     def _check_boot_timeout(self):
+        """Check to see if this instance has taken too long to boot
+
+        :returns: returns nothing
+        """
         time_since_boot = self.instance_info.time_since_boot
 
         if time_since_boot:
@@ -540,6 +615,10 @@ class InstanceManager(object):
                     self.state = DOWN
 
     def _verify_interfaces(self, logical_config, interfaces):
+        """Validate that the port counts match.
+
+        :returns: True if the interface accounting validates
+        """
         router_macs = set((iface['lladdr'] for iface in interfaces))
         self.log.debug('MACs found: %s', ', '.join(sorted(router_macs)))
 
@@ -561,6 +640,12 @@ class InstanceManager(object):
         return router_macs == expected_macs
 
     def _ensure_provider_ports(self, router, worker_context):
+        """Validate and set the external port of the router
+
+        :param router: the router being checked and updated
+        :params worker_context: The WorkerContext of the instance
+        :returns: router
+        """
         if router.external_port is None:
             # FIXME: Need to do some work to pick the right external
             # network for a tenant.
