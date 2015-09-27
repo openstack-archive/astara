@@ -41,6 +41,10 @@ CONF.register_opts(HEALTH_INSPECTOR_OPTS)
 
 def _health_inspector(scheduler):
     """Runs in the thread.
+
+    :param scheduler: The scheduler that we will register with
+
+    :returns: returns nothing
     """
     period = CONF.health_check_period
     while True:
@@ -57,6 +61,11 @@ def _health_inspector(scheduler):
 
 def start_inspector(period, scheduler):
     """Start a health check thread.
+
+    :param period: (ignored) how often to run the health check
+    :param scheduler: the scheduler with which to register
+
+    :returns: returns threading.Thread of the HealthInspector
     """
     t = threading.Thread(
         target=_health_inspector,
