@@ -76,6 +76,11 @@ class MetadataProxyHandler(object):
 
     @webob.dec.wsgify(RequestClass=webob.Request)
     def __call__(self, req):
+        """Inital handler for an incoming webob.Request
+
+        :param req: The webob.Request to handle
+        :returns: returns a valid HTTP Response or Error
+        """
         try:
             LOG.debug("Request: %s", req)
 
@@ -92,9 +97,21 @@ class MetadataProxyHandler(object):
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
 
     def _get_instance_id(self, req):
+        """Pull the X-Instance-ID out of a request
+
+        :param req: The webob.Request to handle
+        :returns: returns the X-Instance-ID HTTP header
+        """
+
         return req.headers.get('X-Instance-ID')
 
     def _proxy_request(self, instance_id, req):
+        """Proxy a signed HTTP request to an instance.
+
+        :param instance_id: ID of the Instance being proxied to
+        :param req: The webob.Request to handle
+        :returns: returns a valid HTTP Response or Error
+        """
         headers = {
             'X-Forwarded-For': req.headers.get('X-Forwarded-For'),
             'X-Instance-ID': instance_id,
@@ -135,6 +152,11 @@ class MetadataProxyHandler(object):
             raise Exception(_('Unexpected response code: %s') % resp.status)
 
     def _sign_instance_id(self, instance_id):
+        """Get an HMAC based on the instance_id and Neutron shared secret.
+
+        :param instance_id: ID of the Instance being proxied to
+        :returns: returns a hexadecimal string HMAC for a specific instance_id
+        """
         return hmac.new(cfg.CONF.neutron_metadata_proxy_shared_secret,
                         instance_id,
                         hashlib.sha256).hexdigest()
@@ -142,9 +164,19 @@ class MetadataProxyHandler(object):
 
 class MetadataProxy(object):
     def __init__(self):
+        """Initialize the MetadataProxy
+
+        :returns: returns nothing
+        """
         self.pool = eventlet.GreenPool(1000)
 
     def run(self, ip_address, port=RUG_META_PORT):
+        """Run the MetadataProxy
+
+        :param ip_address: the ip address to bind to for incoming requests
+        :param port: the port to bind to for incoming requests
+        :returns: returns nothing
+        """
         app = MetadataProxyHandler()
         for i in xrange(5):
             LOG.info(_LI(
@@ -179,4 +211,9 @@ class MetadataProxy(object):
 
 
 def serve(ip_address):
+    """Initializes the MetaData proxy
+
+    :param ip_address: the ip address to bind to for incoming requests
+    :returns: returns nothing
+    """
     MetadataProxy().run(ip_address)
