@@ -98,7 +98,6 @@ class WorkerContext(object):
         self.neutron = neutron.Neutron(cfg.CONF)
         self.nova_client = nova.Nova(cfg.CONF)
 
-
 class Worker(object):
     """Manages state for the worker process.
 

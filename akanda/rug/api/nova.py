@@ -22,6 +22,7 @@ from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from akanda.rug.api import keystone
 from akanda.rug.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
@@ -79,13 +80,10 @@ class InstanceInfo(object):
 class Nova(object):
     def __init__(self, conf):
         self.conf = conf
+        ks_session = keystone.KeystoneSession()
         self.client = client.Client(
-            conf.admin_user,
-            conf.admin_password,
-            conf.admin_tenant_name,
-            auth_url=conf.auth_url,
-            auth_system=conf.auth_strategy,
-            region_name=conf.auth_region)
+            session=ks_session.session,
+        )
 
     def create_instance(self, router_id, image_uuid, make_ports_callback):
         mgt_port, instance_ports = make_ports_callback()

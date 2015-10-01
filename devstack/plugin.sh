@@ -2,7 +2,7 @@
 
 # Set up default directories
 AKANDA_RUG_DIR=${AKANDA_RUG_DIR:-$DEST/akanda-rug}
-
+AKANDA_CACHE_DIR=${AKANDA_CACHE_DIR:-/var/cache/akanda}
 AKANDA_NEUTRON_DIR=${AKANDA_NEUTRON_DIR:-$DEST/akanda-neutron}
 AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/stackforge/akanda-neutron.git}
 AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
@@ -57,13 +57,12 @@ function configure_akanda() {
     fi
     sudo chown $STACK_USER $AKANDA_CONF_DIR
 
+    mkdir -p $AKANDA_CACHE_DIR
+    sudo chown $STACK_USER $AKANDA_CACHE_DIR
+
     cp $AKANDA_RUG_DIR/etc/rug.ini $AKANDA_RUG_CONF
     iniset $AKANDA_RUG_CONF DEFAULT verbose True
-    iniset $AKANDA_RUG_CONF DEFAULT admin_user $Q_ADMIN_USERNAME
-    iniset $AKANDA_RUG_CONF DEFAULT admin_password $SERVICE_PASSWORD
-    iniset $AKANDA_RUG_CONF DEFAULT rabbit_userid $RABBIT_USERID
-    iniset $AKANDA_RUG_CONF DEFAULT rabbit_host $RABBIT_HOST
-    iniset $AKANDA_RUG_CONF DEFAULT rabbit_password $RABBIT_PASSWORD
+    configure_auth_token_middleware $AKANDA_RUG_CONF $Q_ADMIN_USERNAME $AKANDA_CACHE_DIR
     iniset $AKANDA_RUG_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
     iniset $AKANDA_RUG_CONF DEFAULT control_exchange "neutron"
     iniset $AKANDA_RUG_CONF DEFAULT router_instance_flavor $ROUTER_INSTANCE_FLAVOR
