@@ -33,6 +33,7 @@ from oslo_utils import importutils
 
 from akanda.rug.common.i18n import _, _LI, _LW
 from akanda.rug.common.linux import ip_lib
+from akanda.rug.api import keystone
 from akanda.rug.common import rpc
 
 LOG = logging.getLogger(__name__)
@@ -501,13 +502,9 @@ class L3PluginApi(object):
 class Neutron(object):
     def __init__(self, conf):
         self.conf = conf
+        ks_session = keystone.KeystoneSession()
         self.api_client = AkandaExtClientWrapper(
-            username=conf.admin_user,
-            password=conf.admin_password,
-            tenant_name=conf.admin_tenant_name,
-            auth_url=conf.auth_url,
-            auth_strategy=conf.auth_strategy,
-            region_name=conf.auth_region
+            session=ks_session.session,
         )
         self.l3_rpc_client = L3PluginApi(PLUGIN_ROUTER_RPC_TOPIC,
                                          cfg.CONF.host)
