@@ -115,7 +115,7 @@ def fake_make_ports_callback():
 class TestNovaWrapper(unittest.TestCase):
     def setUp(self):
         self.addCleanup(mock.patch.stopall)
-        patch = mock.patch('novaclient.v1_1.client.Client')
+        patch = mock.patch('novaclient.client.Client')
         self.client = mock.Mock()
         self.client_cls = patch.start()
         self.client_cls.return_value = self.client

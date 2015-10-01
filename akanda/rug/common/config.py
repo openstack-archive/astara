@@ -50,6 +50,8 @@ def parse_config(argv, default_config_files=DEFAULT_CONFIG_FILES):
         'akanda.rug.openstack.common.rpc.amqp=INFO',
         'neutronclient.client=INFO',
         'oslo.messaging=INFO',
+        'iso8601=INFO',
+        'cliff.commandmanager=INFO',
     ]
     cfg.CONF.set_default('logging_default_format_string', log_format)
     log.set_defaults(default_log_levels=log_levels)
