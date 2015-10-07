@@ -49,6 +49,7 @@ neutron_opts = [
     cfg.IntOpt('akanda_mgt_service_port', default=5000),
     cfg.StrOpt('default_instance_flavor', default=1),
     cfg.StrOpt('interface_driver'),
+    cfg.BoolOpt('neutron_port_security_extension_enabled', default=True),
 
 ]
 CONF.register_opts(neutron_opts)
@@ -662,6 +663,9 @@ class Neutron(object):
 
         if label in ['VRRP', 'LB']:
             port_dict['fixed_ips'] = []
+            # disable port_securty on VRRP
+            if self.conf.neutron_port_security_extension_enabled:
+                port_dict['port_security_enabled'] = False
 
         response = self.api_client.create_port(dict(port=port_dict))
         port_data = response.get('port')
