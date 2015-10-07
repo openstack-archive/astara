@@ -245,7 +245,6 @@ class FakeConf:
 
 
 class TestNeutronWrapper(base.RugTestBase):
-
     @mock.patch('akanda.rug.api.neutron.cfg')
     @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     @mock.patch('akanda.rug.api.neutron.importutils')
@@ -274,6 +273,60 @@ class TestNeutronWrapper(base.RugTestBase):
         conf = mock.Mock()
         neutron_wrapper = neutron.Neutron(conf)
         neutron_wrapper.update_router_status('router-id', 'new-status')
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def _test_create_vrrp_port_success_hlpr(self, ext_enabled, client_wrapper):
+        conf = mock.Mock()
+        conf.neutron_port_security_extension_enabled = ext_enabled
+
+        expected_port_data = {
+            'port': {
+                'name': 'AKANDA:VRRP:obj_id',
+                'admin_state_up': True,
+                'network_id': 'the_net_id',
+                'fixed_ips': [],
+                'security_groups': []
+            }
+        }
+
+        if ext_enabled:
+            expected_port_data['port']['port_security_enabled'] = False
+
+        neutron_wrapper = neutron.Neutron(conf)
+        api_client = neutron_wrapper.api_client
+        with mock.patch.object(api_client, 'create_port') as create_port:
+            with mock.patch.object(neutron.Port, 'from_dict') as port_from_d:
+                retval = neutron_wrapper.create_vrrp_port(
+                    'obj_id',
+                    'the_net_id'
+                )
+
+                self.assertIs(retval, port_from_d.return_value)
+                port_from_d.assert_called_once_with(
+                    create_port.return_value.get()
+                )
+                create_port.assert_called_once_with(
+                    expected_port_data
+                )
+
+    def test_create_vrrp_port_success(self):
+        self._test_create_vrrp_port_success_hlpr(True)
+
+    def test_create_vrrp_port_success_port_security_disabled(self):
+        self._test_create_vrrp_port_success_hlpr(False)
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_create_vrrp_port_error(self, client_wrapper):
+        neutron_wrapper = neutron.Neutron(mock.Mock())
+        api_client = neutron_wrapper.api_client
+        with mock.patch.object(api_client, 'create_port') as create_port:
+            create_port.return_value.get.return_value = None
+            self.assertRaises(
+                ValueError,
+                neutron_wrapper.create_vrrp_port,
+                'obj_id',
+                'the_net_id'
+            )
 
 
 class TestExternalPort(base.RugTestBase):
