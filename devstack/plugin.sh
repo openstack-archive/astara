@@ -267,7 +267,7 @@ function post_start_akanda() {
     echo "Creating demo user network and subnet"
     local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
     neutron $auth_args net-create thenet
-    neutron $auth_args subnet-create thenet 192.168.0.0/24
+    neutron $auth_args subnet-create thenet $FIXED_RANGE
 
     # Restart neutron so that `akanda.floatingip_subnet` is properly set
     if [[ "$USE_SCREEN" == "True" ]]; then
@@ -277,9 +277,8 @@ function post_start_akanda() {
     fi
     start_neutron_service_and_check
 
-    # Due to a bug in security groups we need to enable udp ingress traffic
-    # on port 68 to allow vms to get dhcp replies from the router.
-    set_demo_tenant_sec_group_dhcp_rules
+    # Open all traffic on the private CIDR
+    set_demo_tenant_sec_group_private_traffic
 }
 
 function stop_akanda_rug() {
@@ -300,9 +299,9 @@ function set_neutron_user_permission() {
     sed -i "s/$old_value/$new_value/g" /etc/nova/policy.json
 }
 
-function set_demo_tenant_sec_group_dhcp_rules() {
+function set_demo_tenant_sec_group_private_traffic() {
     local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
-    neutron $auth_args security-group-rule-create --direction ingress --ethertype IPv4 --protocol udp --port-range-min 68 --port-range-max 68 default
+    neutron $auth_args security-group-rule-create --direction ingress --remote-ip-prefix $FIXED_RANGE default
 }
 
 
