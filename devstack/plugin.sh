@@ -34,6 +34,7 @@ PUBLIC_INTERFACE_DEFAULT='eth0'
 AKANDA_RUG_MANAGEMENT_PREFIX=${RUG_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
 AKANDA_RUG_MANAGEMENT_PORT=${AKANDA_RUG_MANAGEMENT_PORT:-5000}
 AKANDA_RUG_API_PORT=${AKANDA_RUG_API_PORT:-44250}
+AKANDA_DEFAULT_SUBNET_CIDR="192.168.0.0/24"
 
 HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
@@ -267,7 +268,7 @@ function post_start_akanda() {
     echo "Creating demo user network and subnet"
     local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
     neutron $auth_args net-create thenet
-    neutron $auth_args subnet-create thenet 192.168.0.0/24
+    neutron $auth_args subnet-create thenet $AKANDA_DEFAULT_SUBNET_CIDR
 
     # Restart neutron so that `akanda.floatingip_subnet` is properly set
     if [[ "$USE_SCREEN" == "True" ]]; then
@@ -277,9 +278,8 @@ function post_start_akanda() {
     fi
     start_neutron_service_and_check
 
-    # Due to a bug in security groups we need to enable udp ingress traffic
-    # on port 68 to allow vms to get dhcp replies from the router.
-    set_demo_tenant_sec_group_dhcp_rules
+    # Open all traffic on the private CIDR
+    set_demo_tenant_sec_group_private_traffic
 }
 
 function stop_akanda_rug() {
@@ -300,9 +300,9 @@ function set_neutron_user_permission() {
     sed -i "s/$old_value/$new_value/g" /etc/nova/policy.json
 }
 
-function set_demo_tenant_sec_group_dhcp_rules() {
+function set_demo_tenant_sec_group_private_traffic() {
     local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
-    neutron $auth_args security-group-rule-create --direction ingress --ethertype IPv4 --protocol udp --port-range-min 68 --port-range-max 68 default
+    neutron $auth_args security-group-rule-create --direction ingress --remote-ip-prefix $AKANDA_DEFAULT_SUBNET_CIDR default
 }
 
 
