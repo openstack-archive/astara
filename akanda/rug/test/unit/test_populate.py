@@ -76,3 +76,18 @@ class TestPrePopulateWorkers(base.RugTestBase):
             t.mock_calls,
             [mock.call.setDaemon(True), mock.call.start()]
         )
+
+    @mock.patch('akanda.rug.drivers.enabled_drivers')
+    def test_repopulate(self, enabled_drivers):
+        drivers = []
+        for i in range(2):
+            driver = mock.Mock()
+            driver.pre_populate_hook = mock.Mock()
+            driver.pre_populate_hook.return_value = [
+                'driver_%s_resource' % i,
+            ]
+            drivers.append(driver)
+        enabled_drivers.return_value = drivers
+        res = populate.repopulate()
+        self.assertEqual(
+            set(res), set(['driver_0_resource', 'driver_1_resource']))
