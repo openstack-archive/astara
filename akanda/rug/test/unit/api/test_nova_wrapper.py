@@ -81,7 +81,7 @@ class FakeConf:
     auth_url = 'http://127.0.0.1/'
     auth_strategy = 'keystone'
     auth_region = 'RegionOne'
-    router_image_uuid = 'akanda-image'
+    router_image_uuid = 'astara-image'
     router_instance_flavor = 1
     instance_provider = 'foo'
 
@@ -107,8 +107,8 @@ bootcmd:
   - /usr/local/bin/akanda-configure-management aa:aa:aa:aa:aa:aa 192.168.1.1/64
 
 users:
-  - name: akanda
-    gecos: Akanda
+  - name: astara
+    gecos: Astara
     groups: users
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -116,7 +116,7 @@ users:
     ssh-authorized-keys:
       - fake_key
 
-final_message: "Akanda appliance is running"
+final_message: "Astara appliance is running"
 """
 
 

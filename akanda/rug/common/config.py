@@ -12,15 +12,46 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import os
+
 from oslo_config import cfg
 from oslo_log import log
 
 
 LOG = log.getLogger(__name__)
 
+PREFERRED_CONFIG_FILEPATH = '/etc/astara/orchestrator.ini'
+SEARCH_DIRS = ['/etc/astara', '/etc/akanda-rug', '/etc/akanda']
+LEGACY_FILE_MAP = {
+    'orchestrator.ini': 'rug.ini',
+    'astara.pub': 'akanda.pub'
+    }
+
 DEFAULT_CONFIG_FILES = [
-    '/etc/akanda-rug/rug.ini'
+    PREFERRED_CONFIG_FILEPATH
 ]
+
+
+def get_best_config_path(filepath=PREFERRED_CONFIG_FILEPATH):
+    if os.path.isfile(filepath):
+        return filepath
+
+    # now begin attemp to fallback for compatibility
+    dirname, basename = os.path.split(filepath)
+
+    if dirname and dirname not in SEARCH_DIRS:
+        return filepath  # retain the non-standard location
+
+    for searchdir in SEARCH_DIRS:
+        candidate_path = os.path.join(searchdir, basename)
+        if os.path.isfile(candidate_path):
+            return candidate_path
+
+        if basename in LEGACY_FILE_MAP:
+            candidate_path = os.path.join(searchdir, LEGACY_FILE_MAP[basename])
+            if os.path.isfile(candidate_path):
+                return candidate_path
+    return filepath
 
 
 def parse_config(argv, default_config_files=DEFAULT_CONFIG_FILES):
@@ -55,6 +86,10 @@ def parse_config(argv, default_config_files=DEFAULT_CONFIG_FILES):
     ]
     cfg.CONF.set_default('logging_default_format_string', log_format)
     log.set_defaults(default_log_levels=log_levels)
+
+    # For legacy compatibility
+    default_config_files = map(get_best_config_path, default_config_files)
+
     cfg.CONF(argv,
-             project='akanda-rug',
+             project='astara-orchestrator',
              default_config_files=default_config_files)
