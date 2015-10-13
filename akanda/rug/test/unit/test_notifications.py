@@ -22,8 +22,10 @@ import multiprocessing
 
 import unittest2 as unittest
 
+from akanda.rug import commands
 from akanda.rug import event
 from akanda.rug import notifications
+from akanda.rug.test.unit import base
 
 
 CTXT = {
@@ -50,7 +52,7 @@ CTXT = {
 }
 
 
-class TestGetTenantID(unittest.TestCase):
+class TestGetTenantID(base.RugTestBase):
     def test_notification_tenant_id_from_resource_dict(self):
         for res in ('router', 'port', 'subnet'):
             payload = {
@@ -98,7 +100,7 @@ class TestGetTenantID(unittest.TestCase):
             self.assertEqual(CTXT[ctxt_key], tenant_id)
 
 
-class TestGetCRUD(unittest.TestCase):
+class TestGetCRUD(base.RugTestBase):
     def setUp(self):
         super(TestGetCRUD, self).setUp()
         self.queue = multiprocessing.Queue()
@@ -234,3 +236,20 @@ class TestGetCRUD(unittest.TestCase):
     def test_notification_akanda(self):
         e = self._get_event_notification('akanda.bandwidth.used')
         self.assertIs(None, e)
+
+    def test_notification_cmd_poll(self):
+        event_type = 'akanda.rug.command'
+        payload = {'command': commands.POLL}
+        self.notifications_endpoint.info(
+            ctxt=CTXT,
+            publisher_id='network.akanda',
+            event_type=event_type,
+            payload=payload, metadata={})
+        expected_event = event.Event(
+            resource=event.Resource(driver='*', id='*', tenant_id='*'),
+            crud=event.POLL,
+            body={},
+        )
+        tenant, e = self.queue.get()
+        self.assertEqual('*', tenant)
+        self.assertEqual(expected_event, e)

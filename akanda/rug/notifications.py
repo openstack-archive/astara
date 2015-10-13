@@ -141,8 +141,9 @@ class NotificationsEndpoint(object):
             LOG.debug('received a command: %r', payload)
             crud = event.COMMAND
             if payload.get('command') == commands.POLL:
+                r = event.Resource(driver='*', id='*', tenant_id='*')
                 e = event.Event(
-                    resource='*',
+                    resource=r,
                     crud=event.POLL,
                     body={})
                 self.notification_queue.put(('*', e))
