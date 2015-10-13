@@ -60,7 +60,8 @@ class TestRugCoordinator(base.RugTestBase):
             'foo_coord_group',
             fake_cluster_changed)
         self.assertTrue(self.fake_coord.heartbeat.called)
-        fake_cluster_changed.assert_called_with(event=None)
+        fake_cluster_changed.assert_called_with(
+            event=None, node_bootstrap=True)
 
     def test_start_raises(self):
         self.coordinator = coordination.RugCoordinator(self.queue)
@@ -115,8 +116,9 @@ class TestRugCoordinator(base.RugTestBase):
         self.assertEqual(self.coordinator.is_leader, True)
         self.fake_coord.get_leader.assert_called_with(self.coordinator.group)
 
+    @mock.patch('akanda.rug.coordination.RugCoordinator.start')
     @mock.patch('akanda.rug.coordination.RugCoordinator.members')
-    def test_cluster_changed(self, fake_members):
+    def test_cluster_changed(self, fake_members, fake_start):
         fake_members.__get__ = mock.Mock(return_value=['foo', 'bar'])
         self.coordinator = coordination.RugCoordinator(self.queue)
         expected_rebalance_event = event.Event(
