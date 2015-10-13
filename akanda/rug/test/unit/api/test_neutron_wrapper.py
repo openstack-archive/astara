@@ -21,7 +21,6 @@ import mock
 import netaddr
 
 from akanda.rug.test.unit import base
-
 from akanda.rug.api import neutron
 
 
@@ -327,6 +326,37 @@ class TestNeutronWrapper(base.RugTestBase):
                 'obj_id',
                 'the_net_id'
             )
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_delete_vrrp_ports(self, client_wrapper):
+        conf = mock.Mock()
+        neutron_wrapper = neutron.Neutron(conf)
+        neutron_wrapper.api_client.list_ports = mock.Mock(
+            return_value={
+                'ports': [{'id': 'fake_port_id'}]
+            }
+        )
+        neutron_wrapper.api_client.delete_port = mock.Mock()
+        neutron_wrapper.delete_vrrp_port(object_id='foo')
+        neutron_wrapper.api_client.list_ports.assert_called_with(
+            name='AKANDA:VRRP:foo'
+        )
+        neutron_wrapper.api_client.delete_port.assert_called_with(
+            'fake_port_id')
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_delete_vrrp_ports_not_found(self, client_wrapper):
+        conf = mock.Mock()
+        neutron_wrapper = neutron.Neutron(conf)
+        neutron_wrapper.api_client.list_ports = mock.Mock(
+            return_value={'ports': []}
+        )
+        neutron_wrapper.api_client.delete_port = mock.Mock()
+        neutron_wrapper.delete_vrrp_port(object_id='foo')
+        neutron_wrapper.api_client.list_ports.assert_called_with(
+            name='AKANDA:VRRP:foo'
+        )
+        self.assertFalse(neutron_wrapper.api_client.delete_port.called)
 
 
 class TestExternalPort(base.RugTestBase):
