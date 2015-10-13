@@ -715,8 +715,8 @@ class Worker(object):
 
         if cfg.CONF.coordination.enabled:
             # NOTE(adam_g): This list could be big with a large cluster.
-            LOG.info(_LI(
-                'Peer akanda-rug hosts: %s'), self.hash_ring_mgr.hosts)
+            LOG.info(_LI('Peer astara-orchestrator hosts: %s'),
+                     self.hash_ring_mgr.hosts)
         else:
             LOG.info(_LI(
-                'No peer akanda-rug hosts, coordination disabled.'))
+                'No peer astara-orchestrator hosts, coordination disabled.'))

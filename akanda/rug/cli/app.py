@@ -19,12 +19,10 @@ import logging
 
 from cliff import app
 from cliff import commandmanager
-
+from oslo_config import cfg
 import pkg_resources
 
-from oslo_config import cfg
-
-from akanda.rug.common import config  # noqa
+from akanda.rug.common import config
 
 
 class RugController(app.App):
@@ -32,7 +30,7 @@ class RugController(app.App):
     log = logging.getLogger(__name__)
 
     def __init__(self):
-        dist = pkg_resources.get_distribution('akanda-rug')
+        dist = pkg_resources.get_distribution('astara')
         super(RugController, self).__init__(
             description='controller for the Akanda RUG service',
             version=dist.version,
@@ -45,7 +43,7 @@ class RugController(app.App):
 
         # Don't pass argv here because cfg.CONF will intercept the
         # help options and exit.
-        cfg.CONF(['--config-file', '/etc/akanda-rug/rug.ini'],
-                 project='akanda-rug')
+        cfg.CONF(['--config-file', config.get_best_config_path()],
+                 project='astara-orchestrator')
         self.rug_ini = cfg.CONF
         return super(RugController, self).initialize_app(argv)

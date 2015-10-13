@@ -52,7 +52,7 @@ class PeriodicService(rpc_service.Service):
 
 def main():
     eventlet.monkey_patch()
-    cfg.CONF(sys.argv[1:], project='akanda-rug')
+    cfg.CONF(sys.argv[1:], project='astara-orchestrator')
     log.setup('akanda')
 
     mgr = manager.AkandaL3Manager()
