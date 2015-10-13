@@ -24,7 +24,10 @@ from datetime import datetime, timedelta
 from akanda.rug import instance_manager
 from akanda.rug.api import nova
 from akanda.rug.drivers import states
+from akanda.rug.test.unit import base
 from akanda.rug.test.unit import fakes
+
+from oslo_config import cfg
 
 states.RETRY_DELAY = 0.4
 states.BOOT_WAIT = 1
@@ -63,16 +66,17 @@ fake_add_port = FakeModel(
     fixed_ips=[FakeModel('', ip_address='8.8.8.8', subnet_id='s3')])
 
 
-class TestInstanceManager(unittest.TestCase):
+class TestInstanceManager(base.RugTestBase):
 
     def setUp(self):
+        super(TestInstanceManager, self).setUp()
+        self.conf = cfg.CONF
         self.fake_driver = fakes.fake_driver()
         self.ctx = mock.Mock()
         self.neutron = self.ctx.neutron
-        self.conf = mock.patch.object(instance_manager.cfg, 'CONF').start()
-        self.conf.boot_timeout = 1
-        self.conf.akanda_mgt_service_port = 5000
-        self.conf.max_retries = 3
+        self.config(boot_timeout=30)
+        self.config(akanda_mgt_service_port=5000)
+        self.config(max_retries=3)
         self.addCleanup(mock.patch.stopall)
 
         self.log = mock.Mock()
@@ -264,7 +268,7 @@ class TestInstanceManager(unittest.TestCase):
         ])
         self.instance_mgr.log.info.assert_called_once_with(
             mock.ANY,
-            self.conf.boot_timeout
+            self.conf.boot_timeout,
         )
 
     @mock.patch('time.sleep')
@@ -454,8 +458,16 @@ class TestInstanceManager(unittest.TestCase):
 
         self.assertEqual(self.instance_mgr.state, states.DOWN)
 
+    @mock.patch('time.time')
     @mock.patch('time.sleep')
-    def test_stop_fail(self, sleep):
+    def test_stop_fail(self, sleep, time):
+        t = 1444679566
+        side_effects = [t]
+        for i in range(30):
+            t = t + 1
+            side_effects.append(t)
+        time.side_effect = side_effects
+        self.config(boot_timeout=30)
         self.instance_mgr.state = states.UP
         self.ctx.nova_client.get_router_instance_status.return_value = 'UP'
         self.instance_mgr.stop(self.ctx)
@@ -467,9 +479,13 @@ class TestInstanceManager(unittest.TestCase):
     @mock.patch('time.sleep')
     def test_stop_router_already_deleted_from_neutron(self, sleep):
         self.instance_mgr.state = states.GONE
+        self.ctx.nova_client.get_instance_by_id.return_value = None
         self.instance_mgr.stop(self.ctx)
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO)
+        self.ctx.nova_client.get_instance_by_id.assert_called_with(
+            self.INSTANCE_INFO.id_
+        )
         self.assertEqual(self.instance_mgr.state, states.GONE)
 
     def test_configure_success(self):
@@ -701,7 +717,8 @@ class TestInstanceManager(unittest.TestCase):
             'fake_ports_callback')
 
     def test_error_cooldown(self):
-        self.conf.error_state_cooldown = 30
+        self.config(error_state_cooldown=30)
+#        self.conf.error_state_cooldown = 30
         self.assertIsNone(self.instance_mgr.last_error)
         self.assertFalse(self.instance_mgr.error_cooldown)
 

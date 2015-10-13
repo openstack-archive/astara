@@ -32,10 +32,10 @@ INSTANCE_MANAGER_OPTS = [
     cfg.IntOpt(
         'boot_timeout', default=600),
     cfg.IntOpt(
-        'error_state_coolstates.DOWN',
+        'error_state_cooldown',
         default=30,
         help='Number of seconds to ignore new events when an instance goes '
-        'into states.ERROR state.',
+        'into ERROR state.',
     ),
 ]
 CONF.register_opts(INSTANCE_MANAGER_OPTS)
@@ -333,7 +333,9 @@ class InstanceManager(object):
             self.log.exception(_LE('Error deleting router instance'))
 
         start = time.time()
+        i = 0
         while time.time() - start < cfg.CONF.boot_timeout:
+            i += 1
             if not worker_context.nova_client.\
                     get_instance_by_id(self.instance_info.id_):
                 if self.state != states.GONE:
@@ -547,7 +549,7 @@ class InstanceManager(object):
                 # If the instance was created more than `boot_timeout` seconds
                 # ago, log an error and set the state set to states.DOWN
                 self.log.info(
-                    'Router is states.DOWN.  Created over %d secs ago.',
+                    'Router is DOWN.  Created over %d secs ago.',
                     cfg.CONF.boot_timeout)
                 # Do not reset the state if we have an error condition
                 # already. The state will be reset when the router starts
