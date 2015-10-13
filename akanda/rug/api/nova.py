@@ -24,6 +24,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from akanda.rug.api import keystone
+from akanda.rug.common import config
 from akanda.rug.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
@@ -31,9 +32,9 @@ LOG = logging.getLogger(__name__)
 OPTIONS = [
     cfg.StrOpt(
         'ssh_public_key',
-        help="Path to the SSH public key for the 'akanda' user within "
+        help="Path to the SSH public key for the 'astara' user within "
              "appliance instances",
-        default='/etc/akanda-rug/akanda.pub')
+        default='/etc/astara/astara.pub')
 ]
 cfg.CONF.register_opts(OPTIONS)
 
@@ -261,8 +262,8 @@ bootcmd:
   - /usr/local/bin/akanda-configure-management %(mac_address)s %(ip_address)s/64
 
 users:
-  - name: akanda
-    gecos: Akanda
+  - name: astara
+    gecos: Astara
     groups: users
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -270,12 +271,12 @@ users:
     ssh-authorized-keys:
       - %(ssh_public_key)s
 
-final_message: "Akanda appliance is running"
+final_message: "Astara appliance is running"
 """  # noqa
 
 
 def _ssh_key():
-    key = cfg.CONF.ssh_public_key
+    key = config.get_best_config_path(cfg.CONF.ssh_public_key)
     if not key:
         return ''
     try:

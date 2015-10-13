@@ -34,12 +34,12 @@ CONF = cfg.CONF
 COORD_OPTS = [
     cfg.BoolOpt('enabled', default=False,
                 help=_('Whether to use an external coordination service to '
-                       'a cluster of akanda-rug nodes. This may be disabled '
-                       'for akanda-rug node environments.')),
+                       'a cluster of astara-orchestrator nodes. This may be '
+                       'disabled for astara-orchestrator node environments.')),
     cfg.StrOpt('url',
                default='memcached://localhost:11211',
                help=_('URL of suppoted coordination service')),
-    cfg.StrOpt('group_id', default='akanda.rug',
+    cfg.StrOpt('group_id', default='astara.orchestrator',
                help=_('ID of coordination group to join.')),
     cfg.IntOpt('heartbeat_interval', default=1,
                help=_('Interval (in seconds) for cluster heartbeats')),

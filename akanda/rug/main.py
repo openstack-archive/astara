@@ -85,9 +85,9 @@ def shuffle_notifications(notification_queue, sched):
 
 
 def main(argv=sys.argv[1:]):
-    """Main Entry point into the akanda-rug
+    """Main Entry point into the astara-orchestrator
 
-    This is the main entry point into the akanda-rug. On invocation of
+    This is the main entry point into the astara-orchestrator. On invocation of
     this method, logging, local network connectivity setup is performed.
     This information is obtained through the 'ak-config' file, passed as
     arguement to this method. Worker threads are spawned for handling
@@ -111,7 +111,7 @@ def main(argv=sys.argv[1:]):
     t = threading.current_thread()
     t.name = 'tmain'
     ak_cfg.parse_config(argv)
-    log.setup(cfg.CONF, 'akanda-rug')
+    log.setup(cfg.CONF, 'astara-orchestrator')
     cfg.CONF.log_opt_values(LOG, logging.INFO)
 
     neutron = neutron_api.Neutron(cfg.CONF)

@@ -96,7 +96,7 @@ def get_alembic_config():
 
 
 def main():
-    CONF(project='akanda-rug')
+    CONF(project='astara-orchestrator')
     config = get_alembic_config()
     config.akanda_config = CONF
     CONF.command.func(config, CONF.command.name)
