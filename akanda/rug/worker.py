@@ -523,7 +523,7 @@ class Worker(object):
                     'Ignoring instruction to debug all resources with %r'),
                     resource_id)
             else:
-                LOG.info(_LI('Placing router %s in debug mode (reason: %s)'),
+                LOG.info(_LI('Placing resource %s in debug mode (reason: %s)'),
                          resource_id, reason)
                 self.db_api.enable_resource_debug(resource_id, reason)
 
