@@ -518,10 +518,9 @@ class InstanceManager(object):
         self.state = states.RESTART
 
     def _ensure_cache(self, worker_context):
-        if not self.instance_info:
-            self.instance_info = (
-                worker_context.nova_client.get_instance_info(self.driver.name)
-            )
+        self.instance_info = (
+            worker_context.nova_client.get_instance_info(self.driver.name)
+        )
 
         if self.instance_info:
             (

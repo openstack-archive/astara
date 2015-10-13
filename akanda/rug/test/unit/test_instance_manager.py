@@ -104,6 +104,8 @@ class TestInstanceManager(base.RugTestBase):
             last_boot=(datetime.utcnow() - timedelta(minutes=15)),
         )
 
+        self.ctx.nova_client.get_instance_info.return_value = (
+            self.INSTANCE_INFO)
         self.ctx.nova_client.get_instance_info_for_obj.return_value = (
             self.INSTANCE_INFO)
         self.ctx.neutron.get_ports_for_instance.return_value = (
@@ -718,7 +720,6 @@ class TestInstanceManager(base.RugTestBase):
 
     def test_error_cooldown(self):
         self.config(error_state_cooldown=30)
-#        self.conf.error_state_cooldown = 30
         self.assertIsNone(self.instance_mgr.last_error)
         self.assertFalse(self.instance_mgr.error_cooldown)
 
@@ -728,6 +729,13 @@ class TestInstanceManager(base.RugTestBase):
 
         self.instance_mgr.last_error = datetime.utcnow() - timedelta(minutes=5)
         self.assertFalse(self.instance_mgr.error_cooldown)
+
+    def test__ensure_cache(self):
+        self.instance_mgr.instance_info = 'stale_info'
+        self.ctx.nova_client.get_instance_info.return_value = \
+            self.INSTANCE_INFO
+        self.instance_mgr._ensure_cache(self.ctx)
+        self.assertEqual(self.instance_mgr.instance_info, self.INSTANCE_INFO)
 
 
 class TestBootAttemptCounter(unittest.TestCase):
