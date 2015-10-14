@@ -20,11 +20,14 @@ import time
 from novaclient import client
 from novaclient import exceptions as novaclient_exceptions
 
+from akanda.rug.pez import rpcapi as pez_api
+from akanda.rug.api import neutron
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
 from akanda.rug.api import keystone
-from akanda.rug.common.i18n import _LW
+from akanda.rug.common.i18n import _LW, _LE, _LI
 
 LOG = logging.getLogger(__name__)
 
@@ -33,7 +36,10 @@ OPTIONS = [
         'ssh_public_key',
         help="Path to the SSH public key for the 'akanda' user within "
              "appliance instances",
-        default='/etc/akanda-rug/akanda.pub')
+        default='/etc/akanda-rug/akanda.pub'),
+    cfg.StrOpt(
+        'instance_provider', default='on_demand',
+        help='Which instance provider to use (on_demand, pez)')
 ]
 cfg.CONF.register_opts(OPTIONS)
 
@@ -98,14 +104,77 @@ class InstanceInfo(object):
         )
 
 
-class Nova(object):
-    def __init__(self, conf):
-        self.conf = conf
-        ks_session = keystone.KeystoneSession()
-        self.client = client.Client(version='2', session=ks_session.session)
+class InstanceProvider(object):
+    def __init__(self, client):
+        self.nova_client = client
+        LOG.info(_LI(
+            'Initialized %s with novaclient %s'),
+            self.__class__.__name__, self.nova_client)
 
-    def create_instance(self,
-                        name, image_uuid, flavor, make_ports_callback):
+    def create_instance(self, driver, name, image_uuid, flavor,
+                        make_ports_callback):
+        """Create or get an instance
+
+        :param router_id: UUID of the resource that the instance will host
+
+        :returns: InstanceInfo object with at least id, name and image_uuid
+                  set.
+        """
+
+
+class PezInstanceProvider(InstanceProvider):
+    def __init__(self, client):
+        super(PezInstanceProvider, self).__init__(client)
+        self.rpc_client = pez_api.AkandaPezAPI(rpc_topic='akanda-pez')
+        LOG.info(_LI(
+            'Initialized %s with rpc client %s'),
+            self.__class__.__name__, self.rpc_client)
+
+    def create_instance(self, resource_type, name, image_uuid, flavor,
+                        make_ports_callback):
+        # TODO(adam_g): pez already creates the mgt port on boot and the one
+        # we create here is wasted. callback needs to be adjusted
+        mgt_port, instance_ports = make_ports_callback()
+
+        mgt_port_dict = {
+            'id': mgt_port.id,
+            'network_id': mgt_port.network_id,
+        }
+        instance_ports_dicts = [{
+            'id': p.id, 'network_id': p.network_id,
+        } for p in instance_ports]
+
+        LOG.debug('Requesting new %s instance from Pez.', resource_type)
+        pez_instance = self.rpc_client.get_instance(
+            resource_type, name, mgt_port_dict, instance_ports_dicts)
+        LOG.debug('Got %s instance %s from Pez.',
+                  resource_type, pez_instance['id'])
+
+        server = self.nova_client.servers.get(pez_instance['id'])
+
+        # deserialize port data
+        mgt_port = neutron.Port.from_dict(pez_instance['management_port'])
+        instance_ports = [
+            neutron.Port.from_dict(p)
+            for p in pez_instance['instance_ports']]
+
+        boot_time = datetime.strptime(
+            server.created, "%Y-%m-%dT%H:%M:%SZ")
+        instance_info = InstanceInfo(
+            instance_id=server.id,
+            name=server.name,
+            management_port=mgt_port,
+            ports=instance_ports,
+            image_uuid=image_uuid,
+            status=server.status,
+            last_boot=boot_time)
+
+        return instance_info
+
+
+class OnDemandInstanceProvider(InstanceProvider):
+    def create_instance(self, resource_type, name, image_uuid, flavor,
+                        make_ports_callback):
         mgt_port, instance_ports = make_ports_callback()
 
         nics = [{'net-id': p.network_id,
@@ -116,27 +185,14 @@ class Nova(object):
         LOG.debug('creating instance %s with image %s',
                   name, image_uuid)
 
-        server = self.client.servers.create(
+        server = self.nova_client.servers.create(
             name,
             image=image_uuid,
             flavor=flavor,
             nics=nics,
             config_drive=True,
-            userdata=_format_userdata(mgt_port)
+            userdata=format_userdata(mgt_port)
         )
-
-        boot_time = datetime.strptime(
-            server.created, "%Y-%m-%dT%H:%M:%SZ")
-        instance_info = InstanceInfo(
-            instance_id=server.id,
-            name=name,
-            management_port=mgt_port,
-            ports=instance_ports,
-            image_uuid=image_uuid,
-            status=server.status,
-            last_boot=boot_time)
-
-        assert server
 
         server_status = None
         for i in range(1, 10):
@@ -149,8 +205,65 @@ class Nova(object):
                 time.sleep(.5)
         assert server_status
 
+        boot_time = datetime.strptime(
+            server.created, "%Y-%m-%dT%H:%M:%SZ")
+        instance_info = InstanceInfo(
+            instance_id=server.id,
+            name=name,
+            management_port=mgt_port,
+            ports=instance_ports,
+            image_uuid=image_uuid,
+            status=server.status,
+            last_boot=boot_time)
+
         instance_info.nova_status = server_status
         return instance_info
+
+    def get_instance_info(self, name):
+        """Retrieves an InstanceInfo object for a given instance name
+
+        :param name: name of the instance being queried
+
+        :returns: an InstanceInfo object representing the resource instance
+        """
+        instance = self.get_instance_for_obj(name)
+
+        if instance:
+            return InstanceInfo(
+                instance.id,
+                name,
+                image_uuid=instance.image['id']
+            )
+
+
+INSTANCE_PROVIDERS = {
+    'on_demand': OnDemandInstanceProvider,
+    'pez': PezInstanceProvider,
+    'default': OnDemandInstanceProvider,
+}
+
+
+def get_instance_provider(provider):
+    try:
+        return INSTANCE_PROVIDERS[provider]
+    except KeyError:
+        default = INSTANCE_PROVIDERS['default']
+        LOG.error(_LE('Could not find %s instance provider, using default %s'),
+                  provider, default)
+        return default
+
+
+class Nova(object):
+    def __init__(self, conf):
+        self.conf = conf
+        ks_session = keystone.KeystoneSession()
+        self.client = client.Client(
+            version='2',
+            session=ks_session.session,
+            region_name=conf.auth_region)
+
+        self.instance_provider = get_instance_provider(
+            conf.instance_provider)(self.client)
 
     def get_instance_info(self, name):
         """Retrieves an InstanceInfo object for a given instance name
@@ -198,6 +311,7 @@ class Nova(object):
             self.client.servers.delete(instance_info.id_)
 
     def boot_instance(self,
+                      resource_type,
                       prev_instance_info,
                       name,
                       image_uuid,
@@ -225,11 +339,12 @@ class Nova(object):
             return None
 
         # it is now safe to attempt boot
-        instance_info = self.create_instance(
-            name,
-            image_uuid,
-            flavor,
-            make_ports_callback
+        instance_info = self.instance_provider.create_instance(
+            resource_type=resource_type,
+            name=name,
+            image_uuid=image_uuid,
+            flavor=flavor,
+            make_ports_callback=make_ports_callback
         )
         return instance_info
 
@@ -286,7 +401,7 @@ def _ssh_key():
         return ''
 
 
-def _format_userdata(mgt_port):
+def format_userdata(mgt_port):
     ctxt = {
         'ssh_public_key': _ssh_key(),
         'mac_address': mgt_port.mac_address,

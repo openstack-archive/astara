@@ -230,11 +230,12 @@ class InstanceManager(object):
         # try to boot the instance
         try:
             instance_info = worker_context.nova_client.boot_instance(
-                self.instance_info,
-                self.driver.name,
-                self.driver.image_uuid,
-                self.driver.flavor,
-                self.driver.make_ports(worker_context)
+                resource_type=self.driver.RESOURCE_NAME,
+                prev_instance_info=self.instance_info,
+                name=self.driver.name,
+                image_uuid=self.driver.image_uuid,
+                flavor=self.driver.flavor,
+                make_ports_callback=self.driver.make_ports(worker_context)
             )
             if not instance_info:
                 self.log.info(_LI('Previous instance is still deleting'))
