@@ -37,7 +37,7 @@ sql_opts = [
                help=_('MySQL engine to use.'))
 ]
 
-_DEFAULT_SQL_CONNECTION = 'sqlite:///akanda-ruxg.db'
+_DEFAULT_SQL_CONNECTION = 'sqlite:///akanda-rug.db'
 
 
 cfg.CONF.register_opts(sql_opts, 'database')

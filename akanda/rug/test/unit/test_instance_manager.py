@@ -302,11 +302,13 @@ class TestInstanceManager(base.RugTestBase):
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
 
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO,
-            self.fake_driver.name,
-            self.fake_driver.image_uuid,
-            self.fake_driver.flavor,
-            'fake_ports_callback')
+            resource_type=self.fake_driver.RESOURCE_NAME,
+            prev_instance_info=self.INSTANCE_INFO,
+            name=self.fake_driver.name,
+            image_uuid=self.fake_driver.image_uuid,
+            flavor=self.fake_driver.flavor,
+            make_ports_callback='fake_ports_callback')
+
         self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -324,11 +326,12 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO,
-            self.fake_driver.name,
-            self.fake_driver.image_uuid,
-            self.fake_driver.flavor,
-            'fake_ports_callback')
+            resource_type=self.fake_driver.RESOURCE_NAME,
+            prev_instance_info=self.INSTANCE_INFO,
+            name=self.fake_driver.name,
+            image_uuid=self.fake_driver.image_uuid,
+            flavor=self.fake_driver.flavor,
+            make_ports_callback='fake_ports_callback')
         self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -337,11 +340,12 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO,
-            self.fake_driver.name,
-            self.fake_driver.image_uuid,
-            self.fake_driver.flavor,
-            'fake_ports_callback')
+            resource_type=self.fake_driver.RESOURCE_NAME,
+            prev_instance_info=self.INSTANCE_INFO,
+            name=self.fake_driver.name,
+            image_uuid=self.fake_driver.image_uuid,
+            flavor=self.fake_driver.flavor,
+            make_ports_callback='fake_ports_callback')
         self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
@@ -366,11 +370,12 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO,
-            self.fake_driver.name,
-            self.fake_driver.image_uuid,
-            self.fake_driver.flavor,
-            'fake_ports_callback')
+            resource_type=self.fake_driver.RESOURCE_NAME,
+            prev_instance_info=self.INSTANCE_INFO,
+            name=self.fake_driver.name,
+            image_uuid=self.fake_driver.image_uuid,
+            flavor=self.fake_driver.flavor,
+            make_ports_callback='fake_ports_callback')
 
     def test_boot_check_up(self):
         with mock.patch.object(
@@ -712,11 +717,12 @@ class TestInstanceManager(base.RugTestBase):
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
 
         self.ctx.nova_client.boot_instance.assert_called_once_with(
-            self.INSTANCE_INFO,
-            self.fake_driver.name,
-            self.fake_driver.image_uuid,
-            self.fake_driver.flavor,
-            'fake_ports_callback')
+            resource_type=self.fake_driver.RESOURCE_NAME,
+            prev_instance_info=self.INSTANCE_INFO,
+            name=self.fake_driver.name,
+            image_uuid=self.fake_driver.image_uuid,
+            flavor=self.fake_driver.flavor,
+            make_ports_callback='fake_ports_callback')
 
     def test_error_cooldown(self):
         self.config(error_state_cooldown=30)

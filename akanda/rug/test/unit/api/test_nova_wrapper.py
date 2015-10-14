@@ -18,9 +18,10 @@
 from datetime import datetime, timedelta
 
 import mock
-import unittest2 as unittest
+
 from six.moves import builtins as __builtins__
 from akanda.rug.api import nova
+from akanda.rug.test.unit import base
 
 from novaclient import exceptions as novaclient_exceptions
 
@@ -82,6 +83,7 @@ class FakeConf:
     auth_region = 'RegionOne'
     router_image_uuid = 'akanda-image'
     router_instance_flavor = 1
+    instance_provider = 'foo'
 
 
 EXPECTED_USERDATA = """
@@ -122,13 +124,23 @@ def fake_make_ports_callback():
     return (fake_mgt_port, [fake_ext_port, fake_int_port])
 
 
-class TestNovaWrapper(unittest.TestCase):
+class TestNovaWrapper(base.RugTestBase):
     def setUp(self):
+        super(TestNovaWrapper, self).setUp()
         self.addCleanup(mock.patch.stopall)
         patch = mock.patch('novaclient.v1_1.client.Client')
         self.client = mock.Mock()
         self.client_cls = patch.start()
         self.client_cls.return_value = self.client
+
+        self.fake_instance_provider = mock.Mock(create_instance=mock.Mock())
+        fake_instance_provider_cls = mock.Mock(name='fake_provider_class')
+        fake_instance_provider_cls.return_value = \
+            self.fake_instance_provider
+        get_instance_provider_p = mock.patch.object(
+            nova, 'get_instance_provider').start()
+        get_instance_provider_p.return_value = fake_instance_provider_cls
+
         self.nova = nova.Nova(FakeConf)
 
         self.INSTANCE_INFO = nova.InstanceInfo(
@@ -140,34 +152,6 @@ class TestNovaWrapper(unittest.TestCase):
             ports=[fake_int_port, fake_ext_port, fake_mgt_port],
             management_port=fake_mgt_port,
         )
-
-    @mock.patch.object(nova, '_format_userdata')
-    def test_create_instance(self, mock_userdata):
-        self.client.servers.create.return_value = fake_nova_instance
-        mock_userdata.return_value = 'fake_userdata'
-        expected = [
-            mock.call.servers.create(
-                'ak-instance-name',
-                nics=[{'port-id': '2',
-                       'net-id': 'mgt-net',
-                       'v4-fixed-ip': ''},
-                      {'port-id': '1',
-                       'net-id': 'ext-net',
-                       'v4-fixed-ip': ''},
-                      {'port-id': '3',
-                       'net-id': 'int-net',
-                       'v4-fixed-ip': ''}],
-                flavor=1,
-                image='GLANCE-IMAGE-123',
-                config_drive=True,
-                userdata='fake_userdata',
-            )
-        ]
-
-        self.nova.create_instance(
-            'ak-instance-name', 'GLANCE-IMAGE-123',
-            1, fake_make_ports_callback)
-        self.client.assert_has_calls(expected)
 
     def test_get_instance_for_obj(self):
         instance = mock.Mock()
@@ -214,7 +198,7 @@ class TestNovaWrapper(unittest.TestCase):
     @mock.patch.object(nova, '_ssh_key')
     def test_format_userdata(self, fake_ssh_key):
         fake_ssh_key.return_value = 'fake_key'
-        result = nova._format_userdata(fake_int_port)
+        result = nova.format_userdata(fake_int_port)
         self.assertEqual(result.strip(), EXPECTED_USERDATA.strip())
 
     @mock.patch.object(__builtins__, 'open', autospec=True)
@@ -234,35 +218,38 @@ class TestNovaWrapper(unittest.TestCase):
         self.assertEqual(result, '')
         self.assertTrue(fake_log.warning.called)
 
-    @mock.patch.object(nova.Nova, 'create_instance')
     @mock.patch.object(nova.Nova, 'get_instance_for_obj', return_value=None)
-    def test_boot_instance(self, fake_get, fake_create_instance):
-        fake_create_instance.return_value = 'fake_new_instance_info'
+    def test_boot_instance(self, fake_get):
+        self.fake_instance_provider.create_instance.return_value = \
+            'fake_new_instance_info'
         res = self.nova.boot_instance(
+            resource_type='router',
             prev_instance_info=None,
             name='foo_instance_name',
             image_uuid='foo_image',
             flavor='foo_flavor',
             make_ports_callback='foo_callback',
         )
-        fake_create_instance.assert_called_with(
-            'foo_instance_name',
-            'foo_image',
-            'foo_flavor',
-            'foo_callback',
+        self.fake_instance_provider.create_instance.assert_called_with(
+            resource_type='router',
+            name='foo_instance_name',
+            image_uuid='foo_image',
+            flavor='foo_flavor',
+            make_ports_callback='foo_callback',
         )
         fake_get.assert_called_with('foo_instance_name')
         self.assertEqual(res, 'fake_new_instance_info')
 
-    @mock.patch.object(nova.Nova, 'create_instance')
     @mock.patch.object(nova.Nova, 'get_instance_for_obj')
-    def test_boot_instance_exists(self, fake_get, fake_create_instance):
+    def test_boot_instance_exists(self, fake_get):
         fake_instance = fake_nova_instance
         fake_instance.id = 'existing_instance_id'
         fake_instance.status = 'SHUTOFF'
         fake_get.return_value = fake_instance
-        fake_create_instance.return_value = 'fake_new_instance_info'
+        self.fake_instance_provider.create_instance.return_value = \
+            'fake_new_instance_info'
         res = self.nova.boot_instance(
+            resource_type='router',
             prev_instance_info=None,
             name='foo_instance_name',
             image_uuid='foo_image',
@@ -273,15 +260,16 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.servers.delete.assert_called_with('existing_instance_id')
         self.assertIsNone(res)
 
-    @mock.patch.object(nova.Nova, 'create_instance')
     @mock.patch.object(nova.Nova, 'get_instance_for_obj')
-    def test_boot_instance_exists_build(self, fake_get, fake_create_instance):
+    def test_boot_instance_exists_build(self, fake_get):
         fake_instance = fake_nova_instance
         fake_instance.id = 'existing_instance_id'
         fake_instance.status = 'BUILD'
         fake_get.return_value = fake_instance
-        fake_create_instance.return_value = 'fake_new_instance_info'
+        self.fake_instance_provider.create_instance.return_value = \
+            'fake_new_instance_info'
         res = self.nova.boot_instance(
+            resource_type='router',
             prev_instance_info=None,
             name='foo_instance_name',
             image_uuid='foo_image',
@@ -294,11 +282,12 @@ class TestNovaWrapper(unittest.TestCase):
         self.assertEqual(res.name, 'ak-appliance')
         self.assertEqual(res.image_uuid, 'fake_image_uuid')
 
-    @mock.patch.object(nova.Nova, 'create_instance')
     @mock.patch.object(nova.Nova, 'get_instance_by_id', return_value=None)
-    def test_boot_instance_prev_inst(self, fake_get, fake_create_instance):
-        fake_create_instance.return_value = 'fake_new_instance_info'
+    def test_boot_instance_prev_inst(self, fake_get):
+        self.fake_instance_provider.create_instance.return_value = \
+            'fake_new_instance_info'
         res = self.nova.boot_instance(
+            resource_type='router',
             prev_instance_info=self.INSTANCE_INFO,
             name='foo_instance_name',
             image_uuid='foo_image',
@@ -306,24 +295,25 @@ class TestNovaWrapper(unittest.TestCase):
             make_ports_callback='foo_callback',
         )
         fake_get.assert_called_with(self.INSTANCE_INFO.id_)
-        fake_create_instance.assert_called_with(
-            'foo_instance_name',
-            'foo_image',
-            'foo_flavor',
-            'foo_callback',
+        self.fake_instance_provider.create_instance.assert_called_with(
+            resource_type='router',
+            name='foo_instance_name',
+            image_uuid='foo_image',
+            flavor='foo_flavor',
+            make_ports_callback='foo_callback',
         )
         self.assertEqual(res, 'fake_new_instance_info')
 
-    @mock.patch.object(nova.Nova, 'create_instance')
     @mock.patch.object(nova.Nova, 'get_instance_by_id')
-    def test_boot_instance_exists_prev_inst(self, fake_get,
-                                            fake_create_instance):
+    def test_boot_instance_exists_prev_inst(self, fake_get):
         fake_instance = fake_nova_instance
         fake_instance.id = 'existing_instance_id'
         fake_instance.status = 'SHUTOFF'
         fake_get.return_value = fake_instance
-        fake_create_instance.return_value = 'fake_new_instance_info'
+        self.fake_instance_provider.create_instance.return_value = \
+            'fake_new_instance_info'
         res = self.nova.boot_instance(
+            resource_type='router',
             prev_instance_info=self.INSTANCE_INFO,
             name='foo_instance_name',
             image_uuid='foo_image',
@@ -334,16 +324,16 @@ class TestNovaWrapper(unittest.TestCase):
         self.client.servers.delete.assert_called_with('existing_instance_id')
         self.assertIsNone(res)
 
-    @mock.patch.object(nova.Nova, 'create_instance')
     @mock.patch.object(nova.Nova, 'get_instance_for_obj')
-    def test_boot_instance_exists_build_prev_inst(self, fake_get,
-                                                  fake_create_instance):
+    def test_boot_instance_exists_build_prev_inst(self, fake_get):
         fake_instance = fake_nova_instance
         fake_instance.id = 'existing_instance_id'
         fake_instance.status = 'BUILD'
         fake_get.return_value = fake_instance
-        fake_create_instance.return_value = 'fake_new_instance_info'
+        self.fake_instance_provider.create_instance.return_value = \
+            'fake_new_instance_info'
         res = self.nova.boot_instance(
+            resource_type='router',
             prev_instance_info=None,
             name='foo_instance_name',
             image_uuid='foo_image',
@@ -372,3 +362,100 @@ class TestNovaWrapper(unittest.TestCase):
     def test_booting_true(self):
         self.INSTANCE_INFO.nova_status = 'BUILDING'
         self.assertTrue(self.INSTANCE_INFO.booting)
+
+
+class TestOnDemandInstanceProvider(base.RugTestBase):
+    def setUp(self):
+        super(TestOnDemandInstanceProvider, self).setUp()
+        self.addCleanup(mock.patch.stopall)
+        patch = mock.patch('novaclient.client.Client')
+        self.client = mock.Mock()
+        self.client_cls = patch.start()
+        self.client_cls.return_value = self.client
+
+    @mock.patch.object(nova, 'format_userdata')
+    def test_create_instance(self, mock_userdata):
+        provider = nova.OnDemandInstanceProvider()
+        self.client.servers.create.return_value = fake_nova_instance
+        mock_userdata.return_value = 'fake_userdata'
+        expected = [
+            mock.call.servers.create(
+                'ak-instance-name',
+                nics=[{'port-id': '2',
+                       'net-id': 'mgt-net',
+                       'v4-fixed-ip': ''},
+                      {'port-id': '1',
+                       'net-id': 'ext-net',
+                       'v4-fixed-ip': ''},
+                      {'port-id': '3',
+                       'net-id': 'int-net',
+                       'v4-fixed-ip': ''}],
+                flavor=1,
+                image='GLANCE-IMAGE-123',
+                config_drive=True,
+                userdata='fake_userdata',
+            )
+        ]
+
+        provider.create_instance(
+            'router', 'ak-instance-name', 'GLANCE-IMAGE-123',
+            1, fake_make_ports_callback)
+        self.client.assert_has_calls(expected)
+
+
+class TestPezInstanceProvider(base.RugTestBase):
+    def setUp(self):
+        super(TestPezInstanceProvider, self).setUp()
+        self.addCleanup(mock.patch.stopall)
+        patch = mock.patch('novaclient.client.Client')
+        self.nova_client = mock.Mock()
+        self.nova_client_cls = patch.start()
+        self.nova_client_cls.return_value = self.nova_client
+
+        patch = mock.patch('akanda.rug.pez.rpcapi.AkandaPezAPI')
+        self.rpc_client = mock.Mock()
+        self.rpc_client_cls = patch.start()
+        self.rpc_client_cls.return_value = self.rpc_client
+
+    @mock.patch.object(nova, 'format_userdata')
+    def test_create_instance(self, mock_userdata):
+        provider = nova.PezInstanceProvider()
+
+        inst_port = {
+            'id': '1',
+            'name': 'name',
+            'device_id': 'device_id',
+            'fixed_ips': [{'ip_address': '192.168.1.1', 'subnet_id': 'sub1'}],
+            'mac_address': 'aa:bb:cc:dd:ee:ff',
+            'network_id': 'net_id',
+            'device_owner': 'test'
+        }
+        mgt_port = {
+            'id': '2',
+            'name': 'name',
+            'device_id': 'device_id',
+            'fixed_ips': [{'ip_address': '192.168.1.10', 'subnet_id': 'sub1'}],
+            'mac_address': 'aa:bb:cc:dd:ee:fa',
+            'network_id': 'net_id2',
+            'device_owner': 'test'
+        }
+
+        fake_server = FakeNovaServer()
+        self.nova_client.servers.get.return_value = fake_server
+        fake_pez_instance = {
+            'id': fake_server.id,
+            'management_port': mgt_port,
+            'instance_ports': [inst_port],
+        }
+        self.rpc_client.get_instance.return_value = fake_pez_instance
+        res = provider.create_instance(
+            'router', 'ak-instance-name', 'GLANCE-IMAGE-123',
+            1, fake_make_ports_callback)
+        self.rpc_client.get_instance.assert_called_with(
+            'router', 'ak-instance-name',
+            {'network_id': 'mgt-net', 'id': '2'},
+            [{'network_id': 'ext-net', 'id': '1'},
+             {'network_id': 'int-net', 'id': '3'}])
+        self.nova_client.servers.get.assert_called_with(fake_server.id)
+        exp_instance_info = nova.InstanceInfo.from_nova(fake_server)
+        self.assertEqual(exp_instance_info.id_, res.id_)
