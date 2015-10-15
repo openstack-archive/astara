@@ -270,6 +270,13 @@ function pre_start_akanda() {
 
     create_akanda_nova_flavor
 
+    # Restart neutron so that `akanda.floatingip_subnet` is properly set
+    if [[ "$USE_SCREEN" == "True" ]]; then
+        screen_stop_service q-svc
+    else
+        stop_process q-svc
+    fi
+    sleep 10
 }
 
 function start_akanda_rug() {
@@ -285,14 +292,6 @@ function post_start_akanda() {
     local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
     neutron $auth_args net-create thenet
     neutron $auth_args subnet-create thenet $FIXED_RANGE
-
-    # Restart neutron so that `akanda.floatingip_subnet` is properly set
-    if [[ "$USE_SCREEN" == "True" ]]; then
-        screen_stop_service q-svc
-    else
-        stop_process q-svc
-    fi
-    start_neutron_service_and_check
 
     # Open all traffic on the private CIDR
     set_demo_tenant_sec_group_private_traffic
