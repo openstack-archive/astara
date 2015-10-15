@@ -30,7 +30,7 @@ function find_router() {
 
 cat <<END >$CONFIG_FILE
 [functional]
-appliance_active_timeout=240
+appliance_active_timeout=480
 os_auth_url=$OS_AUTH_URL
 os_username=$OS_USERNAME
 os_password=$OS_PASSWORD
