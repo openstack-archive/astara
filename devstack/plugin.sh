@@ -68,7 +68,6 @@ function configure_akanda() {
     configure_auth_token_middleware $AKANDA_RUG_CONF $Q_ADMIN_USERNAME $AKANDA_CACHE_DIR
     iniset $AKANDA_RUG_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
     iniset $AKANDA_RUG_CONF DEFAULT control_exchange "neutron"
-    iniset $AKANDA_RUG_CONF DEFAULT router_instance_flavor $ROUTER_INSTANCE_FLAVOR
     iniset $AKANDA_RUG_CONF DEFAULT boot_timeout "6000"
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_processes "2"
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_threads "2"
@@ -164,7 +163,7 @@ function create_akanda_nova_flavor() {
     nova flavor-create akanda $ROUTER_INSTANCE_FLAVOR_ID \
       $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
       $ROUTER_INSTANCE_FLAVOR_CPUS
-    iniset $AKANDA_RUG_CONF DEFAULT router_instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
+    iniset $AKANDA_RUG_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
 function _remove_subnets() {
@@ -255,7 +254,7 @@ function pre_start_akanda() {
     typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
 
     die_if_not_set $LINENO image_id "Failed to find akanda image"
-    iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
+    iniset $AKANDA_RUG_CONF router image_uuid $image_id
 
     # NOTE(adam_g): Currently we only support keystone v2 auth so we need to
     # hardcode the auth url accordingly. See (LP: #1492654)
