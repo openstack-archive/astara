@@ -68,7 +68,6 @@ function configure_akanda() {
     configure_auth_token_middleware $AKANDA_RUG_CONF $Q_ADMIN_USERNAME $AKANDA_CACHE_DIR
     iniset $AKANDA_RUG_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
     iniset $AKANDA_RUG_CONF DEFAULT control_exchange "neutron"
-    iniset $AKANDA_RUG_CONF DEFAULT router_instance_flavor $ROUTER_INSTANCE_FLAVOR
     iniset $AKANDA_RUG_CONF DEFAULT boot_timeout "6000"
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_processes "2"
     iniset $AKANDA_RUG_CONF DEFAULT num_worker_threads "2"
@@ -77,6 +76,8 @@ function configure_akanda() {
     iniset $AKANDA_RUG_CONF DEFAULT management_prefix $AKANDA_RUG_MANAGEMENT_PREFIX
     iniset $AKANDA_RUG_CONF DEFAULT akanda_mgt_service_port $AKANDA_RUG_MANAGEMENT_PORT
     iniset $AKANDA_RUG_CONF DEFAULT rug_api_port $AKANDA_RUG_API_PORT
+
+    iniset $AKANDA_RUG_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
@@ -255,7 +256,7 @@ function pre_start_akanda() {
     typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
 
     die_if_not_set $LINENO image_id "Failed to find akanda image"
-    iniset $AKANDA_RUG_CONF DEFAULT router_image_uuid $image_id
+    iniset $AKANDA_RUG_CONF router image_uuid $image_id
 
     # NOTE(adam_g): Currently we only support keystone v2 auth so we need to
     # hardcode the auth url accordingly. See (LP: #1492654)
