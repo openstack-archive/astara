@@ -33,6 +33,12 @@
 #
 # @author: Mark McClain, DreamHost
 
+"""Proxy requests to Nova's metadata server.
+
+Used by main.py
+"""
+
+
 import hashlib
 import hmac
 import socket
@@ -74,9 +80,11 @@ CONF.register_opts(METADATA_OPTS)
 
 class MetadataProxyHandler(object):
 
+    """The actual handler for proxy requests."""
+
     @webob.dec.wsgify(RequestClass=webob.Request)
     def __call__(self, req):
-        """Inital handler for an incoming webob.Request
+        """Inital handler for an incoming `webob.Request`.
 
         :param req: The webob.Request to handle
         :returns: returns a valid HTTP Response or Error
@@ -97,12 +105,11 @@ class MetadataProxyHandler(object):
             return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
 
     def _get_instance_id(self, req):
-        """Pull the X-Instance-ID out of a request
+        """Pull the X-Instance-ID out of a request.
 
         :param req: The webob.Request to handle
         :returns: returns the X-Instance-ID HTTP header
         """
-
         return req.headers.get('X-Instance-ID')
 
     def _proxy_request(self, instance_id, req):
@@ -163,15 +170,18 @@ class MetadataProxyHandler(object):
 
 
 class MetadataProxy(object):
+
+    """The proxy service."""
+
     def __init__(self):
-        """Initialize the MetadataProxy
+        """Initialize the MetadataProxy.
 
         :returns: returns nothing
         """
         self.pool = eventlet.GreenPool(1000)
 
     def run(self, ip_address, port=RUG_META_PORT):
-        """Run the MetadataProxy
+        """Run the MetadataProxy.
 
         :param ip_address: the ip address to bind to for incoming requests
         :param port: the port to bind to for incoming requests
@@ -211,7 +221,7 @@ class MetadataProxy(object):
 
 
 def serve(ip_address):
-    """Initializes the MetaData proxy
+    """Initialize the MetaData proxy.
 
     :param ip_address: the ip address to bind to for incoming requests
     :returns: returns nothing
