@@ -419,6 +419,14 @@ class Worker(object):
     def _rebalance(self, message):
         self.hash_ring_mgr.rebalance(message.body.get('members'))
 
+        # We leverage the rebalance event to both seed the local node's
+        # hash ring when it comes online, and to also rebalance it in
+        # reaction to cluster events.  Exit early if we're only responding
+        # to a bootstrapping rebalance, we don't need to worry about adjusting
+        # state because there is none yet.
+        if message.body.get('node_bootstrap'):
+            return
+
         # After we rebalance, we need to repopulate state machines
         # for any resources that now map here.  This is required
         # otherwise commands that hash here will not be delivered

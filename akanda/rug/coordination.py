@@ -106,7 +106,7 @@ class RugCoordinator(object):
         self._coordinator.heartbeat()
         LOG.debug("Sending initial event changed for members; %s" %
                   self.members)
-        self.cluster_changed(event=None)
+        self.cluster_changed(event=None, node_bootstrap=True)
 
     def run(self):
         try:
@@ -147,10 +147,19 @@ class RugCoordinator(object):
         """Returns true if the local cluster member is the leader"""
         return self._coordinator.get_leader(self.group).get() == self.host
 
-    def cluster_changed(self, event):
+    def cluster_changed(self, event, node_bootstrap=False):
         """Event callback to be called by tooz on membership changes"""
         LOG.debug('Broadcasting cluster changed event to trigger rebalance. '
                   'members=%s' % self.members)
+
+        body = {
+            'members': self.members
+        }
+
+        # Flag this as a local bootstrap rebalance rather than one in reaction
+        # to a cluster event.
+        if node_bootstrap:
+            body['node_bootstrap'] = True
 
         r = ak_event.Resource(
             tenant_id='*',
@@ -160,7 +169,7 @@ class RugCoordinator(object):
         e = ak_event.Event(
             resource=r,
             crud=ak_event.REBALANCE,
-            body={'members': self.members}
+            body=body,
         )
         self._queue.put(('*', e))
 
