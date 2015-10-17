@@ -1,4 +1,4 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=stackforge/akanda-rug.git
+project=openstack/akanda-rug.git
