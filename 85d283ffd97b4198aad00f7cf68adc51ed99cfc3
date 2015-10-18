@@ -1,0 +1,8 @@
+Verified+2: Jenkins
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Submitted-by: Jenkins
+Submitted-at: Sun, 18 Oct 2015 20:02:07 +0000
+Reviewed-on: https://review.openstack.org/236657
+Project: openstack/akanda-rug
+Branch: refs/heads/master
