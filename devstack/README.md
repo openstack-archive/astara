@@ -6,7 +6,7 @@ following to the [[local|localrc]] section.
 
 For example:
 
-    enable_plugin akanda-rug http://github.com/stackforge/akanda-rug stable/kilo
+    enable_plugin akanda-rug http://github.com/openstack/akanda-rug stable/liberty
 
 You will also need to enable the service:
 
