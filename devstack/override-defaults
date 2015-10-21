@@ -1,0 +1,16 @@
+# Override all default branches to liberty until we open our stable/libert.
+# This can be dropped in M.
+CEILOMETER_BRANCH=stable/liberty
+CINDER_BRANCH=stable/liberty
+GLANCE_BRANCH=stable/liberty
+HEAT_BRANCH=stable/liberty
+HORIZON_BRANCH=stable/liberty
+IRONIC_BRANCH=stable/liberty
+KEYSTONE_BRANCH=stable/liberty
+NEUTRON_BRANCH=stable/liberty
+NEUTRON_FWAAS_BRANCH=stable/liberty
+NEUTRON_LBAAS_BRANCH=stable/liberty
+NEUTRON_VPNAAS_BRANCH=stable/liberty
+NOVA_BRANCH=stable/liberty
+SWIFT_BRANCH=stable/liberty
+REQUIREMENTS_BRANCH=stable/liberty
