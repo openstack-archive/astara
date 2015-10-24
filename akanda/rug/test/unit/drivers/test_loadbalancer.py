@@ -276,6 +276,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         payload_formats = [
             {'loadbalancer': {'id': 'fake_lb_id'}},
             {'loadbalancer_id': 'fake_lb_id'},
+            {'listener': {'loadbalancer_id': 'fake_lb_id'}},
         ]
         update_notifications = [
             'listener.create.start',
