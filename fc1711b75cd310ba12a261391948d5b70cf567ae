@@ -1,0 +1,11 @@
+Verified+2: Jenkins
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Code-Review+2: David Lenwell <dlenwell@gmail.com>
+Code-Review+1: venkatamahesh <venkatamaheshkotha@gmail.com>
+Code-Review+1: dylan d <eris.has.a.dad@gmail.com>
+Submitted-by: Jenkins
+Submitted-at: Thu, 05 Nov 2015 22:56:49 +0000
+Reviewed-on: https://review.openstack.org/223364
+Project: openstack/akanda-rug
+Branch: refs/heads/master
