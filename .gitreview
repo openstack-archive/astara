@@ -1,5 +1,5 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=openstack/akanda-rug.git
+project=openstack/astara.git
 defaultbranch=stable/juno
