@@ -1,6 +1,6 @@
 for svc in q-dhcp q-l3 q-fwaas q-lbaas q-meta q-vpn; do
     if is_service_enabled $svc; then
-        echo "Disabling $svc in favor of Akanda."
+        echo "Disabling $svc in favor of Astara."
         disable_service $svc
     fi
 done
