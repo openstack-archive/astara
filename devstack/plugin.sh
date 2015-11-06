@@ -1,28 +1,28 @@
 # -*- mode: shell-script -*-
 
 # Set up default directories
-AKANDA_RUG_DIR=${AKANDA_RUG_DIR:-$DEST/akanda-rug}
-AKANDA_CACHE_DIR=${AKANDA_CACHE_DIR:-/var/cache/akanda}
-AKANDA_NEUTRON_DIR=${AKANDA_NEUTRON_DIR:-$DEST/akanda-neutron}
-AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/openstack/akanda-neutron.git}
-AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
+ASTARA_DIR=${ASTARA_DIR:-$DEST/astara}
+ASTARA_CACHE_DIR=${ASTARA_CACHE_DIR:-/var/cache/astara}
+ASTARA_NEUTRON_DIR=${ASTARA_NEUTRON_DIR:-$DEST/astara-neutron}
+ASTARA_NEUTRON_REPO=${ASTARA_NEUTRON_REPO:-http://github.com/openstack/astara-neutron.git}
+ASTARA_NEUTRON_BRANCH=${ASTARA_NEUTRON_BRANCH:-master}
 
-AKANDA_APPLIANCE_DIR=${AKANDA_APPLIANCE_DIR:-$DEST/akanda-appliance}
-AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/openstack/akanda-appliance.git}
-AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-master}
+ASTARA_APPLIANCE_DIR=${ASTARA_APPLIANCE_DIR:-$DEST/astara-appliance}
+ASTARA_APPLIANCE_REPO=${ASTARA_APPLIANCE_REPO:-http://github.com/openstack/astara-appliance.git}
+ASTARA_APPLIANCE_BRANCH=${ASTARA_APPLIANCE_BRANCH:-master}
 
-BUILD_AKANDA_APPLIANCE_IMAGE=${BUILD_AKANDA_APPLIANCE_IMAGE:-False}
-AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://tarballs.openstack.org/akanda-appliance/images/akanda_appliance.qcow2}
-AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
-AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
-AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
+BUILD_ASTARA_APPLIANCE_IMAGE=${BUILD_ASTARA_APPLIANCE_IMAGE:-False}
+ASTARA_DEV_APPLIANCE_URL=${ASTARA_DEV_APPLIANCE_URL:-http://tarballs.openstack.org/akanda-appliance/images/akanda_appliance.qcow2}
+ASTARA_DEV_APPLIANCE_FILE=${ASTARA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
+ASTARA_DEV_APPLIANCE_BUILD_PROXY=${ASTARA_DEV_APPLIANCE_BUILD_PROXY:-""}
+ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
 
-AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
-AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/openstack/akanda-horizon}
-AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-master}
+ASTARA_HORIZON_DIR=${ASTARA_HORIZON_DIR:-$DEST/astara-horizon}
+ASTARA_HORIZON_REPO=${ASTARA_HORIZON_REPO:-http://github.com/openstack/astara-horizon}
+ASTARA_HORIZON_BRANCH=${ASTARA_HORIZON_BRANCH:-master}
 
-AKANDA_CONF_DIR=/etc/akanda-rug
-AKANDA_RUG_CONF=$AKANDA_CONF_DIR/rug.ini
+ASTARA_CONF_DIR=/etc/astara
+ASTARA_CONF=$ASTARA_CONF_DIR/orchestrator.ini
 
 # Router instances will run as a specific Nova flavor. These values configure
 # the specs of the flavor devstack will create.
@@ -32,117 +32,117 @@ ROUTER_INSTANCE_FLAVOR_DISK=${ROUTER_INSTANCE_FLAVOR_DISK:-5}
 ROUTER_INSTANCE_FLAVOR_CPUS=${ROUTER_INSTANCE_FLAVOR_CPUS:-1}
 
 PUBLIC_INTERFACE_DEFAULT='eth0'
-AKANDA_RUG_MANAGEMENT_PREFIX=${RUG_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
-AKANDA_RUG_MANAGEMENT_PORT=${AKANDA_RUG_MANAGEMENT_PORT:-5000}
-AKANDA_RUG_API_PORT=${AKANDA_RUG_API_PORT:-44250}
+ASTARA_MANAGEMENT_PREFIX=${ASTARA_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
+ASTARA_MANAGEMENT_PORT=${ASTARA_MANAGEMENT_PORT:-5000}
+ASTARA_API_PORT=${ASTARA_API_PORT:-44250}
 
 HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
 # Path to public ssh key that will be added to the 'akanda' users authorized_keys
 # within the appliance VM.
-AKANDA_APPLIANCE_SSH_PUBLIC_KEY=${AKANDA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
+ASTARA_APPLIANCE_SSH_PUBLIC_KEY=${ASTARA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
 
-AKANDA_COORDINATION_ENABLED=${AKANDA_COORDINATION_ENABLED:-True}
-AKANDA_COORDINATION_URL=${AKANDA_COORDINATION_URL:-memcached://localhost:11211}
+ASTARA_COORDINATION_ENABLED=${ASTARA_COORDINATION_ENABLED:-True}
+ASTARA_COORDINATION_URL=${ASTARA_COORDINATION_URL:-memcached://localhost:11211}
 
 function colorize_logging {
     # Add color to logging output - this is lifted from devstack's functions to colorize the non-standard
-    # akanda format
-    iniset $AKANDA_RUG_CONF DEFAULT logging_exception_prefix "%(color)s%(asctime)s.%(msecs)03d TRACE %(name)s [01;[00m"
-    iniset $AKANDA_RUG_CONF DEFAULT logging_debug_format_suffix "[00;33mfrom (pid=%(process)d) %(funcName)s %(pathname)s:%(lineno)d[00m"
-    iniset $AKANDA_RUG_CONF DEFAULT logging_default_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[00;36m-%(color)s] [01;35m%(color)s%(message)s[00m"
-    iniset $AKANDA_RUG_CONF DEFAULT logging_context_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[01;36m%(request_id)s [00;36m%(user)s %(tenant)s%(color)s] [01;35m%(color)s%(message)s[00m"
+    # astara format
+    iniset $ASTARA_CONF DEFAULT logging_exception_prefix "%(color)s%(asctime)s.%(msecs)03d TRACE %(name)s [01;[00m"
+    iniset $ASTARA_CONF DEFAULT logging_debug_format_suffix "[00;33mfrom (pid=%(process)d) %(funcName)s %(pathname)s:%(lineno)d[00m"
+    iniset $ASTARA_CONF DEFAULT logging_default_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[00;36m-%(color)s] [01;35m%(color)s%(message)s[00m"
+    iniset $ASTARA_CONF DEFAULT logging_context_format_string "%(asctime)s.%(msecs)03d %(color)s%(levelname)s %(name)s:%(process)s:%(processName)s:%(threadName)s [[01;36m%(request_id)s [00;36m%(user)s %(tenant)s%(color)s] [01;35m%(color)s%(message)s[00m"
 }
 
-function configure_akanda() {
-    if [[ ! -d $AKANDA_CONF_DIR ]]; then
-        sudo mkdir -p $AKANDA_CONF_DIR
+function configure_astara() {
+    if [[ ! -d $ASTARA_CONF_DIR ]]; then
+        sudo mkdir -p $ASTARA_CONF_DIR
     fi
-    sudo chown $STACK_USER $AKANDA_CONF_DIR
+    sudo chown $STACK_USER $ASTARA_CONF_DIR
 
-    sudo mkdir -p $AKANDA_CACHE_DIR
-    sudo chown $STACK_USER $AKANDA_CACHE_DIR
+    sudo mkdir -p $ASTARA_CACHE_DIR
+    sudo chown $STACK_USER $ASTARA_CACHE_DIR
 
-    cp $AKANDA_RUG_DIR/etc/rug.ini $AKANDA_RUG_CONF
-    iniset $AKANDA_RUG_CONF DEFAULT verbose True
-    configure_auth_token_middleware $AKANDA_RUG_CONF $Q_ADMIN_USERNAME $AKANDA_CACHE_DIR
-    iniset $AKANDA_RUG_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
-    iniset $AKANDA_RUG_CONF DEFAULT control_exchange "neutron"
-    iniset $AKANDA_RUG_CONF DEFAULT boot_timeout "6000"
-    iniset $AKANDA_RUG_CONF DEFAULT num_worker_processes "2"
-    iniset $AKANDA_RUG_CONF DEFAULT num_worker_threads "2"
-    iniset $AKANDA_RUG_CONF DEFAULT reboot_error_threshold "2"
+    cp $ASTARA_DIR/etc/rug.ini $ASTARA_CONF
+    iniset $ASTARA_CONF DEFAULT verbose True
+    configure_auth_token_middleware $ASTARA_CONF $Q_ADMIN_USERNAME $ASTARA_CACHE_DIR
+    iniset $ASTARA_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
+    iniset $ASTARA_CONF DEFAULT control_exchange "neutron"
+    iniset $ASTARA_CONF DEFAULT boot_timeout "6000"
+    iniset $ASTARA_CONF DEFAULT num_worker_processes "2"
+    iniset $ASTARA_CONF DEFAULT num_worker_threads "2"
+    iniset $ASTARA_CONF DEFAULT reboot_error_threshold "2"
 
-    iniset $AKANDA_RUG_CONF DEFAULT management_prefix $AKANDA_RUG_MANAGEMENT_PREFIX
-    iniset $AKANDA_RUG_CONF DEFAULT akanda_mgt_service_port $AKANDA_RUG_MANAGEMENT_PORT
-    iniset $AKANDA_RUG_CONF DEFAULT rug_api_port $AKANDA_RUG_API_PORT
+    iniset $ASTARA_CONF DEFAULT management_prefix $ASTARA_MANAGEMENT_PREFIX
+    iniset $ASTARA_CONF DEFAULT astara_mgt_service_port $ASTARA_MANAGEMENT_PORT
+    iniset $ASTARA_CONF DEFAULT rug_api_port $ASTARA_API_PORT
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
-        iniset $AKANDA_RUG_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
+        iniset $ASTARA_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
     fi
 
-    iniset $AKANDA_RUG_CONF DEFAULT ssh_public_key $AKANDA_APPLIANCE_SSH_PUBLIC_KEY
+    iniset $ASTARA_CONF DEFAULT ssh_public_key $ASTARA_APPLIANCE_SSH_PUBLIC_KEY
 
-    iniset $AKANDA_RUG_CONF database connection `database_connection_url akanda`
+    iniset $ASTARA_CONF database connection `database_connection_url astara`
 
     if [ "$LOG_COLOR" == "True" ] && [ "$SYSLOG" == "False" ]; then
         colorize_logging
     fi
 
-    if [[ "$AKANDA_COORDINATION_ENABLED" == "True" ]]; then
-        iniset $AKANDA_RUG_CONF coordination enabled True
-        iniset $AKANDA_RUG_CONF coordination url $AKANDA_COORDINATION_URL
+    if [[ "$ASTARA_COORDINATION_ENABLED" == "True" ]]; then
+        iniset $ASTARA_CONF coordination enabled True
+        iniset $ASTARA_CONF coordination url $ASTARA_COORDINATION_URL
     fi
 }
 
-function configure_akanda_nova() {
+function configure_astara_nova() {
     iniset $NOVA_CONF DEFAULT service_neutron_metadata_proxy True
     iniset $NOVA_CONF DEFAULT use_ipv6 True
 }
 
-function configure_akanda_neutron() {
+function configure_astara_neutron() {
     iniset $NEUTRON_CONF DEFAULT core_plugin akanda.neutron.plugins.ml2_neutron_plugin.Ml2Plugin
     iniset $NEUTRON_CONF DEFAULT service_plugins akanda.neutron.plugins.ml2_neutron_plugin.L3RouterPlugin
-    iniset $NEUTRON_CONF DEFAULT api_extensions_path $AKANDA_NEUTRON_DIR/akanda/neutron/extensions
+    iniset $NEUTRON_CONF DEFAULT api_extensions_path $ASTARA_NEUTRON_DIR/akanda/neutron/extensions
     # Use rpc as notification driver instead of the default no_ops driver
     # We need the RUG to be able to get neutron's events notification like port.create.start/end
-    # or router.interface.start/end to make it able to boot akanda routers
+    # or router.interface.start/end to make it able to boot astara routers
     iniset $NEUTRON_CONF DEFAULT notification_driver "neutron.openstack.common.notifier.rpc_notifier"
 }
 
-function configure_akanda_horizon() {
+function configure_astara_horizon() {
     # _horizon_config_set depends on this being set
     local local_settings=$HORIZON_LOCAL_SETTINGS
-    for ext in $(ls $AKANDA_HORIZON_DIR/openstack_dashboard_extensions/*.py); do
+    for ext in $(ls $ASTARA_HORIZON_DIR/openstack_dashboard_extensions/*.py); do
         local ext_dest=$HORIZON_DIR/openstack_dashboard/local/enabled/$(basename $ext)
         rm -rf $ext_dest
         ln -s $ext $ext_dest
         # if horizon is enabled, we assume lib/horizon has been sourced and _horizon_config_set
         # is defined
-        _horizon_config_set $HORIZON_LOCAL_SETTINGS "" RUG_MANAGEMENT_PREFIX \"$AKANDA_RUG_MANAGEMENT_PREFIX\"
-        _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT \"$AKANDA_RUG_API_PORT\"
+        _horizon_config_set $HORIZON_LOCAL_SETTINGS "" RUG_MANAGEMENT_PREFIX \"$ASTARA_MANAGEMENT_PREFIX\"
+        _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT \"$ASTARA_API_PORT\"
     done
 }
 
-function start_akanda_horizon() {
+function start_astara_horizon() {
     restart_apache_server
 }
 
-function install_akanda() {
-    git_clone $AKANDA_NEUTRON_REPO $AKANDA_NEUTRON_DIR $AKANDA_NEUTRON_BRANCH
-    setup_develop $AKANDA_NEUTRON_DIR
-    setup_develop $AKANDA_RUG_DIR
+function install_astara() {
+    git_clone $ASTARA_NEUTRON_REPO $ASTARA_NEUTRON_DIR $ASTARA_NEUTRON_BRANCH
+    setup_develop $ASTARA_NEUTRON_DIR
+    setup_develop $ASTARA_DIR
 
     # temp hack to add blessed durring devstack installs so that rug-ctl browse works out of the box
     pip_install blessed
 
-    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
-        git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
+    if [ "$BUILD_ASTARA_APPLIANCE_IMAGE" == "True" ]; then
+        git_clone $ASTARA_APPLIANCE_REPO $ASTARA_APPLIANCE_DIR $ASTARA_APPLIANCE_BRANCH
     fi
 
     if is_service_enabled horizon; then
-        git_clone $AKANDA_HORIZON_REPO $AKANDA_HORIZON_DIR $AKANDA_HORIZON_BRANCH
-        setup_develop $AKANDA_HORIZON_DIR
+        git_clone $ASTARA_HORIZON_REPO $ASTARA_HORIZON_DIR $ASTARA_HORIZON_BRANCH
+        setup_develop $ASTARA_HORIZON_DIR
     fi
 }
 
@@ -159,11 +159,11 @@ function _auth_args() {
     echo "$auth_args"
 }
 
-function create_akanda_nova_flavor() {
-    nova flavor-create akanda $ROUTER_INSTANCE_FLAVOR_ID \
+function create_astara_nova_flavor() {
+    nova flavor-create astara $ROUTER_INSTANCE_FLAVOR_ID \
       $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
       $ROUTER_INSTANCE_FLAVOR_CPUS
-    iniset $AKANDA_RUG_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
+    iniset $ASTARA_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
 function _remove_subnets() {
@@ -175,10 +175,10 @@ function _remove_subnets() {
         neutron $auth_args subnet-delete $subnets || true)
 }
 
-function pre_start_akanda() {
+function pre_start_astara() {
     # Create and init the database
-    recreate_database akanda
-    akanda-rug-dbsync --config-file $AKANDA_RUG_CONF upgrade
+    recreate_database astara
+    astara-dbsync --config-file $ASTARA_CONF upgrade
     local auth_args="$(_auth_args $Q_ADMIN_USERNAME $SERVICE_PASSWORD $SERVICE_TENANT_NAME)"
     if ! neutron $auth_args net-show $PUBLIC_NETWORK_NAME; then
         neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
@@ -189,11 +189,11 @@ function pre_start_akanda() {
     _remove_subnets $PUBLIC_NETWORK_NAME ; _remove_subnets $PUBLIC_NETWORK_NAME
 
     typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 $PUBLIC_NETWORK_NAME 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
-    iniset $AKANDA_RUG_CONF DEFAULT external_subnet_id $public_subnet_id
+    iniset $ASTARA_CONF DEFAULT external_subnet_id $public_subnet_id
     neutron $auth_args subnet-create --ip-version 6 $PUBLIC_NETWORK_NAME fdee:9f85:83be::/48
 
-    # Point neutron-akanda at the subnet to use for floating IPs.  This requires a neutron service restart (later) to take effect.
-    iniset $NEUTRON_CONF akanda floatingip_subnet $public_subnet_id
+    # Point neutron-astara at the subnet to use for floating IPs.  This requires a neutron service restart (later) to take effect.
+    iniset $NEUTRON_CONF astara floatingip_subnet $public_subnet_id
 
     # setup masq rule for public network
     sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
@@ -201,64 +201,64 @@ function pre_start_akanda() {
     neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }'
 
     typeset public_network_id=$(neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }')
-    iniset $AKANDA_RUG_CONF DEFAULT external_network_id $public_network_id
+    iniset $ASTARA_CONF DEFAULT external_network_id $public_network_id
 
     neutron $auth_args net-create mgt
     typeset mgt_network_id=$(neutron $auth_args net-show mgt | grep ' id ' | awk '{ print $4 }')
-    iniset $AKANDA_RUG_CONF DEFAULT management_network_id $mgt_network_id
+    iniset $ASTARA_CONF DEFAULT management_network_id $mgt_network_id
 
     # Remove the ipv6 subnet created automatically before adding our own.
     _remove_subnets mgt
 
     typeset mgt_subnet_id=$(neutron $auth_args subnet-create mgt fdca:3ba5:a17a:acda::/64 --ip-version=6 --ipv6_address_mode=slaac --enable_dhcp | grep ' id ' | awk '{ print $4 }')
-    iniset $AKANDA_RUG_CONF DEFAULT management_subnet_id $mgt_subnet_id
+    iniset $ASTARA_CONF DEFAULT management_subnet_id $mgt_subnet_id
 
     # Remove the private network created by devstack
     neutron $auth_args subnet-delete $PRIVATE_SUBNET_NAME
     neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
-    local akanda_dev_image_src=""
+    local astara_dev_image_src=""
     local lb_element=""
 
-    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
+    if [ "$BUILD_ASTARA_APPLIANCE_IMAGE" == "True" ]; then
         if [[ $(type -P disk-image-create) == "" ]]; then
             pip_install "diskimage-builder<0.1.43"
         fi
 
-        if [[ "$AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS" =~ "loadbalancer" ]]; then
+        if [[ "$ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS" =~ "loadbalancer" ]]; then
             # We can make this more configurable as we add more LB backends
             lb_element="nginx"
         fi
 
-        # Point DIB at the devstack checkout of the akanda-appliance repo
-        DIB_REPOLOCATION_akanda=$AKANDA_APPLIANCE_DIR \
-        DIB_REPOREF_akanda="$(cd $AKANDA_APPLIANCE_DIR && git rev-parse HEAD)" \
-        DIB_AKANDA_APPLIANCE_DEBUG_USER=$ADMIN_USERNAME \
-        DIB_AKANDA_APPLIANCE_DEBUG_PASSWORD=$ADMIN_PASSWORD \
-        DIB_AKANDA_ADVANCED_SERVICES=$AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS \
-        http_proxy=$AKANDA_DEV_APPLIANCE_BUILD_PROXY \
-        ELEMENTS_PATH=$AKANDA_APPLIANCE_DIR/diskimage-builder/elements \
+        # Point DIB at the devstack checkout of the astara-appliance repo
+        DIB_REPOLOCATION_astara=$ASTARA_APPLIANCE_DIR \
+        DIB_REPOREF_astara="$(cd $ASTARA_APPLIANCE_DIR && git rev-parse HEAD)" \
+        DIB_ASTARA_APPLIANCE_DEBUG_USER=$ADMIN_USERNAME \
+        DIB_ASTARA_APPLIANCE_DEBUG_PASSWORD=$ADMIN_PASSWORD \
+        DIB_ASTARA_ADVANCED_SERVICES=$ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS \
+        http_proxy=$ASTARA_DEV_APPLIANCE_BUILD_PROXY \
+        ELEMENTS_PATH=$ASTARA_APPLIANCE_DIR/diskimage-builder/elements \
         DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user $lb_element \
-        -o $TOP_DIR/files/akanda
-        akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_FILE
+        -o $TOP_DIR/files/astara
+        astara_dev_image_src=$ASTARA_DEV_APPLIANCE_FILE
     else
-        akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_URL
+        astara_dev_image_src=$ASTARA_DEV_APPLIANCE_URL
     fi
 
     env
     TOKEN=$(openstack token issue -c id -f value)
     die_if_not_set $LINENO TOKEN "Keystone fail to get token"
-    upload_image $akanda_dev_image_src $TOKEN
+    upload_image $astara_dev_image_src $TOKEN
 
-    local image_name=$(basename $akanda_dev_image_src | cut -d. -f1)
+    local image_name=$(basename $astara_dev_image_src | cut -d. -f1)
     typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
 
-    die_if_not_set $LINENO image_id "Failed to find akanda image"
-    iniset $AKANDA_RUG_CONF router image_uuid $image_id
+    die_if_not_set $LINENO image_id "Failed to find astara image"
+    iniset $ASTARA_CONF router image_uuid $image_id
 
     # NOTE(adam_g): Currently we only support keystone v2 auth so we need to
     # hardcode the auth url accordingly. See (LP: #1492654)
-    iniset $AKANDA_RUG_CONF DEFAULT auth_url $KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:5000/v2.0
+    iniset $ASTARA_CONF DEFAULT auth_url $KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:5000/v2.0
 
     if is_service_enabled horizon; then
         # _horizon_config_set depends on this being set
@@ -266,9 +266,9 @@ function pre_start_akanda() {
         _horizon_config_set $HORIZON_LOCAL_SETTINGS "" ROUTER_IMAGE_UUID \"$image_id\"
     fi
 
-    create_akanda_nova_flavor
+    create_astara_nova_flavor
 
-    # Restart neutron so that `akanda.floatingip_subnet` is properly set
+    # Restart neutron so that `astara.floatingip_subnet` is properly set
     if [[ "$USE_SCREEN" == "True" ]]; then
         screen_stop_service q-svc
     else
@@ -278,15 +278,15 @@ function pre_start_akanda() {
     sleep 10
 }
 
-function start_akanda_rug() {
-    screen_it ak-rug "cd $AKANDA_RUG_DIR && akanda-rug-service --config-file $AKANDA_RUG_CONF"
+function start_astara() {
+    screen_it astara "cd $ASTARA_DIR && astara-orchestrator --config-file $ASTARA_CONF"
     echo '************************************************************'
     echo "Sleeping for a while to make sure the tap device gets set up"
     echo '************************************************************'
     sleep 10
 }
 
-function post_start_akanda() {
+function post_start_astara() {
     echo "Creating demo user network and subnet"
     local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
     neutron $auth_args net-create thenet
@@ -296,10 +296,10 @@ function post_start_akanda() {
     set_demo_tenant_sec_group_private_traffic
 }
 
-function stop_akanda_rug() {
-    echo "Stopping the rug..."
-    screen_stop_service ak-rug
-    stop_process ak-rug
+function stop_astara() {
+    echo "Stopping astara..."
+    screen_stop_service astara
+    stop_process astara
 }
 
 function set_neutron_user_permission() {
@@ -323,45 +323,45 @@ function set_demo_tenant_sec_group_private_traffic() {
 function check_prereqs() {
     # Fail devstack as early as possible if system does not satisfy some known
     # prerequisites
-    if [ ! -e "$AKANDA_APPLIANCE_SSH_PUBLIC_KEY" ]; then
-        die $LINENO "Public SSH key not found at $AKANDA_APPLIANCE_SSH_PUBLIC_KEY. Please copy one there or " \
-                    "set AKANDA_APPLIANCE_SSH_PUBLIC_KEY accordingly."
+    if [ ! -e "$ASTARA_APPLIANCE_SSH_PUBLIC_KEY" ]; then
+        die $LINENO "Public SSH key not found at $ASTARA_APPLIANCE_SSH_PUBLIC_KEY. Please copy one there or " \
+                    "set ASTARA_APPLIANCE_SSH_PUBLIC_KEY accordingly."
 
     fi
 }
 
 
-if is_service_enabled ak-rug; then
+if is_service_enabled astara; then
     if [[ "$1" == "source" ]]; then
         check_prereqs
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
-        echo_summary "Installing Akanda"
+        echo_summary "Installing Astara"
         set_neutron_user_permission
-        install_akanda
+        install_astara
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
-        echo_summary "Installing Akanda"
-        configure_akanda
-        configure_akanda_nova
-        configure_akanda_neutron
+        echo_summary "Installing Astara"
+        configure_astara
+        configure_astara_nova
+        configure_astara_neutron
         if is_service_enabled horizon; then
-            configure_akanda_horizon
+            configure_astara_horizon
         fi
         cd $old_cwd
 
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
-        echo_summary "Initializing Akanda"
-        pre_start_akanda
-        start_akanda_rug
+        echo_summary "Initializing Astara"
+        pre_start_astara
+        start_astara
         if is_service_enabled horizon; then
-            start_akanda_horizon
+            start_astara_horizon
         fi
-        post_start_akanda
+        post_start_astara
     fi
 
     if [[ "$1" == "unstack" ]]; then
-        stop_akanda_rug
+        stop_astara
     fi
 
     if [[ "$1" == "clean" ]]; then
