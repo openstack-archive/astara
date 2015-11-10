@@ -24,7 +24,7 @@ import sys
 from akanda.rug.common.i18n import _LW
 from akanda.rug import commands
 from akanda.rug.cli import message
-from akanda.rug.api import nova, neutron
+from akanda.rug.api import keystone, nova, neutron
 
 from novaclient import exceptions
 from oslo_config import cfg
@@ -70,14 +70,8 @@ class _TenantRouterCmd(message.MessageSending):
             # burden of the neutron API call to the client so the server
             # doesn't block. It also gives us a chance to report an error
             # when we can't find the router.
-            n_c = client.Client(
-                username=self.app.rug_ini.admin_user,
-                password=self.app.rug_ini.admin_password,
-                tenant_name=self.app.rug_ini.admin_tenant_name,
-                auth_url=self.app.rug_ini.auth_url,
-                auth_strategy=self.app.rug_ini.auth_strategy,
-                region_name=self.app.rug_ini.auth_region,
-            )
+            ks_session = keystone.KeystoneSession()
+            n_c = client.Client(session=ks_session.session)
             response = n_c.list_routers(retrieve_all=True, id=router_id)
             try:
                 router_details = response['routers'][0]
