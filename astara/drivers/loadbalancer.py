@@ -32,12 +32,12 @@ LOG = logging.getLogger(__name__)
 
 ROUTER_OPTS = [
     cfg.StrOpt('image_uuid',
-               help='image_uuid for loadbalancer instances.'),
-    cfg.IntOpt('instance_flavor',
-               help='nova flavor to use for router instances'),
+               help='The image_uuid for loadbalancer instances.'),
+    cfg.StrOpt('instance_flavor',
+               help='The nova flavor id to use for loadbalancer instances'),
     cfg.IntOpt('mgt_service_port', default=5000,
-               help='The port on which the router API service listens on '
-                    'router appliances'),
+               help='The port on which the loadbalancer API service listens '
+                    'on loadbalancer appliances'),
 ]
 cfg.CONF.register_group(cfg.OptGroup(name='loadbalancer'))
 cfg.CONF.register_opts(ROUTER_OPTS, 'loadbalancer')

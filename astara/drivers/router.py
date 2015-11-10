@@ -33,12 +33,12 @@ LOG = logging.getLogger(__name__)
 
 ROUTER_OPTS = [
     cfg.StrOpt('image_uuid',
-               help='image_uuid for router instances.',
+               help='The image_uuid for router instances.',
                deprecated_opts=[
                     cfg.DeprecatedOpt('router_image_uuid',
                                       group='DEFAULT')]),
-    cfg.IntOpt('instance_flavor',
-               help='nova flavor to use for router instances',
+    cfg.StrOpt('instance_flavor',
+               help='The nova id flavor to use for router instances',
                deprecated_opts=[
                     cfg.DeprecatedOpt('router_instance_flavor',
                                       group='DEFAULT')]),
