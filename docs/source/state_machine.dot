@@ -1,0 +1,57 @@
+digraph rug {
+  // rankdir=LR;
+
+  node [shape = rectangle];
+  START;
+
+  // These nodes enter and exit the state machine.
+
+  node [shape = doublecircle];
+  EXIT;
+  CALC_ACTION;
+
+  node [shape = circle];
+
+  START -> CALC_ACTION;
+
+  CALC_ACTION -> ALIVE [ label = "ACT>[CRUP],vm:[UC]" ];
+  CALC_ACTION -> CREATE_VM [ label = "ACT>[CRUP],vm:D" ];
+  CALC_ACTION -> CHECK_BOOT [ label = "ACT>[CRUP],vm:B" ];
+  CALC_ACTION -> REBUILD_VM [ label = "ACT:E" ];
+  CALC_ACTION -> STOP_VM [ label = "ACT>D or vm:G" ];
+  CALC_ACTION -> CLEAR_ERROR [ label = "vm:E" ];
+
+  ALIVE -> CREATE_VM [ label = "vm>D" ];
+  ALIVE -> CONFIG [ label = "ACT:[CU],vm:[UC]" ];
+  ALIVE -> STATS [ label = "ACT:R,vm:C" ];
+  ALIVE -> CALC_ACTION [ label = "ACT:P,vm>[UC]" ];
+  ALIVE -> STOP_VM [ label = "vm:G" ];
+
+  CREATE_VM -> CHECK_BOOT [ label = "ACT:[CRUDP],vm:[DBUCR]" ];
+  CREATE_VM -> STOP_VM [ label = "vm:G" ];
+  CREATE_VM -> CALC_ACTION [ label = "vm:E" ];
+  CREATE_VM -> CREATE_VM [ label = "vm:D" ];
+
+  CHECK_BOOT -> CONFIG [ label = "vm>U" ];
+  CHECK_BOOT -> CALC_ACTION [ label = "vm:[BCR]" ];
+  CHECK_BOOT -> STOP_VM [ label = "vm:[DG]" ];
+
+  CONFIG -> STATS [ label = "ACT:R,vm>C" ];
+  CONFIG -> CALC_ACTION [ label = "ACT>P,vm>C" ];
+  CONFIG -> REPLUG_VM [ label = "vm>[H]" ];
+  CONFIG -> STOP_VM [ label = "vm>[RDG]" ];
+
+  REPLUG_VM -> CONFIG [ label = "vm>[H]" ];
+  REPLUG_VM -> STOP_VM [ label = "vm>[R]" ];
+
+  STATS -> CALC_ACTION [ label = "ACT>P" ];
+
+  CLEAR_ERROR -> CALC_ACTION [ label = "no pause before next action" ];
+
+  REBUILD_VM -> REBUILD_VM [ label = "vm!=[DG]" ];
+  REBUILD_VM -> CREATE_VM [ label = "ACT:E,vm:D" ];
+
+  STOP_VM -> CREATE_VM [ label = "ACT:E or vm>D" ];
+  STOP_VM -> EXIT [ label = "ACT:D,vm>D or vm:G" ];
+
+}
