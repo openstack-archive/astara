@@ -27,7 +27,6 @@ function find_router() {
     echo $router
 }
 
-
 cat <<END >$CONFIG_FILE
 [DEFAULT]
 appliance_active_timeout=480
