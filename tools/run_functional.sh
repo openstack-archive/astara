@@ -2,6 +2,7 @@
 
 FUNC_TEST_DIR=$(dirname $0)/../astara/test/functional/
 CONFIG_FILE=$FUNC_TEST_DIR/test.conf
+ASTARA_CONFIG=${ASTARA_CONFIG_FILE:-/etc/astara/orchestrator.ini}
 
 APPLIANCE_API_PORT=${APPLIANCE_API_PORT:-5000}
 SERVICE_TENANT_NAME=${SERVICE_TENANT_NAME:-service}
@@ -27,7 +28,18 @@ function find_router() {
     echo $router
 }
 
-
+function get_from_config() {
+    if [ ! -f $ASTARA_CONFIG ]; then
+        echo "ERROR: Could not locate astara-orchestrator config @ $ASTARA_CONFIG"
+        exit 1
+    fi
+    val=$(cat $ASTARA_CONFIG | grep "^$1" | cut -d= -f2)
+    if [ -z "$val" ]; then
+        echo "ERROR: Could not get value for $1 in $ASTARA_CONFIG"
+        exit 1
+    fi
+    echo "$val"
+}
 cat <<END >$CONFIG_FILE
 [functional]
 appliance_active_timeout=480
@@ -44,5 +56,17 @@ if [ -z "$ASTARA_TEST_ROUTER_UUID" ]; then
     ASTARA_TEST_ROUTER_UUID="$(find_router)"
 fi
 echo "astara_test_router_uuid=$ASTARA_TEST_ROUTER_UUID" >>$CONFIG_FILE
+
+if [ -z "$ASTARA_MANAGEMENT_PREFIX" ]; then
+    ASTARA_MANAGEMENT_PREFIX="$(get_from_config management_prefix)"
+fi
+
+if [ -z "$ASTARA_MANAGEMENT_PORT" ]; then
+    ASTARA_MANAGEMENT_PORT="$(get_from_config rug_api_port)"
+fi
+cat <<END >>$CONFIG_FILE
+management_prefix=$ASTARA_MANAGEMENT_PREFIX
+management_port=$ASTARA_MANAGEMENT_PORT
+END
 
 tox -e  functional
