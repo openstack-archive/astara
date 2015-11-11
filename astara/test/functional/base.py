@@ -29,9 +29,19 @@ from keystoneclient import exceptions as ksc_exceptions
 from neutronclient.common import exceptions as neutron_exceptions
 
 from tempest_lib.common.utils import data_utils
+from tempest_lib import exceptions as tempest_exc
+from tempest_lib.common import ssh
 
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
+
 DEFAULT_ACTIVE_TIMEOUT = 340
+# devstack default
+DEFAULT_MANAGEMENT_PREFIX = 'fdca:3ba5:a17a:acda::/64'
+# devstack default
+DEFAULT_MANAGEMENT_PORT = 44250
+
+SSH_USERNAME = 'astara'
+SSH_TIMEOUT = 340
 
 
 def get_config():
@@ -57,6 +67,8 @@ def get_config():
 
     opt_conf_settings = {
         'appliance_active_timeout': DEFAULT_ACTIVE_TIMEOUT,
+        'management_prefix': DEFAULT_MANAGEMENT_PREFIX,
+        'management_port': DEFAULT_MANAGEMENT_PORT,
     }
     for setting, default in opt_conf_settings.items():
         try:
@@ -261,6 +273,23 @@ class AstaraFunctionalBase(testtools.TestCase):
         self.admin_clients = AdminClientManager()
 
         self._management_address = None
+        self._ssh_client = None
+
+    def ssh_client(self, resource_uuid):
+        ssh_client = ssh.Client(
+            host=self.get_management_address(resource_uuid),
+            username=SSH_USERNAME,
+            look_for_keys=True,
+        )
+        i = 0
+        while i <= SSH_TIMEOUT:
+            try:
+                ssh_client.test_connection_auth()
+                return ssh_client
+            except tempest_exc.SSHTimeout:
+                time.sleep(1)
+                i += 1
+        raise Exception('SSH connectino timed out after %s sec.')
 
     @classmethod
     def setUpClass(cls):
@@ -284,7 +313,7 @@ class AstaraFunctionalBase(testtools.TestCase):
         cls._test_tenants.append(tenant)
         return tenant
 
-    def get_router_appliance_server(self, router_uuid, retries=0,
+    def get_router_appliance_server(self, resource, uuid, retries=0,
                                     wait_for_active=False):
         """Returns a Nova server object for router"""
         i = 0
@@ -295,7 +324,7 @@ class AstaraFunctionalBase(testtools.TestCase):
                      search_opts={
                          'all_tenants': 1,
                          'tenant_id': self.config['service_tenant_id']}
-                 ) if router_uuid in instance.name]
+                 ) if instance.name == 'ak-%s-%s' % (resource, uuid)]
 
             if service_instance:
                 service_instance = service_instance[0]
@@ -307,7 +336,8 @@ class AstaraFunctionalBase(testtools.TestCase):
                     time.sleep(1)
                     continue
                 raise Exception(
-                    'Could not get nova server for router %s' % router_uuid)
+                    'Could not get nova server for %s %s' %
+                    (resource, id))
 
         if wait_for_active:
             i = 0
@@ -323,17 +353,16 @@ class AstaraFunctionalBase(testtools.TestCase):
             return service_instance
 
     def get_management_address(self, router_uuid):
-        if self._management_address:
-            return self._management_address['addr']
-
-        service_instance = self.get_router_appliance_server(router_uuid)
+        service_instance = self.get_router_appliance_server(
+            resource='router',
+            uuid=router_uuid)
 
         try:
-            self._management_address = service_instance.addresses['mgt'][0]
+            management_address = service_instance.addresses['mgt'][0]
         except KeyError:
             self.fail('"mgt" port not found on service instance %s (%s)' %
                       (service_instance.id, service_instance.name))
-        return self._management_address['addr']
+        return management_address['addr']
 
     def assert_router_is_active(self, router_uuid=None):
         if not router_uuid:
@@ -352,7 +381,7 @@ class AstaraFunctionalBase(testtools.TestCase):
             i += 1
 
     def ping_router_mgt_address(self, router_uuid):
-        server = self.get_router_appliance_server(router_uuid)
+        server = self.get_router_appliance_server('router', router_uuid)
         mgt_interface = server.addresses['mgt'][0]
         program = {4: 'ping', 6: 'ping6'}
         cmd = [program[mgt_interface['version']], '-c5', mgt_interface['addr']]
