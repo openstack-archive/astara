@@ -68,7 +68,8 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
         # This could live in a separate test case but it'd require the
         # above as setup, so just piggyback on it.
 
-        old_server = self.get_router_appliance_server(self.router['id'])
+        old_server = self.get_router_appliance_server(
+            'router', self.router['id'])
         LOG.debug('Original server: %s', old_server)
 
         # NOTE(adam_g): In the gate, sometimes the appliance hangs on the
@@ -85,8 +86,9 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
 
         # look for the new server, retry giving rug time to do its thing.
         new_server = self.get_router_appliance_server(
-            self.router['id'], retries=60, wait_for_active=True)
+            'router', self.router['id'], retries=60, wait_for_active=True)
         LOG.debug('Rebuilt new server found: %s', new_server)
+
         self.assertNotEqual(old_server.id, new_server.id)
 
         # routers report as ACTIVE initially (LP: #1491673)
