@@ -17,8 +17,12 @@ from neutronclient.common import exceptions as neutron_exceptions
 
 from tempest_lib.common.utils import data_utils
 
+from tempest_lib.common import ssh
+
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
 DEFAULT_ACTIVE_TIMEOUT = 340
+
+SSH_USERNAME = 'astara'
 
 
 def get_config():
@@ -242,6 +246,16 @@ class AkandaFunctionalBase(testtools.TestCase):
         )
 
         self._management_address = None
+        self._ssh_client = None
+
+    def ssh_client(self, resource_uuid):
+        ssh_client = ssh.Client(
+            host=self.get_management_address(resource_uuid),
+            username=SSH_USERNAME,
+            look_for_keys=True,
+        )
+        ssh_client.test_connection_auth()
+        return ssh_client
 
     @classmethod
     def setUpClass(cls):
@@ -298,7 +312,7 @@ class AkandaFunctionalBase(testtools.TestCase):
                     out[setting] = default
             return out
 
-    def get_router_appliance_server(self, router_uuid, retries=0,
+    def get_router_appliance_server(self, resource, uuid, retries=0,
                                     wait_for_active=False):
         """Returns a Nova server object for router"""
         i = 0
@@ -309,7 +323,7 @@ class AkandaFunctionalBase(testtools.TestCase):
                      search_opts={
                          'all_tenants': 1,
                          'tenant_id': self.config['service_tenant_id']}
-                 ) if instance.name == 'ak-%s' % router_uuid]
+                 ) if instance.name == 'ak-%s-%s' % (resource, uuid)]
 
             if service_instance:
                 service_instance = service_instance[0]
@@ -337,17 +351,16 @@ class AkandaFunctionalBase(testtools.TestCase):
             return service_instance
 
     def get_management_address(self, router_uuid):
-        if self._management_address:
-            return self._management_address['addr']
-
-        service_instance = self.get_router_appliance_server(router_uuid)
+        service_instance = self.get_router_appliance_server(
+            resource='router',
+            uuid=router_uuid)
 
         try:
-            self._management_address = service_instance.addresses['mgt'][0]
+            management_address = service_instance.addresses['mgt'][0]
         except KeyError:
             self.fail('"mgt" port not found on service instance %s (%s)' %
                       (service_instance.id, service_instance.name))
-        return self._management_address['addr']
+        return management_address['addr']
 
     def assert_router_is_active(self, router_uuid=None):
         if not router_uuid:
@@ -366,7 +379,7 @@ class AkandaFunctionalBase(testtools.TestCase):
             i += 1
 
     def ping_router_mgt_address(self, router_uuid):
-        server = self.get_router_appliance_server(router_uuid)
+        server = self.get_router_appliance_server('router', router_uuid)
         mgt_interface = server.addresses['mgt'][0]
         program = {4: 'ping', 6: 'ping6'}
         cmd = [program[mgt_interface['version']], '-c5', mgt_interface['addr']]
