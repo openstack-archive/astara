@@ -31,11 +31,17 @@ from keystoneclient import exceptions as ksc_exceptions
 from neutronclient.common import exceptions as neutron_exceptions
 
 from tempest_lib.common.utils import data_utils
+from tempest_lib import exceptions as tempest_exc
+from tempest_lib.common import ssh
 
 from astara.test.functional import config
 
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
+
 DEFAULT_ACTIVE_TIMEOUT = 340
+
+SSH_USERNAME = 'astara'
+SSH_TIMEOUT = 340
 
 config.register_opts()
 CONF = cfg.CONF
@@ -127,13 +133,13 @@ class AdminClientManager(ClientManager):
             auth_url=CONF.os_auth_url,
         )
 
-    def get_router_appliance_server(self, router_uuid, retries=10,
+    def get_router_appliance_server(self, resource, uuid, retries=10,
                                     wait_for_active=False):
         """Returns a Nova server object for router"""
         i = 0
         LOG.debug(
-            'Looking for nova backing instance for resource %s',
-            router_uuid)
+            'Looking for nova backing instance for %s %s',
+            resource, uuid)
 
         while True:
             service_instance = \
@@ -142,13 +148,13 @@ class AdminClientManager(ClientManager):
                      search_opts={
                          'all_tenants': 1,
                          'tenant_id': CONF.service_tenant_id}
-                 ) if router_uuid in instance.name]
+                 ) if instance.name == 'ak-%s-%s' % (resource, uuid)]
 
             if service_instance:
                 service_instance = service_instance[0]
                 LOG.debug(
-                    'Found backing instance for resource %s: %s',
-                    router_uuid, service_instance)
+                    'Found backing instance for %s %s: %s',
+                    resource, uuid, service_instance)
                 break
 
             if not service_instance:
@@ -159,7 +165,8 @@ class AdminClientManager(ClientManager):
                               i, retries)
                     continue
                 raise Exception(
-                    'Could not get nova server for router %s' % router_uuid)
+                    'Could not get nova server for %s %s' %
+                    (resource, id))
 
         if wait_for_active:
             LOG.debug('Waiting for backing instance %s to become ACTIVE',
@@ -299,7 +306,8 @@ class TestTenant(object):
                 'Waiting on deletion of backing instance for resource %s', rid)
             while True:
                 try:
-                    self.admin_clients.get_router_appliance_server(rid)
+                    self.admin_clients.get_router_appliance_server(
+                        'router', rid)
                     LOG.debug(
                         'Still waiting for deletion of backing instance for %s'
                         ' , will wait (%s/%s)' % rid, attempt, max_attempts)
@@ -453,6 +461,23 @@ class AstaraFunctionalBase(testtools.TestCase):
         self.ak_client = astara_client
         self.admin_clients = AdminClientManager()
         self._management_address = None
+        self._ssh_client = None
+
+    def ssh_client(self, resource_uuid):
+        ssh_client = ssh.Client(
+            host=self.get_management_address(resource_uuid),
+            username=SSH_USERNAME,
+            look_for_keys=True,
+        )
+        i = 0
+        while i <= SSH_TIMEOUT:
+            try:
+                ssh_client.test_connection_auth()
+                return ssh_client
+            except tempest_exc.SSHTimeout:
+                time.sleep(1)
+                i += 1
+        raise Exception('SSH connectino timed out after %s sec.')
 
     @classmethod
     def setUpClass(cls):
@@ -476,26 +501,26 @@ class AstaraFunctionalBase(testtools.TestCase):
         cls._test_tenants.append(tenant)
         return tenant
 
-    def get_router_appliance_server(self, router_uuid, retries=10,
+    def get_router_appliance_server(self, resource, uuid, retries=10,
                                     wait_for_active=False):
         """Returns a Nova server object for router"""
         return self.admin_clients.get_router_appliance_server(
-            router_uuid, retries, wait_for_active)
+            resource, uuid, retries, wait_for_active)
 
     def get_management_address(self, router_uuid):
-        LOG.debug('Getting management address for resource %s', router_uuid)
-        if self._management_address:
-            return self._management_address['addr']
-
-        service_instance = self.get_router_appliance_server(router_uuid)
+        LOG.debug('Getting management address for router %s', router_uuid)
+        service_instance = self.get_router_appliance_server(
+            resource='router',
+            uuid=router_uuid)
 
         try:
-            self._management_address = service_instance.addresses['mgt'][0]
+            management_address = service_instance.addresses['mgt'][0]
         except KeyError:
             self.fail('"mgt" port not found on service instance %s (%s)' %
                       (service_instance.id, service_instance.name))
+
         LOG.debug('Got management address for resource %s', router_uuid)
-        return self._management_address['addr']
+        return management_address['addr']
 
     def assert_router_is_active(self, router_uuid):
         i = 0
@@ -515,7 +540,7 @@ class AstaraFunctionalBase(testtools.TestCase):
                       router_uuid, router['status'])
 
     def ping_router_mgt_address(self, router_uuid):
-        server = self.get_router_appliance_server(router_uuid)
+        server = self.get_router_appliance_server('router', router_uuid)
         mgt_interface = server.addresses['mgt'][0]
         program = {4: 'ping', 6: 'ping6'}
         cmd = [program[mgt_interface['version']], '-c5', mgt_interface['addr']]
