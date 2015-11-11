@@ -28,7 +28,6 @@ function find_router() {
     echo $router
 }
 
-
 cat <<END >$CONFIG_FILE
 [DEFAULT]
 debug=True
