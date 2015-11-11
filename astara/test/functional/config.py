@@ -12,12 +12,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
+import os
 import itertools
+
 from oslo_config import cfg
 
+# Gate default
+HOME = os.getenv('HOME', '/opt/stack/new')
 
 functional_test_opts = [
+    cfg.StrOpt(
+        'ssh_private_key', help='Path to ssh private key',
+        default=os.path.join(
+            HOME, '.ssh', 'id_rsa')),
     cfg.StrOpt(
         'os_auth_url', required=True,
         help='Keystone auth URL'),
