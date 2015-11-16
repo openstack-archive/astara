@@ -34,6 +34,7 @@ ROUTER_INSTANCE_FLAVOR_CPUS=${ROUTER_INSTANCE_FLAVOR_CPUS:-1}
 PUBLIC_INTERFACE_DEFAULT='eth0'
 ASTARA_MANAGEMENT_PREFIX=${ASTARA_MANAGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
 ASTARA_MANAGEMENT_PORT=${ASTARA_MANAGEMENT_PORT:-5000}
+ASTARA_API_LISTEN=${ASTARA_API_LISTEN:-$SERVICE_HOST}
 ASTARA_API_PORT=${ASTARA_API_PORT:-44250}
 
 HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
@@ -76,7 +77,8 @@ function configure_astara() {
 
     iniset $ASTARA_CONF DEFAULT management_prefix $ASTARA_MANAGEMENT_PREFIX
     iniset $ASTARA_CONF DEFAULT astara_mgt_service_port $ASTARA_MANAGEMENT_PORT
-    iniset $ASTARA_CONF DEFAULT rug_api_port $ASTARA_API_PORT
+    iniset $ASTARA_CONF DEFAULT api_listen $ASTARA_API_LISTEN
+    iniset $ASTARA_CONF DEFAULT api_port $ASTARA_API_PORT
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $ASTARA_CONF DEFAULT interface_driver "astara.common.linux.interface.BridgeInterfaceDriver"
@@ -327,6 +329,15 @@ function set_demo_tenant_sec_group_private_traffic() {
     neutron $auth_args security-group-rule-create --direction ingress --remote-ip-prefix $FIXED_RANGE default
 }
 
+function create_astara_endpoint() {
+    # Publish the API endpoint of the administrative API (used by Horizon)
+    get_or_create_service "astara" "astara" "Astara Network Orchestration Administrative API"
+    get_or_create_endpoint "astara" \
+        "$REGION_NAME" \
+        "http://$ASTARA_API_LISTEN:$ASTARA_API_PORT" \
+        "http://$ASTARA_API_LISTEN:$ASTARA_API_PORT" \
+        "http://$ASTARA_API_LISTEN:$ASTARA_API_PORT"
+}
 
 function check_prereqs() {
     # Fail devstack as early as possible if system does not satisfy some known
@@ -356,6 +367,7 @@ if is_service_enabled astara; then
         if is_service_enabled horizon; then
             configure_astara_horizon
         fi
+        create_astara_endpoint
         cd $old_cwd
 
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
