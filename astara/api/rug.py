@@ -33,8 +33,13 @@ from astara.common.i18n import _, _LE, _LI, _LW
 LOG = logging.getLogger(__name__)
 
 RUG_API_OPTS = [
-    cfg.IntOpt('rug_api_port', default=44250,
-               help='RUG API listening port')
+    cfg.IntOpt('api_port', default=44250,
+               help='Astara administrative API listening port',
+               deprecated_opts=[
+                    cfg.DeprecatedOpt('rug_api_port',
+                                      group='DEFAULT')]),
+    cfg.StrOpt('api_listen', default='0.0.0.0',
+               help='Astara administrative API listening address')
 ]
 cfg.CONF.register_opts(RUG_API_OPTS)
 
@@ -76,8 +81,15 @@ class RugAPIServer(object):
     def __init__(self):
         self.pool = eventlet.GreenPool(1000)
 
-    def run(self, ip_address, port=cfg.CONF.rug_api_port):
+    def run(self, ip_address, port):
         app = RugAPI()
+
+        try:
+            socket.inet_pton(socket.AF_INET6, ip_address)
+            family = socket.AF_INET6
+        except Exception:
+            family = socket.AF_INET
+
         for i in six.moves.range(5):
             LOG.info(_LI(
                 'Starting the rug-api on %s:%s'),
@@ -86,7 +98,7 @@ class RugAPIServer(object):
             try:
                 sock = eventlet.listen(
                     (ip_address, port),
-                    family=socket.AF_INET6,
+                    family=family,
                     backlog=128
                 )
             except socket.error as err:
@@ -109,5 +121,5 @@ class RugAPIServer(object):
             log=loggers.WritableLogger(LOG))
 
 
-def serve(ip_address):
-    RugAPIServer().run(ip_address)
+def serve():
+    RugAPIServer().run(cfg.CONF.api_listen, cfg.CONF.api_port)
