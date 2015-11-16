@@ -162,12 +162,31 @@ class TestRugAPIServer(unittest.TestCase):
 
     @mock.patch('eventlet.listen')
     @mock.patch('eventlet.wsgi')
-    def test_bind_and_serve(self, wsgi, listen):
+    def test_bind_and_serve_ipv4(self, wsgi, listen):
         sock = listen.return_value
         server = rug.RugAPIServer()
-        server.run('::1/128')
+        server.run('10.0.0.250', 44250)
         listen.assert_called_with(
-            ('::1/128', 44250),
+            ('10.0.0.250', 44250),
+            family=socket.AF_INET,
+            backlog=128
+        )
+        args, kwargs = wsgi.server.call_args
+        assert all([
+            args[0] == sock,
+            isinstance(args[1], rug.RugAPI),
+            kwargs['custom_pool'] == server.pool,
+            isinstance(kwargs['log'], loggers.WritableLogger)
+        ])
+
+    @mock.patch('eventlet.listen')
+    @mock.patch('eventlet.wsgi')
+    def test_bind_and_serve_ipv6(self, wsgi, listen):
+        sock = listen.return_value
+        server = rug.RugAPIServer()
+        server.run('fdca:3ba5:a17a:acda::1', 44250)
+        listen.assert_called_with(
+            ('fdca:3ba5:a17a:acda::1', 44250),
             family=socket.AF_INET6,
             backlog=128
         )
@@ -189,10 +208,12 @@ class TestRugAPIServer(unittest.TestCase):
         self.assertRaises(
             RuntimeError,
             server.run,
-            '::1/128'
+            'fdca:3ba5:a17a:acda::1',
+            44250,
         )
         assert listen.call_args_list == [
-            mock.call(('::1/128', 44250), family=socket.AF_INET6, backlog=128)
+            mock.call(('fdca:3ba5:a17a:acda::1', 44250),
+                      family=socket.AF_INET6, backlog=128)
             for i in range(5)
         ]
 
@@ -206,9 +227,10 @@ class TestRugAPIServer(unittest.TestCase):
             sock
         ]
         server = rug.RugAPIServer()
-        server.run('::1/128')
+        server.run('fdca:3ba5:a17a:acda::1', 44250)
         assert listen.call_args_list == [
-            mock.call(('::1/128', 44250), family=socket.AF_INET6, backlog=128)
+            mock.call(('fdca:3ba5:a17a:acda::1', 44250),
+                      family=socket.AF_INET6, backlog=128)
             for i in range(2)  # fails the first time, succeeds the second
         ]
         args, kwargs = wsgi.server.call_args
