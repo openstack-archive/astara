@@ -171,7 +171,6 @@ def main(argv=sys.argv[1:]):
     from astara.api import rug as rug_api
     rug_api_proc = multiprocessing.Process(
         target=rug_api.serve,
-        args=(mgt_ip_address,),
         name='rug-api'
     )
     rug_api_proc.start()
