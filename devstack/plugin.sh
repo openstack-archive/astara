@@ -1,14 +1,14 @@
 # -*- mode: shell-script -*-
 
 # Set up default directories
-AKANDA_RUG_DIR=${AKANDA_RUG_DIR:-$DEST/akanda-rug}
+AKANDA_RUG_DIR=${AKANDA_RUG_DIR:-$DEST/astara}
 AKANDA_CACHE_DIR=${AKANDA_CACHE_DIR:-/var/cache/akanda}
-AKANDA_NEUTRON_DIR=${AKANDA_NEUTRON_DIR:-$DEST/akanda-neutron}
-AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/openstack/akanda-neutron.git}
+AKANDA_NEUTRON_DIR=${AKANDA_NEUTRON_DIR:-$DEST/astara-neutron}
+AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/openstack/astara-neutron.git}
 AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-master}
 
-AKANDA_APPLIANCE_DIR=${AKANDA_APPLIANCE_DIR:-$DEST/akanda-appliance}
-AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/openstack/akanda-appliance.git}
+AKANDA_APPLIANCE_DIR=${AKANDA_APPLIANCE_DIR:-$DEST/astara-appliance}
+AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/openstack/astara-appliance.git}
 AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-master}
 
 BUILD_AKANDA_APPLIANCE_IMAGE=${BUILD_AKANDA_APPLIANCE_IMAGE:-False}
@@ -17,8 +17,8 @@ AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qco
 AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
 AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
 
-AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
-AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/openstack/akanda-horizon}
+AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/astara-horizon}
+AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/openstack/astara-horizon}
 AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-master}
 
 AKANDA_CONF_DIR=/etc/akanda-rug
@@ -136,7 +136,8 @@ function install_akanda() {
     # temp hack to add blessed durring devstack installs so that rug-ctl browse works out of the box
     pip_install blessed
 
-    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
+    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ] || [ "$BUILD_ASTARA_APPLIANCE_IMAGE" == "True" ]; then
+
         git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
     fi
 
@@ -331,7 +332,7 @@ function check_prereqs() {
 }
 
 
-if is_service_enabled ak-rug; then
+if is_service_enabled ak-rug || is_service_enabled astara; then
     if [[ "$1" == "source" ]]; then
         check_prereqs
 
