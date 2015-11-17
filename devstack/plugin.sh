@@ -136,7 +136,8 @@ function install_akanda() {
     # temp hack to add blessed durring devstack installs so that rug-ctl browse works out of the box
     pip_install blessed
 
-    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
+    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ] || [ "$BUILD_ASTARA_APPLIANCE_IMAGE" == "True" ]; then
+
         git_clone $AKANDA_APPLIANCE_REPO $AKANDA_APPLIANCE_DIR $AKANDA_APPLIANCE_BRANCH
     fi
 
@@ -331,7 +332,7 @@ function check_prereqs() {
 }
 
 
-if is_service_enabled ak-rug; then
+if is_service_enabled ak-rug || is_service_enabled astara; then
     if [[ "$1" == "source" ]]; then
         check_prereqs
 
