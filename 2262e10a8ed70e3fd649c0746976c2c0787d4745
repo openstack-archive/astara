@@ -1,0 +1,10 @@
+Verified+2: Jenkins
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Workflow+1: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+1: Bharat Kumar Kobagana (BharatK) <bharat@aptira.com>
+Code-Review+1: venkatamahesh <venkatamaheshkotha@gmail.com>
+Submitted-by: Jenkins
+Submitted-at: Tue, 17 Nov 2015 03:30:39 +0000
+Reviewed-on: https://review.openstack.org/242666
+Project: openstack/astara
+Branch: refs/heads/master
