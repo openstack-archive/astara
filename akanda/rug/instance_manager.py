@@ -246,7 +246,7 @@ class InstanceManager(object):
                 return
         except:
             self.log.exception(_LE('Instance failed to start boot'))
-            return
+            self.driver.delete_ports(worker_context)
         else:
             # We have successfully started a (re)boot attempt so
             # record the timestamp so we can report how long it takes.

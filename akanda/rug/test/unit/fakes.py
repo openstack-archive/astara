@@ -119,6 +119,7 @@ def fake_driver(resource_id=None):
     fake_driver.name = 'ak-FakeDriver-fake_resource_id'
     fake_driver.image_uuid = 'fake_image_uuid'
     fake_driver.make_ports.return_value = 'fake_ports_callback'
+    fake_driver.delete_ports.return_value = 'fake_delete_ports_callback'
     return fake_driver
 
 
