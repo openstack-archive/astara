@@ -110,6 +110,13 @@ class BaseDriver(object):
 
         return _make_ports
 
+    def delete_ports(self, worker_context):
+        """Delete all created ports.
+
+        :param worker_context:
+        :returns: None
+        """
+
     @staticmethod
     def pre_populate_hook():
         """called in populate.py durring driver loading loop.
@@ -120,7 +127,7 @@ class BaseDriver(object):
         """pre-plug hook
 
         :param worker_context:
-        :returs: None
+        :returns: None
         """
 
     @staticmethod
