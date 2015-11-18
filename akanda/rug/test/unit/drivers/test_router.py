@@ -151,6 +151,15 @@ class RouterDriverTest(base.RugTestBase):
         ]
         self.assertEqual(res, ('fake_mgt_port', expected_instance_ports))
 
+    def test_delete_ports(self):
+        rtr = self._init_driver()
+        fake_router_obj = fakes.fake_router()
+        rtr._router = fake_router_obj
+        rtr.delete_ports(self.ctx)
+        expected_ports = [mock.call(rtr.id),
+                          mock.call(rtr.id, label='MGT')]
+        self.ctx.neutron.delete_vrrp_port.assert_has_calls(expected_ports)
+
     @mock.patch('akanda.rug.api.neutron.Neutron')
     def test_pre_populate_retry_loop(self, mocked_neutron_api):
         neutron_client = mock.Mock()
