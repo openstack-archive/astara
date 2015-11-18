@@ -246,7 +246,8 @@ class InstanceManager(object):
                 return
         except:
             self.log.exception(_LE('Instance failed to start boot'))
-            return
+            for port in self.driver.ports:
+                worker_context.neutron.delete_vrrp_port(port.id)
         else:
             # We have successfully started a (re)boot attempt so
             # record the timestamp so we can report how long it takes.
