@@ -360,6 +360,7 @@ class TestInstanceManager(base.RugTestBase):
         instance = mock.sentinel.instance
         self.ctx.neutron.get_router_detail.return_value = rtr
         self.ctx.nova_client.get_instance.return_value = instance
+        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
         rtr.id = 'ROUTER1'
         instance.id = 'INSTANCE1'
         rtr.management_port = management_port
@@ -368,7 +369,6 @@ class TestInstanceManager(base.RugTestBase):
         rtr.ports.__iter__.return_value = [management_port, external_port,
                                            internal_port]
         self.instance_mgr.boot(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.BOOTING)
         self.ctx.nova_client.boot_instance.assert_called_once_with(
             resource_type=self.fake_driver.RESOURCE_NAME,
             prev_instance_info=self.INSTANCE_INFO,
@@ -376,6 +376,11 @@ class TestInstanceManager(base.RugTestBase):
             image_uuid=self.fake_driver.image_uuid,
             flavor=self.fake_driver.flavor,
             make_ports_callback='fake_ports_callback')
+        expected_calls = [
+            mock.call(fake_int_port.id),
+            mock.call(fake_ext_port.id)
+        ]
+        self.instance_mgr.driver.delete_ports.assert_called_once_with(self.ctx)
 
     def test_boot_check_up(self):
         with mock.patch.object(

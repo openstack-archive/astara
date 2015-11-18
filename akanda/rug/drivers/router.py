@@ -202,6 +202,15 @@ class Router(BaseDriver):
 
         return _make_ports
 
+    def delete_ports(self, worker_context):
+        """Delete all ports.
+
+        :param worker_context:
+        :returns: None
+
+        """
+        worker_context.neutron.delete_vrrp_port(self.id)
+
     @staticmethod
     def pre_populate_hook():
         """Fetch the existing routers from neutrom then and returns list back
