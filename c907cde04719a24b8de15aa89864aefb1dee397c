@@ -1,0 +1,9 @@
+Verified+2: Jenkins
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Submitted-by: Jenkins
+Submitted-at: Thu, 19 Nov 2015 22:32:33 +0000
+Reviewed-on: https://review.openstack.org/243831
+Project: openstack/astara
+Branch: refs/heads/master
