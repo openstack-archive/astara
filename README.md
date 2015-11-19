@@ -1,4 +1,4 @@
-# Akanda Rug
+## Akanda Rug
 
 *Part of the [Akanda Project](https://github.com/openstack/akanda).*
 
