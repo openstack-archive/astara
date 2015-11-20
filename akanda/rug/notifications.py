@@ -15,8 +15,7 @@
 # under the License.
 
 
-"""Listen for notifications.
-"""
+"""Listen for notifications."""
 
 import Queue
 import threading
@@ -74,7 +73,6 @@ LOG = logging.getLogger(__name__)
 
 def _get_tenant_id_for_message(context, payload=None):
     """Find the tenant id in the incoming message."""
-
     # give priority to the tenant_id in the router dict if one
     # exists in the message
     if payload:
@@ -113,7 +111,9 @@ L3_AGENT_TOPIC = 'l3_agent'
 
 
 class L3RPCEndpoint(object):
-    """A RPC endpoint for servicing L3 Agent RPC requests"""
+
+    """A RPC endpoint for servicing L3 Agent RPC requests."""
+
     def __init__(self, notification_queue):
         self.notification_queue = notification_queue
 
@@ -128,7 +128,9 @@ class L3RPCEndpoint(object):
 
 
 class NotificationsEndpoint(object):
-    """A RPC endpoint for processing notification"""
+
+    """A RPC endpoint for processing notification."""
+
     def __init__(self, notification_queue):
         self.notification_queue = notification_queue
 
@@ -195,7 +197,8 @@ def listen(notification_queue):
 
 
 class Sender(object):
-    "Send notification messages"
+
+    """Send notification messages."""
 
     def __init__(self, topic=None):
         self._notifier = None
@@ -214,7 +217,8 @@ class Sender(object):
 class Publisher(Sender):
 
     def __init__(self, topic=None):
-        """Initialize the Publisher
+        """Initialize the Publisher.
+
         :param topic: The topic of this Publisher object
         """
         super(Publisher, self).__init__(topic)
@@ -222,8 +226,9 @@ class Publisher(Sender):
         self._t = None
 
     def start(self):
-        """Start this Publisher
-        :returns: returns nothing
+        """Start this Publisher.
+
+        :returns: returns None
         """
         ready = threading.Event()
         self._t = threading.Thread(
@@ -239,8 +244,9 @@ class Publisher(Sender):
         LOG.debug('started %s', self._t.getName())
 
     def stop(self):
-        """Stop this Publisher
-        :returns: returns nothing
+        """Stop this Publisher.
+
+        :returns: returns None
         """
         if self._t:
             LOG.debug('stopping %s', self._t.getName())
@@ -249,17 +255,21 @@ class Publisher(Sender):
             self._t = None
 
     def publish(self, incoming):
-        """Publish a specific item
+        """Publish a specific item.
+
         :param incoming: The specific item to publish
-        :returns: returns nothing
+        :returns: returns None
         """
         self._q.put(incoming)
 
     def _send(self, ready):
-        """Deliver notification messages from the in-process queue
-        to the appropriate topic via the AMQP service.
+        """Deliver notification messages.
+
+        Deliver notification messages from the in-process queue to the
+        appropriate topic via the AMQP service.
+
         :param ready: threading.Event object for this Publisher
-        :returns: returns nothing
+        :returns: returns None
         """
         # setup notifier driver ahead a time
         self.get_notifier()
@@ -278,6 +288,7 @@ class Publisher(Sender):
 
 
 class NoopPublisher(Publisher):
+
     """A Publisher that doesn't do anything.
 
     The code that publishes notifications is spread across several
@@ -287,7 +298,6 @@ class NoopPublisher(Publisher):
     This class is used in place of the Publisher class to disable
     sending metrics without explicitly checking in various places
     across the code base.
-
     """
 
     def start(self):
