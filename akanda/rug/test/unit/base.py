@@ -15,7 +15,6 @@
 # under the License.
 
 
-import os
 import testtools
 
 from oslo_config import cfg
@@ -26,13 +25,7 @@ class RugTestBase(testtools.TestCase):
     def setUp(self):
         super(RugTestBase, self).setUp()
         self.test_config = self.useFixture(config_fixture.Config(cfg.CONF))
-        # TODO(adam_g): This should be replaced with a proper fixture at
-        #               some point
-        test_config_file = os.path.join(
-            os.path.dirname(__file__), '../../../../',
-            'etc', 'rug.ini'
-        )
-        self.argv = ['--config-file', test_config_file]
+        self.argv = []
         cfg.CONF.import_opt('host', 'akanda.rug.main')
 
     def config(self, **kw):
