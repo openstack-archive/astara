@@ -1,13 +1,12 @@
 import unittest
-
-import mock
 import socket
-import webob
+
 from cliff import commandmanager
-
-from akanda.rug.api import rug
-
+import mock
 from oslo_log import loggers
+import webob
+
+from astara.api import rug
 
 
 try:
@@ -22,7 +21,7 @@ class TestRugAPI(unittest.TestCase):
     def setUp(self):
         ctl = mock.Mock()
         ctl.return_value.command_manager = commandmanager.CommandManager(
-            'akanda.rug.cli'
+            'astara.cli'
         )
         self.api = rug.RugAPI(ctl)
         self.ctl = ctl.return_value

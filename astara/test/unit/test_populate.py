@@ -17,12 +17,12 @@
 
 import mock
 
-from akanda.rug.test.unit import base
-from akanda.rug.test.unit import fakes
+from astara.test.unit import base
+from astara.test.unit import fakes
 
-from akanda.rug import populate
-from akanda.rug import event
-from akanda.rug.event import Resource
+from astara import populate
+from astara import event
+from astara.event import Resource
 
 
 class FakePopulateDriver(object):
@@ -33,7 +33,7 @@ class TestPrePopulateWorkers(base.RugTestBase):
     def setUp(self):
         super(TestPrePopulateWorkers, self).setUp()
 
-    @mock.patch('akanda.rug.drivers.enabled_drivers')
+    @mock.patch('astara.drivers.enabled_drivers')
     def test_pre_populate_with_resources(self, enabled_drivers):
         fake_scheduler = mock.Mock()
         fake_scheduler.handle_message = mock.Mock()
@@ -53,7 +53,7 @@ class TestPrePopulateWorkers(base.RugTestBase):
             call = mock.call(res.tenant_id, e)
             self.assertIn(call, fake_scheduler.handle_message.call_args_list)
 
-    @mock.patch('akanda.rug.drivers.enabled_drivers')
+    @mock.patch('astara.drivers.enabled_drivers')
     def test_pre_populate_with_no_resources(self, enabled_drivers):
         fake_scheduler = mock.Mock()
         fake_scheduler.handle_message = mock.Mock()
@@ -77,7 +77,7 @@ class TestPrePopulateWorkers(base.RugTestBase):
             [mock.call.setDaemon(True), mock.call.start()]
         )
 
-    @mock.patch('akanda.rug.drivers.enabled_drivers')
+    @mock.patch('astara.drivers.enabled_drivers')
     def test_repopulate(self, enabled_drivers):
         drivers = []
         for i in range(2):

@@ -35,8 +35,8 @@ from eventlet import greenlet
 from eventlet import greenpool
 from eventlet import greenthread
 
-from akanda.rug.openstack.common import log as logging
-from akanda.rug.openstack.common import loopingcall
+from astara.openstack.common import log as logging
+from astara.openstack.common import loopingcall
 
 
 LOG = logging.getLogger(__name__)

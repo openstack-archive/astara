@@ -16,7 +16,7 @@
 
 import uuid
 
-from akanda.rug.test.unit.db import base
+from astara.test.unit.db import base
 
 
 class TestDBDebugModes(base.DbTestCase):

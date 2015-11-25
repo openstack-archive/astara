@@ -16,11 +16,11 @@ import mock
 
 from neutronclient.common import exceptions as neutron_exceptions
 
-from akanda.rug import event
-from akanda.rug.api import neutron
-from akanda.rug.drivers import loadbalancer, states
+from astara import event
+from astara.api import neutron
+from astara.drivers import loadbalancer, states
 
-from akanda.rug.test.unit import base, fakes
+from astara.test.unit import base, fakes
 
 
 class LoadBalancerDriverTest(base.RugTestBase):
@@ -46,7 +46,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             id=self.loadbalancer_id,
         )
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer.post_init')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer.post_init')
     def test_init(self, mock_post_init):
         lb = self._init_driver()
         lb.post_init = mock.Mock()
@@ -77,8 +77,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb = self._init_driver()
         lb.pre_plug(self.ctx)
 
-    @mock.patch('akanda.rug.api.config.loadbalancer.build_config')
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer._ensure_cache')
+    @mock.patch('astara.api.config.loadbalancer.build_config')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
     def test_build_config(self, mock_ensure_cache, mock_build_config):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
@@ -93,7 +93,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             self.ctx.neutron, lb._loadbalancer, fake_mgt_port, fake_iface_map)
         self.assertEqual(res, 'fake_config')
 
-    @mock.patch('akanda.rug.api.akanda_client.update_config')
+    @mock.patch('astara.api.astara_client.update_config')
     def test_update_config(self, mock_update_config):
         lb = self._init_driver()
         lb.update_config(management_address='10.0.0.1', config='fake_config')
@@ -102,7 +102,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             lb.mgt_port,
             'fake_config',)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer._ensure_cache')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
     def test_make_ports(self, mock_ensure_cache):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
@@ -115,7 +115,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         res = callback()
         self.assertEqual(res, ('fake_mgt_port', [fake_lb_port]))
 
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_retry_loop(self, mocked_neutron_api):
         neutron_client = mock.Mock()
         returned_value = [Exception, []]
@@ -148,21 +148,21 @@ class LoadBalancerDriverTest(base.RugTestBase):
             mock.ANY
         )
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LOG')
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.drivers.loadbalancer.LOG')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_unauthorized(self, mocked_neutron_api, log):
         exc = neutron_exceptions.Unauthorized
         self._exit_loop_bad_auth(mocked_neutron_api, log, exc)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LOG')
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.drivers.loadbalancer.LOG')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_forbidden(self, mocked_neutron_api, log):
         exc = neutron_exceptions.Forbidden
         self._exit_loop_bad_auth(mocked_neutron_api, log, exc)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LOG.warning')
-    @mock.patch('akanda.rug.drivers.loadbalancer.LOG.debug')
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.drivers.loadbalancer.LOG.warning')
+    @mock.patch('astara.drivers.loadbalancer.LOG.debug')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_retry_loop_logging(
             self, mocked_neutron_api, log_debug, log_warning):
         neutron_client = mock.Mock()
@@ -300,7 +300,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
     def test_process_notification_not_subscribed(self):
         self._test_notification('whocares.about.this', {}, None)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer._ensure_cache')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
     def test_get_state_no_lb(self, mock_ensure_cache):
         lb = self._init_driver()
         lb._loadbalancer = None
@@ -310,7 +310,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer._ensure_cache')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
     def test_get_state(self, mock_ensure_cache):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
@@ -321,7 +321,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer._ensure_cache')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
     def test_synchronize_state_no_router(self, mock_ensure_cache):
         lb = self._init_driver()
         lb._loadbalancer = None
@@ -329,7 +329,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         mock_ensure_cache.assert_called_with(self.ctx)
         self.assertFalse(self.ctx.neutron.update_loadbalancer_status.called)
 
-    @mock.patch('akanda.rug.drivers.loadbalancer.LoadBalancer._ensure_cache')
+    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
     def test_synchronize_state(self, mock_ensure_cache):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
@@ -342,7 +342,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         )
         self.assertEquals(lb._last_synced_status, 'ACTIVE')
 
-    @mock.patch('akanda.rug.api.akanda_client.get_interfaces')
+    @mock.patch('astara.api.astara_client.get_interfaces')
     def test_get_interfaces(self, mock_get_interfaces):
         mock_get_interfaces.return_value = ['fake_interface']
         lb = self._init_driver()
@@ -351,7 +351,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         mock_get_interfaces.assert_called_with(
             'fake_mgt_addr', self.mgt_port)
 
-    @mock.patch('akanda.rug.api.akanda_client.is_alive')
+    @mock.patch('astara.api.astara_client.is_alive')
     def test_is_alive(self, mock_is_alive):
         mock_is_alive.return_value = False
         lb = self._init_driver()

@@ -21,7 +21,7 @@ from alembic import config as alembic_config
 from alembic import util as alembic_util
 from oslo_config import cfg
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 
 _db_opts = [
@@ -90,14 +90,7 @@ CONF.register_cli_opt(command_opt)
 
 
 def get_alembic_config():
-    # TODO(markmcclain): remove next 5 lines once the transition is complete
-    try:
-        from astara.db import sqlalchemy as preferred_sql
-    except ImportError:
-        from akanda.rug.db import sqlalchemy as preferred_sql
-
-    filename = preferred_sql.__file__
-    config = alembic_config.Config(os.path.join(os.path.dirname(filename),
+    config = alembic_config.Config(os.path.join(os.path.dirname(__file__),
                                                 'alembic.ini'))
     return config
 
@@ -105,5 +98,5 @@ def get_alembic_config():
 def main():
     CONF(project='astara-orchestrator')
     config = get_alembic_config()
-    config.akanda_config = CONF
+    config.astara_config = CONF
     CONF.command.func(config, CONF.command.name)

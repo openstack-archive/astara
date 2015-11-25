@@ -23,10 +23,10 @@ import threading
 
 from oslo_log import log as logging
 
-from akanda.rug.common.i18n import _LE
-from akanda.rug import state
-from akanda.rug import drivers
-from akanda.rug.openstack.common import timeutils
+from astara.common.i18n import _LE
+from astara import state
+from astara import drivers
+from astara.openstack.common import timeutils
 
 
 LOG = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ class TenantResourceManager(object):
         msg = {
             'tenant_id': self.tenant_id,
             'timestamp': timeutils.isotime(),
-            'event_type': 'akanda.bandwidth.used',
+            'event_type': 'astara.bandwidth.used',
             'payload': dict((b.pop('name'), b) for b in bandwidth),
             'uuid': resource_id,
         }

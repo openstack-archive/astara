@@ -19,8 +19,8 @@ import time
 
 from oslo_config import cfg
 
-from akanda.rug.drivers import states
-from akanda.rug.common.i18n import _LE, _LI
+from astara.drivers import states
+from astara.common.i18n import _LE, _LI
 
 CONF = cfg.CONF
 INSTANCE_MANAGER_OPTS = [

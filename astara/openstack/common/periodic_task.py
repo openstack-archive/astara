@@ -30,8 +30,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from akanda.rug.common.i18n import _LE
-from akanda.rug.openstack.common import log as logging
+from astara.common.i18n import _LE
+from astara.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
 

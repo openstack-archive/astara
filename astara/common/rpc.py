@@ -21,7 +21,7 @@ from oslo_log import log as logging
 from oslo_config import cfg
 import oslo_messaging
 
-from akanda.rug.common.i18n import _LW
+from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class Connection(object):
 
     def create_notification_listener(self, endpoints, exchange=None,
                                      topic='notifications'):
-        """Creates an oslo.messaging notificatino listener associated with
+        """Creates an oslo.messaging notification listener associated with
         provided endpoints. Adds the resulting listener to the pool of RPC
         server threads.
 
@@ -132,7 +132,7 @@ class Connection(object):
         transport = get_transport()
         target = get_target(topic=topic, fanout=False,
                             exchange=exchange)
-        pool = 'akanda.' + topic + '.' + cfg.CONF.host
+        pool = 'astara.' + topic + '.' + cfg.CONF.host
         server = oslo_messaging.get_notification_listener(
             transport, [target], endpoints, pool=pool)
         LOG.debug(

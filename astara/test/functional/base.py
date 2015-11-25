@@ -5,7 +5,7 @@ import os
 import testtools
 import time
 
-from akanda.rug.api import akanda_client
+from astara.api import astara_client
 
 from novaclient.v1_1 import client as _novaclient
 from neutronclient.v2_0 import client as _neutronclient
@@ -14,14 +14,14 @@ DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
 DEFAULT_ACTIVE_TIMEOUT = 340
 
 
-class AkandaFunctionalBase(testtools.TestCase):
+class AstaraFunctionalBase(testtools.TestCase):
     def setUp(self):
-        super(AkandaFunctionalBase, self).setUp()
+        super(AstaraFunctionalBase, self).setUp()
         self.config = self._get_config()
 
-        self.ak_cfg = mock.patch.object(akanda_client.cfg, 'CONF').start()
+        self.ak_cfg = mock.patch.object(astara_client.cfg, 'CONF').start()
         self.ak_cfg.alive_timeout = 10
-        self.ak_client = akanda_client
+        self.ak_client = astara_client
 
         self.novaclient = _novaclient.Client(
             self.config['os_username'],
@@ -41,7 +41,7 @@ class AkandaFunctionalBase(testtools.TestCase):
         self._management_address = None
 
     def _get_config(self):
-            config_file = os.environ.get('AKANDA_TEST_CONFIG',
+            config_file = os.environ.get('ASTARA_TEST_CONFIG',
                                          DEFAULT_CONFIG)
             config = ConfigParser.SafeConfigParser()
             if not config.read(config_file):
@@ -51,7 +51,7 @@ class AkandaFunctionalBase(testtools.TestCase):
             req_conf_settings = ['os_auth_url', 'os_username', 'os_password',
                                  'os_tenant_name', 'service_tenant_name',
                                  'service_tenant_id', 'appliance_api_port',
-                                 'akanda_test_router_uuid']
+                                 'astara_test_router_uuid']
             out = {}
             for c in req_conf_settings:
                 try:
@@ -94,7 +94,7 @@ class AkandaFunctionalBase(testtools.TestCase):
 
     def assert_router_is_active(self, router_uuid=None):
         if not router_uuid:
-            router_uuid = self.config['akanda_test_router_uuid']
+            router_uuid = self.config['astara_test_router_uuid']
         i = 0
         router = self.neutronclient.show_router(router_uuid)['router']
         while router['status'] != 'ACTIVE':

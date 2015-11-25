@@ -20,9 +20,9 @@ import mock
 from oslo_config import cfg
 from testtools import matchers
 
-from akanda.rug.common import hash_ring
-from akanda.rug.test.unit import base
-# from akanda.rug.tests.unit.db import base as db_base
+from astara.common import hash_ring
+from astara.test.unit import base
+# from astara.tests.unit.db import base as db_base
 
 CONF = cfg.CONF
 

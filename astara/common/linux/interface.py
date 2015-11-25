@@ -39,10 +39,10 @@ import netaddr
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from akanda.rug.common.i18n import _, _LE, _LW
-from akanda.rug.common.linux import ip_lib
-from akanda.rug.common.linux import ovs_lib
-from akanda.rug.common.linux import utils
+from astara.common.i18n import _, _LE, _LW
+from astara.common.linux import ip_lib
+from astara.common.linux import ovs_lib
+from astara.common.linux import utils
 
 
 LOG = logging.getLogger(__name__)

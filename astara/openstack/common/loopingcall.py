@@ -39,9 +39,9 @@ import sys
 from eventlet import event
 from eventlet import greenthread
 
-from akanda.rug.common.i18n import _LE, _LW
-from akanda.rug.openstack.common import log as logging
-from akanda.rug.openstack.common import timeutils
+from astara.common.i18n import _LE, _LW
+from astara.openstack.common import log as logging
+from astara.openstack.common import timeutils
 
 LOG = logging.getLogger(__name__)
 

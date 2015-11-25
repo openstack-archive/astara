@@ -1,4 +1,4 @@
-# Copyright (c) 2015 AKANDA, INC. All Rights Reserved.
+# Copyright (c) 2015 Akanda, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -19,14 +19,14 @@ from oslo_utils import timeutils
 
 from neutronclient.common import exceptions as q_exceptions
 
-from akanda.rug.common.i18n import _
-from akanda.rug.api import akanda_client
-from akanda.rug.api.config import router as configuration
-from akanda.rug import event
-from akanda.rug.api import neutron
-from akanda.rug.drivers.base import BaseDriver
-from akanda.rug.drivers import states
-from akanda.rug.common.i18n import _LW
+from astara.common.i18n import _
+from astara.api import astara_client
+from astara.api.config import router as configuration
+from astara import event
+from astara.api import neutron
+from astara.drivers.base import BaseDriver
+from astara.drivers import states
+from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class Router(BaseDriver):
     def ports(self):
         """Lists ports associated with the resource.
 
-        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        :returns: A list of astara.api.neutron.Port objects or []
         """
         if self._router:
             return [p for p in self._router.ports]
@@ -158,7 +158,7 @@ class Router(BaseDriver):
         self.log.info(_('Updating config for %s'), self.name)
         start_time = timeutils.utcnow()
 
-        akanda_client.update_config(
+        astara_client.update_config(
             management_address, self.mgt_port, config)
         delta = timeutils.delta_seconds(start_time, timeutils.utcnow())
         self.log.info(_('Config updated for %s after %s seconds'),
@@ -321,7 +321,7 @@ class Router(BaseDriver):
             return states.GONE
         else:
             # NOTE(adam_g): We probably want to map this status back to
-            # an internal akanda status
+            # an internal astara status
             return self._router.status
 
     def synchronize_state(self, worker_context, state):
@@ -346,7 +346,7 @@ class Router(BaseDriver):
 
         :returns: A list of interfaces
         """
-        return akanda_client.get_interfaces(management_address,
+        return astara_client.get_interfaces(management_address,
                                             self.mgt_port)
 
     def is_alive(self, management_address):
@@ -354,4 +354,4 @@ class Router(BaseDriver):
 
         :returns: bool True if alive, False if not
         """
-        return akanda_client.is_alive(management_address, self.mgt_port)
+        return astara_client.is_alive(management_address, self.mgt_port)

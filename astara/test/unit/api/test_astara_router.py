@@ -18,13 +18,13 @@
 import mock
 import unittest2 as unittest
 
-from akanda.rug.api import akanda_client
+from astara.api import astara_client
 
 
-class TestAkandaClient(unittest.TestCase):
+class TestAstaraClient(unittest.TestCase):
     def setUp(self):
         self.mock_create_session = mock.patch.object(
-            akanda_client,
+            astara_client,
             '_get_proxyless_session'
         ).start()
         self.mock_get = self.mock_create_session.return_value.get
@@ -35,14 +35,14 @@ class TestAkandaClient(unittest.TestCase):
 
     def test_mgt_url(self):
         self.assertEqual('http://[fe80::2]:5000/',
-                         akanda_client._mgt_url('fe80::2', 5000, '/'))
+                         astara_client._mgt_url('fe80::2', 5000, '/'))
         self.assertEqual('http://192.168.1.1:5000/',
-                         akanda_client._mgt_url('192.168.1.1', 5000, '/'))
+                         astara_client._mgt_url('192.168.1.1', 5000, '/'))
 
     def test_is_alive_success(self):
         self.mock_get.return_value.status_code = 200
 
-        self.assertTrue(akanda_client.is_alive('fe80::2', 5000))
+        self.assertTrue(astara_client.is_alive('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/rules',
             timeout=3.0
@@ -51,7 +51,7 @@ class TestAkandaClient(unittest.TestCase):
     def test_is_alive_bad_status(self):
         self.mock_get.return_value.status_code = 500
 
-        self.assertFalse(akanda_client.is_alive('fe80::2', 5000))
+        self.assertFalse(astara_client.is_alive('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/rules',
             timeout=3.0
@@ -60,7 +60,7 @@ class TestAkandaClient(unittest.TestCase):
     def test_is_alive_exception(self):
         self.mock_get.side_effect = Exception
 
-        self.assertFalse(akanda_client.is_alive('fe80::2', 5000))
+        self.assertFalse(astara_client.is_alive('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/rules',
             timeout=3.0
@@ -72,7 +72,7 @@ class TestAkandaClient(unittest.TestCase):
             'interfaces': 'the_interfaces'
         }
 
-        self.assertEqual(akanda_client.get_interfaces('fe80::2', 5000),
+        self.assertEqual(astara_client.get_interfaces('fe80::2', 5000),
                          'the_interfaces')
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/interfaces',
@@ -84,7 +84,7 @@ class TestAkandaClient(unittest.TestCase):
         self.mock_put.return_value.status_code = 200
         self.mock_put.return_value.json.return_value = config
 
-        resp = akanda_client.update_config('fe80::2', 5000, config)
+        resp = astara_client.update_config('fe80::2', 5000, config)
 
         self.mock_put.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/config',
@@ -98,9 +98,9 @@ class TestAkandaClient(unittest.TestCase):
         self.mock_put.return_value.status_code = 200
         self.mock_put.return_value.json.return_value = config
 
-        with mock.patch.object(akanda_client.cfg, 'CONF') as cfg:
+        with mock.patch.object(astara_client.cfg, 'CONF') as cfg:
             cfg.config_timeout = 5
-            resp = akanda_client.update_config('fe80::2', 5000, config)
+            resp = astara_client.update_config('fe80::2', 5000, config)
 
             self.mock_put.assert_called_once_with(
                 'http://[fe80::2]:5000/v1/system/config',
@@ -116,7 +116,7 @@ class TestAkandaClient(unittest.TestCase):
         self.mock_put.return_value.text = 'error_text'
 
         with self.assertRaises(Exception):
-            akanda_client.update_config('fe80::2', 5000, config)
+            astara_client.update_config('fe80::2', 5000, config)
 
         self.mock_put.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/config',
@@ -130,7 +130,7 @@ class TestAkandaClient(unittest.TestCase):
         self.mock_post.return_value.json.return_value = {
             'labels': ['label1', 'label2']
         }
-        resp = akanda_client.read_labels('fe80::2', 5000)
+        resp = astara_client.read_labels('fe80::2', 5000)
 
         self.mock_post.assert_called_once_with(
             'http://[fe80::2]:5000/v1/firewall/labels',
