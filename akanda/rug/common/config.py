@@ -90,6 +90,9 @@ def parse_config(argv, default_config_files=DEFAULT_CONFIG_FILES):
     # For legacy compatibility
     default_config_files = map(get_best_config_path, default_config_files)
 
+    # remove default config files that do not exist
+    default_config_files = filter(os.path.isfile, default_config_files)
+
     cfg.CONF(argv,
              project='astara-orchestrator',
              default_config_files=default_config_files)
