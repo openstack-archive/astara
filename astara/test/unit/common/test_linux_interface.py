@@ -37,9 +37,9 @@ import unittest
 import mock
 from oslo_config import cfg
 
-from akanda.rug.common.linux import interface
-from akanda.rug.common.linux import ip_lib
-from akanda.rug.common.linux import utils
+from astara.common.linux import interface
+from astara.common.linux import ip_lib
+from astara.common.linux import utils
 
 
 class BaseChild(interface.LinuxInterfaceDriver):
@@ -180,7 +180,7 @@ class TestOVSInterfaceDriver(TestBase):
     def test_unplug(self, bridge=None):
         if not bridge:
             bridge = 'br-int'
-        with mock.patch('akanda.rug.common.linux.ovs_lib.OVSBridge') as ovs_br:
+        with mock.patch('astara.common.linux.ovs_lib.OVSBridge') as ovs_br:
             ovs = interface.OVSInterfaceDriver(self.conf)
             ovs.unplug('tap0')
             ovs_br.assert_has_calls([mock.call(bridge, 'sudo'),
@@ -231,7 +231,7 @@ class TestBridgeInterfaceDriver(TestBase):
     def test_plug_dev_exists(self):
         self.device_exists.return_value = True
         with mock.patch(
-                'akanda.rug.common.linux.interface.LOG.warning') as log:
+                'astara.common.linux.interface.LOG.warning') as log:
             br = interface.BridgeInterfaceDriver(self.conf)
             br.plug('01234567-1234-1234-99',
                     'port-1234',
@@ -243,7 +243,7 @@ class TestBridgeInterfaceDriver(TestBase):
     def test_unplug_no_device(self):
         self.device_exists.return_value = False
         self.ip_dev().link.delete.side_effect = RuntimeError
-        with mock.patch('akanda.rug.common.linux.interface.LOG') as log:
+        with mock.patch('astara.common.linux.interface.LOG') as log:
             br = interface.BridgeInterfaceDriver(self.conf)
             br.unplug('tap0')
             [mock.call(), mock.call('tap0', 'sudo'), mock.call().link.delete()]
@@ -251,7 +251,7 @@ class TestBridgeInterfaceDriver(TestBase):
 
     def test_unplug(self):
         self.device_exists.return_value = True
-        with mock.patch('akanda.rug.common.linux.interface.LOG.debug') as log:
+        with mock.patch('astara.common.linux.interface.LOG.debug') as log:
             br = interface.BridgeInterfaceDriver(self.conf)
             br.unplug('tap0')
             self.assertEqual(log.call_count, 1)

@@ -22,10 +22,10 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
-from akanda.rug.common.i18n import _LE, _LI
-from akanda.rug import drivers
-from akanda.rug.api import neutron
-from akanda.rug.api import nova
+from astara.common.i18n import _LE, _LI
+from astara import drivers
+from astara.api import neutron
+from astara.api import nova
 
 LOG = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@
 import mock
 import unittest2 as unittest
 
-from akanda.rug.api import akanda_client
+from astara.api import akanda_client
 
 
 class TestAkandaClient(unittest.TestCase):

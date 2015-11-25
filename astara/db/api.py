@@ -22,7 +22,7 @@ from oslo_db import api as db_api
 
 
 _BACKEND_MAPPING = {
-    'sqlalchemy': 'akanda.rug.db.sqlalchemy.api'
+    'sqlalchemy': 'astara.db.sqlalchemy.api'
 }
 
 IMPL = db_api.DBAPI.from_config(

@@ -20,10 +20,10 @@ import uuid
 
 import multiprocessing
 
-from akanda.rug import commands
-from akanda.rug import event
-from akanda.rug import notifications
-from akanda.rug.test.unit import base
+from astara import commands
+from astara import event
+from astara import notifications
+from astara.test.unit import base
 
 
 CTXT = {
@@ -236,7 +236,7 @@ class TestGetCRUD(base.RugTestBase):
         self.assertIs(None, e)
 
     def test_notification_cmd_poll(self):
-        event_type = 'akanda.rug.command'
+        event_type = 'astara.command'
         payload = {'command': commands.POLL}
         self.notifications_endpoint.info(
             ctxt=CTXT,

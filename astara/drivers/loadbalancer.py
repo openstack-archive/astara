@@ -18,14 +18,14 @@ from oslo_log import log as logging
 
 from neutronclient.common import exceptions as q_exceptions
 
-from akanda.rug.common.i18n import _
-from akanda.rug.api import akanda_client
-from akanda.rug.api.config import loadbalancer as config
-from akanda.rug import event
-from akanda.rug.api import neutron
-from akanda.rug.drivers.base import BaseDriver
-from akanda.rug.drivers import states
-from akanda.rug.common.i18n import _LW
+from astara.common.i18n import _
+from astara.api import akanda_client
+from astara.api.config import loadbalancer as config
+from astara import event
+from astara.api import neutron
+from astara.drivers.base import BaseDriver
+from astara.drivers import states
+from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class LoadBalancer(BaseDriver):
     def ports(self):
         """Lists ports associated with the resource.
 
-        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        :returns: A list of astara.api.neutron.Port objects or []
         """
         if self._loadbalancer:
             return [p for p in self._loadbalancer.ports]

@@ -23,9 +23,9 @@ import eventlet
 from oslo_config import cfg
 from oslo_log import log
 
-from akanda.rug import manager
-from akanda.rug.openstack.common.rpc import service as rpc_service
-from akanda.rug.openstack.common import service
+from astara import manager
+from astara.openstack.common.rpc import service as rpc_service
+from astara.openstack.common import service
 
 
 L3_AGENT_TOPIC = 'l3_agent'

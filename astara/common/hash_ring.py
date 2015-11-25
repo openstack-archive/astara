@@ -22,7 +22,7 @@ import threading
 from oslo_config import cfg
 import six
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 hash_opts = [
     cfg.IntOpt('hash_partition_exponent',

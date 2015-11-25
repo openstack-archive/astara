@@ -18,12 +18,11 @@
 from datetime import datetime, timedelta
 
 import mock
-
-from six.moves import builtins as __builtins__
-from akanda.rug.api import nova
-from akanda.rug.test.unit import base
-
 from novaclient import exceptions as novaclient_exceptions
+from six.moves import builtins as __builtins__
+
+from astara.api import nova
+from astara.test.unit import base
 
 
 class FakeNovaServer(object):
@@ -412,7 +411,7 @@ class TestPezInstanceProvider(base.RugTestBase):
         self.nova_client_cls = patch.start()
         self.nova_client_cls.return_value = self.nova_client
 
-        patch = mock.patch('akanda.rug.pez.rpcapi.AkandaPezAPI')
+        patch = mock.patch('astara.pez.rpcapi.AkandaPezAPI')
         self.rpc_client = mock.Mock()
         self.rpc_client_cls = patch.start()
         self.rpc_client_cls.return_value = self.rpc_client

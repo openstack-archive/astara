@@ -21,16 +21,13 @@ from alembic import config as alembic_config
 import alembic.migration as alembic_migration
 from oslo_db import exception as db_exc
 
-from akanda.rug.db.sqlalchemy import api as sqla_api
-from akanda.rug.db.sqlalchemy import models
+from astara.db.sqlalchemy import api as sqla_api
+from astara.db.sqlalchemy import models
 
 
 def _alembic_config():
 
     path = os.path.join(os.path.dirname(__file__), 'alembic.ini')
-    # TODO(markmcclain): remove next 2 lines once the transition is complete
-    if not os.path.isfile(path) and 'akanda' in path:
-        path = path.replace('akanda/rug', 'astara')
     config = alembic_config.Config(path)
     return config
 

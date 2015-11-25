@@ -15,8 +15,8 @@
 
 import mock
 
-from akanda.rug.common import config
-from akanda.rug.test.unit import base
+from astara.common import config
+from astara.test.unit import base
 
 
 class TestConfig(base.RugTestBase):

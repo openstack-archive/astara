@@ -166,7 +166,7 @@ class BaseDriver(object):
     def ports(self):
         """Lists ports associated with the resource.
 
-        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        :returns: A list of astara.api.neutron.Port objects or []
         """
 
     def get_interfaces(self, management_address):

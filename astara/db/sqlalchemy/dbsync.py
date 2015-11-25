@@ -21,7 +21,7 @@ from alembic import config as alembic_config
 from alembic import util as alembic_util
 from oslo_config import cfg
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 
 _db_opts = [
@@ -90,11 +90,7 @@ CONF.register_cli_opt(command_opt)
 
 
 def get_alembic_config():
-    # TODO(markmcclain): remove next 3 lines after the transition is complete
-    filename = __file__
-    if not os.path.isfile(filename) and 'akanda' in filename:
-        filename = filename.replace('akanda/rug', 'astara')
-    config = alembic_config.Config(os.path.join(os.path.dirname(filename),
+    config = alembic_config.Config(os.path.join(os.path.dirname(__file__),
                                                 'alembic.ini'))
     return config
 

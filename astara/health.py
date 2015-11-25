@@ -23,7 +23,7 @@ import time
 
 from oslo_config import cfg
 
-from akanda.rug import event
+from astara import event
 
 from oslo_log import log as logging
 

@@ -21,8 +21,8 @@ try:
 except ImportError:
     pass
 
-from akanda.rug.db.sqlalchemy import api as sqla_api
-from akanda.rug.db.sqlalchemy import models
+from astara.db.sqlalchemy import api as sqla_api
+from astara.db.sqlalchemy import models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

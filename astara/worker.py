@@ -28,16 +28,16 @@ from logging import INFO
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from akanda.rug import commands
-from akanda.rug import drivers
-from akanda.rug.common.i18n import _LE, _LI, _LW
-from akanda.rug import event
-from akanda.rug import tenant
-from akanda.rug.common import hash_ring
-from akanda.rug.api import nova
-from akanda.rug.api import neutron
-from akanda.rug.db import api as db_api
-from akanda.rug import populate
+from astara import commands
+from astara import drivers
+from astara.common.i18n import _LE, _LI, _LW
+from astara import event
+from astara import tenant
+from astara.common import hash_ring
+from astara.api import nova
+from astara.api import neutron
+from astara.db import api as db_api
+from astara import populate
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF

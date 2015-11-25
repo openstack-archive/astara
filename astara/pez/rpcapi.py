@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from akanda.rug.common import rpc
+from astara.common import rpc
 
 from oslo_context import context
 
@@ -34,7 +34,7 @@ class AkandaPezAPI(object):
         attach any required instance ports during the reservation process.
         The dict returned here should be enough for the caller to construct
         a InstanceInfo object.  Note that the port information are serialized
-        akanda.rug.api.neutron.Port objects that can be deserialized by the
+        astara.api.neutron.Port objects that can be deserialized by the
         caller during creation of InstanceInfo.
 
         :param resource_type: The str name of the driver that manages the

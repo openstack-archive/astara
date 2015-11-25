@@ -21,9 +21,9 @@ from oslo_config import cfg
 import unittest2 as unittest
 from six.moves import builtins as __builtins__
 
-from akanda.rug.api.config import router as conf_mod
+from astara.api.config import router as conf_mod
 
-from akanda.rug.test.unit.api.config import config_fakes as fakes
+from astara.test.unit.api.config import config_fakes as fakes
 
 
 class TestAkandaClient(unittest.TestCase):
@@ -110,7 +110,7 @@ class TestAkandaClient(unittest.TestCase):
         res = conf_mod.load_provider_rules('/tmp/path')
         self.assertEqual(res, {})
 
-    @mock.patch('akanda.rug.api.config.common.network_config')
+    @mock.patch('astara.api.config.common.network_config')
     def test_generate_network_config(self, mock_net_conf):
         mock_client = mock.Mock()
 

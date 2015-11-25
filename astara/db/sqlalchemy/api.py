@@ -22,8 +22,8 @@ from oslo_db import exception as db_exc
 from oslo_db.sqlalchemy import session as db_session
 from oslo_log import log
 
-from akanda.rug.db import api
-from akanda.rug.db.sqlalchemy import models
+from astara.db import api
+from astara.db.sqlalchemy import models
 
 CONF = cfg.CONF
 LOG = log.getLogger(__name__)

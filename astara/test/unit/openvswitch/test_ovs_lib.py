@@ -36,7 +36,7 @@ import unittest
 import uuid
 import mox
 
-from akanda.rug.common.linux import ovs_lib, utils
+from astara.common.linux import ovs_lib, utils
 
 
 def generate_uuid():

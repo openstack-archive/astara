@@ -15,14 +15,13 @@
 # under the License.
 
 
-import mock
 import uuid
 
+import mock
+from oslo_config import cfg
 import unittest2 as unittest
 
-from oslo_config import cfg
-
-from akanda.rug import scheduler
+from astara import scheduler
 
 
 class TestScheduler(unittest.TestCase):

@@ -35,14 +35,14 @@ except ImportError:
 
 from oslo_config import cfg
 
-from akanda.rug import commands
-from akanda.rug.api import nova as nova_api
-from akanda.rug.api import neutron as neutron_api
-from akanda.rug.cli import message
+from astara import commands
+from astara.api import nova as nova_api
+from astara.api import neutron as neutron_api
+from astara.cli import message
 
 logging.getLogger("urllib3").setLevel(logging.ERROR)
 
-cfg.CONF.import_opt('host', 'akanda.rug.main')
+cfg.CONF.import_opt('host', 'astara.main')
 
 
 class FakeConfig(object):

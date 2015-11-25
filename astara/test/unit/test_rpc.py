@@ -15,17 +15,14 @@
 # under the License.
 
 import mock
-import testtools
-
-from akanda.rug.common import rpc
-
-from akanda.rug import main  # noqa
-from akanda.rug import notifications  # noqa
-
 from oslo_config import cfg
 from oslo_config import fixture as config_fixture
-
 import oslo_messaging
+import testtools
+
+from astara.common import rpc
+from astara import main  # noqa
+from astara import notifications  # noqa
 
 
 class TestRPC(testtools.TestCase):

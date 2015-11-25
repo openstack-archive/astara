@@ -1,5 +1,5 @@
 
-from akanda.rug.test.functional import base
+from astara.test.functional import base
 
 
 class AkandaApplianceInstanceTest(base.AkandaFunctionalBase):

@@ -17,11 +17,11 @@
 import logging
 import sys
 
-from akanda.rug.common.i18n import _LI
-from akanda.rug.common import config as ak_cfg
+from astara.common.i18n import _LI
+from astara.common import config as ak_cfg
 
-from akanda.rug.common import rpc
-from akanda.rug.pez import manager
+from astara.common import rpc
+from astara.pez import manager
 
 from oslo_config import cfg
 from oslo_log import log
