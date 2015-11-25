@@ -26,7 +26,11 @@ from akanda.rug.db.sqlalchemy import models
 
 
 def _alembic_config():
+
     path = os.path.join(os.path.dirname(__file__), 'alembic.ini')
+    # TODO(markmcclain): remove next 2 lines once the transition is complete
+    if not os.path.isfile(path) and 'akanda' in path:
+        path = path.replace('akanda/rug', 'astara')
     config = alembic_config.Config(path)
     return config
 

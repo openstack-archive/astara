@@ -90,7 +90,11 @@ CONF.register_cli_opt(command_opt)
 
 
 def get_alembic_config():
-    config = alembic_config.Config(os.path.join(os.path.dirname(__file__),
+    # TODO(markmcclain): remove next 3 lines after the transition is complete
+    filename = __file__
+    if not os.path.isfile(filename) and 'akanda' in filename:
+        filename = filename.replace('akanda/rug', 'astara')
+    config = alembic_config.Config(os.path.join(os.path.dirname(filename),
                                                 'alembic.ini'))
     return config
 
