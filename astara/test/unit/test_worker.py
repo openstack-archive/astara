@@ -18,21 +18,19 @@
 import threading
 
 import mock
-
+from oslo_config import cfg
 import unittest2 as unittest
 
-from oslo_config import cfg
+from astara import commands
+from astara import event
+from astara import notifications
+from astara.api import neutron
+from astara.drivers import router
+from astara import worker
 
-from akanda.rug import commands
-from akanda.rug import event
-from akanda.rug import notifications
-from akanda.rug.api import neutron
-from akanda.rug.drivers import router
-from akanda.rug import worker
+from astara.common.hash_ring import DC_KEY
 
-from akanda.rug.common.hash_ring import DC_KEY
-
-from akanda.rug.test.unit.db import base
+from astara.test.unit.db import base
 
 
 class FakeFetchedResource(object):
@@ -51,7 +49,7 @@ class WorkerTestBase(base.DbTestCase):
         cfg.CONF.management_prefix = 'fdca:3ba5:a17a:acda::/64'
         cfg.CONF.num_worker_threads = 0
 
-        self.fake_nova = mock.patch('akanda.rug.worker.nova').start()
+        self.fake_nova = mock.patch('astara.worker.nova').start()
         fake_neutron_obj = mock.patch.object(
             neutron, 'Neutron', autospec=True).start()
         fake_neutron_obj.get_ports_for_instance.return_value = (
@@ -135,7 +133,7 @@ class TestWorker(WorkerTestBase):
         self.assertFalse(
             self.w._should_process_message(self.target, self.msg))
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_no_router_id(self, fake_hash):
         fake_ring_manager = fake_hash.HashRingManager()
         fake_ring_manager.ring.get_hosts.return_value = [self.w.host]
@@ -180,8 +178,8 @@ class TestWorker(WorkerTestBase):
         )
         self.assertFalse(self.w._should_process_message(self.target, msg))
 
-    @mock.patch('akanda.rug.worker.Worker._deliver_message')
-    @mock.patch('akanda.rug.worker.Worker._should_process_message')
+    @mock.patch('astara.worker.Worker._deliver_message')
+    @mock.patch('astara.worker.Worker._should_process_message')
     def test_handle_message_should_process(self, fake_should_process,
                                            fake_deliver):
         # ensure we plumb through the return of should_process to
@@ -198,8 +196,8 @@ class TestWorker(WorkerTestBase):
         fake_deliver.assert_called_with(self.target, new_msg)
         fake_should_process.assert_called_with(self.target, self.msg)
 
-    @mock.patch('akanda.rug.worker.Worker._deliver_message')
-    @mock.patch('akanda.rug.worker.Worker._should_process_message')
+    @mock.patch('astara.worker.Worker._deliver_message')
+    @mock.patch('astara.worker.Worker._should_process_message')
     def test_handle_message_should_not_process(self, fake_should_process,
                                                fake_deliver):
         fake_should_process.return_value = False
@@ -207,7 +205,7 @@ class TestWorker(WorkerTestBase):
         self.assertFalse(fake_deliver.called)
         fake_should_process.assert_called_with(self.target, self.msg)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_message_does_not_hash(self, fake_hash):
         fake_ring_manager = fake_hash.HashRingManager()
         fake_ring_manager.ring.get_hosts.return_value = ['not_this_host']
@@ -216,7 +214,7 @@ class TestWorker(WorkerTestBase):
             self.w._should_process_message(self.target, self.msg))
         fake_ring_manager.ring.get_hosts.assert_called_with(self.router_id)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_message_wildcard_true(self, fake_hash):
         fake_ring_manager = fake_hash.HashRingManager()
         fake_ring_manager.ring.get_hosts.return_value = ['not_this_host']
@@ -225,7 +223,7 @@ class TestWorker(WorkerTestBase):
             self.w._should_process_message('*', self.msg))
         self.assertFalse(fake_ring_manager.ring.called)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_message_true(self, fake_hash):
         fake_ring_manager = fake_hash.HashRingManager()
         fake_ring_manager.ring.get_hosts.return_value = [self.w.host]
@@ -285,50 +283,50 @@ class TestWorker(WorkerTestBase):
                 fake_ring_manager.ring.get_hosts.assert_called_with(
                     msg.body[key])
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_resources(self, fake_hash):
         cmds = worker.EVENT_COMMANDS
         self._test__should_process_command(
             fake_hash, cmds=cmds, key='resource_id', negative=False)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_resources_negative(self, fake_hash):
         cmds = [commands.RESOURCE_DEBUG, commands.RESOURCE_MANAGE]
         self._test__should_process_command(
             fake_hash, cmds=cmds, key='resource_id', negative=True)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_routers(self, fake_hash):
         cmds = [commands.ROUTER_DEBUG, commands.ROUTER_MANAGE]
         self._test__should_process_command(
             fake_hash, cmds=cmds, key='router_id', negative=False)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_routers_negative(self, fake_hash):
         cmds = [commands.ROUTER_DEBUG, commands.ROUTER_MANAGE]
         self._test__should_process_command(
             fake_hash, cmds=cmds, key='router_id', negative=True)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_tenants(self, fake_hash):
         cmds = [commands.TENANT_DEBUG, commands.TENANT_MANAGE]
         self._test__should_process_command(
             fake_hash, cmds=cmds, key='tenant_id', negative=False)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_tenants_negative(self, fake_hash):
         cmds = [commands.TENANT_DEBUG, commands.TENANT_MANAGE]
         self._test__should_process_command(
             fake_hash, cmds=cmds, key='tenant_id', negative=True)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_global_debug(self, fake_hash):
         fake_hash.DC_KEY = DC_KEY
         cmds = [commands.GLOBAL_DEBUG]
         self._test__should_process_command(
             fake_hash, cmds=cmds, key=DC_KEY, negative=False)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_command_global_debug_negative(self, fake_hash):
         fake_hash.DC_KEY = DC_KEY
         cmds = [commands.GLOBAL_DEBUG]
@@ -518,11 +516,11 @@ class TestUpdateStateMachine(WorkerTestBase):
             else:
                 self.assertFalse(meth.called)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test_host_mapped(self, fake_hash):
         self._test(fake_hash)
 
-    @mock.patch('akanda.rug.worker.hash_ring', autospec=True)
+    @mock.patch('astara.worker.hash_ring', autospec=True)
     def test_host_not_mapped(self, fake_hash):
         self._test(fake_hash, negative=True)
 
@@ -538,7 +536,7 @@ class TestReportStatus(WorkerTestBase):
             meth.assert_called_once_with()
 
     def test_handle_message_report_status(self):
-        with mock.patch('akanda.rug.worker.cfg.CONF') as conf:
+        with mock.patch('astara.worker.cfg.CONF') as conf:
             self.w.handle_message(
                 'debug',
                 event.Event('*', event.COMMAND,

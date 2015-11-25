@@ -34,12 +34,12 @@ import uuid
 
 from oslo_config import cfg
 
-from akanda.rug.common.i18n import _, _LE
-from akanda.rug.openstack.common import context
-from akanda.rug.openstack.common import importutils
-from akanda.rug.openstack.common import jsonutils
-from akanda.rug.openstack.common import log as logging
-from akanda.rug.openstack.common import timeutils
+from astara.common.i18n import _, _LE
+from astara.openstack.common import context
+from astara.openstack.common import importutils
+from astara.openstack.common import jsonutils
+from astara.openstack.common import log as logging
+from astara.openstack.common import timeutils
 
 
 LOG = logging.getLogger(__name__)

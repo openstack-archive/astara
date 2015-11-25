@@ -20,17 +20,17 @@ import socket
 import mock
 import testtools
 
-from akanda.rug import main
-from akanda.rug import notifications as ak_notifications
-from akanda.rug.test.unit import base
+from astara import main
+from astara import notifications as ak_notifications
+from astara.test.unit import base
 
 
-@mock.patch('akanda.rug.main.neutron_api')
-@mock.patch('akanda.rug.main.multiprocessing')
-@mock.patch('akanda.rug.main.notifications')
-@mock.patch('akanda.rug.main.scheduler')
-@mock.patch('akanda.rug.main.populate')
-@mock.patch('akanda.rug.main.health')
+@mock.patch('astara.main.neutron_api')
+@mock.patch('astara.main.multiprocessing')
+@mock.patch('astara.main.notifications')
+@mock.patch('astara.main.scheduler')
+@mock.patch('astara.main.populate')
+@mock.patch('astara.main.health')
 class TestMainPippo(base.RugTestBase):
     def test_shuffle_notifications(self, health, populate, scheduler,
                                    notifications, multiprocessing,
@@ -62,7 +62,7 @@ class TestMainPippo(base.RugTestBase):
             '9306bbd8-f3cc-11e2-bd68-080027e60b25', 'message'
         )
 
-    @mock.patch('akanda.rug.main.shuffle_notifications')
+    @mock.patch('astara.main.shuffle_notifications')
     def test_ensure_local_service_port(self, shuffle_notifications, health,
                                        populate, scheduler, notifications,
                                        multiprocessing, neutron_api):
@@ -70,7 +70,7 @@ class TestMainPippo(base.RugTestBase):
         neutron = neutron_api.Neutron.return_value
         neutron.ensure_local_service_port.assert_called_once_with()
 
-    @mock.patch('akanda.rug.main.shuffle_notifications')
+    @mock.patch('astara.main.shuffle_notifications')
     def test_ceilometer_disabled(self, shuffle_notifications, health,
                                  populate, scheduler, notifications,
                                  multiprocessing, neutron_api):
@@ -82,7 +82,7 @@ class TestMainPippo(base.RugTestBase):
         self.assertEqual(len(notifications.Publisher.mock_calls), 0)
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 2)
 
-    @mock.patch('akanda.rug.main.shuffle_notifications')
+    @mock.patch('astara.main.shuffle_notifications')
     def test_ceilometer_enabled(self, shuffle_notifications, health,
                                 populate, scheduler, notifications,
                                 multiprocessing, neutron_api):
@@ -95,15 +95,15 @@ class TestMainPippo(base.RugTestBase):
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 0)
 
 
-@mock.patch('akanda.rug.api.neutron.importutils')
-@mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
-@mock.patch('akanda.rug.main.multiprocessing')
-@mock.patch('akanda.rug.main.notifications')
-@mock.patch('akanda.rug.main.scheduler')
-@mock.patch('akanda.rug.main.populate')
-@mock.patch('akanda.rug.main.health')
-@mock.patch('akanda.rug.main.shuffle_notifications')
-@mock.patch('akanda.rug.api.neutron.get_local_service_ip')
+@mock.patch('astara.api.neutron.importutils')
+@mock.patch('astara.api.neutron.AkandaExtClientWrapper')
+@mock.patch('astara.main.multiprocessing')
+@mock.patch('astara.main.notifications')
+@mock.patch('astara.main.scheduler')
+@mock.patch('astara.main.populate')
+@mock.patch('astara.main.health')
+@mock.patch('astara.main.shuffle_notifications')
+@mock.patch('astara.api.neutron.get_local_service_ip')
 class TestMainExtPortBinding(base.RugTestBase):
 
     @testtools.skipIf(

@@ -19,7 +19,7 @@
 SQLAlchemy models for baremetal data.
 """
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 from oslo_config import cfg
 from oslo_db import options as db_options
@@ -64,7 +64,7 @@ class AkandaBase(models.TimestampMixin,
         return d
 
     def save(self, session=None):
-        import akanda.rug.db.sqlalchemy.api as db_api
+        import astara.db.sqlalchemy.api as db_api
 
         if session is None:
             session = db_api.get_session()

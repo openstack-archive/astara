@@ -16,7 +16,7 @@
 
 from oslo_log import log as logging
 
-from akanda.rug.api.config import common
+from astara.api.config import common
 
 LOG = logging.getLogger(__name__)
 

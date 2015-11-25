@@ -31,10 +31,10 @@ from oslo_context import context
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from akanda.rug.common.i18n import _, _LI, _LW
-from akanda.rug.common.linux import ip_lib
-from akanda.rug.api import keystone
-from akanda.rug.common import rpc
+from astara.common.i18n import _, _LI, _LW
+from astara.common.linux import ip_lib
+from astara.api import keystone
+from astara.common import rpc
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF

@@ -17,9 +17,9 @@
 
 """Commands related to routers.
 """
-from akanda.rug.api import nova
-from akanda.rug.cli import message
-from akanda.rug import commands
+from astara.api import nova
+from astara.cli import message
+from astara import commands
 
 from novaclient import exceptions
 from oslo_config import cfg

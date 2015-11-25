@@ -68,7 +68,7 @@ This module provides Manager, a base class for managers.
 
 """
 
-from akanda.rug.openstack.common import periodic_task
+from astara.openstack.common import periodic_task
 
 
 class Manager(periodic_task.PeriodicTasks):

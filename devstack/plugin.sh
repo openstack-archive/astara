@@ -78,7 +78,7 @@ function configure_astara() {
     iniset $ASTARA_CONF DEFAULT rug_api_port $ASTARA_API_PORT
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
-        iniset $ASTARA_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
+        iniset $ASTARA_CONF DEFAULT interface_driver "astara.common.linux.interface.BridgeInterfaceDriver"
     fi
 
     iniset $ASTARA_CONF DEFAULT ssh_public_key $ASTARA_APPLIANCE_SSH_PUBLIC_KEY

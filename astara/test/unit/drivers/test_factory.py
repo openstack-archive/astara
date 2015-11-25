@@ -12,9 +12,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from akanda.rug.test.unit import base
+from astara.test.unit import base
 
-from akanda.rug import drivers
+from astara import drivers
 
 
 class DriverFactoryTest(base.RugTestBase):

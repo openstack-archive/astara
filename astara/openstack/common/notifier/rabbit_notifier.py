@@ -31,9 +31,9 @@
 #    under the License.
 
 
-from akanda.rug.common.i18n import _
-from akanda.rug.openstack.common import log as logging
-from akanda.rug.openstack.common.notifier import rpc_notifier
+from astara.common.i18n import _
+from astara.openstack.common import log as logging
+from astara.openstack.common.notifier import rpc_notifier
 
 LOG = logging.getLogger(__name__)
 

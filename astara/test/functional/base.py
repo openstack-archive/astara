@@ -5,7 +5,7 @@ import os
 import testtools
 import time
 
-from akanda.rug.api import akanda_client
+from astara.api import akanda_client
 
 from novaclient.v1_1 import client as _novaclient
 from neutronclient.v2_0 import client as _neutronclient

@@ -14,7 +14,7 @@
 
 import netaddr
 
-from akanda.rug.api.neutron import Subnet
+from astara.api.neutron import Subnet
 
 
 class FakeModel(object):

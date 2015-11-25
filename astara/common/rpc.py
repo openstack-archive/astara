@@ -21,7 +21,7 @@ from oslo_log import log as logging
 from oslo_config import cfg
 import oslo_messaging
 
-from akanda.rug.common.i18n import _LW
+from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

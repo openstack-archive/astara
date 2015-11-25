@@ -14,9 +14,9 @@
 
 import mock
 
-from akanda.rug import event
-from akanda.rug import health
-from akanda.rug.test.unit import base
+from astara import event
+from astara import health
+from astara.test.unit import base
 
 
 class BreakLoop(Exception):

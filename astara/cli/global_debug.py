@@ -19,8 +19,8 @@
 """
 import logging
 
-from akanda.rug import commands
-from akanda.rug.cli import message
+from astara import commands
+from astara.cli import message
 
 
 class GlobalDebug(message.MessageSending):
