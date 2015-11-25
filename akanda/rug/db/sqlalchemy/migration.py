@@ -26,7 +26,13 @@ from akanda.rug.db.sqlalchemy import models
 
 
 def _alembic_config():
-    path = os.path.join(os.path.dirname(__file__), 'alembic.ini')
+    # TODO(markmcclain): remove next 5 lines once the transition is complete
+    try:
+        from astara.db import sqlalchemy as preferred_sql
+    except ImportError:
+        from akanda.rug.db import sqlalchemy as preferred_sql
+
+    path = os.path.join(os.path.dirname(preferred_sql.__file__), 'alembic.ini')
     config = alembic_config.Config(path)
     return config
 

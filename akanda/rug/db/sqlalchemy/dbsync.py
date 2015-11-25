@@ -90,7 +90,14 @@ CONF.register_cli_opt(command_opt)
 
 
 def get_alembic_config():
-    config = alembic_config.Config(os.path.join(os.path.dirname(__file__),
+   # TODO(markmcclain): remove next 5 lines once the transition is complete
+    try:
+        from astara.db import sqlalchemy as preferred_sql
+    except ImportError:
+        from akanda.rug.db import sqlalchemy as preferred_sql
+
+    filename = preferred_sql.__file__
+    config = alembic_config.Config(os.path.join(os.path.dirname(filename),
                                                 'alembic.ini'))
     return config
 
