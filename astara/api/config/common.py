@@ -73,7 +73,7 @@ def _allocation_config(ports, subnets_dict):
     allocations = []
 
     for port in ports:
-        if port.name.startswith('AKANDA:VRRP:'):
+        if port.name.startswith('ASTARA:VRRP:'):
             continue
 
         addrs = {

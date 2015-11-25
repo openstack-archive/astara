@@ -45,7 +45,7 @@ import sys
 
 from setuptools.command import sdist
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 
 def parse_mailmap(mailmap='.mailmap'):

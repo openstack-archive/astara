@@ -20,8 +20,8 @@ import copy
 import mock
 import netaddr
 
-from akanda.rug.test.unit import base
-from akanda.rug.api import neutron
+from astara.test.unit import base
+from astara.api import neutron
 
 
 class TestuNeutronModels(base.RugTestBase):
@@ -244,9 +244,9 @@ class FakeConf:
 
 
 class TestNeutronWrapper(base.RugTestBase):
-    @mock.patch('akanda.rug.api.neutron.cfg')
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
-    @mock.patch('akanda.rug.api.neutron.importutils')
+    @mock.patch('astara.api.neutron.cfg')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
+    @mock.patch('astara.api.neutron.importutils')
     def test_purge_management_interface(self, import_utils, ak_wrapper, cfg):
         conf = mock.Mock()
         driver = mock.Mock()
@@ -265,7 +265,7 @@ class TestNeutronWrapper(base.RugTestBase):
             'PORT1', {'port': {'device_id': ''}}
         )
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_neutron_router_status_update_error(self, client_wrapper):
         urs = client_wrapper.return_value.update_status
         urs.side_effect = RuntimeError('should be caught')
@@ -273,14 +273,14 @@ class TestNeutronWrapper(base.RugTestBase):
         neutron_wrapper = neutron.Neutron(conf)
         neutron_wrapper.update_router_status('router-id', 'new-status')
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def _test_create_vrrp_port_success_hlpr(self, ext_enabled, client_wrapper):
         conf = mock.Mock()
         conf.neutron_port_security_extension_enabled = ext_enabled
 
         expected_port_data = {
             'port': {
-                'name': 'AKANDA:VRRP:obj_id',
+                'name': 'ASTARA:VRRP:obj_id',
                 'admin_state_up': True,
                 'network_id': 'the_net_id',
                 'fixed_ips': [],
@@ -314,7 +314,7 @@ class TestNeutronWrapper(base.RugTestBase):
     def test_create_vrrp_port_success_port_security_disabled(self):
         self._test_create_vrrp_port_success_hlpr(False)
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_create_vrrp_port_error(self, client_wrapper):
         neutron_wrapper = neutron.Neutron(mock.Mock())
         api_client = neutron_wrapper.api_client
@@ -327,7 +327,7 @@ class TestNeutronWrapper(base.RugTestBase):
                 'the_net_id'
             )
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_delete_vrrp_ports(self, client_wrapper):
         conf = mock.Mock()
         neutron_wrapper = neutron.Neutron(conf)
@@ -339,12 +339,12 @@ class TestNeutronWrapper(base.RugTestBase):
         neutron_wrapper.api_client.delete_port = mock.Mock()
         neutron_wrapper.delete_vrrp_port(object_id='foo')
         neutron_wrapper.api_client.list_ports.assert_called_with(
-            name='AKANDA:VRRP:foo'
+            name='ASTARA:VRRP:foo'
         )
         neutron_wrapper.api_client.delete_port.assert_called_with(
             'fake_port_id')
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_delete_vrrp_ports_not_found(self, client_wrapper):
         conf = mock.Mock()
         neutron_wrapper = neutron.Neutron(conf)
@@ -354,7 +354,7 @@ class TestNeutronWrapper(base.RugTestBase):
         neutron_wrapper.api_client.delete_port = mock.Mock()
         neutron_wrapper.delete_vrrp_port(object_id='foo')
         neutron_wrapper.api_client.list_ports.assert_called_with(
-            name='AKANDA:VRRP:foo'
+            name='ASTARA:VRRP:foo'
         )
         self.assertFalse(neutron_wrapper.api_client.delete_port.called)
 
@@ -453,7 +453,7 @@ class TestExternalPort(base.RugTestBase):
         self.conf.external_network_id = self.EXTERNAL_NET_ID
         self.router = neutron.Router.from_dict(self.ROUTER)
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_create(self, client_wrapper):
         mock_client = mock.Mock()
         mock_client.show_router.return_value = {'router': self.ROUTER}
@@ -467,7 +467,7 @@ class TestExternalPort(base.RugTestBase):
             port = neutron_wrapper.create_router_external_port(self.router)
             self.assertEqual(port.id, self.EXTERNAL_PORT_ID)
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_create_missing_gateway_port(self, client_wrapper):
         self.conf.retry_delay = 0
         mock_client = mock.Mock()
@@ -486,7 +486,7 @@ class TestExternalPort(base.RugTestBase):
                 self.router
             )
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_missing_v4(self, client_wrapper):
         mock_client = mock.Mock()
 
@@ -509,7 +509,7 @@ class TestExternalPort(base.RugTestBase):
             else:
                 self.fail('Should have seen MissingIPAllocation')
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_missing_v6(self, client_wrapper):
         mock_client = mock.Mock()
 
@@ -532,7 +532,7 @@ class TestExternalPort(base.RugTestBase):
             else:
                 self.fail('Should have seen MissingIPAllocation')
 
-    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    @mock.patch('astara.api.neutron.AstaraExtClientWrapper')
     def test_missing_both(self, client_wrapper):
         mock_client = mock.Mock()
 

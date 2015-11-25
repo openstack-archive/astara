@@ -13,7 +13,7 @@ ASTARA_APPLIANCE_BRANCH=${ASTARA_APPLIANCE_BRANCH:-master}
 
 BUILD_ASTARA_APPLIANCE_IMAGE=${BUILD_ASTARA_APPLIANCE_IMAGE:-False}
 ASTARA_DEV_APPLIANCE_URL=${ASTARA_DEV_APPLIANCE_URL:-http://tarballs.openstack.org/akanda-appliance/images/akanda_appliance.qcow2}
-ASTARA_DEV_APPLIANCE_FILE=${ASTARA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
+ASTARA_DEV_APPLIANCE_FILE=${ASTARA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/astara.qcow2}
 ASTARA_DEV_APPLIANCE_BUILD_PROXY=${ASTARA_DEV_APPLIANCE_BUILD_PROXY:-""}
 ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
 
@@ -38,7 +38,7 @@ ASTARA_API_PORT=${ASTARA_API_PORT:-44250}
 
 HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
-# Path to public ssh key that will be added to the 'akanda' users authorized_keys
+# Path to public ssh key that will be added to the 'astara' users authorized_keys
 # within the appliance VM.
 ASTARA_APPLIANCE_SSH_PUBLIC_KEY=${ASTARA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
 
@@ -78,7 +78,7 @@ function configure_astara() {
     iniset $ASTARA_CONF DEFAULT rug_api_port $ASTARA_API_PORT
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
-        iniset $ASTARA_CONF DEFAULT interface_driver "akanda.rug.common.linux.interface.BridgeInterfaceDriver"
+        iniset $ASTARA_CONF DEFAULT interface_driver "astara.common.linux.interface.BridgeInterfaceDriver"
     fi
 
     iniset $ASTARA_CONF DEFAULT ssh_public_key $ASTARA_APPLIANCE_SSH_PUBLIC_KEY

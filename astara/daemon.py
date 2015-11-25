@@ -22,7 +22,7 @@ import signal
 
 from oslo_log import log as logging
 
-from akanda.rug.common.i18n import _LI
+from astara.common.i18n import _LI
 
 
 def ignore_signals():

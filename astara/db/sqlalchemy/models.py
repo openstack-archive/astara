@@ -19,7 +19,7 @@
 SQLAlchemy models for baremetal data.
 """
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 from oslo_config import cfg
 from oslo_db import options as db_options
@@ -37,7 +37,7 @@ sql_opts = [
                help=_('MySQL engine to use.'))
 ]
 
-_DEFAULT_SQL_CONNECTION = 'sqlite:///akanda-rug.db'
+_DEFAULT_SQL_CONNECTION = 'sqlite:///astara.db'
 
 
 cfg.CONF.register_opts(sql_opts, 'database')
@@ -52,7 +52,7 @@ def table_args():
     return None
 
 
-class AkandaBase(models.TimestampMixin,
+class AstaraBase(models.TimestampMixin,
                  models.ModelBase):
 
     metadata = None
@@ -64,14 +64,14 @@ class AkandaBase(models.TimestampMixin,
         return d
 
     def save(self, session=None):
-        import akanda.rug.db.sqlalchemy.api as db_api
+        import astara.db.sqlalchemy.api as db_api
 
         if session is None:
             session = db_api.get_session()
 
-        super(AkandaBase, self).save(session)
+        super(AstaraBase, self).save(session)
 
-Base = declarative_base(cls=AkandaBase)
+Base = declarative_base(cls=AstaraBase)
 
 
 class ResourceDebug(Base):

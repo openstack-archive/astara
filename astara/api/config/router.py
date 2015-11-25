@@ -21,8 +21,8 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-from akanda.rug.common.i18n import _LI, _LW
-from akanda.rug.api.config import common
+from astara.common.i18n import _LI, _LW
+from astara.api.config import common
 
 LOG = logging.getLogger(__name__)
 

@@ -31,10 +31,10 @@ from oslo_context import context
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from akanda.rug.common.i18n import _, _LI, _LW
-from akanda.rug.common.linux import ip_lib
-from akanda.rug.api import keystone
-from akanda.rug.common import rpc
+from astara.common.i18n import _, _LI, _LW
+from astara.common.linux import ip_lib
+from astara.api import keystone
+from astara.common import rpc
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -47,7 +47,7 @@ neutron_opts = [
     cfg.StrOpt('external_subnet_id'),
     cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
     cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
-    cfg.IntOpt('akanda_mgt_service_port', default=5000),
+    cfg.IntOpt('astara_mgt_service_port', default=5000),
     cfg.StrOpt('default_instance_flavor', default=1),
     cfg.StrOpt('interface_driver'),
     cfg.BoolOpt('neutron_port_security_extension_enabled', default=True),
@@ -61,7 +61,7 @@ DEVICE_OWNER_ROUTER_MGT = "network:router_management"
 DEVICE_OWNER_ROUTER_INT = "network:router_interface"
 DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
-DEVICE_OWNER_RUG = "network:akanda"
+DEVICE_OWNER_RUG = "network:astara"
 
 PLUGIN_ROUTER_RPC_TOPIC = 'q-l3-plugin'
 
@@ -461,8 +461,8 @@ class Member(DictModelBase):
         )
 
 
-class AkandaExtClientWrapper(client.Client):
-    """Add client support for Akanda Extensions. """
+class AstaraExtClientWrapper(client.Client):
+    """Add client support for Astara Extensions. """
 
     routerstatus_path = '/dhrouterstatus'
     lbstatus_path = '/akloadbalancerstatus'
@@ -515,7 +515,7 @@ class Neutron(object):
     def __init__(self, conf):
         self.conf = conf
         ks_session = keystone.KeystoneSession()
-        self.api_client = AkandaExtClientWrapper(
+        self.api_client = AstaraExtClientWrapper(
             session=ks_session.session,
         )
         self.l3_rpc_client = L3PluginApi(PLUGIN_ROUTER_RPC_TOPIC,
@@ -666,7 +666,7 @@ class Neutron(object):
         port_dict = dict(
             admin_state_up=True,
             network_id=network_id,
-            name='AKANDA:%s:%s' % (label, object_id),
+            name='ASTARA:%s:%s' % (label, object_id),
             security_groups=[]
         )
 
@@ -688,7 +688,7 @@ class Neutron(object):
         return port
 
     def delete_vrrp_port(self, object_id, label='VRRP'):
-        name = 'AKANDA:%s:%s' % (label, object_id)
+        name = 'ASTARA:%s:%s' % (label, object_id)
         response = self.api_client.list_ports(name=name)
         port_data = response.get('ports')
         if not port_data:
@@ -761,7 +761,7 @@ class Neutron(object):
 
         host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
 
-        name = 'AKANDA:RUG:%s' % network_type.upper()
+        name = 'ASTARA:RUG:%s' % network_type.upper()
 
         query_dict = dict(device_owner=DEVICE_OWNER_RUG,
                           device_id=host_id,
@@ -838,7 +838,7 @@ class Neutron(object):
         host_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, socket.gethostname()))
         query_dict = dict(
             device_owner=DEVICE_OWNER_RUG,
-            name='AKANDA:RUG:MANAGEMENT',
+            name='ASTARA:RUG:MANAGEMENT',
             device_id=host_id
         )
         ports = self.api_client.list_ports(**query_dict)['ports']

@@ -21,10 +21,10 @@ import argparse
 import subprocess
 import sys
 
-from akanda.rug.common.i18n import _LW
-from akanda.rug import commands
-from akanda.rug.cli import message
-from akanda.rug.api import nova, neutron
+from astara.common.i18n import _LW
+from astara import commands
+from astara.cli import message
+from astara.api import nova, neutron
 
 from novaclient import exceptions
 from oslo_config import cfg

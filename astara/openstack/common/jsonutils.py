@@ -57,7 +57,7 @@ import itertools
 import json
 import xmlrpclib
 
-from akanda.rug.openstack.common import timeutils
+from astara.openstack.common import timeutils
 
 
 def to_primitive(value, convert_instances=False, convert_datetime=True,

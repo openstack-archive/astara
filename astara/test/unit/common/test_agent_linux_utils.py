@@ -36,7 +36,7 @@ import fixtures
 import mock
 import testtools
 
-from akanda.rug.common.linux import utils
+from astara.common.linux import utils
 
 
 class AgentUtilsExecuteTest(testtools.TestCase):

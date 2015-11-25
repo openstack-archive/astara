@@ -1,4 +1,4 @@
-# Copyright (c) 2015 AKANDA, INC. All Rights Reserved.
+# Copyright (c) 2015 Akanda, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -18,14 +18,14 @@ from oslo_log import log as logging
 
 from neutronclient.common import exceptions as q_exceptions
 
-from akanda.rug.common.i18n import _
-from akanda.rug.api import akanda_client
-from akanda.rug.api.config import loadbalancer as config
-from akanda.rug import event
-from akanda.rug.api import neutron
-from akanda.rug.drivers.base import BaseDriver
-from akanda.rug.drivers import states
-from akanda.rug.common.i18n import _LW
+from astara.common.i18n import _
+from astara.api import astara_client
+from astara.api.config import loadbalancer as config
+from astara import event
+from astara.api import neutron
+from astara.drivers.base import BaseDriver
+from astara.drivers import states
+from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class LoadBalancer(BaseDriver):
     def ports(self):
         """Lists ports associated with the resource.
 
-        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        :returns: A list of astara.api.neutron.Port objects or []
         """
         if self._loadbalancer:
             return [p for p in self._loadbalancer.ports]
@@ -130,7 +130,7 @@ class LoadBalancer(BaseDriver):
         appliance
         """
         self.log.info(_('Updating config for %s'), self.name)
-        akanda_client.update_config(management_address, self.mgt_port, config)
+        astara_client.update_config(management_address, self.mgt_port, config)
 
     def pre_plug(self, worker_context):
         """pre-plug hook
@@ -306,7 +306,7 @@ class LoadBalancer(BaseDriver):
             return states.GONE
         else:
             # NOTE(adam_g): We probably want to map this status back to
-            # an internal akanda status
+            # an internal astara status
             return self._loadbalancer.status
 
     def synchronize_state(self, worker_context, state):
@@ -332,7 +332,7 @@ class LoadBalancer(BaseDriver):
 
         :returns: A list of interfaces
         """
-        return akanda_client.get_interfaces(management_address,
+        return astara_client.get_interfaces(management_address,
                                             self.mgt_port)
 
     def is_alive(self, management_address):
@@ -340,4 +340,4 @@ class LoadBalancer(BaseDriver):
 
         :returns: bool True if alive, False if not
         """
-        return akanda_client.is_alive(management_address, self.mgt_port)
+        return astara_client.is_alive(management_address, self.mgt_port)

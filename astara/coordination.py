@@ -23,8 +23,8 @@ from oslo_log import log
 import tooz
 from tooz import coordination as tz_coordination
 
-from akanda.rug import event as ak_event
-from akanda.rug.common.i18n import _, _LI
+from astara import event as ak_event
+from astara.common.i18n import _, _LI
 
 
 LOG = log.getLogger(__name__)

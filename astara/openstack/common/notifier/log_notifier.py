@@ -32,8 +32,8 @@
 
 from oslo_config import cfg
 
-from akanda.rug.openstack.common import jsonutils
-from akanda.rug.openstack.common import log as logging
+from astara.openstack.common import jsonutils
+from astara.openstack.common import log as logging
 
 
 CONF = cfg.CONF
@@ -47,6 +47,6 @@ def notify(_context, message):
                            CONF.default_notification_level)
     priority = priority.lower()
     logger = logging.getLogger(
-        'akanda.rug.openstack.common.notification.%s' %
+        'astara.openstack.common.notification.%s' %
         message['event_type'])
     getattr(logger, priority)(jsonutils.dumps(message))

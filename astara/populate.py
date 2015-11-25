@@ -22,8 +22,8 @@ import threading
 
 from oslo_log import log as logging
 
-from akanda.rug import event
-from akanda.rug import drivers
+from astara import event
+from astara import drivers
 
 LOG = logging.getLogger(__name__)
 
