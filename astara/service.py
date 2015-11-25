@@ -23,9 +23,9 @@ import eventlet
 from oslo_config import cfg
 from oslo_log import log
 
-from akanda.rug import manager
-from akanda.rug.openstack.common.rpc import service as rpc_service
-from akanda.rug.openstack.common import service
+from astara import manager
+from astara.openstack.common.rpc import service as rpc_service
+from astara.openstack.common import service
 
 
 L3_AGENT_TOPIC = 'l3_agent'
@@ -53,9 +53,9 @@ class PeriodicService(rpc_service.Service):
 def main():
     eventlet.monkey_patch()
     cfg.CONF(sys.argv[1:], project='astara-orchestrator')
-    log.setup('akanda')
+    log.setup('astara')
 
-    mgr = manager.AkandaL3Manager()
+    mgr = manager.AstaraL3Manager()
     svc = PeriodicService(
         host=cfg.CONF.host, topic=L3_AGENT_TOPIC, manager=mgr
     )

@@ -41,7 +41,7 @@ import logging
 import sys
 import traceback
 
-from akanda.rug.common.i18n import _LE
+from astara.common.i18n import _LE
 
 
 @contextlib.contextmanager

@@ -15,8 +15,8 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from akanda.rug.drivers.router import Router
-from akanda.rug.drivers.loadbalancer import LoadBalancer
+from astara.drivers.router import Router
+from astara.drivers.loadbalancer import LoadBalancer
 
 DRIVER_OPTS = [
     cfg.ListOpt('enabled_drivers',

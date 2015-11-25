@@ -22,7 +22,7 @@ import logging
 
 from cliff import command
 
-from akanda.rug import notifications
+from astara import notifications
 
 
 class MessageSending(command.Command):
@@ -49,4 +49,4 @@ class MessageSending(command.Command):
     def send_message(self, payload):
         sender = notifications.Sender()
         self.log.debug('sending %r', payload)
-        sender.send(event_type='akanda.rug.command', message=payload)
+        sender.send(event_type='astara.command', message=payload)

@@ -19,8 +19,8 @@ import threading
 
 from oslo_config import cfg
 
-from akanda.rug.common.i18n import _
-from akanda.rug.pez import pool
+from astara.common.i18n import _
+from astara.pez import pool
 
 CONF = cfg.CONF
 
@@ -35,7 +35,7 @@ PEZ_OPTIONS = [
                help=_('Image uuid to boot.')),
     cfg.StrOpt('flavor',
                help=_('Nova flavor to boot')),
-    cfg.StrOpt('rpc_topic', default='akanda-pez'),
+    cfg.StrOpt('rpc_topic', default='astara-pez'),
 
 ]
 
@@ -43,8 +43,8 @@ CONF.register_group(cfg.OptGroup(name='pez'))
 CONF.register_opts(PEZ_OPTIONS, group='pez')
 
 
-CONF.import_opt('host', 'akanda.rug.main')
-CONF.import_opt('management_network_id', 'akanda.rug.api.neutron')
+CONF.import_opt('host', 'astara.main')
+CONF.import_opt('management_network_id', 'astara.api.neutron')
 
 
 class PezManager(object):

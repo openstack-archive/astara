@@ -1,4 +1,4 @@
-# Copyright (c) 2015 AKANDA, INC. All Rights Reserved.
+# Copyright (c) 2015 Akanda, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -166,7 +166,7 @@ class BaseDriver(object):
     def ports(self):
         """Lists ports associated with the resource.
 
-        :returns: A list of akanda.rug.api.neutron.Port objects or []
+        :returns: A list of astara.api.neutron.Port objects or []
         """
 
     def get_interfaces(self, management_address):

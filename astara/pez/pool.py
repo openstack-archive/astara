@@ -22,15 +22,15 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
-from akanda.rug.common.i18n import _LE, _LI
-from akanda.rug import drivers
-from akanda.rug.api import neutron
-from akanda.rug.api import nova
+from astara.common.i18n import _LE, _LI
+from astara import drivers
+from astara.api import neutron
+from astara.api import nova
 
 LOG = logging.getLogger(__name__)
 
 # Unused instances are launched with a known name
-INSTANCE_FREE = 'AKANDA:UNUSED:%(resource_name)s'
+INSTANCE_FREE = 'ASTARA:UNUSED:%(resource_name)s'
 
 # When an instance is reserved, its renamed accordingly
 # TODO(adam_g): We ideally want to make all instance naming template-able
@@ -42,7 +42,7 @@ ACTIVE = 'active'
 ERROR = 'error'
 DELETING = 'deleting'
 
-PEZ_LOCK = 'akanda-pez'
+PEZ_LOCK = 'astara-pez'
 
 
 class PezPoolExhausted(Exception):
@@ -59,7 +59,7 @@ class WorkerContext(object):
 
 
 class PezPoolManager(object):
-    """Akanda Pez Pool Manager
+    """Astara Pez Pool Manager
 
     This manages a pool of instances of a configurable size.  All instance
     state is managed and tracked in Nova itself.
@@ -224,8 +224,8 @@ class PezPoolManager(object):
         LOG.info(_LI(
             'Launching %s %s instances.'), driver.RESOURCE_NAME, count)
         for i in range(0, count):
-            # NOTE: Use a fake UUID so akanda-neutron's name matching still
-            # catches this port as an akanda port. This can be avoided if
+            # NOTE: Use a fake UUID so astara-neutron's name matching still
+            # catches this port as an astara port. This can be avoided if
             # we use a mgt security group in the future.
             mgt_port = self.ctxt.neutron_client.create_management_port(
                 '00000000-0000-0000-0000-000000000000')

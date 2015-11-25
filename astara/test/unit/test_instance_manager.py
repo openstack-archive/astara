@@ -21,11 +21,11 @@ import mock
 import unittest2 as unittest
 from datetime import datetime, timedelta
 
-from akanda.rug import instance_manager
-from akanda.rug.api import nova
-from akanda.rug.drivers import states
-from akanda.rug.test.unit import base
-from akanda.rug.test.unit import fakes
+from astara import instance_manager
+from astara.api import nova
+from astara.drivers import states
+from astara.test.unit import base
+from astara.test.unit import fakes
 
 from oslo_config import cfg
 
@@ -75,7 +75,7 @@ class TestInstanceManager(base.RugTestBase):
         self.ctx = mock.Mock()
         self.neutron = self.ctx.neutron
         self.config(boot_timeout=30)
-        self.config(akanda_mgt_service_port=5000)
+        self.config(astara_mgt_service_port=5000)
         self.config(max_retries=3)
         self.addCleanup(mock.patch.stopall)
 

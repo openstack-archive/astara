@@ -33,8 +33,8 @@
 
 import netaddr
 
-from akanda.rug.common.linux import utils
-from akanda.rug.common.i18n import _
+from astara.common.linux import utils
+from astara.common.i18n import _
 
 from oslo_log import log
 

@@ -18,8 +18,8 @@ import copy
 import mock
 import time
 
-from akanda.rug.pez import pool as ak_pool
-from akanda.rug.test.unit import base
+from astara.pez import pool as ak_pool
+from astara.test.unit import base
 
 
 class MockInstance(object):
@@ -47,7 +47,7 @@ class PoolManagerTest(base.RugTestBase):
         [setattr(p, 'status', status) for p in pool]
         return pool
 
-    @mock.patch('akanda.rug.pez.pool.PezPoolManager.delete_instance')
+    @mock.patch('astara.pez.pool.PezPoolManager.delete_instance')
     def test__check_err_instances(self, mock_delete):
         pool = self._create_pool()
         pool[1].id = 'errored_instance_id'

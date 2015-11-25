@@ -17,7 +17,7 @@
 
 import sys
 
-from akanda.rug.cli import app
+from astara.cli import app
 
 
 def main(args=sys.argv[1:]):

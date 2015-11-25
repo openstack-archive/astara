@@ -37,7 +37,7 @@ import unittest
 
 import mock
 
-from akanda.rug.common.linux import ip_lib
+from astara.common.linux import ip_lib
 
 
 NETNS_SAMPLE = [
@@ -120,7 +120,7 @@ SUBNET_SAMPLE2 = ("10.0.0.0/24 dev tap1d7888a7-10  scope link  src 10.0.0.2\n"
 class TestSubProcessBase(unittest.TestCase):
     def setUp(self):
         super(TestSubProcessBase, self).setUp()
-        self.execute_p = mock.patch('akanda.rug.common.linux.utils.execute')
+        self.execute_p = mock.patch('astara.common.linux.utils.execute')
         self.execute = self.execute_p.start()
         self.addCleanup(self.execute_p.stop)
 
@@ -646,7 +646,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
         self.assertEqual(ns.namespace, 'ns')
 
     def test_delete_namespace(self):
-        with mock.patch('akanda.rug.common.linux.utils.execute'):
+        with mock.patch('astara.common.linux.utils.execute'):
             self.netns_cmd.delete('ns')
             self._assert_sudo([], ('delete', 'ns'), force_root_namespace=True)
 
@@ -666,7 +666,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
 
     def test_execute(self):
         self.parent.namespace = 'ns'
-        with mock.patch('akanda.rug.common.linux.utils.execute') as execute:
+        with mock.patch('astara.common.linux.utils.execute') as execute:
             self.netns_cmd.execute(['ip', 'link', 'list'])
             execute.assert_called_once_with(['ip', 'netns', 'exec', 'ns', 'ip',
                                              'link', 'list'],
@@ -675,7 +675,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
 
     def test_execute_env_var_prepend(self):
         self.parent.namespace = 'ns'
-        with mock.patch('akanda.rug.common.linux.utils.execute') as execute:
+        with mock.patch('astara.common.linux.utils.execute') as execute:
             env = collections.OrderedDict([('FOO', 1), ('BAR', 2)])
             self.netns_cmd.execute(['ip', 'link', 'list'], env)
             execute.assert_called_once_with(

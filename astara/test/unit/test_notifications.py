@@ -20,10 +20,10 @@ import uuid
 
 import multiprocessing
 
-from akanda.rug import commands
-from akanda.rug import event
-from akanda.rug import notifications
-from akanda.rug.test.unit import base
+from astara import commands
+from astara import event
+from astara import notifications
+from astara.test.unit import base
 
 
 CTXT = {
@@ -122,7 +122,7 @@ class TestGetCRUD(base.RugTestBase):
             fake_tenant.return_value = fake_tenant_id
             self.notifications_endpoint.info(
                 ctxt=CTXT,
-                publisher_id='network.akanda',
+                publisher_id='network.astara',
                 event_type=event_type,
                 payload=payload, metadata={})
             if not self.queue.qsize():
@@ -231,16 +231,16 @@ class TestGetCRUD(base.RugTestBase):
                 e.resource.id
             )
 
-    def test_notification_akanda(self):
-        e = self._get_event_notification('akanda.bandwidth.used')
+    def test_notification_astara(self):
+        e = self._get_event_notification('astara.bandwidth.used')
         self.assertIs(None, e)
 
     def test_notification_cmd_poll(self):
-        event_type = 'akanda.rug.command'
+        event_type = 'astara.command'
         payload = {'command': commands.POLL}
         self.notifications_endpoint.info(
             ctxt=CTXT,
-            publisher_id='network.akanda',
+            publisher_id='network.astara',
             event_type=event_type,
             payload=payload, metadata={})
         expected_event = event.Event(

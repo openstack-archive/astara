@@ -13,9 +13,9 @@
 # under the License.
 
 import mock
-from akanda.rug.api import keystone
+from astara.api import keystone
 
-from akanda.rug.test.unit import base
+from astara.test.unit import base
 
 from oslo_config import cfg
 

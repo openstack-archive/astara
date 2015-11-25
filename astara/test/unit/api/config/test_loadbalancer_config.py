@@ -17,12 +17,12 @@
 
 import mock
 
-from akanda.rug.api.config import loadbalancer as lb_config
-from akanda.rug.test.unit import base, fakes
+from astara.api.config import loadbalancer as lb_config
+from astara.test.unit import base, fakes
 
 
 class TestLoadbalancerConfigAPI(base.RugTestBase):
-    @mock.patch('akanda.rug.api.config.common.network_config')
+    @mock.patch('astara.api.config.common.network_config')
     def test_build_config(self, fake_network_config):
         fake_client = mock.Mock()
         fake_lb = fakes.fake_loadbalancer()

@@ -47,14 +47,14 @@ import eventlet
 import logging as std_logging
 from oslo_config import cfg
 
-from akanda.rug.common.i18n import _LE, _LI, _LW
-from akanda.rug.openstack.common import eventlet_backdoor
-from akanda.rug.openstack.common import importutils
-from akanda.rug.openstack.common import log as logging
-from akanda.rug.openstack.common import threadgroup
+from astara.common.i18n import _LE, _LI, _LW
+from astara.openstack.common import eventlet_backdoor
+from astara.openstack.common import importutils
+from astara.openstack.common import log as logging
+from astara.openstack.common import threadgroup
 
 
-rpc = importutils.try_import('akanda.rug.openstack.common.rpc')
+rpc = importutils.try_import('astara.openstack.common.rpc')
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 

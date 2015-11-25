@@ -26,7 +26,7 @@ class RugTestBase(testtools.TestCase):
         super(RugTestBase, self).setUp()
         self.test_config = self.useFixture(config_fixture.Config(cfg.CONF))
         self.argv = []
-        cfg.CONF.import_opt('host', 'akanda.rug.main')
+        cfg.CONF.import_opt('host', 'astara.main')
 
     def config(self, **kw):
         """Override config options for a test."""

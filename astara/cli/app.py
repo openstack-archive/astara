@@ -22,7 +22,7 @@ from cliff import commandmanager
 from oslo_config import cfg
 import pkg_resources
 
-from akanda.rug.common import config
+from astara.common import config
 
 
 class RugController(app.App):
@@ -32,9 +32,9 @@ class RugController(app.App):
     def __init__(self):
         dist = pkg_resources.get_distribution('astara')
         super(RugController, self).__init__(
-            description='controller for the Akanda RUG service',
+            description='controller for the Astara Orchestrator service',
             version=dist.version,
-            command_manager=commandmanager.CommandManager('akanda.rug.cli'),
+            command_manager=commandmanager.CommandManager('astara.cli'),
         )
 
     def initialize_app(self, argv):

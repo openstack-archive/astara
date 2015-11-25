@@ -21,9 +21,9 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-AKANDA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'
-AKANDA_MGT_SERVICE_PORT = 5000
-AKANDA_BASE_PATH = '/v1/'
+ASTARA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'
+ASTARA_MGT_SERVICE_PORT = 5000
+ASTARA_BASE_PATH = '/v1/'
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -49,7 +49,7 @@ def _get_proxyless_session():
 
 
 def is_alive(host, port):
-    path = AKANDA_BASE_PATH + 'firewall/rules'
+    path = ASTARA_BASE_PATH + 'firewall/rules'
     try:
         s = _get_proxyless_session()
         r = s.get(_mgt_url(host, port, path), timeout=cfg.CONF.alive_timeout)
@@ -61,14 +61,14 @@ def is_alive(host, port):
 
 
 def get_interfaces(host, port):
-    path = AKANDA_BASE_PATH + 'system/interfaces'
+    path = ASTARA_BASE_PATH + 'system/interfaces'
     s = _get_proxyless_session()
     r = s.get(_mgt_url(host, port, path), timeout=30)
     return r.json().get('interfaces', [])
 
 
 def update_config(host, port, config_dict):
-    path = AKANDA_BASE_PATH + 'system/config'
+    path = ASTARA_BASE_PATH + 'system/config'
     headers = {'Content-type': 'application/json'}
 
     s = _get_proxyless_session()
@@ -85,7 +85,7 @@ def update_config(host, port, config_dict):
 
 
 def read_labels(host, port):
-    path = AKANDA_BASE_PATH + 'firewall/labels'
+    path = ASTARA_BASE_PATH + 'firewall/labels'
     s = _get_proxyless_session()
     r = s.post(_mgt_url(host, port, path), timeout=30)
     return r.json().get('labels', [])
