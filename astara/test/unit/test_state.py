@@ -20,13 +20,13 @@ from collections import deque
 import mock
 import unittest2 as unittest
 
-from akanda.rug import event
-from akanda.rug import state
-from akanda.rug import instance_manager
-from akanda.rug.drivers import states
-from akanda.rug.api.neutron import RouterGone
+from astara import event
+from astara import state
+from astara import instance_manager
+from astara.drivers import states
+from astara.api.neutron import RouterGone
 
-from akanda.rug.test.unit import fakes
+from astara.test.unit import fakes
 
 
 class BaseTestStateCase(unittest.TestCase):
@@ -36,7 +36,7 @@ class BaseTestStateCase(unittest.TestCase):
         self.ctx = mock.Mock()  # worker context
         self.fake_driver = fakes.fake_driver()
         instance_mgr_cls = \
-            mock.patch('akanda.rug.instance_manager.InstanceManager').start()
+            mock.patch('astara.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.instance = instance_mgr_cls.return_value
         self.params = state.StateParams(
@@ -527,7 +527,7 @@ class TestAutomaton(unittest.TestCase):
         self.fake_driver = fakes.fake_driver()
 
         self.instance_mgr_cls = \
-            mock.patch('akanda.rug.instance_manager.InstanceManager').start()
+            mock.patch('astara.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
 
         self.delete_callback = mock.Mock()

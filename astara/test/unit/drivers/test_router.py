@@ -16,11 +16,11 @@ import mock
 
 from neutronclient.common import exceptions as neutron_exceptions
 
-from akanda.rug import event
-from akanda.rug.api import neutron
-from akanda.rug.drivers import router, states
+from astara import event
+from astara.api import neutron
+from astara.drivers import router, states
 
-from akanda.rug.test.unit import base, fakes
+from astara.test.unit import base, fakes
 
 
 class RouterDriverTest(base.RugTestBase):
@@ -46,7 +46,7 @@ class RouterDriverTest(base.RugTestBase):
             id=self.router_id,
         )
 
-    @mock.patch('akanda.rug.drivers.router.Router.post_init')
+    @mock.patch('astara.drivers.router.Router.post_init')
     def test_init(self, mock_post_init):
         rtr = self._init_driver()
         rtr.post_init = mock.Mock()
@@ -55,7 +55,7 @@ class RouterDriverTest(base.RugTestBase):
             'ak-%s-%s' % (rtr.RESOURCE_NAME, self.router_id))
         mock_post_init.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_post_init(self, mock_ensure_cache):
         rtr = self._init_driver()
         rtr.post_init(self.ctx)
@@ -85,14 +85,14 @@ class RouterDriverTest(base.RugTestBase):
         rtr._router = fake_router_obj
         self.assertEqual(set(rtr.ports), set(fake_router_obj.ports))
 
-    @mock.patch('akanda.rug.drivers.router.Router.pre_plug')
+    @mock.patch('astara.drivers.router.Router.pre_plug')
     def test_pre_boot(self, mock_pre_plug):
         rtr = self._init_driver()
         rtr.pre_boot(self.ctx)
         mock_pre_plug.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.api.config.router.build_config')
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.api.config.router.build_config')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_build_config(self, mock_ensure_cache, mock_build_config):
         rtr = self._init_driver()
         fake_router_obj = fakes.fake_router()
@@ -107,7 +107,7 @@ class RouterDriverTest(base.RugTestBase):
             self.ctx.neutron, rtr._router, fake_mgt_port, fake_iface_map)
         self.assertEqual(res, 'fake_config')
 
-    @mock.patch('akanda.rug.api.akanda_client.update_config')
+    @mock.patch('astara.api.astara_client.update_config')
     def test_update_config(self, mock_update_config):
         rtr = self._init_driver()
         rtr.update_config(management_address='10.0.0.1', config='fake_config')
@@ -135,7 +135,7 @@ class RouterDriverTest(base.RugTestBase):
         rtr.pre_plug(self.ctx)
         self.assertFalse(self.ctx.neutron.create_router_external_port.called)
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_make_ports(self, mock_ensure_cache):
         rtr = self._init_driver()
         fake_router_obj = fakes.fake_router()
@@ -160,7 +160,7 @@ class RouterDriverTest(base.RugTestBase):
                           mock.call(rtr.id, label='MGT')]
         self.ctx.neutron.delete_vrrp_port.assert_has_calls(expected_ports)
 
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_retry_loop(self, mocked_neutron_api):
         neutron_client = mock.Mock()
         returned_value = [Exception, []]
@@ -193,21 +193,21 @@ class RouterDriverTest(base.RugTestBase):
             mock.ANY
         )
 
-    @mock.patch('akanda.rug.drivers.router.LOG')
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.drivers.router.LOG')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_unauthorized(self, mocked_neutron_api, log):
         exc = neutron_exceptions.Unauthorized
         self._exit_loop_bad_auth(mocked_neutron_api, log, exc)
 
-    @mock.patch('akanda.rug.drivers.router.LOG')
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.drivers.router.LOG')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_forbidden(self, mocked_neutron_api, log):
         exc = neutron_exceptions.Forbidden
         self._exit_loop_bad_auth(mocked_neutron_api, log, exc)
 
-    @mock.patch('akanda.rug.drivers.router.LOG.warning')
-    @mock.patch('akanda.rug.drivers.router.LOG.debug')
-    @mock.patch('akanda.rug.api.neutron.Neutron')
+    @mock.patch('astara.drivers.router.LOG.warning')
+    @mock.patch('astara.drivers.router.LOG.debug')
+    @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_retry_loop_logging(
             self, mocked_neutron_api, log_debug, log_warning):
         neutron_client = mock.Mock()
@@ -329,7 +329,7 @@ class RouterDriverTest(base.RugTestBase):
         payload = {'router': {'id': 'fake_router_id'}}
         self._test_notification('whocares.about.this', payload, None)
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_get_state_no_router(self, mock_ensure_cache):
         rtr = self._init_driver()
         rtr._router = None
@@ -339,7 +339,7 @@ class RouterDriverTest(base.RugTestBase):
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_get_state(self, mock_ensure_cache):
         rtr = self._init_driver()
         fake_router = fakes.fake_router()
@@ -350,7 +350,7 @@ class RouterDriverTest(base.RugTestBase):
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_synchronize_state_no_router(self, mock_ensure_cache):
         rtr = self._init_driver()
         rtr._router = None
@@ -358,7 +358,7 @@ class RouterDriverTest(base.RugTestBase):
         mock_ensure_cache.assert_called_with(self.ctx)
         self.assertFalse(self.ctx.neutron.update_router_status.called)
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_synchronize_state(self, mock_ensure_cache):
         rtr = self._init_driver()
         fake_router_obj = fakes.fake_router()
@@ -371,7 +371,7 @@ class RouterDriverTest(base.RugTestBase):
         )
         self.assertEquals(rtr._last_synced_status, 'ACTIVE')
 
-    @mock.patch('akanda.rug.drivers.router.Router._ensure_cache')
+    @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_synchronize_state_no_change(self, mock_ensure_cache):
         rtr = self._init_driver()
         fake_router_obj = fakes.fake_router()
@@ -381,7 +381,7 @@ class RouterDriverTest(base.RugTestBase):
         mock_ensure_cache.assert_called_with(self.ctx)
         self.assertFalse(self.ctx.neutron.update_router_status.called)
 
-    @mock.patch('akanda.rug.api.akanda_client.get_interfaces')
+    @mock.patch('astara.api.astara_client.get_interfaces')
     def test_get_interfaces(self, mock_get_interfaces):
         mock_get_interfaces.return_value = ['fake_interface']
         rtr = self._init_driver()
@@ -390,7 +390,7 @@ class RouterDriverTest(base.RugTestBase):
         mock_get_interfaces.assert_called_with(
             'fake_mgt_addr', self.mgt_port)
 
-    @mock.patch('akanda.rug.api.akanda_client.is_alive')
+    @mock.patch('astara.api.astara_client.is_alive')
     def test_is_alive(self, mock_is_alive):
         mock_is_alive.return_value = False
         rtr = self._init_driver()

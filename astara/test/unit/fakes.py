@@ -14,9 +14,9 @@
 
 import mock
 
-from akanda.rug.drivers import base
-from akanda.rug.api import neutron, nova
-from akanda.rug import worker
+from astara.drivers import base
+from astara.api import neutron, nova
+from astara import worker
 
 
 def fake_loadbalancer():

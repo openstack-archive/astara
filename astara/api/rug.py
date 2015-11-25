@@ -26,8 +26,8 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_log import loggers
 
-from akanda.rug.cli import app
-from akanda.rug.common.i18n import _, _LE, _LI, _LW
+from astara.cli import app
+from astara.common.i18n import _, _LE, _LI, _LW
 
 LOG = logging.getLogger(__name__)
 

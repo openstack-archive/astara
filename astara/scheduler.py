@@ -24,9 +24,9 @@ import uuid
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from akanda.rug import commands
-from akanda.rug.common.i18n import _, _LE, _LI, _LW
-from akanda.rug import daemon
+from astara import commands
+from astara.common.i18n import _, _LE, _LI, _LW
+from astara import daemon
 
 
 LOG = logging.getLogger(__name__)

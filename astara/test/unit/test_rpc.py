@@ -15,17 +15,14 @@
 # under the License.
 
 import mock
-import testtools
-
-from akanda.rug.common import rpc
-
-from akanda.rug import main  # noqa
-from akanda.rug import notifications  # noqa
-
 from oslo_config import cfg
 from oslo_config import fixture as config_fixture
-
 import oslo_messaging
+import testtools
+
+from astara.common import rpc
+from astara import main  # noqa
+from astara import notifications  # noqa
 
 
 class TestRPC(testtools.TestCase):
@@ -145,7 +142,7 @@ class TestConnection(testtools.TestCase):
             topic='foo_topic', fanout=False, exchange='foo_exchange')
         fake_get_listener.assert_called_with(
             'fake_transport', ['fake_target'], endpoints,
-            pool='akanda.foo_topic.test_host')
+            pool='astara.foo_topic.test_host')
         self.connection._add_server_thread.assert_called_with(
             'fake_listener_server')
 

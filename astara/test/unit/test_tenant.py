@@ -14,17 +14,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import uuid
 
 import mock
 import unittest2 as unittest
-import uuid
 
-from akanda.rug import event
-from akanda.rug import tenant
-from akanda.rug.drivers import router
-from akanda.rug import state
-from akanda.rug.drivers import states
-from akanda.rug.test.unit import fakes
+from astara import event
+from astara import tenant
+from astara.drivers import router
+from astara import state
+from astara.drivers import states
+from astara.test.unit import fakes
 
 
 class TestTenantResourceManager(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestTenantResourceManager(unittest.TestCase):
         self.fake_driver = fakes.fake_driver()
         self.tenant_id = 'cfb48b9c-66f6-11e5-a7be-525400cfc326'
         self.instance_mgr = \
-            mock.patch('akanda.rug.instance_manager.InstanceManager').start()
+            mock.patch('astara.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.notifier = mock.Mock()
         self.trm = tenant.TenantResourceManager(
@@ -260,7 +260,7 @@ class TestTenantResourceManager(unittest.TestCase):
         self.assertEqual('1234', n['tenant_id'])
         self.assertIn('5678', n['uuid'])
         self.assertIn('timestamp', n)
-        self.assertEqual('akanda.bandwidth.used', n['event_type'])
+        self.assertEqual('astara.bandwidth.used', n['event_type'])
         self.assertIn('a', n['payload'])
         self.assertIn('b', n['payload'])
 

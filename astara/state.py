@@ -25,10 +25,10 @@
 import collections
 import itertools
 
-from akanda.rug.common.i18n import _LE, _LI, _LW
-from akanda.rug.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
-from akanda.rug import instance_manager
-from akanda.rug.drivers import states
+from astara.common.i18n import _LE, _LI, _LW
+from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
+from astara import instance_manager
+from astara.drivers import states
 
 
 class StateParams(object):

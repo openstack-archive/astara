@@ -14,7 +14,7 @@
 
 import netaddr
 
-from akanda.rug.api.neutron import Subnet
+from astara.api.neutron import Subnet
 
 
 class FakeModel(object):
@@ -34,14 +34,14 @@ fake_ext_port = FakeModel(
 
 fake_mgt_port = FakeModel(
     '2',
-    name='AKANDA:MGT:foo',
+    name='ASTARA:MGT:foo',
     mac_address='aa:bb:cc:cc:bb:aa',
     network_id='mgt-net',
     device_id='m-m-m-m')
 
 fake_int_port = FakeModel(
     '3',
-    name='AKANDA:RUG:foo',
+    name='ASTARA:RUG:foo',
     mac_address='aa:aa:aa:aa:aa:aa',
     network_id='int-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')],
@@ -58,7 +58,7 @@ fake_instance_port = FakeModel(
 
 fake_instance_mgt_port = FakeModel(
     '4',
-    name='AKANDA:MGT:foo',
+    name='ASTARA:MGT:foo',
     mac_address='aa:aa:aa:aa:aa:bb',
     network_id='int-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],
@@ -67,7 +67,7 @@ fake_instance_mgt_port = FakeModel(
 
 fake_instance_vrrp_port = FakeModel(
     '4',
-    name='AKANDA:VRRP:foo',
+    name='ASTARA:VRRP:foo',
     mac_address='aa:aa:aa:aa:aa:bb',
     network_id='int-net',
     fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],

@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""Akanda Rug DB test base class."""
+"""Astara DB test base class."""
 
 import os
 import shutil
@@ -22,9 +22,9 @@ import fixtures
 from oslo_config import cfg
 from oslo_db.sqlalchemy import enginefacade
 
-from akanda.rug.db import api as dbapi
-from akanda.rug.db.sqlalchemy import migration
-from akanda.rug.test.unit import base
+from astara.db import api as dbapi
+from astara.db.sqlalchemy import migration
+from astara.test.unit import base
 
 
 CONF = cfg.CONF

@@ -44,7 +44,7 @@ import tempfile
 
 from eventlet.green import subprocess
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 from oslo_log import log as logging
 

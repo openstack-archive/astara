@@ -23,11 +23,11 @@ from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from akanda.rug.common.i18n import _LW, _LE, _LI
-from akanda.rug.api import keystone
-from akanda.rug.api import neutron
-from akanda.rug.common import config
-from akanda.rug.pez import rpcapi as pez_api
+from astara.common.i18n import _LW, _LE, _LI
+from astara.api import keystone
+from astara.api import neutron
+from astara.common import config
+from astara.pez import rpcapi as pez_api
 
 LOG = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ class InstanceProvider(object):
 class PezInstanceProvider(InstanceProvider):
     def __init__(self, client):
         super(PezInstanceProvider, self).__init__(client)
-        self.rpc_client = pez_api.AkandaPezAPI(rpc_topic='akanda-pez')
+        self.rpc_client = pez_api.AstaraPezAPI(rpc_topic='astara-pez')
         LOG.info(_LI(
             'Initialized %s with rpc client %s'),
             self.__class__.__name__, self.rpc_client)

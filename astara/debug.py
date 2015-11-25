@@ -21,10 +21,10 @@ import sys
 
 from oslo_config import cfg
 
-from akanda.rug import state
-from akanda.rug import worker
+from astara import state
+from astara import worker
 
-from akanda.rug.common import config
+from astara.common import config
 
 
 DEBUG_OPTS = [
@@ -51,7 +51,7 @@ def debug_one_router(args=sys.argv[1:]):
     # Add our extra option for specifying the router-id to debug
     cfg.CONF.register_cli_opts(DEBUG_OPTS)
     cfg.CONF.set_override('boot_timeout', 60000)
-    cfg.CONF.import_opt('host', 'akanda.rug.main')
+    cfg.CONF.import_opt('host', 'astara.main')
     config.parse_config(args)
 
     logging.basicConfig(

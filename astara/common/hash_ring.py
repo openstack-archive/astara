@@ -22,7 +22,7 @@ import threading
 from oslo_config import cfg
 import six
 
-from akanda.rug.common.i18n import _
+from astara.common.i18n import _
 
 hash_opts = [
     cfg.IntOpt('hash_partition_exponent',
@@ -47,7 +47,7 @@ CONF.register_opts(hash_opts)
 
 # A static key that can be used to choose a  single host when from the
 # ring we have no other data to hash with.
-DC_KEY = 'akanda_designated_coordinator'
+DC_KEY = 'astara_designated_coordinator'
 
 
 class Invalid(Exception):

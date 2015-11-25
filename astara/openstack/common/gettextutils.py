@@ -37,7 +37,7 @@ gettext for openstack-common modules.
 
 Usual usage in an openstack.common module:
 
-    from akanda.rug.openstack.common.gettextutils import _
+    from astara.openstack.common.gettextutils import _
 """
 
 import gettext

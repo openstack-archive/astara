@@ -21,16 +21,16 @@
 import Queue
 import threading
 
-from akanda.rug import commands
-from akanda.rug import drivers
-from akanda.rug import event
-from akanda.rug.common import rpc
+from astara import commands
+from astara import drivers
+from astara import event
+from astara.common import rpc
 
 from oslo_config import cfg
 from oslo_context import context
 from oslo_log import log as logging
 
-from akanda.rug.common.i18n import _LE
+from astara.common.i18n import _LE
 
 
 cfg.CONF.register_group(cfg.OptGroup(name='rabbit',
@@ -137,7 +137,7 @@ class NotificationsEndpoint(object):
         crud = event.UPDATE
         e = None
         events = []
-        if event_type.startswith('akanda.rug.command'):
+        if event_type.startswith('astara.command'):
             LOG.debug('received a command: %r', payload)
             crud = event.COMMAND
             if payload.get('command') == commands.POLL:

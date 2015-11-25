@@ -19,8 +19,8 @@ import mock
 
 from oslo_config import cfg
 
-from akanda.rug import debug
-from akanda.rug.test.unit import base
+from astara import debug
+from astara.test.unit import base
 
 
 class TestDebug(base.RugTestBase):
@@ -31,8 +31,8 @@ class TestDebug(base.RugTestBase):
         cfg.CONF.unregister_opts(debug.DEBUG_OPTS)
         super(TestDebug, self).tearDown()
 
-    @mock.patch('akanda.rug.worker.WorkerContext')
-    @mock.patch('akanda.rug.state.Automaton')
+    @mock.patch('astara.worker.WorkerContext')
+    @mock.patch('astara.state.Automaton')
     @mock.patch('pdb.set_trace')
     def test_debug_one_router(self, set_trace, automaton, ctx):
         ctx.return_value.neutron.get_router_detail.return_value = mock.Mock(

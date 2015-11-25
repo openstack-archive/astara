@@ -10,8 +10,8 @@ service_tenant_id=80095e2039db4af0a88351d6360c1977
 # The configured appliance API port
 appliance_api_port=5000
 
-# The UUID of a running akanda router that will be used for running
+# The UUID of a running astara router that will be used for running
 # tests against. Devstack creates this for you but you may have one
 # that you wish to use instead. If not supplied here, tools/run_functional.sh
 # will attempt to find it for you.
-akanda_test_router_uuid=650da79d-30ee-460f-bf91-8b7e04a5a5f6
+astara_test_router_uuid=650da79d-30ee-460f-bf91-8b7e04a5a5f6

@@ -1,13 +1,13 @@
 
-from akanda.rug.test.functional import base
+from astara.test.functional import base
 
 
-class AkandaApplianceInstanceTest(base.AkandaFunctionalBase):
+class AstaraApplianceInstanceTest(base.AstaraFunctionalBase):
     """Basic tests to ensure a service instance and its associated router is
     alive and well.
     """
     def setUp(self):
-        super(AkandaApplianceInstanceTest, self).setUp()
+        super(AstaraApplianceInstanceTest, self).setUp()
         # ensure the devstack spawned router instance becomes active before
         # starting to run any test cases. this in itself is a test that
         # devstack produced a functional router.

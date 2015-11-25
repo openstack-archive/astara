@@ -21,18 +21,12 @@ from alembic import config as alembic_config
 import alembic.migration as alembic_migration
 from oslo_db import exception as db_exc
 
-from akanda.rug.db.sqlalchemy import api as sqla_api
-from akanda.rug.db.sqlalchemy import models
+from astara.db.sqlalchemy import api as sqla_api
+from astara.db.sqlalchemy import models
 
 
 def _alembic_config():
-    # TODO(markmcclain): remove next 5 lines once the transition is complete
-    try:
-        from astara.db import sqlalchemy as preferred_sql
-    except ImportError:
-        from akanda.rug.db import sqlalchemy as preferred_sql
-
-    path = os.path.join(os.path.dirname(preferred_sql.__file__), 'alembic.ini')
+    path = os.path.join(os.path.dirname(__file__), 'alembic.ini')
     config = alembic_config.Config(path)
     return config
 

@@ -20,9 +20,9 @@ import netaddr
 from oslo_config import cfg
 import unittest2 as unittest
 
-from akanda.rug.api.config import common
+from astara.api.config import common
 
-from akanda.rug.test.unit.api.config import config_fakes as fakes
+from astara.test.unit.api.config import config_fakes as fakes
 
 
 class TestCommonConfig(unittest.TestCase):

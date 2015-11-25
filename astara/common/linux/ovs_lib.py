@@ -37,8 +37,8 @@
 
 import re
 
-from akanda.rug.common.linux import utils
-from akanda.rug.common.i18n import _, _LE, _LW
+from astara.common.linux import utils
+from astara.common.i18n import _, _LE, _LW
 
 from oslo_log import log as logging
 

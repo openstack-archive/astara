@@ -26,17 +26,17 @@ import threading
 from oslo_config import cfg
 from oslo_log import log
 
-from akanda.rug.common.i18n import _LE, _LI
-from akanda.rug.common import config as ak_cfg
-from akanda.rug import coordination
-from akanda.rug import daemon
-from akanda.rug import health
-from akanda.rug import metadata
-from akanda.rug import notifications
-from akanda.rug import scheduler
-from akanda.rug import populate
-from akanda.rug import worker
-from akanda.rug.api import neutron as neutron_api
+from astara.common.i18n import _LE, _LI
+from astara.common import config as ak_cfg
+from astara import coordination
+from astara import daemon
+from astara import health
+from astara import metadata
+from astara import notifications
+from astara import scheduler
+from astara import populate
+from astara import worker
+from astara.api import neutron as neutron_api
 
 
 LOG = log.getLogger(__name__)
@@ -45,7 +45,7 @@ CONF = cfg.CONF
 MAIN_OPTS = [
     cfg.StrOpt('host',
                default=socket.getfqdn(),
-               help="The hostname Akanda is running on"),
+               help="The hostname Astara is running on"),
     cfg.BoolOpt('plug_external_port', default=False),
 ]
 CONF.register_opts(MAIN_OPTS)
@@ -168,7 +168,7 @@ def main(argv=sys.argv[1:]):
     )
     metadata_proc.start()
 
-    from akanda.rug.api import rug as rug_api
+    from astara.api import rug as rug_api
     rug_api_proc = multiprocessing.Process(
         target=rug_api.serve,
         args=(mgt_ip_address,),

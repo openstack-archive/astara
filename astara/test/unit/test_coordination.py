@@ -4,9 +4,9 @@ from Queue import Queue
 
 from tooz import coordination as tz_coordination
 
-from akanda.rug import coordination
-from akanda.rug import event
-from akanda.rug.test.unit import base
+from astara import coordination
+from astara import event
+from astara.test.unit import base
 
 
 class TestRugCoordinator(base.RugTestBase):
@@ -38,7 +38,7 @@ class TestRugCoordinator(base.RugTestBase):
         self.addCleanup(mock.patch.stopall)
         self.queue = Queue()
 
-    @mock.patch('akanda.rug.coordination.RugCoordinator.start')
+    @mock.patch('astara.coordination.RugCoordinator.start')
     def test_setup(self, fake_start):
         self.coordinator = coordination.RugCoordinator(self.queue)
         self.assertEqual('memcache://foo_cache', self.coordinator.url)
@@ -47,7 +47,7 @@ class TestRugCoordinator(base.RugTestBase):
         self.assertEqual('foo_host', self.coordinator.host)
         self.assertTrue(fake_start.called)
 
-    @mock.patch('akanda.rug.coordination.RugCoordinator.cluster_changed')
+    @mock.patch('astara.coordination.RugCoordinator.cluster_changed')
     def test_start(self, fake_cluster_changed):
         self.coordinator = coordination.RugCoordinator(self.queue)
         self.assertTrue(self.fake_coord.start.called)
@@ -73,7 +73,7 @@ class TestRugCoordinator(base.RugTestBase):
         return self.test_start()
 
     @mock.patch('time.sleep')
-    @mock.patch('akanda.rug.coordination.RugCoordinator.stop')
+    @mock.patch('astara.coordination.RugCoordinator.stop')
     def test_run(self, fake_stop, fake_sleep):
         fake_sleep.side_effect = coordination.CoordinatorDone()
         self.coordinator = coordination.RugCoordinator(self.queue)
@@ -81,7 +81,7 @@ class TestRugCoordinator(base.RugTestBase):
         self.assertTrue(self.fake_coord.heartbeat.called)
         self.assertTrue(self.fake_coord.run_watchers.called)
 
-    @mock.patch('akanda.rug.coordination.RugCoordinator.is_leader')
+    @mock.patch('astara.coordination.RugCoordinator.is_leader')
     def test_stop_not_leader(self, fake_is_leader):
         fake_is_leader.__get__ = mock.Mock(return_value=False)
         self.coordinator = coordination.RugCoordinator(self.queue)
@@ -89,7 +89,7 @@ class TestRugCoordinator(base.RugTestBase):
         self.fake_coord.leave_group.assert_called_with(self.coordinator.group)
         self.assertFalse(self.fake_coord.stand_down_group_leader.called)
 
-    @mock.patch('akanda.rug.coordination.RugCoordinator.is_leader')
+    @mock.patch('astara.coordination.RugCoordinator.is_leader')
     def test_stop_leader(self, fake_is_leader):
         fake_is_leader.__get__ = mock.Mock(return_value=True)
         self.coordinator = coordination.RugCoordinator(self.queue)
@@ -116,8 +116,8 @@ class TestRugCoordinator(base.RugTestBase):
         self.assertEqual(self.coordinator.is_leader, True)
         self.fake_coord.get_leader.assert_called_with(self.coordinator.group)
 
-    @mock.patch('akanda.rug.coordination.RugCoordinator.start')
-    @mock.patch('akanda.rug.coordination.RugCoordinator.members')
+    @mock.patch('astara.coordination.RugCoordinator.start')
+    @mock.patch('astara.coordination.RugCoordinator.members')
     def test_cluster_changed(self, fake_members, fake_start):
         fake_members.__get__ = mock.Mock(return_value=['foo', 'bar'])
         self.coordinator = coordination.RugCoordinator(self.queue)

@@ -26,7 +26,7 @@ def get_backend():
     global _IMPL
     if not _IMPL:
         cfg.CONF.import_opt('backend', 'oslo_db.options', group='database')
-        _IMPL = driver.DriverManager("akanda.database.migration_backend",
+        _IMPL = driver.DriverManager("astara.database.migration_backend",
                                      cfg.CONF.database.backend).driver
     return _IMPL
 

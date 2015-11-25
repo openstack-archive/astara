@@ -17,11 +17,11 @@
 import logging
 import sys
 
-from akanda.rug.common.i18n import _LI
-from akanda.rug.common import config as ak_cfg
+from astara.common.i18n import _LI
+from astara.common import config as ak_cfg
 
-from akanda.rug.common import rpc
-from akanda.rug.pez import manager
+from astara.common import rpc
+from astara.pez import manager
 
 from oslo_config import cfg
 from oslo_log import log
@@ -55,10 +55,10 @@ class PezService(service.Service):
 
 def main(argv=sys.argv[1:]):
     ak_cfg.parse_config(argv)
-    log.setup(CONF, 'akanda-pez')
+    log.setup(CONF, 'astara-pez')
     CONF.log_opt_values(LOG, logging.INFO)
 
-    LOG.info(_LI("Starting Akanda Pez service."))
+    LOG.info(_LI("Starting Astara Pez service."))
 
     mgr = PezService()
     launcher = service.launch(CONF, mgr)
