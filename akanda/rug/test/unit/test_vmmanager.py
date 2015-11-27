@@ -240,6 +240,26 @@ class TestVmManager(unittest.TestCase):
         )
 
     @mock.patch('time.sleep')
+    def test_boot_error_with_port_cleanup(self, sleep):
+        rtr = mock.sentinel.router
+        self.ctx.neutron.get_router_detail.return_value = rtr
+        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
+
+        rtr.id = 'R1'
+        rtr.ports = mock.MagicMock()
+        rtr.ports.__iter__.return_value = [
+            fake_mgt_port, fake_int_port, fake_ext_port
+        ]
+
+        expected_calls = [
+            mock.call('1'), mock.call('1', label='MGT'),
+            mock.call('2'), mock.call('2', label='MGT'),
+            mock.call('3'), mock.call('3', label='MGT')
+        ]
+        self.vm_mgr.boot(self.ctx, 'foo')
+        self.ctx.neutron.delete_vrrp_port.assert_has_calls(expected_calls)
+
+    @mock.patch('time.sleep')
     @mock.patch('akanda.rug.vm_manager.router_api')
     def test_update_state_is_down(self, router_api, sleep):
         self.update_state_p.stop()
