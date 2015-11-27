@@ -383,6 +383,20 @@ class TestExternalPort(unittest.TestCase):
             self.assertEqual(port.id, self.EXTERNAL_PORT_ID)
 
     @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
+    def test_delete_vrrp_port(self, client_wrapper):
+        mock_client = mock.Mock()
+        mock_client.list_ports.return_value = {
+            'ports': [self.ROUTER['ports'][0]]
+        }
+        client_wrapper.return_value = mock_client
+        neutron_wrapper = neutron.Neutron(self.conf)
+        neutron_wrapper.delete_vrrp_port(self.ROUTER['ports'][0]['id'])
+        mock_client.list_ports.assert_called_once_with(
+            name='AKANDA:%s:%s' % ('VRRP', self.ROUTER['ports'][0]['id']))
+        mock_client.delete_port.assert_called_once_with(
+            self.ROUTER['ports'][0]['id'])
+
+    @mock.patch('akanda.rug.api.neutron.AkandaExtClientWrapper')
     def test_create_missing_gateway_port(self, client_wrapper):
         self.conf.retry_delay = 0
         mock_client = mock.Mock()
