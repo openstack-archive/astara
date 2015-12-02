@@ -19,13 +19,13 @@ from oslo_config import cfg
 
 
 CONF = cfg.CONF
-CONF.import_group('keystone_authtoken', 'keystonemiddleware.auth_token')
 
 
 class KeystoneSession(object):
     def __init__(self):
         self._session = None
         self.region_name = CONF.auth_region
+        ksauth.register_conf_options(CONF, 'keystone_authtoken')
 
     @property
     def session(self):
