@@ -238,7 +238,7 @@ function pre_start_astara() {
         DIB_ASTARA_ADVANCED_SERVICES=$ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS \
         http_proxy=$ASTARA_DEV_APPLIANCE_BUILD_PROXY \
         ELEMENTS_PATH=$ASTARA_APPLIANCE_DIR/diskimage-builder/elements \
-        DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm akanda debug-user $lb_element \
+        DIB_RELEASE=jessie DIB_EXTLINUX=1 disk-image-create debian vm astara debug-user $lb_element \
         -o $TOP_DIR/files/astara
         astara_dev_image_src=$ASTARA_DEV_APPLIANCE_FILE
     else
