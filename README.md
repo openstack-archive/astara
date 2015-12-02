@@ -35,7 +35,7 @@ packaging and management:
     Ancillary subclasses of several OpenStack Neutron plugins and supporting
     code.
 
-  * [Astara Horizon](https://github.com/stackforge/astara-horizon) -
+  * [Astara Horizon](https://github.com/openstack/astara-horizon) -
     OpenStack Horizon Dashboard code.
 
 
