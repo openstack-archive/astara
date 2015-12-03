@@ -3,12 +3,12 @@
 Service VM Orchestration and Management
 =======================================
 
-RUG - Router Update Generator
+Astara Orchestrator
 -----------------------------
 
-:program:`akanda-rug-service` is a multiprocessed, multithreaded Python process
+:program:`astara-orchestrator` is a multiprocessed, multithreaded Python process
 composed of three primary subsystems, each of which are spawned as a subprocess
-of the main :py:mod:`astara` process:
+of the main :py:mod:`astara-orchestrator` process:
 
 L3 and DHCP Event Consumption
 -----------------------------
@@ -90,7 +90,7 @@ The supported states in the state machine are:
         (so that :py:mod:`astara` will not continue to boot them forever; this is
         to prevent further exasperation of failing hypervisors).   This state
         transition is utilized to add routers back into management after issues
-        are resolved and signal to :py:mod:`akanda-rug` that it should attempt
+        are resolved and signal to :py:mod:`astara-orchestrator` that it should attempt
         to manage them again.
 
     :STATS: Reads traffic data from the router.
