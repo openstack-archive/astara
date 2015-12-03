@@ -3,17 +3,17 @@
 Service VM Orchestration and Management
 =======================================
 
-RUG - Router Update Generator
+Astara Orchestrator
 -----------------------------
 
-:program:`akanda-rug-service` is a multiprocessed, multithreaded Python process
+:program:`astara-orchestrator` is a multiprocessed, multithreaded Python process
 composed of three primary subsystems, each of which are spawned as a subprocess
-of the main :py:mod:`akanda.rug` process:
+of the main :py:mod:`astara-orchestrator` process:
 
 L3 and DHCP Event Consumption
 -----------------------------
 
-:py:mod:`akanda.rug.notifications` uses `kombu <https://pypi.python.org/pypi/kombu>`_
+:py:mod:`astara-orchestrator.notifications` uses `kombu <https://pypi.python.org/pypi/kombu>`_
 and a Python :py:mod:`multiprocessing.Queue` to listen for specific Neutron service
 events (e.g., ``router.interface.create``, ``subnet.create.end``,
 ``port.create.end``, ``port.delete.end``) and normalize them into one of
@@ -27,10 +27,10 @@ several event types:
     * ``REBUILD`` - a Service VM should be destroyed and recreated
 
 As events are normalized and shuttled onto the :py:mod:`multiprocessing.Queue`,
-:py:mod:`akanda.rug.scheduler` shards (by Tenant ID, by default) and
+:py:mod:`astara-orchestrator.scheduler` shards (by Tenant ID, by default) and
 distributes them amongst a pool of worker processes it manages.
 
-This system also consumes and distributes special :py:mod:`akanda.rug.command` events
+This system also consumes and distributes special :py:mod:`astara-orchestrator.command` events
 which are published by the :program:`rug-ctl` :ref:`operator tools<operator_tools>`.
 
 
@@ -87,10 +87,10 @@ The supported states in the state machine are:
 
     :ClearError: After a (configurable) number of ``nova boot`` failures, Neutron
         routers are automatically transitioned into a cooldown ``ERROR`` state
-        (so that :py:mod:`akanda.rug` will not continue to boot them forever; this is
+        (so that :py:mod:`astara-orchestrator` will not continue to boot them forever; this is
         to prevent further exasperation of failing hypervisors).   This state
         transition is utilized to add routers back into management after issues
-        are resolved and signal to :py:mod:`akanda-rug` that it should attempt
+        are resolved and signal to :py:mod:`astara-orchestrator` that it should attempt
         to manage them again.
 
     :STATS: Reads traffic data from the router.
@@ -140,7 +140,7 @@ VM Variables are:
 Health Monitoring
 -----------------
 
-``akanda.rug.health`` is a subprocess which (at a configurable interval)
+``astara-orchestrator.health`` is a subprocess which (at a configurable interval)
 periodically delivers ``POLL`` events to every known virtual router.  This
 event transitions the state machine into the ``Alive`` state, which (depending
 on the availability of the router), may simply exit the state machine (because
