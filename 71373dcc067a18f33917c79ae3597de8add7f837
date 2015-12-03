@@ -1,0 +1,9 @@
+Verified+2: Jenkins
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Code-Review+2: David Lenwell <dlenwell@gmail.com>
+Submitted-by: Jenkins
+Submitted-at: Thu, 03 Dec 2015 19:20:42 +0000
+Reviewed-on: https://review.openstack.org/252694
+Project: openstack/astara
+Branch: refs/heads/master
