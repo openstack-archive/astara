@@ -262,6 +262,7 @@ class LoadBalancer(BaseDriver):
             return
         lb_id = (
             payload.get('loadbalancer', {}).get('id') or
+            payload.get('listener', {}).get('loadbalancer_id') or
             payload.get('loadbalancer_id')
         )
 
