@@ -12,7 +12,7 @@ ASTARA_APPLIANCE_REPO=${ASTARA_APPLIANCE_REPO:-${GIT_BASE}/openstack/astara-appl
 ASTARA_APPLIANCE_BRANCH=${ASTARA_APPLIANCE_BRANCH:-master}
 
 BUILD_ASTARA_APPLIANCE_IMAGE=${BUILD_ASTARA_APPLIANCE_IMAGE:-False}
-ASTARA_DEV_APPLIANCE_URL=${ASTARA_DEV_APPLIANCE_URL:-http://tarballs.openstack.org/akanda-appliance/images/akanda_appliance.qcow2}
+ASTARA_DEV_APPLIANCE_URL=${ASTARA_DEV_APPLIANCE_URL:-http://tarballs.openstack.org/astara-appliance/images/astara_appliance.qcow2}
 ASTARA_DEV_APPLIANCE_FILE=${ASTARA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/astara.qcow2}
 ASTARA_DEV_APPLIANCE_BUILD_PROXY=${ASTARA_DEV_APPLIANCE_BUILD_PROXY:-""}
 ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
@@ -101,7 +101,7 @@ function configure_astara_nova() {
 }
 
 function configure_astara_neutron() {
-    iniset $NEUTRON_CONF DEFAULT core_plugin akanda.neutron.plugins.ml2_neutron_plugin.Ml2Plugin
+    iniset $NEUTRON_CONF DEFAULT core_plugin astara_neutron.plugins.ml2_neutron_plugin.Ml2Plugin
     iniset $NEUTRON_CONF DEFAULT service_plugins akanda.neutron.plugins.ml2_neutron_plugin.L3RouterPlugin
     iniset $NEUTRON_CONF DEFAULT api_extensions_path $ASTARA_NEUTRON_DIR/akanda/neutron/extensions
     # Use rpc as notification driver instead of the default no_ops driver
