@@ -103,7 +103,7 @@ debug:
   - verbose: true
 
 bootcmd:
-  - /usr/local/bin/akanda-configure-management aa:aa:aa:aa:aa:aa 192.168.1.1/64
+  - /usr/local/bin/astara-configure-management aa:aa:aa:aa:aa:aa 192.168.1.1/64
 
 users:
   - name: astara
