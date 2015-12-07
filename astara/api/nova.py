@@ -39,7 +39,10 @@ OPTIONS = [
         default='/etc/astara/astara.pub'),
     cfg.StrOpt(
         'instance_provider', default='on_demand',
-        help='Which instance provider to use (on_demand, pez)')
+        help='Which instance provider to use (on_demand, pez)'),
+    cfg.StrOpt(
+        'astara_boot_command', default='astara-configure-management',
+        help='The boot command to run to configure the appliance'),
 ]
 cfg.CONF.register_opts(OPTIONS)
 
@@ -373,7 +376,7 @@ debug:
   - verbose: true
 
 bootcmd:
-  - /usr/local/bin/akanda-configure-management %(mac_address)s %(ip_address)s/64
+  - /usr/local/bin/%(boot_command)s %(mac_address)s %(ip_address)s/64
 
 users:
   - name: astara
@@ -406,5 +409,6 @@ def format_userdata(mgt_port):
         'ssh_public_key': _ssh_key(),
         'mac_address': mgt_port.mac_address,
         'ip_address': mgt_port.fixed_ips[0].ip_address,
+        'boot_command': cfg.CONF.astara_boot_command
     }
     return TEMPLATE % ctxt
