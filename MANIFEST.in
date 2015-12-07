@@ -1,3 +1,0 @@
-recursive-include test *.py
-recursive-include akanda *alembic*
-global-exclude akanda/rug
