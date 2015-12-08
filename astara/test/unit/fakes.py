@@ -70,6 +70,42 @@ def fake_loadbalancer():
     return neutron.LoadBalancer.from_dict(lb_dict)
 
 
+def fake_port():
+    port_dict = {
+        u'admin_state_up': True,
+        u'allowed_address_pairs': [],
+        u'binding:host_id': u'trusty',
+        u'binding:profile': {},
+        u'binding:vif_details': {
+            u'ovs_hybrid_plug': True, u'port_filter': True
+        },
+        u'binding:vif_type': u'ovs',
+        u'binding:vnic_type': u'normal',
+        u'device_id': u'fake_device_id',
+        u'device_owner': u'network:astara',
+        u'dns_assignment': [{
+            u'fqdn': u'foo.openstacklocal.',
+            u'hostname': u'host-fdca-3ba5-a17a-acda-f816-3eff-fe2b-ced0',
+            u'ip_address': u'fdca:3ba5:a17a:acda:f816:3eff:fe2b:ced0'
+        }],
+        u'dns_name': u'',
+        u'extra_dhcp_opts': [],
+        u'fixed_ips': [{
+            u'ip_address': u'fdca:3ba5:a17a:acda:f816:3eff:fe2b:ced0',
+            u'subnet_id': 'fake_subnet_id',
+        }],
+        u'id': u'fake_port_id',
+        u'mac_address': u'fa:16:3e:2b:ce:d0',
+        u'name': u'ASTARA:RUG:SERVICE',
+        u'network_id': u'fake_network_id',
+        u'port_security_enabled': False,
+        u'security_groups': [],
+        u'status': u'ACTIVE',
+        u'tenant_id': u'fake_tenant_id'
+    }
+    return neutron.Port.from_dict(port_dict)
+
+
 def fake_router():
     router_gateway_port = {
         'id': 'ext',
