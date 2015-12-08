@@ -120,7 +120,7 @@ def main(argv=sys.argv[1:]):
     # neutron.purge_management_interface()
 
     # bring the mgt tap interface up
-    neutron.ensure_local_service_port()
+    mgt_ip_address = neutron.ensure_local_service_port().split('/')[0]
 
     # bring the external port
     if cfg.CONF.plug_external_port:
@@ -160,7 +160,6 @@ def main(argv=sys.argv[1:]):
     else:
         coordinator_proc = None
 
-    mgt_ip_address = neutron_api.get_local_service_ip(cfg.CONF).split('/')[0]
     metadata_proc = multiprocessing.Process(
         target=metadata.serve,
         args=(mgt_ip_address,),
