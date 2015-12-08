@@ -93,6 +93,9 @@ function configure_astara() {
         iniset $ASTARA_CONF coordination enabled True
         iniset $ASTARA_CONF coordination url $ASTARA_COORDINATION_URL
     fi
+
+    # NOTE(adam_g): This is temporary and can be removed after mitaka-1
+    iniset $ASTARA_CONF DEFAULT astara_boot_command akanda-configure-management
 }
 
 function configure_astara_nova() {
