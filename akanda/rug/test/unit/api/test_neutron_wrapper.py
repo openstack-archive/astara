@@ -20,8 +20,10 @@ import copy
 import mock
 import netaddr
 
-from akanda.rug.test.unit import base
+from akanda.rug.test.unit import base, fakes
 from akanda.rug.api import neutron
+
+from oslo_config import cfg
 
 
 class TestuNeutronModels(base.RugTestBase):
@@ -556,3 +558,148 @@ class TestExternalPort(base.RugTestBase):
                 self.assertEqual(6, e.missing[1][0])
             else:
                 self.fail('Should have seen MissingIPAllocation')
+
+
+class TestLocalServicePorts(base.RugTestBase):
+    def setUp(self):
+        super(TestLocalServicePorts, self).setUp()
+        self.config(external_network_id='fake_extnet_network_id')
+        self.config(external_subnet_id='fake_extnet_subnet_id')
+        self.config(external_prefix='172.16.77.0/24')
+        self.config(management_network_id='fake_mgtnet_network_id')
+        self.config(management_subnet_id='fake_mgtnet_subnet_id')
+        self.config(management_prefix='172.16.77.0/24')
+        self.config(management_prefix='fdca:3ba5:a17a:acda::/64')
+        self.neutron_wrapper = neutron.Neutron(cfg.CONF)
+        self.fake_interface_driver = mock.Mock(
+            plug=mock.Mock(),
+            init_l3=mock.Mock(),
+            get_device_name=mock.Mock())
+
+    def test_ensure_local_external_port(self):
+        with mock.patch.object(self.neutron_wrapper,
+                               '_ensure_local_port') as ep:
+            self.neutron_wrapper.ensure_local_external_port()
+            ep.assert_called_with(
+                'fake_extnet_network_id',
+                'fake_extnet_subnet_id',
+                '172.16.77.0/24',
+                'external',
+            )
+
+    def test_ensure_local_service_port(self):
+        with mock.patch.object(self.neutron_wrapper,
+                               '_ensure_local_port') as ep:
+            self.neutron_wrapper.ensure_local_service_port()
+            ep.assert_called_with(
+                'fake_mgtnet_network_id',
+                'fake_mgtnet_subnet_id',
+                'fdca:3ba5:a17a:acda::/64',
+                'service',
+            )
+
+    @mock.patch('akanda.rug.api.neutron.ip_lib')
+    @mock.patch('akanda.rug.api.neutron.uuid')
+    @mock.patch('akanda.rug.api.neutron.importutils')
+    def test__ensure_local_port_neutron_port_exists(self, fake_import,
+                                                    fake_uuid, fake_ip_lib):
+        fake_ip_lib.device_exists.return_value = True
+        fake_uuid.uuid5.return_value = 'fake_host_id'
+        fake_import.import_object.return_value = self.fake_interface_driver
+
+        fake_port = fakes.fake_port()
+        fake_port_dict = {
+            'ports': [fake_port._neutron_port_dict],
+        }
+        fake_client = mock.Mock(
+            list_ports=mock.Mock(return_value=fake_port_dict)
+        )
+        self.neutron_wrapper.api_client = fake_client
+        self.fake_interface_driver.get_device_name.return_value = 'fake_dev'
+
+        self.neutron_wrapper._ensure_local_port(
+            'fake_network_id',
+            'fake_subnet_id',
+            'fdca:3ba5:a17a:acda:f816:3eff:fe2b::1/64',
+            'service')
+
+        exp_query = {
+            'network_id': 'fake_network_id',
+            'device_owner': 'network:akanda',
+            'name': 'AKANDA:RUG:SERVICE',
+            'device_id': 'fake_host_id'
+        }
+        fake_client.list_ports.assert_called_with(**exp_query)
+        self.fake_interface_driver.init_l3.assert_called_with(
+            'fake_dev', ['fdca:3ba5:a17a:acda:f816:3eff:fe2b:ced0/64']
+        )
+
+    @mock.patch('akanda.rug.api.neutron.socket')
+    @mock.patch('akanda.rug.api.neutron.ip_lib')
+    @mock.patch('akanda.rug.api.neutron.uuid')
+    @mock.patch('akanda.rug.api.neutron.importutils')
+    def test__ensure_local_port_no_neutron_port(self, fake_import, fake_uuid,
+                                                fake_ip_lib, fake_socket):
+        fake_socket.gethostname.return_value = 'foo_hostname'
+        fake_ip_lib.device_exists.return_value = True
+        fake_uuid.uuid5.return_value = 'fake_host_id'
+        fake_import.import_object.return_value = self.fake_interface_driver
+
+        fake_created_port = {'port': fakes.fake_port().to_dict()}
+        fake_client = mock.Mock(
+            list_ports=mock.Mock(return_value={'ports': []}),
+            create_port=mock.Mock(return_value=fake_created_port))
+        self.neutron_wrapper.api_client = fake_client
+        self.fake_interface_driver.get_device_name.return_value = 'fake_dev'
+
+        self.neutron_wrapper._ensure_local_port(
+            'fake_network_id',
+            'fake_subnet_id',
+            'fdca:3ba5:a17a:acda:f816:3eff:fe2b::1/64',
+            'service')
+
+        exp_port_create_dict = {'port': {
+            'admin_state_up': True,
+            'binding:host_id': 'foo_hostname',
+            'device_id': 'fake_host_id',
+            'device_owner': 'network:router_interface',
+            'fixed_ips': [{'subnet_id': 'fake_subnet_id'}],
+            'name': 'AKANDA:RUG:SERVICE',
+            'network_id': 'fake_network_id'
+        }}
+        fake_client.create_port.assert_called_with(exp_port_create_dict)
+        self.fake_interface_driver.init_l3.assert_called_with(
+            'fake_dev', ['fdca:3ba5:a17a:acda:f816:3eff:fe2b:ced0/64']
+        )
+
+    @mock.patch('time.sleep')
+    @mock.patch('akanda.rug.api.neutron.ip_lib')
+    @mock.patch('akanda.rug.api.neutron.uuid')
+    @mock.patch('akanda.rug.api.neutron.importutils')
+    def test__ensure_local_port_plug(self, fake_import,
+                                     fake_uuid, fake_ip_lib, fake_sleep):
+        fake_ip_lib.device_exists.return_value = False
+        fake_uuid.uuid5.return_value = 'fake_host_id'
+        fake_import.import_object.return_value = self.fake_interface_driver
+
+        fake_port = fakes.fake_port()
+        fake_port_dict = {
+            'ports': [fake_port._neutron_port_dict],
+        }
+        fake_client = mock.Mock(
+            list_ports=mock.Mock(return_value=fake_port_dict)
+        )
+        self.neutron_wrapper.api_client = fake_client
+        self.fake_interface_driver.get_device_name.return_value = 'fake_dev'
+
+        self.neutron_wrapper._ensure_local_port(
+            'fake_network_id',
+            'fake_subnet_id',
+            'fdca:3ba5:a17a:acda:f816:3eff:fe2b::1/64',
+            'service')
+
+        self.fake_interface_driver.plug.assert_called_with(
+            'fake_network_id',
+            fake_port.id,
+            'fake_dev',
+            fake_port.mac_address)
