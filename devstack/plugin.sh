@@ -63,7 +63,7 @@ function configure_astara() {
     sudo mkdir -p $ASTARA_CACHE_DIR
     sudo chown $STACK_USER $ASTARA_CACHE_DIR
 
-    cp $ASTARA_DIR/etc/rug.ini $ASTARA_CONF
+    cp $ASTARA_DIR/etc/orchestrator.ini $ASTARA_CONF
     iniset $ASTARA_CONF DEFAULT verbose True
     configure_auth_token_middleware $ASTARA_CONF $Q_ADMIN_USERNAME $ASTARA_CACHE_DIR
     iniset $ASTARA_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
