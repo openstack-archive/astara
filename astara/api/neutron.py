@@ -108,16 +108,18 @@ class RouterGatewayMissing(Exception):
 
 class MissingIPAllocation(Exception):
 
-    def __init__(self, port_id, missing):
+    def __init__(self, port_id, missing=None):
         self.port_id = port_id
         self.missing = missing
-        msg = 'Port %s missing an expected ' % port_id
-        ip_msg = ' and '.join(
-            ('IPv%s address from one of %s' %
-             (mv, missing_subnets))
-            for mv, missing_subnets in missing
-        )
-        super(MissingIPAllocation, self).__init__(msg + ip_msg)
+        msg = 'Port %s missing expected IPs ' % port_id
+        if missing:
+            ip_msg = ' and '.join(
+                ('IPv%s address from one of %s' %
+                 (mv, missing_subnets))
+                for mv, missing_subnets in missing
+            )
+            msg = msg + ip_msg
+        super(MissingIPAllocation, self).__init__(msg)
 
 
 class DictModelBase(object):
@@ -765,8 +767,8 @@ class Neutron(object):
             time.sleep(self.conf.retry_delay)
         raise RouterGatewayMissing()
 
-    def _ensure_local_port(self, network_id, subnet_id,
-                           network_type, ip_address):
+    def _ensure_local_port(self, network_id, subnet_id, prefix,
+                           network_type):
         driver = importutils.import_object(self.conf.interface_driver,
                                            self.conf)
 
@@ -818,7 +820,6 @@ class Neutron(object):
                 'name': name,
                 'device_id': host_id,
                 'fixed_ips': [{
-                    'ip_address': ip_address.split('/')[0],
                     'subnet_id': subnet_id
                 }],
                 'binding:host_id': socket.gethostname()
@@ -846,24 +847,29 @@ class Neutron(object):
             # add sleep to ensure that port is setup before use
             time.sleep(1)
 
-        driver.init_l3(driver.get_device_name(port), [ip_address])
+        try:
+            fixed_ip = [fip for fip in port.fixed_ips
+                        if fip.subnet_id == subnet_id][0]
+        except IndexError:
+            raise MissingIPAllocation(port.id)
+
+        ip_cidr = '%s/%s' % (fixed_ip.ip_address, prefix.split('/')[1])
+        driver.init_l3(driver.get_device_name(port), [ip_cidr])
         return port
 
     def ensure_local_external_port(self):
         return self._ensure_local_port(
             self.conf.external_network_id,
             self.conf.external_subnet_id,
-            'external',
-            get_local_external_ip(self.conf)
-        )
+            self.conf.external_prefix,
+            'external')
 
     def ensure_local_service_port(self):
         return self._ensure_local_port(
             self.conf.management_network_id,
             self.conf.management_subnet_id,
-            'service',
-            get_local_service_ip(self.conf)
-        )
+            self.conf.management_prefix,
+            'service')
 
     def purge_management_interface(self):
         driver = importutils.import_object(
@@ -904,17 +910,3 @@ class Neutron(object):
 
     def clear_device_id(self, port):
         self.api_client.update_port(port.id, {'port': {'device_id': ''}})
-
-
-def get_local_service_ip(conf):
-    mgt_net = netaddr.IPNetwork(conf.management_prefix)
-    rug_ip = '%s/%s' % (netaddr.IPAddress(mgt_net.first + 1),
-                        mgt_net.prefixlen)
-    return rug_ip
-
-
-def get_local_external_ip(conf):
-    external_net = netaddr.IPNetwork(conf.external_prefix)
-    external_ip = '%s/%s' % (netaddr.IPAddress(external_net.first + 1),
-                             external_net.prefixlen)
-    return external_ip
