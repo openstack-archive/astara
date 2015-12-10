@@ -72,7 +72,8 @@ class TestInstanceManager(base.RugTestBase):
         super(TestInstanceManager, self).setUp()
         self.conf = cfg.CONF
         self.fake_driver = fakes.fake_driver()
-        self.ctx = mock.Mock()
+        self.ctx = fakes.fake_worker_context()
+
         self.neutron = self.ctx.neutron
         self.config(boot_timeout=30)
         self.config(astara_mgt_service_port=5000)
@@ -105,8 +106,6 @@ class TestInstanceManager(base.RugTestBase):
         )
 
         self.ctx.nova_client.get_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.ctx.nova_client.get_instance_info_for_obj.return_value = (
             self.INSTANCE_INFO)
         self.ctx.neutron.get_ports_for_instance.return_value = (
             fake_mgt_port, [fake_int_port, fake_ext_port])
@@ -148,8 +147,6 @@ class TestInstanceManager(base.RugTestBase):
 
     def test_update_state_instance_no_ports_still_booting(self):
         self.update_state_p.stop()
-        self.ctx.nova_client.get_instance_info_for_obj.return_value = \
-            self.INSTANCE_INFO
         self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
 
         self.assertEqual(self.instance_mgr.update_state(self.ctx),
@@ -179,6 +176,7 @@ class TestInstanceManager(base.RugTestBase):
             state='up',
         )
         self.fake_driver.synchronize_state.reset_mock()
+        self.fake_driver.build_config.return_value = {}
 
         # Configure the router and make sure state is synchronized as ACTIVE
         with mock.patch.object(self.instance_mgr,
@@ -359,7 +357,6 @@ class TestInstanceManager(base.RugTestBase):
         rtr = mock.sentinel.router
         instance = mock.sentinel.instance
         self.ctx.neutron.get_router_detail.return_value = rtr
-        self.ctx.nova_client.get_instance.return_value = instance
         self.ctx.nova_client.boot_instance.side_effect = RuntimeError
         rtr.id = 'ROUTER1'
         instance.id = 'INSTANCE1'
@@ -466,7 +463,6 @@ class TestInstanceManager(base.RugTestBase):
         time.side_effect = side_effects
         self.config(boot_timeout=30)
         self.instance_mgr.state = states.UP
-        self.ctx.nova_client.get_router_instance_status.return_value = 'UP'
         self.instance_mgr.stop(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.UP)
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
@@ -486,7 +482,10 @@ class TestInstanceManager(base.RugTestBase):
         self.assertEqual(self.instance_mgr.state, states.GONE)
 
     def test_configure_success(self):
-        self.fake_driver.build_config.return_value = 'fake_config'
+        fake_config_dict = {'fake_config': 'foo'}
+        self.fake_driver.build_config.return_value = dict(fake_config_dict)
+        self.config(astara_metadata_port=4321)
+        self.config(host='foobarhost')
         with mock.patch.object(self.instance_mgr,
                                '_verify_interfaces') as verify:
             verify.return_value = True
@@ -500,9 +499,9 @@ class TestInstanceManager(base.RugTestBase):
                 self.ctx,
                 self.INSTANCE_INFO.management_port,
                 {'ext-net': 'ge1', 'int-net': 'ge2', 'mgt-net': 'ge0'})
-            self.fake_driver.update_config.assert_called_once_with(
-                self.INSTANCE_INFO.management_address, 'fake_config',
-            )
+
+            self.fake_driver.update_config.assert_called_with(
+                self.INSTANCE_INFO.management_address, fake_config_dict)
             self.assertEqual(self.instance_mgr.state,
                              states.CONFIGURED)
 
@@ -521,9 +520,10 @@ class TestInstanceManager(base.RugTestBase):
 
     @mock.patch('time.sleep')
     def test_configure_failure(self, sleep):
+        fake_config_dict = {'fake_config': 'foo'}
 
         self.fake_driver.update_config.side_effect = Exception
-        self.fake_driver.build_config.return_value = 'fake_config'
+        self.fake_driver.build_config.return_value = fake_config_dict
 
         with mock.patch.object(self.instance_mgr,
                                '_verify_interfaces') as verify:
@@ -536,7 +536,7 @@ class TestInstanceManager(base.RugTestBase):
 
             expected_calls = [
                 mock.call(self.INSTANCE_INFO.management_address,
-                          'fake_config')
+                          fake_config_dict)
                 for i in range(0, 2)]
             self.fake_driver.update_config.assert_has_calls(expected_calls)
             self.assertEqual(self.instance_mgr.state, states.RESTART)
