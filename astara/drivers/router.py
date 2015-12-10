@@ -143,7 +143,7 @@ class Router(BaseDriver):
         """
         self._ensure_cache(worker_context)
         return configuration.build_config(
-            worker_context.neutron,
+            worker_context,
             self._router,
             mgt_port,
             iface_map
