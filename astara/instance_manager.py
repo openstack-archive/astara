@@ -21,6 +21,8 @@ from oslo_config import cfg
 
 from astara.drivers import states
 from astara.common.i18n import _LE, _LI
+from astara.common.linux import ip_lib
+from astara.metadata import RUG_META_PORT as metadata_port
 
 CONF = cfg.CONF
 INSTANCE_MANAGER_OPTS = [
@@ -117,6 +119,10 @@ class InstanceManager(object):
         self.last_error = None
         self._boot_counter = BootAttemptCounter()
         self._last_synced_status = None
+
+        self.host = CONF.host
+        self.management_address = ip_lib.address_on_network(
+            network_prefix=CONF.management_prefix)
 
         self.state = self.update_state(worker_context, silent=True)
 
@@ -397,6 +403,15 @@ class InstanceManager(object):
             mgt_port,
             iface_map
         )
+
+        # send data about the orchestrator that owns the appliance
+        # this can be extended in the future as needed
+        config['orchestrator'] = {
+            'host': CONF.host,
+            'address': self.management_address,
+            'metadata_port': metadata_port,
+        }
+
         self.log.debug('preparing to update config to %r', config)
 
         for i in xrange(attempts):

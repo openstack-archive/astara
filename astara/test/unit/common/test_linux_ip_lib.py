@@ -33,10 +33,10 @@
 #    under the License.
 
 import collections
-import unittest
 
 import mock
 
+from astara.test.unit import base
 from astara.common.linux import ip_lib
 
 
@@ -117,7 +117,7 @@ SUBNET_SAMPLE2 = ("10.0.0.0/24 dev tap1d7888a7-10  scope link  src 10.0.0.2\n"
                   "10.0.0.0/24 dev qr-23380d11-d2  scope link  src 10.0.0.1")
 
 
-class TestSubProcessBase(unittest.TestCase):
+class TestSubProcessBase(base.RugTestBase):
     def setUp(self):
         super(TestSubProcessBase, self).setUp()
         self.execute_p = mock.patch('astara.common.linux.utils.execute')
@@ -170,7 +170,7 @@ class TestSubProcessBase(unittest.TestCase):
                                 [], 'link', ('list',))
 
 
-class TestIpWrapper(unittest.TestCase):
+class TestIpWrapper(base.RugTestBase):
     def setUp(self):
         super(TestIpWrapper, self).setUp()
         self.execute_p = mock.patch.object(ip_lib.IPWrapper, '_execute')
@@ -325,8 +325,34 @@ class TestIpWrapper(unittest.TestCase):
         ip_lib.IPWrapper('sudo').add_device_to_namespace(dev)
         self.assertEqual(dev.mock_calls, [])
 
+    @mock.patch.object(ip_lib.IPWrapper, 'get_devices')
+    def test_get_addresses_on_network(self, _get_devices):
+        devs = []
+        for cidr in ['192.168.25.3/24', '10.10.0.23/24']:
+            a = mock.Mock(
+                list=mock.Mock(return_value=[{'cidr': cidr}]))
+            d = mock.Mock(addr=a)
+            devs.append(d)
+        _get_devices.return_value = devs
+        self.assertEqual(
+            ip_lib.IPWrapper().get_addresses_on_network('10.10.0.0/24'),
+            [{'cidr': '10.10.0.23/24'}])
 
-class TestIPDevice(unittest.TestCase):
+    @mock.patch.object(ip_lib.IPWrapper, 'get_devices')
+    def test_get_addresses_on_network_none(self, _get_devices):
+        devs = []
+        for cidr in ['192.168.25.3/24', '10.10.0.23/24']:
+            a = mock.Mock(
+                list=mock.Mock(return_value=[{'cidr': cidr}]))
+            d = mock.Mock(addr=a)
+            devs.append(d)
+        _get_devices.return_value = devs
+        self.assertEqual(
+            ip_lib.IPWrapper().get_addresses_on_network('192.168.10.0/24'),
+            [])
+
+
+class TestIPDevice(base.RugTestBase):
     def test_eq_same_name(self):
         dev1 = ip_lib.IPDevice('tap0')
         dev2 = ip_lib.IPDevice('tap0')
@@ -355,7 +381,7 @@ class TestIPDevice(unittest.TestCase):
         self.assertEqual(str(ip_lib.IPDevice('tap0')), 'tap0')
 
 
-class TestIPCommandBase(unittest.TestCase):
+class TestIPCommandBase(base.RugTestBase):
     def setUp(self):
         super(TestIPCommandBase, self).setUp()
         self.ip = mock.Mock()
@@ -383,7 +409,7 @@ class TestIPCommandBase(unittest.TestCase):
             [mock.call._as_root('o', 'foo', ('link', ), False)])
 
 
-class TestIPDeviceCommandBase(unittest.TestCase):
+class TestIPDeviceCommandBase(base.RugTestBase):
     def setUp(self):
         super(TestIPDeviceCommandBase, self).setUp()
         self.ip_dev = mock.Mock()
@@ -397,7 +423,7 @@ class TestIPDeviceCommandBase(unittest.TestCase):
         self.assertEqual(self.ip_cmd.name, 'eth0')
 
 
-class TestIPCmdBase(unittest.TestCase):
+class TestIPCmdBase(base.RugTestBase):
     def setUp(self):
         super(TestIPCmdBase, self).setUp()
         self.parent = mock.Mock()
@@ -684,7 +710,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
                 root_helper='sudo', check_exit_code=True)
 
 
-class TestDeviceExists(unittest.TestCase):
+class TestDeviceExists(base.RugTestBase):
     def test_device_exists(self):
         with mock.patch.object(ip_lib.IPDevice, '_execute') as _execute:
             _execute.return_value = LINK_SAMPLE[1]
@@ -696,3 +722,26 @@ class TestDeviceExists(unittest.TestCase):
             _execute.return_value = ''
             _execute.side_effect = RuntimeError
             self.assertFalse(ip_lib.device_exists('eth0'))
+
+
+class TestAddressOnNetwork(base.RugTestBase):
+    def test_no_address_on_network(self):
+        with mock.patch.object(ip_lib.IPWrapper,
+                               'get_addresses_on_network') as _get:
+            _get.return_value = []
+            self.assertRaises(Exception, ip_lib.address_on_network, 'foo')
+            _get.assert_called_with('foo')
+
+    def test_multiple_address_on_network(self):
+        with mock.patch.object(ip_lib.IPWrapper,
+                               'get_addresses_on_network') as _get:
+            _get.return_value = [1, 2]
+            self.assertRaises(Exception, ip_lib.address_on_network, 'foo')
+            _get.assert_called_with('foo')
+
+    def test_address_on_network(self):
+        with mock.patch.object(ip_lib.IPWrapper,
+                               'get_addresses_on_network') as _get:
+            _get.return_value = [{'cidr': '192.168.25.1/24'}]
+            self.assertEqual(ip_lib.address_on_network('foo'), '192.168.25.1')
+            _get.assert_called_with('foo')

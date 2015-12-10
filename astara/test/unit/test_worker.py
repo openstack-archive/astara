@@ -59,6 +59,11 @@ class WorkerTestBase(base.DbTestCase):
         self.fake_neutron = mock.patch.object(
             neutron, 'Neutron', return_value=fake_neutron_obj).start()
 
+        self.addr_patch = mock.patch(
+            'astara.common.linux.ip_lib.address_on_network',
+            retrun_value='fake_addr',
+        )
+        self.addr_patch.start()
         self.w = worker.Worker(mock.Mock())
         self.addCleanup(mock.patch.stopall)
 
