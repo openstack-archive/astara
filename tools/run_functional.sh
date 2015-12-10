@@ -45,4 +45,20 @@ if [ -z "$ASTARA_TEST_ROUTER_UUID" ]; then
 fi
 echo "astara_test_router_uuid=$ASTARA_TEST_ROUTER_UUID" >>$CONFIG_FILE
 
+set +o errexit
+
 tox -e  functional
+rc=$?
+
+ls /opt/stack/new/screen-logs || true
+ls /opt/stack/new/logs || true
+ls /opt/stack/logs || true
+
+if [[ $rc != 0 ]]; then
+    # Attempt to catch (LP: #1524962)
+    dsvm_log="/opt/stack/logs/screen-astara.log"
+    if tail -n1 $dsvm_log | grep "Updating config for"; then
+        echo "astara-appliance config update hung. see bug #1524962"
+    fi
+fi
+exit $rc
