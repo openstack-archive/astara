@@ -17,6 +17,8 @@
 
 import logging
 
+from copy import copy
+
 import mock
 import unittest2 as unittest
 from datetime import datetime, timedelta
@@ -26,6 +28,7 @@ from astara.api import nova
 from astara.drivers import states
 from astara.test.unit import base
 from astara.test.unit import fakes
+from astara.metadata import RUG_META_PORT
 
 from oslo_config import cfg
 
@@ -71,6 +74,10 @@ class TestInstanceManager(base.RugTestBase):
     def setUp(self):
         super(TestInstanceManager, self).setUp()
         self.conf = cfg.CONF
+        self.fake_orchestrator_addr = 'orchestrator_addr'
+        self.fake_orchestrator_host = 'orchestrator_host'
+        self.config(host=self.fake_orchestrator_host)
+
         self.fake_driver = fakes.fake_driver()
         self.ctx = mock.Mock()
         self.neutron = self.ctx.neutron
@@ -85,6 +92,11 @@ class TestInstanceManager(base.RugTestBase):
             'update_state'
         )
 
+        self.addr_patch = mock.patch.object(
+            instance_manager.ip_lib, 'address_on_network',
+            return_value=self.fake_orchestrator_addr)
+        self.addr_patch.start()
+        self.addCleanup(self.addr_patch.stop)
         ports = [fake_int_port, fake_ext_port]
 
         self.fake_driver.get_interfaces.return_value = [
@@ -179,6 +191,7 @@ class TestInstanceManager(base.RugTestBase):
             state='up',
         )
         self.fake_driver.synchronize_state.reset_mock()
+        self.fake_driver.build_config.return_value = {}
 
         # Configure the router and make sure state is synchronized as ACTIVE
         with mock.patch.object(self.instance_mgr,
@@ -497,7 +510,8 @@ class TestInstanceManager(base.RugTestBase):
         self.assertEqual(self.instance_mgr.state, states.GONE)
 
     def test_configure_success(self):
-        self.fake_driver.build_config.return_value = 'fake_config'
+        fake_config_dict = {'fake_config': 'foo'}
+        self.fake_driver.build_config.return_value = copy(fake_config_dict)
         with mock.patch.object(self.instance_mgr,
                                '_verify_interfaces') as verify:
             verify.return_value = True
@@ -511,9 +525,16 @@ class TestInstanceManager(base.RugTestBase):
                 self.ctx,
                 self.INSTANCE_INFO.management_port,
                 {'ext-net': 'ge1', 'int-net': 'ge2', 'mgt-net': 'ge0'})
-            self.fake_driver.update_config.assert_called_once_with(
-                self.INSTANCE_INFO.management_address, 'fake_config',
-            )
+
+            fake_config_dict.update({
+                'orchestrator': {
+                    'host': self.fake_orchestrator_host,
+                    'address': self.fake_orchestrator_addr,
+                    'metadata_port': RUG_META_PORT,
+                }
+            })
+            self.fake_driver.update_config.assert_called_with(
+                self.INSTANCE_INFO.management_address, fake_config_dict)
             self.assertEqual(self.instance_mgr.state,
                              states.CONFIGURED)
 
@@ -532,9 +553,10 @@ class TestInstanceManager(base.RugTestBase):
 
     @mock.patch('time.sleep')
     def test_configure_failure(self, sleep):
+        fake_config_dict = {'fake_config': 'foo'}
 
         self.fake_driver.update_config.side_effect = Exception
-        self.fake_driver.build_config.return_value = 'fake_config'
+        self.fake_driver.build_config.return_value = fake_config_dict
 
         with mock.patch.object(self.instance_mgr,
                                '_verify_interfaces') as verify:
@@ -547,7 +569,7 @@ class TestInstanceManager(base.RugTestBase):
 
             expected_calls = [
                 mock.call(self.INSTANCE_INFO.management_address,
-                          'fake_config')
+                          fake_config_dict)
                 for i in range(0, 2)]
             self.fake_driver.update_config.assert_has_calls(expected_calls)
             self.assertEqual(self.instance_mgr.state, states.RESTART)

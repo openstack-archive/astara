@@ -146,6 +146,15 @@ class IPWrapper(SubProcessBase):
         output = cls._execute('', 'netns', ('list',), root_helper=root_helper)
         return [l.strip() for l in output.split('\n')]
 
+    def get_addresses_on_network(self, network_prefix):
+        addresses = []
+        for dev in self.get_devices():
+            for a in dev.addr.list():
+                addr = netaddr.IPNetwork(a['cidr'])
+                if addr.cidr == netaddr.IPNetwork(network_prefix):
+                    addresses.append(a)
+        return addresses
+
 
 class IPDevice(SubProcessBase):
     def __init__(self, name, root_helper=None, namespace=None):
@@ -445,3 +454,24 @@ def device_exists(device_name, root_helper=None, namespace=None):
     except RuntimeError:
         return False
     return bool(address)
+
+
+def address_on_network(network_prefix):
+    """"Find IP address on specified network
+
+    Finds a single local IP address on specified network.  Raises if None or
+    multiple are found.
+
+    :param network_prefix: The network prefix of the address.
+    :return: str The found IP address (v6 or v4)
+    """
+    addresses = IPWrapper().get_addresses_on_network(network_prefix)
+    if not addresses:
+        raise Exception(
+            'No local interfaces found with address on %s' % network_prefix)
+    if len(addresses) > 1:
+        raise Exception(
+            'Found multiple addresses on %s: ' %
+            ','.join([a['cidr'] for a in addresses]))
+
+    return addresses[0]['cidr'].split('/')[0]
