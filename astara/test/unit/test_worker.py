@@ -30,6 +30,7 @@ from astara import worker
 
 from astara.common.hash_ring import DC_KEY
 
+from astara.test.unit import fakes
 from astara.test.unit.db import base
 
 
@@ -59,7 +60,7 @@ class WorkerTestBase(base.DbTestCase):
         self.fake_neutron = mock.patch.object(
             neutron, 'Neutron', return_value=fake_neutron_obj).start()
 
-        self.w = worker.Worker(mock.Mock())
+        self.w = worker.Worker(mock.Mock(), fakes.FAKE_MGT_ADDR)
         self.addCleanup(mock.patch.stopall)
 
         self.target = self.tenant_id
@@ -333,12 +334,24 @@ class TestWorker(WorkerTestBase):
         self._test__should_process_command(
             fake_hash, cmds=cmds, key=DC_KEY, negative=True)
 
+    def test_worker_context_config(self):
+        self.config(astara_metadata_port=1234)
+        self.config(host='foohost')
+        ctxt = worker.WorkerContext(fakes.FAKE_MGT_ADDR)
+        self.assertEqual(
+            ctxt.config,
+            {
+                'host': 'foohost',
+                'metadata_port': 1234,
+                'address': fakes.FAKE_MGT_ADDR,
+            })
+
 
 class TestResourceCache(WorkerTestBase):
     def setUp(self):
         super(TestResourceCache, self).setUp()
         self.resource_cache = worker.TenantResourceCache()
-        self.worker_context = worker.WorkerContext()
+        self.worker_context = worker.WorkerContext(fakes.FAKE_MGT_ADDR)
 
     def test_resource_cache_hit(self):
         self.resource_cache._tenant_resources = {
@@ -409,7 +422,8 @@ class TestCreatingResource(WorkerTestBase):
     def test_message_enqueued(self):
         self.w.handle_message(self.tenant_id, self.msg)
         trm = self.w.tenant_managers[self.tenant_id]
-        sm = trm.get_state_machines(self.msg, worker.WorkerContext())[0]
+        sm = trm.get_state_machines(self.msg, worker.WorkerContext(
+            fakes.FAKE_MGT_ADDR))[0]
         self.assertEqual(len(sm._queue), 1)
 
 
@@ -473,7 +487,7 @@ class TestShutdown(WorkerTestBase):
     @mock.patch('kombu.Producer')
     def test_stop_threads_notifier(self, producer, exchange, broker):
         notifier = notifications.Publisher('topic')
-        w = worker.Worker(notifier)
+        w = worker.Worker(notifier, fakes.FAKE_MGT_ADDR)
         self.assertTrue(notifier)
         w._shutdown()
         self.assertFalse(w.notifier._t)
@@ -482,7 +496,7 @@ class TestShutdown(WorkerTestBase):
 class TestUpdateStateMachine(WorkerTestBase):
     def setUp(self):
         super(TestUpdateStateMachine, self).setUp()
-        self.worker_context = worker.WorkerContext()
+        self.worker_context = worker.WorkerContext(fakes.FAKE_MGT_ADDR)
         self.w._should_process_message = mock.MagicMock(return_value=self.msg)
 
     def _test(self, fake_hash, negative=False):
@@ -621,7 +635,8 @@ class TestDebugRouters(WorkerTestBase):
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
         trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+        sm = trm.get_state_machines(msg, worker.WorkerContext(
+            fakes.FAKE_MGT_ADDR))[0]
         with mock.patch.object(sm, 'send_message') as meth:
             # The router id is being ignored, so the send_message()
             # method shouldn't ever be invoked.
@@ -673,7 +688,8 @@ class TestDebugTenants(WorkerTestBase):
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
         trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+        sm = trm.get_state_machines(msg, worker.WorkerContext(
+            fakes.FAKE_MGT_ADDR))[0]
         with mock.patch.object(sm, 'send_message') as meth:
             # The tenant id is being ignored, so the send_message()
             # method shouldn't ever be invoked.
@@ -727,7 +743,8 @@ class TestGlobalDebug(WorkerTestBase):
         # Create the router manager and state machine so we can
         # replace the send_message() method with a mock.
         trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+        sm = trm.get_state_machines(msg, worker.WorkerContext(
+            fakes.FAKE_MGT_ADDR))[0]
         with mock.patch.object(sm, 'send_message') as meth:
             # The tenant id is being ignored, so the send_message()
             # method shouldn't ever be invoked.
@@ -750,7 +767,8 @@ class TestRebalance(WorkerTestBase):
             body={'key': 'value'},
         )
         trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, worker.WorkerContext())[0]
+        sm = trm.get_state_machines(msg, worker.WorkerContext(
+            fakes.FAKE_MGT_ADDR))[0]
 
         self.w.hash_ring_mgr.rebalance(['foo'])
         self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo']))
