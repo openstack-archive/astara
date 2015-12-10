@@ -44,16 +44,17 @@ SERVICE_DHCP = 'dhcp'
 SERVICE_RA = 'ra'
 
 
-def build_config(client, router, management_port, interfaces):
+def build_config(worker_context, router, management_port, interfaces):
     provider_rules = load_provider_rules(cfg.CONF.provider_rules_path)
 
     networks = generate_network_config(
-        client,
+        worker_context.neutron,
         router,
         management_port,
         interfaces
     )
-    gateway = get_default_v4_gateway(client, router, networks)
+    gateway = get_default_v4_gateway(
+        worker_context.neutron, router, networks)
 
     return {
         'asn': cfg.CONF.asn,
@@ -63,7 +64,8 @@ def build_config(client, router, management_port, interfaces):
         'labels': provider_rules.get('labels', {}),
         'floating_ips': generate_floating_config(router),
         'tenant_id': router.tenant_id,
-        'hostname': 'ak-%s' % router.tenant_id
+        'hostname': 'ak-%s' % router.tenant_id,
+        'orchestrator': worker_context.config,
     }
 
 
