@@ -397,6 +397,11 @@ class InstanceManager(object):
             mgt_port,
             iface_map
         )
+
+        # send data about the orchestrator that owns the appliance
+        # this can be extended in the future as needed
+        config['orchestrator'] = worker_context.config
+
         self.log.debug('preparing to update config to %r', config)
 
         for i in xrange(attempts):

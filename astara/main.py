@@ -186,7 +186,8 @@ def main(argv=sys.argv[1:]):
     # run.
     worker_factory = functools.partial(
         worker.Worker,
-        notifier=publisher
+        notifier=publisher,
+        management_address=mgt_ip_address,
     )
 
     # Set up the scheduler that knows how to manage the routers and
