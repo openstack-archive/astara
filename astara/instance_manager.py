@@ -399,6 +399,7 @@ class InstanceManager(object):
             mgt_port,
             iface_map
         )
+
         self.log.debug('preparing to update config to %r', config)
 
         for i in xrange(attempts):

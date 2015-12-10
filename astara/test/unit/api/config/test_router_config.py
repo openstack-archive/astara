@@ -40,8 +40,17 @@ class TestAstaraClient(unittest.TestCase):
             'generate_floating_config': mock.DEFAULT,
             'get_default_v4_gateway': mock.DEFAULT,
         }
+        fake_orchestrator = {
+            'host': 'foohost',
+            'adddress': '10.0.0.1',
+            'metadata_port': 80,
+        }
 
         mock_client = mock.Mock()
+        mock_context = mock.Mock(
+            neutron=mock_client,
+            config=fake_orchestrator,
+        )
         ifaces = []
         provider_rules = {'labels': {'ext': ['192.168.1.1']}}
         network_config = [
@@ -73,7 +82,7 @@ class TestAstaraClient(unittest.TestCase):
             mocks['generate_floating_config'].return_value = 'floating_config'
             mocks['get_default_v4_gateway'].return_value = 'default_gw'
 
-            config = conf_mod.build_config(mock_client, fakes.fake_router,
+            config = conf_mod.build_config(mock_context, fakes.fake_router,
                                            fakes.fake_mgt_port, ifaces)
 
             expected = {
@@ -84,7 +93,12 @@ class TestAstaraClient(unittest.TestCase):
                 'asn': 64512,
                 'neighbor_asn': 64512,
                 'tenant_id': 'tenant_id',
-                'hostname': 'ak-tenant_id'
+                'hostname': 'ak-tenant_id',
+                'orchestrator': {
+                    'host': 'foohost',
+                    'adddress': '10.0.0.1',
+                    'metadata_port': 80,
+                }
             }
 
             self.assertEqual(config, expected)
