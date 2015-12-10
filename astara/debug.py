@@ -21,6 +21,7 @@ import sys
 
 from oslo_config import cfg
 
+from astara import drivers
 from astara import state
 from astara import worker
 
@@ -69,8 +70,10 @@ def debug_one_router(args=sys.argv[1:]):
 
     context = worker.WorkerContext()
     router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
+    driver = drivers.get('router')(context, cfg.CONF.router_id)
     a = state.Automaton(
-        router_id=cfg.CONF.router_id,
+        driver=driver,
+        resource_id=cfg.CONF.router_id,
         tenant_id=router_obj.tenant_id,
         delete_callback=delete_callback,
         bandwidth_callback=bandwidth_callback,
