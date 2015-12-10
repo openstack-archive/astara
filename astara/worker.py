@@ -115,9 +115,18 @@ class WorkerContext(object):
     """Holds resources owned by the worker and used by the Automaton.
     """
 
-    def __init__(self):
+    def __init__(self, management_address):
         self.neutron = neutron.Neutron(cfg.CONF)
         self.nova_client = nova.Nova(cfg.CONF)
+        self.management_address = management_address
+
+    @property
+    def config(self):
+        return {
+            'address': self.management_address,
+            'metadata_port': cfg.CONF.astara_metadata_port,
+            'host': cfg.CONF.host,
+        }
 
 
 class Worker(object):
@@ -127,7 +136,7 @@ class Worker(object):
     track of a bunch of the state machines, so the callable is a
     method of an instance of this class instead of a simple function.
     """
-    def __init__(self, notifier):
+    def __init__(self, notifier, management_address):
         self._ignore_directory = cfg.CONF.ignored_router_directory
         self._queue_warning_threshold = cfg.CONF.queue_warning_threshold
         self._reboot_error_threshold = cfg.CONF.reboot_error_threshold
@@ -136,11 +145,12 @@ class Worker(object):
         self.lock = threading.Lock()
         self._keep_going = True
         self.tenant_managers = {}
+        self.management_address = management_address
         self.resource_cache = TenantResourceCache()
 
         # This process-global context should not be used in the
         # threads, since the clients are not thread-safe.
-        self._context = WorkerContext()
+        self._context = WorkerContext(self.management_address)
         self.notifier = notifier
         # The notifier needs to be started here to ensure that it
         # happens inside the worker process and not the parent.
@@ -180,7 +190,7 @@ class Worker(object):
         # messages and talking to the tenant router manager because we
         # are in a different thread and the clients are not
         # thread-safe.
-        context = WorkerContext()
+        context = WorkerContext(self.management_address)
         while self._keep_going:
             try:
                 # Try to get a state machine from the work queue. If
