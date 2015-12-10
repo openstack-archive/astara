@@ -14,25 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-#
-# Copyright 2012 New Dream Network, LLC (DreamHost)
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-#
-# @author: Mark McClain, DreamHost
-
 """Proxy requests to Nova's metadata server.
 
 Used by main.py
@@ -62,15 +43,15 @@ from astara.common.i18n import _, _LE, _LI, _LW
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
-RUG_META_PORT = 9697
-
-
 METADATA_OPTS = [
     cfg.StrOpt('nova_metadata_ip', default='127.0.0.1',
                help="IP address used by Nova metadata server."),
     cfg.IntOpt('nova_metadata_port',
                default=8775,
                help="TCP Port used by Nova metadata server."),
+    cfg.IntOpt('astara_metadata_port',
+               default=9697,
+               help="TCP listening port used by Astara metadata proxy."),
     cfg.StrOpt('neutron_metadata_proxy_shared_secret',
                default='',
                help='Shared secret to sign instance-id request',
@@ -180,7 +161,7 @@ class MetadataProxy(object):
         """
         self.pool = eventlet.GreenPool(1000)
 
-    def run(self, ip_address, port=RUG_META_PORT):
+    def run(self, ip_address, port=cfg.CONF.astara_metadata_port):
         """Run the MetadataProxy.
 
         :param ip_address: the ip address to bind to for incoming requests
