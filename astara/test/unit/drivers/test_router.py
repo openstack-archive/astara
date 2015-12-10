@@ -105,7 +105,7 @@ class RouterDriverTest(base.RugTestBase):
         self.assertTrue(mock_ensure_cache.called)
         mock_build_config.return_value = 'fake_config'
         mock_build_config.assert_called_with(
-            self.ctx.neutron, rtr._router, fake_mgt_port, fake_iface_map)
+            self.ctx, rtr._router, fake_mgt_port, fake_iface_map)
         self.assertEqual(res, 'fake_config')
 
     @mock.patch('astara.api.astara_client.update_config')
