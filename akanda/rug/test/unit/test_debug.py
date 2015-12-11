@@ -31,20 +31,26 @@ class TestDebug(base.RugTestBase):
         cfg.CONF.unregister_opts(debug.DEBUG_OPTS)
         super(TestDebug, self).tearDown()
 
+    @mock.patch('akanda.rug.drivers.get')
     @mock.patch('akanda.rug.worker.WorkerContext')
     @mock.patch('akanda.rug.state.Automaton')
     @mock.patch('pdb.set_trace')
-    def test_debug_one_router(self, set_trace, automaton, ctx):
+    def test_debug_one_router(self, set_trace, automaton, ctx, drivers_get):
         ctx.return_value.neutron.get_router_detail.return_value = mock.Mock(
             tenant_id='123'
         )
         debug.debug_one_router(self.argv + ['--router-id', 'X'])
 
-        ctx.return_value.neutron.get_router_detail.assert_called_once_with('X')
+        mock_driver = drivers_get.return_value.return_value
+
         assert set_trace.called
+
+        drivers_get.return_value.assert_called_once_with(ctx.return_value, 'X')
+
         automaton.assert_called_once_with(
-            router_id='X',
-            tenant_id='123',
+            driver=mock_driver,
+            resource_id='X',
+            tenant_id=mock_driver._router.tenant_id,
             delete_callback=debug.delete_callback,
             bandwidth_callback=debug.bandwidth_callback,
             worker_context=ctx.return_value,

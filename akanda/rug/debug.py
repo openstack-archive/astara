@@ -21,6 +21,7 @@ import sys
 
 from oslo_config import cfg
 
+from akanda.rug import drivers
 from akanda.rug import state
 from akanda.rug import worker
 
@@ -68,10 +69,11 @@ def debug_one_router(args=sys.argv[1:]):
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
     context = worker.WorkerContext()
-    router_obj = context.neutron.get_router_detail(cfg.CONF.router_id)
+    driver = drivers.get('router')(context, cfg.CONF.router_id)
     a = state.Automaton(
-        router_id=cfg.CONF.router_id,
-        tenant_id=router_obj.tenant_id,
+        driver=driver,
+        resource_id=cfg.CONF.router_id,
+        tenant_id=driver._router.tenant_id,
         delete_callback=delete_callback,
         bandwidth_callback=bandwidth_callback,
         worker_context=context,
