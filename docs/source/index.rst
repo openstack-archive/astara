@@ -28,6 +28,7 @@ Narrative Documentation
    operation.rst
    developer_quickstart.rst
    reference.rst
+   release_notes.rst
 
 Licensing
 ---------
