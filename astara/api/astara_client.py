@@ -21,7 +21,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-ASTARA_ULA_PREFIX = 'fdca:3ba5:a17a:acda::/64'
 ASTARA_MGT_SERVICE_PORT = 5000
 ASTARA_BASE_PATH = '/v1/'
 

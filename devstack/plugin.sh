@@ -32,7 +32,7 @@ ROUTER_INSTANCE_FLAVOR_DISK=${ROUTER_INSTANCE_FLAVOR_DISK:-5}
 ROUTER_INSTANCE_FLAVOR_CPUS=${ROUTER_INSTANCE_FLAVOR_CPUS:-1}
 
 PUBLIC_INTERFACE_DEFAULT='eth0'
-ASTARA_MANAGEMENT_PREFIX=${ASTARA_MANGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
+ASTARA_MANAGEMENT_PREFIX=${ASTARA_MANAGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
 ASTARA_MANAGEMENT_PORT=${ASTARA_MANAGEMENT_PORT:-5000}
 ASTARA_API_PORT=${ASTARA_API_PORT:-44250}
 
@@ -213,7 +213,11 @@ function pre_start_astara() {
     # Remove the ipv6 subnet created automatically before adding our own.
     _remove_subnets mgt
 
-    typeset mgt_subnet_id=$(neutron $auth_args subnet-create mgt fdca:3ba5:a17a:acda::/64 --ip-version=6 --ipv6_address_mode=slaac --enable_dhcp | grep ' id ' | awk '{ print $4 }')
+    local subnet_create_args=""
+    if [[ "$ASTARA_MANAGEMENT_PREFIX" =~ ':' ]]; then
+        subnet_create_args="--ip-version=6 --ipv6_address_mode=slaac --enable_dhcp"
+    fi
+    typeset mgt_subnet_id=$(neutron $auth_args subnet-create mgt $ASTARA_MANAGEMENT_PREFIX $subnet_create_args | grep ' id ' | awk '{ print $4 }')
     iniset $ASTARA_CONF DEFAULT management_subnet_id $mgt_subnet_id
 
     # Remove the private network created by devstack
