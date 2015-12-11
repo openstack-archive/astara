@@ -1,0 +1,5 @@
+---
+deprecations:
+  - The ``amqp_url`` config option has been deprecated in favor using ``oslo.messaging`` backend specific configution.  See example configuration file for an example.  The pre-Liberty rabbit options have been removed.
+fixes:
+  - Bug `1524595 <https://bugs.launchpad.net/astara/+bug/1524595/>`_ astara-ctl warning message for deprecated AMQP configuration
