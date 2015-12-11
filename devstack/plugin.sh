@@ -66,7 +66,8 @@ function configure_astara() {
     cp $ASTARA_DIR/etc/orchestrator.ini $ASTARA_CONF
     iniset $ASTARA_CONF DEFAULT verbose True
     configure_auth_token_middleware $ASTARA_CONF $Q_ADMIN_USERNAME $ASTARA_CACHE_DIR
-    iniset $ASTARA_CONF DEFAULT amqp_url "amqp://$RABBIT_USERID:$RABBIT_PASSWORD@$RABBIT_HOST:$RABBIT_PORT/"
+    iniset_rpc_backend astara $ASTARA_CONF
+
     iniset $ASTARA_CONF DEFAULT control_exchange "neutron"
     iniset $ASTARA_CONF DEFAULT boot_timeout "6000"
     iniset $ASTARA_CONF DEFAULT num_worker_processes "2"
