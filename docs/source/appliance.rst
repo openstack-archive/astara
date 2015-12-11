@@ -1,22 +1,22 @@
 .. _appliance:
 
-The Service VM (the Akanda Appliance)
+The Service VM (the Astara Appliance)
 =====================================
 
-Akanda uses Linux-based images (stored in OpenStack Glance) to provide layer
+Astara uses Linux-based images (stored in OpenStack Glance) to provide layer
 3 routing and advanced networking services.  Akanda, Inc provides stable image
 releases for download at `akanda.io <http://akanda.io>`_, but it's also
 possible to build your own custom Service VM image (running additional
 services of your own on top of the routing and other default services provided
-by Akanda).
+by Astara).
 
 .. _appliance_build:
 
 Building a Service VM image from source
 ---------------------------------------
 
-The router code that runs within the appliance is hosted in the ``akanda-appliance``
-repository at ``https://github.com/stackforge/akanda-appliance``.  Additional tooling
+The router code that runs within the appliance is hosted in the ``astara-appliance``
+repository at ``https://git.openstack.org/cgit/openstack/astara-appliance``.  Additional tooling
 for actually building a VM image to run the appliance is located in that repository's
 ``disk-image-builder`` sub-directory, in the form elements to be used with
 ``diskimage-builder``.  The following instructions will walk through
@@ -33,11 +33,11 @@ First, install ``diskimage-builder`` and required packages:
     sudo apt-get -y install debootstrap qemu-utils
     sudo pip install "diskimage-builder<0.1.43"
 
-Next, clone the ``akanda-appliance-builder`` repository:
+Next, clone the ``astara-appliance`` repository:
 
 ::
 
-    git clone https://github.com/stackforge/akanda-appliance
+    git clone https://git.openstack.org/openstack/astara-appliance
 
 
 Build the image
@@ -47,22 +47,22 @@ Kick off an image build using diskimage-builder:
 
 ::
 
-    cd akanda-appliance
+    cd astara-appliance
     ELEMENTS_PATH=diskimage-builder/elements DIB_RELEASE=wheezy DIB_EXTLINUX=1 \
-    disk-image-create debian vm akanda -o akanda
+    disk-image-create debian vm astara -o astara
 
 Publish the image
 +++++++++++++++++
 
-The previous step should produce a qcow2 image called ``akanda.qcow`` that can be
+The previous step should produce a qcow2 image called ``astara.qcow`` that can be
 published into Glance for use by the system:
 
 ::
 
     # We assume you have the required OpenStack credentials set as an environment
     # variables
-    glance image-create --name akanda --disk-format qcow2 --container-format bare \
-        --file akanda.qcow2
+    glance image-create --name astara --disk-format qcow2 --container-format bare \
+        --file astara.qcow2
     +------------------+--------------------------------------+
     | Property         | Value                                |
     +------------------+--------------------------------------+
@@ -76,7 +76,7 @@ published into Glance for use by the system:
     | is_public        | False                                |
     | min_disk         | 0                                    |
     | min_ram          | 0                                    |
-    | name             | akanda                               |
+    | name             | astara                               |
     | owner            | df8eaa19c1d44365911902e738c2b10a     |
     | protected        | False                                |
     | size             | 450573824                            |
@@ -93,28 +93,29 @@ the service to use that image for software router instances it manages:
 
 ::
 
-    vi /etc/akanda/rug.ini
+    vi /etc/astara/orchestrator.ini
     ...
-    router_image_uuid=e2caf7fa-9b51-4f42-9fb9-8cfce96aad5a
+    [router]
+    image_uuid=e2caf7fa-9b51-4f42-9fb9-8cfce96aad5a
 
 Making local changes to the appliance service
 +++++++++++++++++++++++++++++++++++++++++++++
 
-By default, building an image in this way pulls the ``akanda-appliance`` code directly
+By default, building an image in this way pulls the ``astara-appliance`` code directly
 from the upstream tip of trunk.  If you'd like to make modifications to this code locally
-and build an image containing those changes, set DIB_REPOLOCATION_akanda and DIB_REPOREF_akanda
+and build an image containing those changes, set DIB_REPOLOCATION_astara and DIB_REPOREF_astara
 in your enviornment accordingly during the image build, ie:
 
 ::
 
-    export DIB_REPOLOCATION_akanda=~/src/akanda-appliance  # Location of the local repository checkout
-    export DIB_REPOREF_akanda=my-new-feature # The branch name or SHA-1 hash of the git ref to build from.
+    export DIB_REPOLOCATION_astara=~/src/astara-appliance  # Location of the local repository checkout
+    export DIB_REPOREF_astara=my-new-feature # The branch name or SHA-1 hash of the git ref to build from.
 
 .. _appliance_rest:
 
 REST API
 --------
-The Akanda Appliance REST API is used by the :ref:`rug` service to manage
+The Astara Appliance REST API is used by the :ref:`orchestrator` service to manage
 health and configuration of services on the router.
 
 Router Health
@@ -213,7 +214,7 @@ Used to retrieve JSON data about a `every` interface on the router.
 
 ``HTTP PUT /v1/system/config/``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Used (generally, by :program:`akanda-rug-service`) to push a new configuration
+Used (generally, by :program:`astara-orchestrator`) to push a new configuration
 to the router and restart services as necessary:
 
 ::
@@ -303,7 +304,7 @@ to the router and restart services as necessary:
 
 Survey of Software and Services
 -------------------------------
-The Akanda Appliance uses a variety of software and services to manage routing
+The Astara Appliance uses a variety of software and services to manage routing
 and advanced services, such as:
 
     * ``iproute2`` tools (e.g., ``ip neigh``, ``ip addr``, ``ip route``, etc...)
@@ -311,9 +312,9 @@ and advanced services, such as:
     * ``bird6``
     * ``iptables`` and ``iptables6``
 
-In addition, the Akanda Appliance includes two Python-based services:
+In addition, the Astara Appliance includes two Python-based services:
 
-    * The REST API (which :program:`akanda-rug-service)` communicates with to
+    * The REST API (which :program:`astara-orchestrator)` communicates with to
       orchestrate router updates), deployed behind `gunicorn
       <http://gunicorn.org>`_.
     * A Python-based metadata proxy.
@@ -322,7 +323,7 @@ Proxying Instance Metadata
 --------------------------
 
 When OpenStack VMs boot with ``cloud-init``, they look for metadata on a
-well-known address, ``169.254.169.254``.  To facilitate this process, Akanda
+well-known address, ``169.254.169.254``.  To facilitate this process, Astara
 sets up a special NAT rule (one for each local network)::
 
     -A PREROUTING -i eth2 -d 169.254.169.254 -p tcp -m tcp --dport 80 -j DNAT --to-destination 10.10.10.1:9602
