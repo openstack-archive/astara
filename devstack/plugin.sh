@@ -76,6 +76,7 @@ function configure_astara() {
     iniset $ASTARA_CONF DEFAULT management_prefix $ASTARA_MANAGEMENT_PREFIX
     iniset $ASTARA_CONF DEFAULT astara_mgt_service_port $ASTARA_MANAGEMENT_PORT
     iniset $ASTARA_CONF DEFAULT rug_api_port $ASTARA_API_PORT
+    iniset $ASTARA_CONF DEFAULT enabled_drivers $ASTARA_ENABLED_DRIVERS
 
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $ASTARA_CONF DEFAULT interface_driver "astara.common.linux.interface.BridgeInterfaceDriver"
@@ -167,6 +168,7 @@ function create_astara_nova_flavor() {
       $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
       $ROUTER_INSTANCE_FLAVOR_CPUS
     iniset $ASTARA_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
+    iniset $ASTARA_CONF loadbalancer instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
 function _remove_subnets() {
@@ -257,7 +259,9 @@ function pre_start_astara() {
     typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
 
     die_if_not_set $LINENO image_id "Failed to find astara image"
+
     iniset $ASTARA_CONF router image_uuid $image_id
+    iniset $ASTARA_CONF loadbalancer image_uuid $image_id
 
     # NOTE(adam_g): Currently we only support keystone v2 auth so we need to
     # hardcode the auth url accordingly. See (LP: #1492654)
