@@ -52,6 +52,8 @@ function configure_astara() {
     # sometimes hang during config update and eventually timeout after 60s.  Update
     # config_timeout in the RUG to reflect that timeout.
     iniset $ASTARA_CONF DEFAULT config_timeout 60
+    iniset $ASTARA_CONF DEFAULT rug_api_port $ASTARA_API_PORT
+    iniset $ASTARA_CONF DEFAULT enabled_drivers $ASTARA_ENABLED_DRIVERS
 
     iniset $ASTARA_CONF DEFAULT enabled_drivers $ASTARA_ENABLED_DRIVERS
 
@@ -82,6 +84,9 @@ function configure_astara_nova() {
 }
 
 function configure_astara_neutron() {
+    # NOTE: This over-writes core_plugin as set by devstack/lib/neutron-legacy, and may break
+    # in the future if devstack ordering changes. Long term this should be set by devstack
+    # itself.
     iniset $NEUTRON_CONF DEFAULT core_plugin astara_neutron.plugins.ml2_neutron_plugin.Ml2Plugin
     iniset $NEUTRON_CONF DEFAULT api_extensions_path $ASTARA_NEUTRON_DIR/astara_neutron/extensions
     # Use rpc as notification driver instead of the default no_ops driver
@@ -144,6 +149,7 @@ function create_astara_nova_flavor() {
       --id $ROUTER_INSTANCE_FLAVOR_ID --ram $ROUTER_INSTANCE_FLAVOR_RAM \
       --disk $ROUTER_INSTANCE_FLAVOR_DISK --vcpus $ROUTER_INSTANCE_FLAVOR_CPUS
     iniset $ASTARA_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
+    iniset $ASTARA_CONF loadbalancer instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
 function _remove_subnets() {
@@ -241,7 +247,9 @@ function pre_start_astara() {
     typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
 
     die_if_not_set $LINENO image_id "Failed to find astara image"
+
     iniset $ASTARA_CONF router image_uuid $image_id
+    iniset $ASTARA_CONF loadbalancer image_uuid $image_id
 
     # NOTE(adam_g): Currently we only support keystone v2 auth so we need to
     # hardcode the auth url accordingly. See (LP: #1492654)

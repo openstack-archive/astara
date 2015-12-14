@@ -1,0 +1,10 @@
+ASTARA_ENABLED_DRIVERS=${ASTARA_ENABLED_DRIVERS:-"router,loadbalancer"}
+
+ML2_L3_PLUGIN="astara_neutron.plugins.ml2_neutron_plugin.L3RouterPlugin"
+
+if [[ "$ASTARA_ENABLED_DRIVERS" =~ "loadbalancer" ]]; then
+    NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:LoggingNoop:neutron_lbaas.drivers.logging_noop.driver.LoggingNoopLoadBalancerDriver:default"
+    enable_plugin neutron-lbaas https://github.com/openstack/neutron-lbaas
+    fetch_plugins
+    enable_service q-lbaasv2
+fi
