@@ -17,9 +17,9 @@
 from datetime import datetime
 import time
 
+import netaddr
 from novaclient import client
 from novaclient import exceptions as novaclient_exceptions
-
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -376,7 +376,7 @@ debug:
   - verbose: true
 
 bootcmd:
-  - /usr/local/bin/%(boot_command)s %(mac_address)s %(ip_address)s/64
+  - /usr/local/bin/%(boot_command)s %(mac_address)s %(ip_address)s/%(prefix)d
 
 users:
   - name: astara
@@ -405,10 +405,12 @@ def _ssh_key():
 
 
 def format_userdata(mgt_port):
+    mgt_net = netaddr.IPNetwork(cfg.CONF.management_prefix)
     ctxt = {
         'ssh_public_key': _ssh_key(),
         'mac_address': mgt_port.mac_address,
         'ip_address': mgt_port.fixed_ips[0].ip_address,
-        'boot_command': cfg.CONF.astara_boot_command
+        'boot_command': cfg.CONF.astara_boot_command,
+        'prefix': mgt_net.prefixlen
     }
     return TEMPLATE % ctxt
