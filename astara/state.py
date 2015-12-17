@@ -26,6 +26,7 @@ import collections
 import itertools
 
 from astara.common.i18n import _LE, _LI, _LW
+from astara.event import Resource
 from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
 from astara import instance_manager
 from astara.drivers import states
@@ -412,6 +413,9 @@ class Automaton(object):
         )
         self.state = CalcAction(self._state_params)
 
+        self.resource = Resource(
+            driver=self.driver, id=self.resource_id, tenant_id=self.tenant_id)
+
     def service_shutdown(self):
         "Called when the parent process is being stopped"
 
@@ -541,6 +545,6 @@ class Automaton(object):
         This is used after a ring rebalance if this state machine no longer
         maps to the local Rug process.
         """
-        self.driver.log.info(
+        self.driver.log.debug(
             'Dropping %s pending actions from queue', len(self._queue))
         self._queue.clear()
