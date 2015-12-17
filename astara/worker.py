@@ -115,7 +115,7 @@ class WorkerContext(object):
     """Holds resources owned by the worker and used by the Automaton.
     """
 
-    def __init__(self, management_address):
+    def __init__(self, management_address=None):
         self.neutron = neutron.Neutron(cfg.CONF)
         self.nova_client = nova.Nova(cfg.CONF)
         self.management_address = management_address
@@ -136,7 +136,7 @@ class Worker(object):
     track of a bunch of the state machines, so the callable is a
     method of an instance of this class instead of a simple function.
     """
-    def __init__(self, notifier, management_address):
+    def __init__(self, notifier, management_address, scheduler, proc_name):
         self._ignore_directory = cfg.CONF.ignored_router_directory
         self._queue_warning_threshold = cfg.CONF.queue_warning_threshold
         self._reboot_error_threshold = cfg.CONF.reboot_error_threshold
@@ -146,6 +146,8 @@ class Worker(object):
         self._keep_going = True
         self.tenant_managers = {}
         self.management_address = management_address
+        self.scheduler = scheduler
+        self.proc_name = proc_name
         self.resource_cache = TenantResourceCache()
 
         # This process-global context should not be used in the
@@ -222,7 +224,8 @@ class Worker(object):
                 if self.host not in target_hosts:
                     LOG.debug('Skipping update of router %s, it no longer '
                               'maps here.', sm.resource_id)
-                    sm._do_delete()
+                    trm = self.tenant_managers[sm.tenant_id]
+                    trm.unmanage_resource(sm.resource_id)
                     self.work_queue.task_done()
                     with self.lock:
                         self._release_resource_lock(sm)
@@ -426,7 +429,51 @@ class Worker(object):
             if sm:
                 return sm
 
+    def _get_all_state_machines(self):
+        sms = set()
+        for trm in self._get_trms('*'):
+            sms.update(trm.get_all_state_machines())
+        return sms
+
+    def _repopulate(self):
+        """Repopulate local state machines given the new DHT
+
+        After the hash ring has been rebalanced, this ensures the workers'
+        TRMs are populated with the correct set of state machines given the
+        current layout of the ring. We also consult the dispatcher to ensure
+        we're creating state machines on the correct worker process.  This
+        also cleans up state machines that are no longer mapped here.
+        """
+        LOG.debug('Running post-rebalance repopulate for worker %s',
+                  self.proc_name)
+        for resource in populate.repopulate():
+            target_hosts = self.hash_ring_mgr.ring.get_hosts(
+                resource.id)
+            if self.host not in target_hosts:
+                tid = _normalize_uuid(resource.tenant_id)
+                if tid in self.tenant_managers:
+                    trm = self.tenant_managers[tid]
+                    trm.unmanage_resource(resource.id)
+                    continue
+
+            tgt = self.scheduler.dispatcher.pick_workers(
+                resource.tenant_id)[0]
+
+            if tgt['worker'].name != self.proc_name:
+                # Typically, state machine creation doesn't happen until the
+                # dispatcher has scheduled a msg to a single worker. rebalances
+                # are scheduled to all workers so we need to consult the
+                # dispatcher here to avoid creating state machines in all
+                # workers.
+                continue
+
+            for trm in self._get_trms(resource.tenant_id):
+                # creates a state machine if one does not exist.
+                e = event.Event(resource=resource, crud=None, body={})
+                trm.get_state_machines(e, self._context)
+
     def _rebalance(self, message):
+        # rebalance the ring with the new membership.
         self.hash_ring_mgr.rebalance(message.body.get('members'))
 
         # We leverage the rebalance event to both seed the local node's
@@ -437,34 +484,23 @@ class Worker(object):
         if message.body.get('node_bootstrap'):
             return
 
-        # After we rebalance, we need to repopulate state machines
-        # for any resources that now map here.  This is required
-        # otherwise commands that hash here will not be delivered
-        # until a state machine is created during a later event
-        # delivery.  Note that this causes a double populate for new
-        # nodes (once for pre-populate on startup, again for the
-        # repopulate here once the node has joined the cluster)
-        for resource in populate.repopulate():
-            if not self.hash_ring_mgr.ring.get_hosts(resource.id):
-                continue
-            e = event.Event(resource=resource, crud=None, body={})
-            trms = self._get_trms(resource.tenant_id)
-            for trm in trms:
-                trm.get_state_machines(e, self._context)
-        # rebalance our hash ring according to new cluster membership
-        self.hash_ring_mgr.rebalance(message.body.get('members'))
+        # track which SMs we initially owned
+        orig_sms = self._get_all_state_machines()
 
-        # loop through all local state machines and drop all pending work
-        # for those that are no longer managed here, as per newly balanced
-        # hash ring
-        trms = self._get_trms('*')
-        for trm in trms:
-            sms = trm.get_state_machines(message, self._context)
-            for sm in sms:
-                target_hosts = self.hash_ring_mgr.ring.get_hosts(
-                    sm.resource_id)
-                if self.host not in target_hosts:
-                    sm.drop_queue()
+        # rebuild the TRMs and SMs based on new ownership
+        self._repopulate()
+
+        # TODO(adam_g): Replace the UPDATE with a POST_REBALANCE commnand
+        # that triggers a driver method instead of generic update.
+        # for newly owned resources, issue a post-rebalance update.
+        for sm in (self._get_all_state_machines() - orig_sms):
+            post_rebalance = event.Event(
+                resource=sm.resource, crud=event.UPDATE,
+                body={})
+            LOG.debug('Sending post-rebalance update for %s',
+                      sm.resource_id)
+            if sm.send_message(post_rebalance):
+                self._add_resource_to_work_queue(sm)
 
         # NOTE(adam_g): If somethings queued up on a SM, it means the SM
         # is currently executing something thats probably long running

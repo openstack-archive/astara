@@ -60,7 +60,14 @@ class WorkerTestBase(base.DbTestCase):
         self.fake_neutron = mock.patch.object(
             neutron, 'Neutron', return_value=fake_neutron_obj).start()
 
-        self.w = worker.Worker(mock.Mock(), fakes.FAKE_MGT_ADDR)
+        self.fake_scheduler = mock.Mock()
+        self.proc_name = 'p0x'
+        self.w = worker.Worker(
+            notifier=mock.Mock(),
+            management_address=fakes.FAKE_MGT_ADDR,
+            scheduler=self.fake_scheduler,
+            proc_name=self.proc_name)
+
         self.addCleanup(mock.patch.stopall)
 
         self.target = self.tenant_id
@@ -346,6 +353,25 @@ class TestWorker(WorkerTestBase):
                 'address': fakes.FAKE_MGT_ADDR,
             })
 
+    @mock.patch('astara.worker.Worker._get_trms')
+    def test__get_all_state_machines(self, fake_get_trms):
+        trms = [
+            mock.Mock(
+                get_all_state_machines=mock.Mock(
+                    return_value=['sm1', 'sm2']),
+            ),
+            mock.Mock(
+                get_all_state_machines=mock.Mock(
+                    return_value=['sm3', 'sm4']),
+            ),
+        ]
+        fake_get_trms.return_value = trms
+        res = self.w._get_all_state_machines()
+        self.assertEqual(
+            res,
+            set(['sm1', 'sm2', 'sm3', 'sm4'])
+        )
+
 
 class TestResourceCache(WorkerTestBase):
     def setUp(self):
@@ -487,7 +513,8 @@ class TestShutdown(WorkerTestBase):
     @mock.patch('kombu.Producer')
     def test_stop_threads_notifier(self, producer, exchange, broker):
         notifier = notifications.Publisher('topic')
-        w = worker.Worker(notifier, fakes.FAKE_MGT_ADDR)
+        w = worker.Worker(
+            notifier, fakes.FAKE_MGT_ADDR, self.fake_scheduler, self.proc_name)
         self.assertTrue(notifier)
         w._shutdown()
         self.assertFalse(w.notifier._t)
@@ -753,36 +780,170 @@ class TestGlobalDebug(WorkerTestBase):
 
 
 class TestRebalance(WorkerTestBase):
-    def test_rebalance(self):
-        tenant_id = '98dd9c41-d3ac-4fd6-8927-567afa0b8fc3'
-        resource_id = 'ac194fc5-f317-412e-8611-fb290629f624'
-        r = event.Resource(
-            tenant_id=tenant_id,
-            id=resource_id,
-            driver='router',
-        )
-        msg = event.Event(
-            resource=r,
-            crud=event.CREATE,
+    def setUp(self):
+        super(TestRebalance, self).setUp()
+        self.fake_host = 'fake_host'
+        self.w.host = 'fake_host'
+        self.resource_id = '56232034-a852-11e5-854e-035a3632659f'
+        self.tenant_id = '601128de-a852-11e5-a09d-cf6fa26e6e6b'
+
+        self.resource = event.Resource(
+            'router',
+            self.resource_id,
+            self.tenant_id)
+        self.msg = event.Event(
+            resource=self.resource,
+            crud=None,
             body={'key': 'value'},
         )
-        trm = self.w._get_trms(tenant_id)[0]
-        sm = trm.get_state_machines(msg, worker.WorkerContext(
-            fakes.FAKE_MGT_ADDR))[0]
 
-        self.w.hash_ring_mgr.rebalance(['foo'])
-        self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo']))
-        r = event.Resource(
-            tenant_id='*',
-            id='*',
-            driver='*',
+    @mock.patch('astara.worker.Worker._repopulate')
+    def test_rebalance_bootstrap(self, fake_repop):
+        fake_hash = mock.Mock(
+            rebalance=mock.Mock(),
         )
+        self.w.hash_ring_mgr = fake_hash
         msg = event.Event(
-            resource=r,
+            resource=self.resource,
             crud=event.REBALANCE,
-            body={'members': ['foo', 'bar']},
+            body={
+                'members': ['foo', 'bar'],
+                'node_bootstrap': True
+            },
         )
-        with mock.patch.object(sm, 'drop_queue') as meth:
-            self.w.handle_message('*', msg)
-            self.assertTrue(meth.called)
-        self.assertEqual(self.w.hash_ring_mgr.hosts, set(['foo', 'bar']))
+        self.w.handle_message('*', msg)
+        fake_hash.rebalance.assert_called_with(['foo', 'bar'])
+        self.assertFalse(fake_repop.called)
+
+    @mock.patch('astara.worker.Worker._add_resource_to_work_queue')
+    @mock.patch('astara.worker.Worker._get_all_state_machines')
+    @mock.patch('astara.worker.Worker._repopulate')
+    def test_rebalance(self, fake_repop, fake_get_all_sms, fake_add_rsc):
+        sm1 = mock.Mock(
+            resource_id='sm1',
+            send_message=mock.Mock(return_value=True),
+        )
+        sm2 = mock.Mock(
+            resource_id='sm2',
+            resource='sm2_resource',
+            send_message=mock.Mock(return_value=True),
+        )
+        fake_get_all_sms.side_effect = [
+            set([sm1]),
+            set([sm1, sm2]),
+        ]
+        fake_hash = mock.Mock(
+            rebalance=mock.Mock(),
+        )
+        self.w.hash_ring_mgr = fake_hash
+        msg = event.Event(
+            resource=self.resource,
+            crud=event.REBALANCE,
+            body={
+                'members': ['foo', 'bar'],
+            },
+        )
+        self.w.handle_message('*', msg)
+        fake_hash.rebalance.assert_called_with(['foo', 'bar'])
+        self.assertTrue(fake_repop.called)
+
+        exp_event = event.Event(
+            resource='sm2_resource',
+            crud=event.UPDATE,
+            body={}
+        )
+        sm2.send_message.assert_called_with(exp_event)
+        sm2._add_resource_to_work_queue(sm2)
+
+    @mock.patch('astara.populate.repopulate')
+    def test__repopulate_sm_removed(self, fake_repopulate):
+        fake_ring = mock.Mock(
+            get_hosts=mock.Mock()
+        )
+        fake_hash = mock.Mock(ring=fake_ring)
+        self.w.hash_ring_mgr = fake_hash
+
+        rsc1 = event.Resource(
+            driver='router',
+            tenant_id='79f418c8-a849-11e5-9c36-df27538e1b7e',
+            id='7f2a1d56-a849-11e5-a0ce-a74ef0b18fa1',
+        )
+        rsc2 = event.Resource(
+            driver='router',
+            tenant_id='8d55fdb4-a849-11e5-958f-0b870649546d',
+            id='9005cd5a-a849-11e5-a434-27c4c7c70a8b',
+        )
+        resources = [rsc1, rsc2]
+
+        # create initial, pre-rebalance state machines
+        for r in resources:
+            for trm in self.w._get_trms(r.tenant_id):
+                e = event.Event(resource=r, crud=None, body={})
+                trm.get_state_machines(e, self.w._context)
+
+        fake_hash.ring.get_hosts.side_effect = [
+            'foo', self.fake_host
+        ]
+        fake_repopulate.return_value = resources
+
+        # mock doesn't like to have its .name overwritten?
+        class FakeWorker(object):
+            name = self.w.proc_name
+        tgt = [{'worker': FakeWorker()}]
+
+        self.w.scheduler.dispatcher.pick_workers = mock.Mock(return_value=tgt)
+        self.w._repopulate()
+        post_rebalance_sms = self.w._get_all_state_machines()
+        self.assertEqual(len(post_rebalance_sms), 1)
+        sm = post_rebalance_sms.pop()
+        self.assertEqual(sm.resource_id,  rsc2.id)
+
+    @mock.patch('astara.populate.repopulate')
+    def test__repopulate_sm_added(self, fake_repopulate):
+        fake_ring = mock.Mock(
+            get_hosts=mock.Mock()
+        )
+        fake_hash = mock.Mock(ring=fake_ring)
+        self.w.hash_ring_mgr = fake_hash
+
+        rsc1 = event.Resource(
+            driver='router',
+            tenant_id='79f418c8-a849-11e5-9c36-df27538e1b7e',
+            id='7f2a1d56-a849-11e5-a0ce-a74ef0b18fa1',
+        )
+        rsc2 = event.Resource(
+            driver='router',
+            tenant_id='8d55fdb4-a849-11e5-958f-0b870649546d',
+            id='9005cd5a-a849-11e5-a434-27c4c7c70a8b',
+        )
+        rsc3 = event.Resource(
+            driver='router',
+            tenant_id='455549a4-a851-11e5-a060-df26a5877746',
+            id='4a05c758-a851-11e5-bf9f-0387cfcb8f9b',
+        )
+
+        resources = [rsc1, rsc2, rsc3]
+
+        # create initial, pre-rebalance state machines
+        for r in resources[:-1]:
+            for trm in self.w._get_trms(r.tenant_id):
+                e = event.Event(resource=r, crud=None, body={})
+                trm.get_state_machines(e, self.w._context)
+
+        fake_hash.ring.get_hosts.side_effect = [
+            self.fake_host, self.fake_host, self.fake_host
+        ]
+        fake_repopulate.return_value = resources
+
+        # mock doesn't like to have its .name overwritten?
+        class FakeWorker(object):
+            name = self.w.proc_name
+        tgt = [{'worker': FakeWorker()}]
+
+        self.w.scheduler.dispatcher.pick_workers = mock.Mock(return_value=tgt)
+        self.w._repopulate()
+        post_rebalance_sms = self.w._get_all_state_machines()
+        self.assertEqual(len(post_rebalance_sms), 3)
+        rids = [r.id for r in resources]
+        for sm in post_rebalance_sms:
+            self.assertIn(sm.resource_id, rids)

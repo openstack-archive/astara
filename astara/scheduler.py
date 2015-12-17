@@ -39,12 +39,12 @@ SCHEDULER_OPTS = [
 CONF.register_opts(SCHEDULER_OPTS)
 
 
-def _worker(inq, worker_factory):
+def _worker(inq, worker_factory, scheduler, proc_name):
     """Scheduler's worker process main function.
     """
     daemon.ignore_signals()
     LOG.debug('starting worker process')
-    worker = worker_factory()
+    worker = worker_factory(scheduler=scheduler, proc_name=proc_name)
     while True:
         try:
             data = inq.get()
@@ -117,20 +117,24 @@ class Scheduler(object):
         # when someone calls our handle_message() method.
         for i in range(self.num_workers):
             wq = multiprocessing.JoinableQueue()
+            name = 'p%02d' % i
             worker = multiprocessing.Process(
                 target=_worker,
                 kwargs={
                     'inq': wq,
                     'worker_factory': worker_factory,
+                    'scheduler': self,
+                    'proc_name': name,
                 },
-                name='p%02d' % i,
+                name=name,
             )
-            worker.start()
             self.workers.append({
                 'queue': wq,
                 'worker': worker,
             })
         self.dispatcher = Dispatcher(self.workers)
+        for w in self.workers:
+            w['worker'].start()
 
     def stop(self):
         """Shutdown all workers cleanly.
