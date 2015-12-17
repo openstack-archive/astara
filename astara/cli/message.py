@@ -19,6 +19,8 @@
 """
 import abc
 import logging
+import os
+import sys
 
 from cliff import command
 
@@ -39,14 +41,12 @@ class MessageSending(command.Command):
         return {}
 
     def take_action(self, parsed_args):
-        self.log.info(
-            'using amqp at %r exchange %r',
-            self.app.rug_ini.amqp_url,
-            self.app.rug_ini.outgoing_notifications_exchange,
-        )
         self.send_message(self.make_message(parsed_args))
 
     def send_message(self, payload):
         sender = notifications.Sender()
-        self.log.debug('sending %r', payload)
+        cmd = payload.get('command')
+        argv = os.path.basename(sys.argv[0])
+        self.log.info('%s: sending %s instruction.' % (argv, cmd))
+        self.log.debug('payload: %r', payload)
         sender.send(event_type='astara.command', message=payload)

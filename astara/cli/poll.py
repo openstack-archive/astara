@@ -28,10 +28,6 @@ class Poll(message.MessageSending):
     log = logging.getLogger(__name__)
 
     def make_message(self, parsed_args):
-        self.log.info(
-            'sending %s instruction',
-            commands.POLL,
-        )
         return {
             'command': commands.POLL,
         }
