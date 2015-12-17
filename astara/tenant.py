@@ -81,6 +81,24 @@ class ResourceContainer(object):
             return item in self.state_machines
 
 
+    def unmanage(self, resource_id):
+        """Used to delete a state machine from local maanagement
+
+        Removes the local state machine from orchestrator management during
+        cluster events.  This is different than deleting the resource in that
+        it does not tag the resource as also deleted from Neutron, which would
+        prevent us from recreating its state machine if the resource later ends
+        up back under this orchestrators control.
+
+        :param resource_id: The resource id to unmanage
+        """
+        try:
+            with self.lock:
+                self.state_machines.pop(resource_id)
+        except KeyError:
+            pass
+
+
 class TenantResourceManager(object):
     """Keep track of the state machines for the logical resources for a given
     tenant.
@@ -103,6 +121,9 @@ class TenantResourceManager(object):
             del self.state_machines[resource_id]
         if self._default_resource_id == resource_id:
             self._default_resource_id = None
+
+    def unmanage_resource(self, resource_id):
+        self.state_machines.unmanage(resource_id)
 
     def shutdown(self):
         LOG.info('shutting down')

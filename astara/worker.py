@@ -212,7 +212,8 @@ class Worker(object):
                 if self.host not in target_hosts:
                     LOG.debug('Skipping update of router %s, it no longer '
                               'maps here.', sm.resource_id)
-                    sm._do_delete()
+                    trm = self.tenant_managers[sm.tenant_id]
+                    trm.unmanage_resource(sm.resource_id)
                     self.work_queue.task_done()
                     with self.lock:
                         self._release_resource_lock(sm)
