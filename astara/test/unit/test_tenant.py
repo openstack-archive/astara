@@ -265,6 +265,8 @@ class TestTenantResourceManager(unittest.TestCase):
         self.assertIn('5678', self.trm.state_machines)
         sm._do_delete()
         self.assertNotIn('5678', self.trm.state_machines)
+        self.assertTrue(
+            self.trm.state_machines.has_been_deleted('5678'))
 
     def test_report_bandwidth(self):
         notifications = []
@@ -293,3 +295,11 @@ class TestTenantResourceManager(unittest.TestCase):
             self.trm.get_state_machine_by_resource_id('fake_resource_id'),
             fake_sm
         )
+
+    def test_unmanage_resource(self):
+        fake_sm = mock.Mock()
+        self.trm.state_machines['fake-resource_id'] = fake_sm
+        self.trm.unmanage_resource('fake-resource-id')
+        self.assertNotIn('fake-resource-id', self.trm.state_machines)
+        self.assertFalse(
+            self.trm.state_machines.has_been_deleted('fake-resource-id'))

@@ -62,8 +62,9 @@ class PoolManagerTest(base.RugTestBase):
         mock_delete.assert_called_with('errored_instance_id')
 
     def test__check_del_instances(self):
+        self.time_patch.stop()
         pool = self._create_pool(num=1, status=ak_pool.DELETING)
-        self.pool_manager.delete_timeout = 1
+        self.pool_manager.delete_timeout = .01
         res = self.pool_manager._check_del_instances(pool)
 
         # deletion hasn't timed out yet
@@ -74,7 +75,7 @@ class PoolManagerTest(base.RugTestBase):
             pool[self.resource][0].id, self.pool_manager._delete_counters)
 
         # A stuck instance is reported back as such
-        time.sleep(1.5)
+        time.sleep(.02)
         res = self.pool_manager._check_del_instances(pool)
         self.assertIn(pool[self.resource][0], res)
 
