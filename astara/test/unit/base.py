@@ -15,6 +15,7 @@
 # under the License.
 
 
+import mock
 import testtools
 
 from oslo_config import cfg
@@ -27,6 +28,10 @@ class RugTestBase(testtools.TestCase):
         self.test_config = self.useFixture(config_fixture.Config(cfg.CONF))
         self.argv = []
         cfg.CONF.import_opt('host', 'astara.main')
+
+        self.time_patch = mock.patch('time.sleep')
+        self.time_mock = self.time_patch.start()
+        self.addCleanup(mock.patch.stopall)
 
     def config(self, **kw):
         """Override config options for a test."""
