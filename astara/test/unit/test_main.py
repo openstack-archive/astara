@@ -14,11 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import sys
-import socket
-
 import mock
-import testtools
 
 from astara import main
 from astara import notifications as ak_notifications
@@ -93,37 +89,3 @@ class TestMainPippo(base.RugTestBase):
         main.main(argv=self.argv)
         self.assertEqual(len(notifications.Publisher.mock_calls), 2)
         self.assertEqual(len(notifications.NoopPublisher.mock_calls), 0)
-
-
-@mock.patch('astara.api.neutron.importutils')
-@mock.patch('astara.api.neutron.AstaraExtClientWrapper')
-@mock.patch('astara.main.multiprocessing')
-@mock.patch('astara.main.notifications')
-@mock.patch('astara.main.scheduler')
-@mock.patch('astara.main.populate')
-@mock.patch('astara.main.health')
-@mock.patch('astara.main.shuffle_notifications')
-@mock.patch('astara.api.neutron.get_local_service_ip')
-class TestMainExtPortBinding(base.RugTestBase):
-
-    @testtools.skipIf(
-        sys.platform != 'linux2',
-        'unsupported platform'
-    )
-    def test_ensure_local_port_host_binding(
-            self, get_local_service_ip, shuffle_notifications, health,
-            populate, scheduler, notifications, multiprocessing,
-            astara_wrapper, importutils):
-
-        self.test_config.config(plug_external_port=False)
-
-        def side_effect(**kwarg):
-            return {'ports': {}}
-
-        astara_wrapper.return_value.list_ports.side_effect = side_effect
-
-        main.main(argv=self.argv)
-        args, kwargs = astara_wrapper.return_value.create_port.call_args
-        port = args[0]['port']
-        self.assertIn('binding:host_id', port)
-        self.assertEqual(port['binding:host_id'], socket.gethostname())
