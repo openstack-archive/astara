@@ -7,7 +7,7 @@ import time
 
 from astara.api import astara_client
 
-from novaclient.v1_1 import client as _novaclient
+from novaclient import client as _novaclient
 from neutronclient.v2_0 import client as _neutronclient
 
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
@@ -24,11 +24,13 @@ class AstaraFunctionalBase(testtools.TestCase):
         self.ak_client = astara_client
 
         self.novaclient = _novaclient.Client(
-            self.config['os_username'],
-            self.config['os_password'],
-            self.config['os_tenant_name'],
+            version=2,
+            username=self.config['os_username'],
+            api_key=self.config['os_password'],
+            project_id=self.config['os_tenant_name'],
             auth_url=self.config['os_auth_url'],
             auth_system='keystone',
+            auth_plugin='password',
         )
 
         self.neutronclient = _neutronclient.Client(
