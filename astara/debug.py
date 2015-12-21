@@ -15,11 +15,11 @@
 # under the License.
 
 
-import logging
 import os
 import sys
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from astara import drivers
 from astara import state
@@ -54,17 +54,7 @@ def debug_one_router(args=sys.argv[1:]):
     cfg.CONF.set_override('boot_timeout', 60000)
     cfg.CONF.import_opt('host', 'astara.main')
     config.parse_config(args)
-
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format=':'.join('%(' + n + ')s'
-                        for n in ['processName',
-                                  'threadName',
-                                  'name',
-                                  'levelname',
-                                  'message']),
-    )
-
+    logging.setup(cfg.CONF, __name__)
     log = logging.getLogger(__name__)
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
