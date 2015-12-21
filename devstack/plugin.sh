@@ -230,7 +230,7 @@ function pre_start_astara() {
 
     if [ "$BUILD_ASTARA_APPLIANCE_IMAGE" == "True" ]; then
         if [[ $(type -P disk-image-create) == "" ]]; then
-            pip_install "diskimage-builder<0.1.43"
+            pip_install "diskimage-builder"
         fi
 
         if [[ "$ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS" =~ "loadbalancer" ]]; then
