@@ -23,6 +23,7 @@ POLL = 'poll'
 COMMAND = 'command'  # an external command to be processed
 REBUILD = 'rebuild'
 REBALANCE = 'rebalance'
+TAKEOVER = 'takeover'
 
 
 class Event(object):

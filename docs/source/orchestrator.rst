@@ -114,6 +114,8 @@ ACT(ion) Variables are:
 
     :rEbuild: Recreate a router from scratch.
 
+    :Takeover: Takeover management of a router from a clustered orchestrator.
+
 VM Variables are:
 
     :Down: VM is known to be down.

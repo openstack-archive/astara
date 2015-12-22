@@ -871,7 +871,7 @@ class TestRebalance(WorkerTestBase):
 
         exp_event = event.Event(
             resource='sm2_resource',
-            crud=event.UPDATE,
+            crud=event.TAKEOVER,
             body={}
         )
         sm2.send_message.assert_called_with(exp_event)

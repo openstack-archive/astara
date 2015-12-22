@@ -549,29 +549,6 @@ class TestInstanceManager(base.RugTestBase):
             self.assertFalse(self.fake_driver.update_config.called)
             self.assertEqual(self.instance_mgr.state, states.REPLUG)
 
-    @mock.patch('time.sleep')
-    def test_configure_failure(self, sleep):
-        fake_config_dict = {'fake_config': 'foo'}
-
-        self.fake_driver.update_config.side_effect = Exception
-        self.fake_driver.build_config.return_value = fake_config_dict
-
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.configure(self.ctx)
-
-            interfaces = self.fake_driver.get_interfaces.return_value
-            verify.assert_called_once_with(
-                self.fake_driver.ports, interfaces)
-
-            expected_calls = [
-                mock.call(self.INSTANCE_INFO.management_address,
-                          fake_config_dict)
-                for i in range(0, 2)]
-            self.fake_driver.update_config.assert_has_calls(expected_calls)
-            self.assertEqual(self.instance_mgr.state, states.RESTART)
-
     @mock.patch('time.sleep', lambda *a: None)
     def test_replug_add_new_port_success(self):
         self.instance_mgr.state = states.REPLUG
@@ -763,6 +740,15 @@ class TestInstanceManager(base.RugTestBase):
             self.INSTANCE_INFO
         self.instance_mgr._ensure_cache(self.ctx)
         self.assertEqual(self.instance_mgr.instance_info, self.INSTANCE_INFO)
+
+    @mock.patch('astara.instance_manager.InstanceManager._build_config')
+    def test_takeover(self, fake_build_config):
+        fake_build_config.return_value = 'fake_config'
+        self.instance_mgr.takeover(self.ctx)
+        self.fake_driver.rebalance_takeover.assert_called_with(
+            self.ctx, self.INSTANCE_INFO.management_address,
+            'fake_config'
+        )
 
 
 class TestBootAttemptCounter(unittest.TestCase):
