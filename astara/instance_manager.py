@@ -350,6 +350,33 @@ class InstanceManager(object):
             'Router failed to stop within %d secs'),
             cfg.CONF.boot_timeout)
 
+    def _build_config(self, worker_context):
+        interfaces = self.driver.get_interfaces(
+            self.instance_info.management_address)
+
+        # TODO(mark): We're in the first phase of VRRP, so we need
+        # map the interface to the network ID.
+        # Eventually we'll send VRRP data and real interface data
+        port_mac_to_net = {
+            p.mac_address: p.network_id
+            for p in self.instance_info.ports
+        }
+        # Add in the management port
+        mgt_port = self.instance_info.management_port
+        port_mac_to_net[mgt_port.mac_address] = mgt_port.network_id
+        # this is a network to logical interface id
+        iface_map = {
+            port_mac_to_net[i['lladdr']]: i['ifname']
+            for i in interfaces if i['lladdr'] in port_mac_to_net
+        }
+
+        # sending all the standard config over to the driver for final updates
+        return self.driver.build_config(
+            worker_context,
+            mgt_port,
+            iface_map
+        )
+
     @synchronize_driver_state
     def configure(self, worker_context):
         """Pushes config to instance
@@ -361,7 +388,6 @@ class InstanceManager(object):
         """
         self.log.debug('Begin instance config')
         self.state = states.UP
-        attempts = cfg.CONF.max_retries
 
         self._ensure_cache(worker_context)
         if self.driver.get_state(worker_context) == states.GONE:
@@ -402,28 +428,17 @@ class InstanceManager(object):
 
         self.log.debug('preparing to update config to %r', config)
 
-        for i in xrange(attempts):
-            try:
-                self.driver.update_config(
-                    self.instance_info.management_address,
-                    config)
-            except Exception:
-                if i == attempts - 1:
-                    # Only log the traceback if we encounter it many times.
-                    self.log.exception(_LE('failed to update config'))
-                else:
-                    self.log.debug(
-                        'failed to update config, attempt %d',
-                        i
-                    )
-                time.sleep(cfg.CONF.retry_delay)
-            else:
-                self.state = states.CONFIGURED
-                self.log.info('Instance config updated')
-                return self.state
-        else:
+        try:
+            self.driver.update_config(
+                self.instance_info.management_address,
+                config)
+        except Exception:
             self.state = states.RESTART
             return self.state
+
+        self.state = states.CONFIGURED
+        self.log.info('Instance config updated')
+        return self.state
 
     def replug(self, worker_context):
 
@@ -520,6 +535,21 @@ class InstanceManager(object):
 
         self.log.debug("Interfaces aren't plugged as expected, rebooting.")
         self.state = states.RESTART
+
+    def takeover(self, worker_context):
+        """Take over management of an instance after a cluster rebalance
+
+        After a cluster rebalance, a new appliance may now be under the
+        management of this worker. Some appliances may require an action
+        after such an event.
+        """
+        config = self._build_config(worker_context)
+        try:
+            self.driver.rebalance_takeover(
+                worker_context, self.instance_info.management_address, config)
+            self.state = states.CONFIGURED
+        except Exception:
+            self.state = states.ERROR
 
     def _ensure_cache(self, worker_context):
         self.instance_info = (

@@ -16,13 +16,14 @@
 
 
 import mock
-import unittest2 as unittest
 
 from astara.api import astara_client
+from astara.test.unit import base
 
 
-class TestAstaraClient(unittest.TestCase):
+class TestRugClient(base.RugTestBase):
     def setUp(self):
+        super(TestRugClient, self).setUp()
         self.mock_create_session = mock.patch.object(
             astara_client,
             '_get_proxyless_session'
@@ -110,15 +111,18 @@ class TestAstaraClient(unittest.TestCase):
             self.assertEqual(resp, config)
 
     def test_update_config_failure(self):
+        self.config(max_retries=5)
         config = {'foo': 'bar'}
 
         self.mock_put.return_value.status_code = 500
         self.mock_put.return_value.text = 'error_text'
 
-        with self.assertRaises(Exception):
-            astara_client.update_config('fe80::2', 5000, config)
+        self.assertRaises(
+            astara_client.AstaraAPITooManyAttempts,
+            astara_client.update_config, 'fe80::2', 5000, config)
 
-        self.mock_put.assert_called_once_with(
+        self.assertEqual(len(self.mock_put.call_args_list), 5)
+        self.mock_put.assert_called_with(
             'http://[fe80::2]:5000/v1/system/config',
             data='{"foo": "bar"}',
             headers={'Content-type': 'application/json'},

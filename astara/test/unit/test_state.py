@@ -110,6 +110,25 @@ class TestCalcActionState(BaseTestStateCase):
         events = [event.UPDATE, event.UPDATE, event.UPDATE]
         self._test_hlpr(event.UPDATE, events, 0)
 
+    def test_execute_collapse_takeover_create(self):
+        events = [
+            event.CREATE,
+        ]
+        self._test_hlpr(event.CREATE, events, initial_action=event.TAKEOVER)
+
+    def test_execute_collapse_takeover_rebuild(self):
+        events = [
+            event.REBUILD,
+        ]
+        self._test_hlpr(event.REBUILD, events, initial_action=event.TAKEOVER)
+
+    def test_execute_takeover_uncollapsed(self):
+        events = [
+            event.READ,
+        ]
+        self._test_hlpr(
+            event.TAKEOVER, events, leftover=1, initial_action=event.TAKEOVER)
+
     def test_execute_collapse_mixed_events(self):
         events = [
             event.UPDATE,
@@ -214,6 +233,13 @@ class TestCalcActionState(BaseTestStateCase):
         )
 
     def test_transition_poll_error_instance(self):
+        self._test_transition_hlpr(
+            event.POLL,
+            state.CalcAction,
+            states.ERROR,
+        )
+
+    def test_transition_takeover_to_create(self):
         self._test_transition_hlpr(
             event.POLL,
             state.CalcAction,
@@ -517,6 +543,18 @@ class TestReadStatsState(BaseTestStateCase):
 
     def test_transition(self):
         self._test_transition_hlpr(event.POLL, state.CalcAction)
+
+
+class TestTakeoverInstanceState(BaseTestStateCase):
+    state_cls = state.TakeoverInstance
+
+    def test_execute(self):
+        res = self.state.execute(event.TAKEOVER, self.ctx)
+        self.assertEqual(res, event.POLL)
+        self.instance.takeover.assert_called_with(self.ctx)
+
+    def test_transition(self):
+        self._test_transition_hlpr(event.POLL, state.Alive)
 
 
 class TestAutomaton(unittest.TestCase):
