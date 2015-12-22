@@ -16,6 +16,9 @@
 
 
 import requests
+import time
+
+from astara.common.i18n import _LE, _LW
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -32,6 +35,26 @@ AK_CLIENT_OPTS = [
     cfg.IntOpt('config_timeout', default=90),
 ]
 CONF.register_opts(AK_CLIENT_OPTS)
+
+
+def retry_on_failure(f):
+    def wrapper(*args, **kwargs):
+        attempts = cfg.CONF.max_retries
+        for i in xrange(attempts):
+            try:
+                return f(*args, **kwargs)
+            except Exception:
+                if i == attempts - 1:
+                    # Only log the traceback if we encounter it many times.
+                    LOG.exception(_LE('failed to update config'))
+                else:
+                    LOG.warn(_LW(
+                        'astara-appliance request failed, attempt %d'), i)
+                time.sleep(cfg.CONF.retry_delay)
+        raise Exception(
+            'astara-appliance request failed after %s attempts' % (i + 1))
+
+    return wrapper
 
 
 def _mgt_url(host, port, path):
@@ -66,21 +89,23 @@ def get_interfaces(host, port):
     return r.json().get('interfaces', [])
 
 
+@retry_on_failure
 def update_config(host, port, config_dict):
     path = ASTARA_BASE_PATH + 'system/config'
     headers = {'Content-type': 'application/json'}
 
     s = _get_proxyless_session()
+
     r = s.put(
         _mgt_url(host, port, path),
         data=jsonutils.dumps(config_dict),
         headers=headers,
         timeout=cfg.CONF.config_timeout)
 
-    if r.status_code != 200:
-        raise Exception('Config update failed: %s' % r.text)
-    else:
+    if r.status_code == 200:
         return r.json()
+
+    raise Exception('Config update failed: %s' % r.text)
 
 
 def read_labels(host, port):
