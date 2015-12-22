@@ -496,7 +496,7 @@ class Worker(object):
         # for newly owned resources, issue a post-rebalance update.
         for sm in (self._get_all_state_machines() - orig_sms):
             post_rebalance = event.Event(
-                resource=sm.resource, crud=event.UPDATE,
+                resource=sm.resource, crud=event.TAKEOVER,
                 body={})
             LOG.debug('Sending post-rebalance update for %s',
                       sm.resource_id)
