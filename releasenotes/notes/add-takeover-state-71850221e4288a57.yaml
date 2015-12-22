@@ -1,0 +1,3 @@
+---
+features:
+  - A new ``takeover`` state has been added to the state machine which allows drivers to run actions that should be completed after an orchestrator has taken over the management of an appliance from a clustered peer orchestrator.

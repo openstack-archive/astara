@@ -27,7 +27,7 @@ import itertools
 
 from astara.common.i18n import _LE, _LI, _LW
 from astara.event import Resource
-from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
+from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD, TAKEOVER
 from astara import instance_manager
 from astara.drivers import states
 
@@ -87,6 +87,7 @@ class CalcAction(State):
             return DELETE
 
         while queue:
+
             self.params.driver.log.debug(
                 'action = %s, len(queue) = %s, queue = %s',
                 action,
@@ -149,6 +150,8 @@ class CalcAction(State):
             next_action = CheckBoot(self.params)
         elif self.instance.state == states.DOWN:
             next_action = CreateInstance(self.params)
+        elif action == TAKEOVER:
+            next_action = TakeoverInstance(self.params)
         else:
             next_action = Alive(self.params)
         if self.instance.state == states.ERROR:
@@ -214,7 +217,7 @@ class Alive(State):
             return StopInstance(self.params)
         elif self.instance.state == states.DOWN:
             return CreateInstance(self.params)
-        elif action == POLL and \
+        elif action in POLL and \
                 self.instance.state == states.CONFIGURED:
             return CalcAction(self.params)
         elif action == READ and \
@@ -222,6 +225,15 @@ class Alive(State):
             return ReadStats(self.params)
         else:
             return ConfigureInstance(self.params)
+
+
+class TakeoverInstance(State):
+    def execute(self, action, worker_context):
+        self.instance.takeover(worker_context)
+        return POLL
+
+    def transition(self, action, worker_context):
+        return Alive(self.params)
 
 
 class CreateInstance(State):
@@ -429,7 +441,7 @@ class Automaton(object):
         self.deleted = True
 
     def update(self, worker_context):
-        "Called when the router config should be changed"
+        "Called when the appliance config should be changed"
         while self._queue:
             while True:
                 if self.deleted:

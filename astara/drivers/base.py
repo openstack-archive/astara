@@ -187,3 +187,15 @@ class BaseDriver(object):
 
     def get_state(self, worker_context):
         """Returns the state of the managed resource"""
+
+    def rebalance_takeover(self, worker_context):
+        """Complete any post-rebalance takeover actions
+
+        Used to run driver-specific actions to be completed when a
+        cluster rebalance event migrates management of the appliance
+        to a new orchestrator worker.  This can be used, for example,
+        to inform a router appliance of the local orchestrator's management
+        address for purposes of metadata proxying.
+
+        :param worker_context:
+        """

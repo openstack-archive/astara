@@ -519,6 +519,18 @@ class TestReadStatsState(BaseTestStateCase):
         self._test_transition_hlpr(event.POLL, state.CalcAction)
 
 
+class TestTakeoverInstanceState(BaseTestStateCase):
+    state_cls = state.TakeoverInstance
+
+    def test_execute(self):
+        res = self.state.execute(event.TAKEOVER, self.ctx)
+        self.assertEqual(res, event.POLL)
+        self.instance.takeover.assert_called_with(self.ctx)
+
+    def test_transition(self):
+        self._test_transition_hlpr(event.POLL, state.Alive)
+
+
 class TestAutomaton(unittest.TestCase):
     def setUp(self):
         super(TestAutomaton, self).setUp()
