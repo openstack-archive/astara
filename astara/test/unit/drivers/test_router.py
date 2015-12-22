@@ -414,3 +414,13 @@ class RouterDriverTest(base.RugTestBase):
         rtr._ensure_cache(self.ctx)
         self.assertEqual(rtr._router, None)
         self.ctx.neutron.get_router_detail.assert_called_with(rtr.id)
+
+    @mock.patch('astara.drivers.router.Router.update_config')
+    def test_rebalance_takeover(self, fake_update):
+        rtr = self._init_driver()
+        fake_config = {'fake_config': 'foo'},
+        rtr.rebalance_takeover(
+            worker_context=self.ctx,
+            management_address='fake_mgt_addr',
+            config=fake_config)
+        fake_update.assert_called_with('fake_mgt_addr', fake_config)

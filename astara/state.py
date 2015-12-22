@@ -27,7 +27,7 @@ import itertools
 
 from astara.common.i18n import _LE, _LI, _LW
 from astara.event import Resource
-from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
+from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD, TAKEOVER
 from astara import instance_manager
 from astara.drivers import states
 
@@ -94,19 +94,12 @@ class CalcAction(State):
                 list(itertools.islice(queue, 0, 60))
             )
 
-            if action == UPDATE and queue[0] == CREATE:
-                # upgrade to CREATE from UPDATE by taking the next
-                # item from the queue
-                self.params.driver.log.debug('upgrading from update to create')
+            if (action in (CREATE, TAKEOVER, UPDATE) and
+                  queue[0] in (CREATE, REBUILD)):
+                orig_action = action
                 action = queue.popleft()
-                continue
-
-            elif action in (CREATE, UPDATE) and queue[0] == REBUILD:
-                # upgrade to REBUILD from CREATE/UPDATE by taking the next
-                # item from the queue
-                self.params.driver.log.debug('upgrading from %s to rebuild',
-                                             action)
-                action = queue.popleft()
+                self.params.driver.log.debug('upgrading from %s to %s',
+                                             orig_action, action)
                 continue
 
             elif action == CREATE and queue[0] == UPDATE:
@@ -149,6 +142,8 @@ class CalcAction(State):
             next_action = CheckBoot(self.params)
         elif self.instance.state == states.DOWN:
             next_action = CreateInstance(self.params)
+        elif action == TAKEOVER:
+            next_action = TakeoverInstance(self.params)
         else:
             next_action = Alive(self.params)
         if self.instance.state == states.ERROR:
@@ -214,7 +209,7 @@ class Alive(State):
             return StopInstance(self.params)
         elif self.instance.state == states.DOWN:
             return CreateInstance(self.params)
-        elif action == POLL and \
+        elif action in POLL and \
                 self.instance.state == states.CONFIGURED:
             return CalcAction(self.params)
         elif action == READ and \
@@ -222,6 +217,15 @@ class Alive(State):
             return ReadStats(self.params)
         else:
             return ConfigureInstance(self.params)
+
+
+class TakeoverInstance(State):
+    def execute(self, action, worker_context):
+        self.instance.takeover(worker_context)
+        return POLL
+
+    def transition(self, action, worker_context):
+        return Alive(self.params)
 
 
 class CreateInstance(State):
@@ -429,7 +433,7 @@ class Automaton(object):
         self.deleted = True
 
     def update(self, worker_context):
-        "Called when the router config should be changed"
+        "Called when the appliance config should be changed"
         while self._queue:
             while True:
                 if self.deleted:
