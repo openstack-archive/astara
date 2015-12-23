@@ -207,9 +207,8 @@ class VmManager(object):
                 return
         except:
             self.log.exception('Router failed to start boot')
-            for port in self.router_obj.ports:
-                worker_context.neutron.delete_vrrp_port(port.id)
-                worker_context.neutron.delete_vrrp_port(port.id, label='MGT')
+            worker_context.neutron.delete_vrrp_port(self.router_obj.id)
+            worker_context.neutron.delete_vrrp_port(self.router_obj.id, label='MGT')
             return
         else:
             # We have successfully started a (re)boot attempt so
