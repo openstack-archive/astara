@@ -252,9 +252,8 @@ class TestVmManager(unittest.TestCase):
         ]
 
         expected_calls = [
-            mock.call('1'), mock.call('1', label='MGT'),
-            mock.call('2'), mock.call('2', label='MGT'),
-            mock.call('3'), mock.call('3', label='MGT')
+            mock.call('R1'),
+            mock.call('R1', label='MGT'),
         ]
         self.vm_mgr.boot(self.ctx, 'foo')
         self.ctx.neutron.delete_vrrp_port.assert_has_calls(expected_calls)
