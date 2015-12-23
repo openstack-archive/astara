@@ -104,7 +104,7 @@ class RugCoordinator(object):
         self._coordinator.watch_join_group(self.group, self.cluster_changed)
         self._coordinator.watch_leave_group(self.group, self.cluster_changed)
         self._coordinator.heartbeat()
-        LOG.debug("Sending initial event changed for members; %s" %
+        LOG.debug("Sending initial event changed for members: %s" %
                   self.members)
         self.cluster_changed(event=None, node_bootstrap=True)
 
@@ -140,7 +140,16 @@ class RugCoordinator(object):
     @property
     def members(self):
         """Returns the current cluster membership list"""
-        return self._coordinator.get_members(self.group).get()
+        members = self._coordinator.get_members(self.group).get()
+
+        # tooz ZK driver reports 'leader' as a member, which can screw with
+        # hashing.
+        try:
+            members.remove('leader')
+        except ValueError:
+            pass
+
+        return members
 
     @property
     def is_leader(self):
