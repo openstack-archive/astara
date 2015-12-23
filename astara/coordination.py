@@ -140,7 +140,16 @@ class RugCoordinator(object):
     @property
     def members(self):
         """Returns the current cluster membership list"""
-        return self._coordinator.get_members(self.group).get()
+        members = self._coordinator.get_members(self.group).get()
+
+        # tooz ZK driver reports 'leader' as a member, which can screw with
+        # hashing.
+        try:
+            members.remove('leader')
+        except KeyError:
+            pass
+
+        return members
 
     @property
     def is_leader(self):

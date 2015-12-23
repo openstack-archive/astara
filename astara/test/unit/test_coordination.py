@@ -100,11 +100,20 @@ class TestRugCoordinator(base.RugTestBase):
 
     def test_members(self):
         fake_async_resp = mock.MagicMock(
-            get=mock.MagicMock(return_value=['foo', 'bar'])
+            get=mock.MagicMock(return_value=set(['foo', 'bar']))
         )
         self.fake_coord.get_members.return_value = fake_async_resp
         self.coordinator = coordination.RugCoordinator(self.queue)
-        self.assertEqual(self.coordinator.members, ['foo', 'bar'])
+        self.assertEqual(self.coordinator.members, set(['foo', 'bar']))
+        self.fake_coord.get_members.assert_called_with(self.coordinator.group)
+
+    def test_members_filter_leader(self):
+        fake_async_resp = mock.MagicMock(
+            get=mock.MagicMock(return_value=set(['foo', 'bar', 'leader']))
+        )
+        self.fake_coord.get_members.return_value = fake_async_resp
+        self.coordinator = coordination.RugCoordinator(self.queue)
+        self.assertEqual(self.coordinator.members, set(['foo', 'bar']))
         self.fake_coord.get_members.assert_called_with(self.coordinator.group)
 
     def test_is_leader(self):
