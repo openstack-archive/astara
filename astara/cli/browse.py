@@ -48,7 +48,7 @@ cfg.CONF.import_opt('host', 'astara.main')
 class FakeConfig(object):
 
     def __init__(self, admin_user, admin_password, tenant_name, auth_url,
-                 auth_strategy, auth_region):
+                 auth_strategy, auth_region, instance_provider):
         self.admin_user = admin_user
         self.admin_password = admin_password
         self.tenant_name = tenant_name
@@ -56,6 +56,7 @@ class FakeConfig(object):
         self.auth_url = auth_url
         self.auth_strategy = auth_strategy
         self.auth_region = auth_region
+        self.instance_provider = instance_provider
 
 
 class RouterRow(object):
@@ -249,7 +250,8 @@ class BrowseRouters(message.MessageSending):
             cfg.CONF.admin_tenant_name,
             cfg.CONF.auth_url,
             cfg.CONF.auth_strategy,
-            cfg.CONF.auth_region
+            cfg.CONF.auth_region,
+            cfg.CONF.instance_provider
         ]
         populate = threading.Thread(
             name='router-populater',
