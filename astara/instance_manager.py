@@ -146,8 +146,8 @@ class InstanceManager(object):
         self._ensure_cache(worker_context)
 
         if self.driver.get_state(worker_context) == states.GONE:
-            self.log.debug('%s driver reported its state is GONE',
-                           self.driver.RESOURCE_NAME)
+            self.log.debug('%s driver reported its state is %s',
+                           self.driver.RESOURCE_NAME, states.GONE)
             self.state = states.GONE
             return self.state
 
