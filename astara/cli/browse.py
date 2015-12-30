@@ -206,6 +206,7 @@ def populate_routers(db, conf, workers):
 
 
 class BrowseRouters(message.MessageSending):
+    """browse the state of every Neutron router"""
 
     log = logging.getLogger(__name__)
     interactive = True
