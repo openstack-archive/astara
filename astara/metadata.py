@@ -150,7 +150,7 @@ class MetadataProxyHandler(object):
         elif resp.status == 404:
             return webob.exc.HTTPNotFound()
         elif resp.status == 500:
-            msg = _(
+            msg = _LW(
                 'Remote metadata server experienced an internal server error.'
                 )
             LOG.warning(msg)
