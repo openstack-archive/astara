@@ -179,7 +179,7 @@ class InstanceManager(object):
             # If the instance isn't responding, make sure Nova knows about it
             instance = worker_context.nova_client.get_instance_for_obj(self.id)
             if instance is None and self.state != states.ERROR:
-                self.log.info('No instance was found; rebooting')
+                self.log.info(_LI('No instance was found; rebooting'))
                 self.state = states.DOWN
                 self.instance_info = None
 
@@ -202,10 +202,10 @@ class InstanceManager(object):
             # If we didn't boot the server (because we were restarted
             # while it remained running, for example), we won't have a
             # duration to log.
-            self.log.info('%s booted in %s seconds after %s attempts',
-                          self.driver.RESOURCE_NAME,
+            self.log.info(_LI('%s booted in %s seconds after %s attempts') %
+                          (self.driver.RESOURCE_NAME,
                           self.instance_info.time_since_boot.total_seconds(),
-                          self._boot_counter.count)
+                          self._boot_counter.count))
 
             # Always reset the boot counter, even if we didn't boot
             # the server ourself, so we don't accidentally think we
@@ -220,7 +220,7 @@ class InstanceManager(object):
         """
         self._ensure_cache(worker_context)
 
-        self.log.info('Booting %s' % self.driver.RESOURCE_NAME)
+        self.log.info(_LI('Booting %s') % self.driver.RESOURCE_NAME)
         self.state = states.DOWN
         self._boot_counter.start()
 
@@ -261,7 +261,8 @@ class InstanceManager(object):
         """
         state = self.update_state(worker_context, silent=True)
         if state in states.READY_STATES:
-            self.log.info('Instance has booted, attempting initial config')
+            self.log.info(_LI('Instance has booted, attempting
+                          initial config'))
             self.configure(worker_context)
             if self.state != states.CONFIGURED:
                 self._check_boot_timeout()
