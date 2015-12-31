@@ -190,7 +190,7 @@ class MetadataProxy(object):
         app = MetadataProxyHandler()
         for i in xrange(5):
             LOG.info(_LI(
-                'Starting the metadata proxy on %s/%s'),
+                'Starting the metadata proxy on %s:%s'),
                 ip_address, port
             )
             try:
@@ -210,7 +210,7 @@ class MetadataProxy(object):
                 break
         else:
             raise RuntimeError(
-                _('Could not establish metadata proxy socket on %s/%s') %
+                _('Could not establish metadata proxy socket on %s:%s') %
                 (ip_address, port)
             )
         eventlet.wsgi.server(
