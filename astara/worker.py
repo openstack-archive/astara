@@ -345,8 +345,8 @@ class Worker(object):
         """Determines whether a message should be processed or not."""
         global_debug, reason = self.db_api.global_debug()
         if global_debug:
-            LOG.info('Skipping incoming event, cluster in global debug '
-                     'mode. (reason: %s)', reason)
+            LOG.info(_LI('Skipping incoming event, cluster in global debug '
+                     'mode. (reason: %s)'), reason)
             return False
 
         if message.resource.id not in commands.WILDCARDS:
@@ -359,8 +359,8 @@ class Worker(object):
                 self.db_api.tenant_in_debug(message.resource.tenant_id)
             if should_ignore:
                 LOG.info(
-                    'Ignoring message intended for tenant %s in debug mode '
-                    '(reason: %s): %s',
+                    _LI('Ignoring message intended for tenant %s in debug mode '
+                    '(reason: %s): %s'),
                     message.resource.tenant_id, reason, message,
                 )
                 return False
@@ -369,8 +369,8 @@ class Worker(object):
                 message.resource.id)
             if should_ignore:
                 LOG.info(
-                    'Ignoring message intended for resource %s in '
-                    'debug mode (reason: %s): %s',
+                    _LI('Ignoring message intended for resource %s in '
+                    'debug mode (reason: %s): %s'),
                     message.resource.id, reason, message,
                 )
                 return False
@@ -627,13 +627,13 @@ class Worker(object):
             enable = instructions.get('enabled')
             reason = instructions.get('reason')
             if enable == 1:
-                LOG.info('Enabling global debug mode (reason: %s)', reason)
+                LOG.info(_LI('Enabling global debug mode (reason: %s)'), reason)
                 self.db_api.enable_global_debug(reason)
             elif enable == 0:
-                LOG.info('Disabling global debug mode')
+                LOG.info(_LI('Disabling global debug mode'))
                 self.db_api.disable_global_debug()
             else:
-                LOG.warning('Unrecognized global debug command: %s',
+                LOG.warning(_LW('Unrecognized global debug command: %s'),
                             instructions)
         elif instructions['command'] == commands.CONFIG_RELOAD:
             try:

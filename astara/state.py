@@ -542,5 +542,5 @@ class Automaton(object):
         maps to the local Rug process.
         """
         self.driver.log.info(
-            'Dropping %s pending actions from queue', len(self._queue))
+            _LI('Dropping %s pending actions from queue'), len(self._queue))
         self._queue.clear()

@@ -105,7 +105,7 @@ class TenantResourceManager(object):
             self._default_resource_id = None
 
     def shutdown(self):
-        LOG.info('shutting down')
+        LOG.info(_LI('shutting down'))
         for resource_id, sm in self.state_machines.items():
             try:
                 sm.service_shutdown()

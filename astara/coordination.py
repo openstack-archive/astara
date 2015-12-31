@@ -84,7 +84,7 @@ class RugCoordinator(object):
         so they can seed their hash ring with the current membership.
         """
         LOG.info(
-            'Starting RUG coordinator process for host %s on %s' %
+            _LI('Starting RUG coordinator process for host %s on %s') %
             (self.host, self.url))
         self._coordinator = tz_coordination.get_coordinator(
             self.url, self.host)

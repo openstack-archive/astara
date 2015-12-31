@@ -135,7 +135,7 @@ class Scheduler(object):
     def stop(self):
         """Shutdown all workers cleanly.
         """
-        LOG.info('shutting down scheduler')
+        LOG.info(_LI('shutting down scheduler'))
         # Send a poison pill to all of the workers
         for w in self.workers:
             LOG.debug('sending stop message to %s', w['worker'].name)
