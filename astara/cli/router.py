@@ -24,7 +24,7 @@ import sys
 from astara.common.i18n import _LW
 from astara import commands
 from astara.cli import message
-from astara.api import keystone, nova, neutron
+from astara.api import keystone, nova 
 
 from novaclient import exceptions
 from oslo_config import cfg
@@ -163,13 +163,14 @@ class RouterSSH(_TenantRouterCmd):
             region_name=self.app.rug_ini.auth_region,
         )
         router_id = parsed_args.router_id.lower()
-        ports = n_c.show_router(router_id).get('router', {}).get('ports', {})
-        for port in ports:
-            if port['fixed_ips'] and \
-               port['device_owner'] == neutron.DEVICE_OWNER_ROUTER_MGT:
-                v6_addr = port['fixed_ips'].pop()['ip_address']
-                try:
-                    cmd = ["ssh", "root@%s" % v6_addr] + parsed_args.remainder
-                    subprocess.check_call(cmd)
-                except subprocess.CalledProcessError as e:
-                    sys.exit(e.returncode)
+        port = n_c.list_ports(name="ASTARA:MGT:%s" % router_id)
+        try:
+            mgmt_ip_addr = port['ports'][0]['fixed_ips'].pop()['ip_address']
+        except (KeyError, IndexError):
+            raise ValueError('No router mgmt port with id %r found' %
+                              router_id)
+        try:
+            cmd = ["ssh", "astara@%s" % mgmt_ip_addr] + parsed_args.remainder
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError as e:
+            sys.exit(e.returncode)
