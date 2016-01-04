@@ -83,9 +83,8 @@ class RugCoordinator(object):
         peers, it fires off an initial rebalance event to the workers
         so they can seed their hash ring with the current membership.
         """
-        LOG.info(
-            'Starting RUG coordinator process for host %s on %s' %
-            (self.host, self.url))
+        LOG.info(_LI('Starting RUG coordinator process for host %s on %s'),
+                 self.host, self.url)
         self._coordinator = tz_coordination.get_coordinator(
             self.url, self.host)
         self._coordinator.start()
