@@ -161,9 +161,9 @@ function _auth_args() {
 }
 
 function create_akanda_nova_flavor() {
-    nova flavor-create akanda $ROUTER_INSTANCE_FLAVOR_ID \
-      $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
-      $ROUTER_INSTANCE_FLAVOR_CPUS
+    openstack --os-cloud=devstack-admin flavor create akanda \
+      --id $ROUTER_INSTANCE_FLAVOR_ID --ram $ROUTER_INSTANCE_FLAVOR_RAM \
+      --disk $ROUTER_INSTANCE_FLAVOR_DISK --vcpus $ROUTER_INSTANCE_FLAVOR_CPUS
     iniset $AKANDA_RUG_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
@@ -180,7 +180,13 @@ function pre_start_akanda() {
     # Create and init the database
     recreate_database akanda
     akanda-rug-dbsync --config-file $AKANDA_RUG_CONF upgrade
+
     local auth_args="$(_auth_args $Q_ADMIN_USERNAME $SERVICE_PASSWORD $SERVICE_TENANT_NAME)"
+
+    # having these set by something else in devstack will override those that we pass on
+    # CLI.
+    unset OS_TENANT_NAME OS_PROJECT_NAME
+
     if ! neutron $auth_args net-show $PUBLIC_NETWORK_NAME; then
         neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
     fi
@@ -246,9 +252,6 @@ function pre_start_akanda() {
         akanda_dev_image_src=$AKANDA_DEV_APPLIANCE_URL
     fi
 
-    env
-    TOKEN=$(openstack token issue -c id -f value)
-    die_if_not_set $LINENO TOKEN "Keystone fail to get token"
     upload_image $akanda_dev_image_src $TOKEN
 
     local image_name=$(basename $akanda_dev_image_src | cut -d. -f1)
