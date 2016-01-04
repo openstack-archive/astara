@@ -1,0 +1,9 @@
+Code-Review+1: j_king <james@agentultra.com>
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Workflow+1: Ryan Petrello <ryan@ryanpetrello.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 04 Jan 2016 17:57:41 +0000
+Reviewed-on: https://review.openstack.org/261059
+Project: openstack/astara
+Branch: refs/heads/stable/kilo
