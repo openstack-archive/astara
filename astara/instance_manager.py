@@ -152,7 +152,8 @@ class InstanceManager(object):
             return self.state
 
         if self.instance_info is None:
-            self.log.info(_LI('no backing instance, marking as down'))
+            self.log.info(_LI('no backing instance, marking as %s'),
+                          states.DOWN)
             self.state = states.DOWN
             return self.state
 
@@ -189,7 +190,8 @@ class InstanceManager(object):
             # we should reboot it, so mark it states.DOWN if we think it was
             # configured before.
             if old_state == states.CONFIGURED and self.state != states.ERROR:
-                self.log.debug('Instance not alive, marking it as DOWN')
+                self.log.debug('Instance not alive, marking it as %s',
+                               states.DOWN)
                 self.state = states.DOWN
 
         # After the instance is all the way up, record how long it took
