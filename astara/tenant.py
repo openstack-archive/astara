@@ -86,23 +86,25 @@ class TenantResourceManager(object):
     tenant.
     """
 
-    def __init__(self, tenant_id, notify_callback,
+    def __init__(self, tenant_id, delete_callback, notify_callback,
                  queue_warning_threshold,
                  reboot_error_threshold):
         self.tenant_id = tenant_id
+        self.delete = delete_callback
         self.notify = notify_callback
         self._queue_warning_threshold = queue_warning_threshold
         self._reboot_error_threshold = reboot_error_threshold
         self.state_machines = ResourceContainer()
         self._default_resource_id = None
 
-    def _delete_resource(self, resource_id):
+    def _delete_resource(self, resource):
         "Called when the Automaton decides the resource can be deleted"
-        if resource_id in self.state_machines:
-            LOG.debug('deleting state machine for %s', resource_id)
-            del self.state_machines[resource_id]
-        if self._default_resource_id == resource_id:
+        if resource.id in self.state_machines:
+            LOG.debug('deleting state machine for %s', resource.id)
+            del self.state_machines[resource.id]
+        if self._default_resource_id == resource.id:
             self._default_resource_id = None
+        self.delete(resource)
 
     def shutdown(self):
         LOG.info('shutting down')
@@ -178,7 +180,7 @@ class TenantResourceManager(object):
                 return []
 
             def deleter():
-                self._delete_resource(message.resource.id)
+                self._delete_resource(message.resource)
 
             new_state_machine = state.Automaton(
                 driver=driver_obj,
