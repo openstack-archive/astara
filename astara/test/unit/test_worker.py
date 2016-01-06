@@ -376,6 +376,29 @@ class TestResourceCache(WorkerTestBase):
         self.w._context.neutron.get_router_for_tenant.assert_called_with(
             'fake_tenant_id')
 
+    def test_resource_cache_delete(self):
+        r = event.Resource(
+            tenant_id='fake_tenant_id',
+            id='fake_fetched_resource_id',
+            driver=router.Router.RESOURCE_NAME,
+        )
+        msg = event.Event(
+            resource=r,
+            crud=event.UPDATE,
+            body={},
+        )
+        self.resource_cache.get_by_tenant(
+            resource=r,
+            worker_context=self.worker_context,
+            message=msg)
+        self.assertEqual(
+            self.resource_cache._tenant_resources[r.driver][r.tenant_id],
+            r.id)
+        self.resource_cache.delete(r)
+        self.assertNotIn(
+            r.tenant_id,
+            self.resource_cache._tenant_resources[r.driver])
+
 
 class TestCreatingResource(WorkerTestBase):
     def setUp(self):

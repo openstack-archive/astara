@@ -38,8 +38,10 @@ class TestTenantResourceManager(unittest.TestCase):
             mock.patch('astara.instance_manager.InstanceManager').start()
         self.addCleanup(mock.patch.stopall)
         self.notifier = mock.Mock()
+        self.deleter = mock.Mock()
         self.trm = tenant.TenantResourceManager(
             '1234',
+            delete_callback=self.deleter,
             notify_callback=self.notifier,
             queue_warning_threshold=10,
             reboot_error_threshold=5,
@@ -192,27 +194,46 @@ class TestTenantResourceManager(unittest.TestCase):
         self.assertIs(sm2, sms['5678'])
 
     def test_delete_resource(self):
+        r = event.Resource(
+            id='1234',
+            tenant_id=self.tenant_id,
+            driver=router.Router.RESOURCE_NAME,
+        )
         self.trm.state_machines['1234'] = mock.Mock()
-        self.trm._delete_resource('1234')
+        self.trm._delete_resource(r)
         self.assertNotIn('1234', self.trm.state_machines)
+        self.assertTrue(self.deleter.called)
 
     def test_delete_default_resource(self):
+        r = event.Resource(
+            id='1234',
+            tenant_id=self.tenant_id,
+            driver=router.Router.RESOURCE_NAME)
         self.trm._default_resource_id = '1234'
         self.trm.state_machines['1234'] = mock.Mock()
-        self.trm._delete_resource('1234')
+        self.trm._delete_resource(r)
         self.assertNotIn('1234', self.trm.state_machines)
         self.assertIs(None, self.trm._default_resource_id)
 
     def test_delete_not_default_resource(self):
+        r = event.Resource(
+            id='1234',
+            tenant_id=self.tenant_id,
+            driver=router.Router.RESOURCE_NAME)
         self.trm._default_resource_id = 'abcd'
         self.trm.state_machines['1234'] = mock.Mock()
-        self.trm._delete_resource('1234')
+        self.trm._delete_resource(r)
         self.assertEqual('abcd', self.trm._default_resource_id)
 
     def test_no_update_deleted_resource(self):
+        r = event.Resource(
+            tenant_id='1234',
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
         self.trm._default_resource_id = 'abcd'
         self.trm.state_machines['5678'] = mock.Mock()
-        self.trm._delete_resource('5678')
+        self.trm._delete_resource(r)
         self.assertEqual(self.trm.state_machines.values(), [])
         r = event.Resource(
             tenant_id='1234',
