@@ -27,6 +27,7 @@ import six
 from logging import INFO
 
 from oslo_config import cfg
+from oslo_concurrency import lockutils
 from oslo_log import log as logging
 
 from astara import commands
@@ -93,6 +94,7 @@ class TenantResourceCache(object):
     # across mulitple rugs.
     _tenant_resources = {}
 
+    @lockutils.synchronized('astara-trm')
     def get_by_tenant(self, resource, worker_context, message):
         tenant_id = resource.tenant_id
         driver = resource.driver
@@ -110,6 +112,14 @@ class TenantResourceCache(object):
             self._tenant_resources[driver][tenant_id] = resource_id
 
         return self._tenant_resources[driver][tenant_id]
+
+    @lockutils.synchronized('astara-trm')
+    def delete(self, resource):
+        """Callback used to remove a resource from the cache upon deletion"""
+        try:
+            del self._tenant_resources[resource.driver][resource.tenant_id]
+        except KeyError:
+            pass
 
 
 class WorkerContext(object):
@@ -298,10 +308,12 @@ class Worker(object):
             LOG.debug('creating tenant manager for %s', tenant_id)
             self.tenant_managers[tenant_id] = tenant.TenantResourceManager(
                 tenant_id=tenant_id,
+                delete_callback=self.resource_cache.delete,
                 notify_callback=self.notifier.publish,
                 queue_warning_threshold=self._queue_warning_threshold,
                 reboot_error_threshold=self._reboot_error_threshold,
             )
+
         return [self.tenant_managers[tenant_id]]
 
     def _populate_resource_id(self, message):
