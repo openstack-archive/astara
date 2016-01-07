@@ -79,7 +79,7 @@ class RugAPIServer(object):
         app = RugAPI()
         for i in xrange(5):
             LOG.info(_LI(
-                'Starting the rug-api on %s/%s'),
+                'Starting the rug-api on %s:%s'),
                 ip_address, port,
             )
             try:
@@ -98,7 +98,7 @@ class RugAPIServer(object):
                 break
         else:
             raise RuntimeError(_(
-                'Could not establish rug-api socket on %s/%s') %
+                'Could not establish rug-api socket on %s:%s') %
                 (ip_address, port)
             )
         eventlet.wsgi.server(
