@@ -245,8 +245,9 @@ class AstaraAPITestCase(AstaraCTLTestCase):
     """Calls the astara-orchestrator API to test CTL commands issued there"""
     def setUp(self):
         super(AstaraAPITestCase, self).setUp()
-        ksc = self.admin_clients.keystoneclient
-        self.mgt_url = ksc.service_catalog.url_for(service_type='astara')
+        kss = self.admin_clients.keystoneclient.session
+        self.mgt_url = kss.auth.auth_ref.service_catalog.url_for(
+            service_type='astara')
 
     def make_url(self, command, subcommand=None, resource_id=None):
         url = self.mgt_url + API_PATHS[command]
