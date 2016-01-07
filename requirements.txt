@@ -5,9 +5,10 @@
 # Work around (LP: #1498114) - we're waiting on stable/kilo neutronclient
 # relesase to include the following two constraints.  Until then, carry them
 # here and processes before the rest of the reqs.
-oslo.utils>=1.4.0,!=1.4.1,<1.5.0
-oslo.i18n>=1.5.0,<1.6.0  # Apache-2.0
+oslo.utils!=1.4.1,<1.5.0,>=1.4.0 # Apache-2.0
+oslo.i18n<1.6.0,>=1.5.0 # Apache-2.0
 
+python-novaclient<2.24.0,>=2.22.0
 python-keystoneclient<1.4.0,>=1.2.0
 netaddr>=0.7.12
 httplib2>=0.7.5
@@ -15,7 +16,6 @@ python-neutronclient<2.5.0,>=2.4.0
 oslo.config<1.10.0,>=1.9.3 # Apache-2.0
 kombu>=2.5.0
 WebOb>=1.2.3
-python-novaclient<2.24.0,>=2.22.0
 cliff<1.11.0,>=1.10.0 # Apache-2.0
 
 # Note: blessed not in global-requirements.txt
