@@ -328,20 +328,19 @@ function set_demo_tenant_sec_group_private_traffic() {
 }
 
 
-function check_prereqs() {
-    # Fail devstack as early as possible if system does not satisfy some known
-    # prerequisites
-    if [ ! -e "$ASTARA_APPLIANCE_SSH_PUBLIC_KEY" ]; then
-        die $LINENO "Public SSH key not found at $ASTARA_APPLIANCE_SSH_PUBLIC_KEY. Please copy one there or " \
-                    "set ASTARA_APPLIANCE_SSH_PUBLIC_KEY accordingly."
-
+function configure_astara_ssh_keypair {
+    if [[ ! -e $ASTARA_APPLIANCE_SSH_PUBLIC_KEY ]]; then
+        if [[ ! -d $(dirname $ASTARA_APPLIANCE_SSH_PUBLIC_KEY) ]]; then
+            mkdir -p $(dirname $ASTARA_APPLIANCE_SSH_PUBLIC_KEY)
+        fi
+         echo -e 'n\n' | ssh-keygen -q -t rsa -P '' -f ${ASTARA_APPLIANCE_SSH_PUBLIC_KEY%.*}
     fi
 }
 
 
 if is_service_enabled astara; then
-    if [[ "$1" == "source" ]]; then
-        check_prereqs
+    if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
+        configure_astara_ssh_keypair
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Astara"
