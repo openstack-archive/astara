@@ -40,7 +40,7 @@ HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
 
 # Path to public ssh key that will be added to the 'astara' users authorized_keys
 # within the appliance VM.
-ASTARA_APPLIANCE_SSH_PUBLIC_KEY=${ASTARA_APPLIANCE_SSH_PUBLIC_KEY:-/home/$STACK_USER/.ssh/id_rsa.pub}
+ASTARA_APPLIANCE_SSH_PUBLIC_KEY=${ASTARA_APPLIANCE_SSH_PUBLIC_KEY:-$HOME/.ssh/id_rsa.pub}
 
 ASTARA_COORDINATION_ENABLED=${ASTARA_COORDINATION_ENABLED:-True}
 ASTARA_COORDINATION_URL=${ASTARA_COORDINATION_URL:-memcached://localhost:11211}
