@@ -561,3 +561,8 @@ class AstaraFunctionalBase(testtools.TestCase):
             subprocess.check_call(cmd)
         except:
             raise Exception('Failed to ping router with command: %s' % cmd)
+
+    def address_is_on_subnet(self, address, subnet):
+        addr = netaddr.IPNetwork(address)
+        sn = netaddr.IPNetwork(subnet)
+        return addr.cidr == sn

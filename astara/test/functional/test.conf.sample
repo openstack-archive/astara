@@ -10,15 +10,15 @@
 # Keystone auth URL (string value)
 #os_auth_url = <None>
 
-# Time health_check_period astara-orchestrator is configured to use (integer
-# value)
-#health_check_period = 60
-
 # Tenant ID for the astara service user (string value)
 #service_tenant_id = <None>
 
 # Username of admin user (string value)
 #os_username = <None>
+
+# Time health_check_period astara-orchestrator is configured to use (integer
+# value)
+#health_check_period = 60
 
 # Whether astara-neutron is configured to auto-add resources (boolean value)
 #astara_auto_add_resources = true
@@ -37,6 +37,9 @@
 
 # Tenant name of admin user (string value)
 #os_tenant_name = <None>
+
+# Management network prefix as configured in orchestrator.ini (string value)
+#management_prefix = fdca:3ba5:a17a:acda::/64
 
 # The port on which appliance API servers listen (string value)
 #appliance_api_port = <None>
