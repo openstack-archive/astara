@@ -18,7 +18,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from astara.test.functional import base
-
+from astara.test.functional import utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -36,9 +36,11 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
         super(TestAstaraRouter, self).setUp()
         self.assert_router_is_active(self.router['id'])
 
-        # refresh router ref now that its active
+        # refresh refs now that its active
         router = self.neutronclient.show_router(self.router['id'])
         self.router = router['router']
+        network = self.neutronclient.show_network(self.network['id'])
+        self.network = network['network']
 
     def test_router_recovery(self):
         """
@@ -96,3 +98,36 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
 
         self.assert_router_is_active(self.router['id'])
         self.ping_router_mgt_address(self.router['id'])
+
+    def test_router_interfaces(self):
+        initial_subnet = self.neutronclient.show_subnet(
+            self.network['subnets'][0])['subnet']
+
+        interface_data = self.ssh_client(self.router['id']).exec_command(
+            'ip addr show').strip()
+        interfaces = utils.parse_interfaces(interface_data)
+        LOG.debug('Listed interfaces within router appliance %s: %s',
+                  self.router['id'], interfaces)
+
+        def has_addr_on_subnet(i, s):
+            LOG.debug('Looking addr on interface %s with address on '
+                      'subnet: %s', i, s)
+            for addr in i['addresses']:
+                if self.address_is_on_subnet(addr, s):
+                    LOG.debug('Found addr %s on interface %s on subnet %s',
+                              addr, i, s)
+                    return True
+            LOG.debug('No address found on interface %s for subnet %s', i, s)
+            return False
+
+        # eth0 should have the management address
+        self.assertTrue(
+            has_addr_on_subnet(
+                interfaces['eth0'],
+                CONF.management_prefix))
+
+        # eth2 should contain the subnet of the first fixed network router
+        # interface
+        self.assertTrue(
+            has_addr_on_subnet(
+                interfaces['eth2'], initial_subnet['cidr']))
