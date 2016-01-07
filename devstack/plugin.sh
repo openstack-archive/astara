@@ -340,7 +340,7 @@ function check_prereqs() {
 
 
 if is_service_enabled astara; then
-    if [[ "$1" == "source" ]]; then
+    if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
         check_prereqs
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
