@@ -207,6 +207,7 @@ def populate_routers(db, conf, workers):
 
 
 class BrowseRouters(message.MessageSending):
+    """browse the state of every Astara appliance"""
 
     log = logging.getLogger(__name__)
     interactive = True
