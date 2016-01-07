@@ -52,7 +52,11 @@ functional_test_opts = [
     cfg.IntOpt(
         'health_check_period', required=False, default=60,
         help='Time health_check_period astara-orchestrator is configured to '
-             'use')
+             'use'),
+    cfg.StrOpt(
+        'management_prefix', required=False,
+        default='fdca:3ba5:a17a:acda::/64',
+        help='Management network prefix as configured in orchestrator.ini')
 ]
 
 
