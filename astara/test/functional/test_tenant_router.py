@@ -15,7 +15,7 @@
 import time
 
 from astara.test.functional import base
-
+from astara.test.functional import utils
 
 class TestAstaraRouter(base.AstaraFunctionalBase):
     @classmethod
@@ -79,3 +79,39 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
 
         self.assert_router_is_active(router['id'])
         self.ping_router_mgt_address(router['id'])
+
+    def test_router_interfaces(self):
+        network, router = self.tenant.setup_default_tenant_networking()
+        self.assert_router_is_active(router['id'])
+        network = self.neutronclient.show_network(network['id'])['network']
+        router = self.neutronclient.show_router(router['id'])['router']
+
+        if network['subnets']:
+            initial_subnet = self.neutronclient.show_subnet(
+                network['subnets'][0])['subnet']
+        else:
+            initial_subnet = None
+
+        interface_data = self.ssh_client(router['id']).exec_command(
+            'ip addr show').strip()
+        interfaces = utils.parse_interfaces(interface_data)
+
+        def has_addr_on_subnet(i, s):
+            for addr in i['addresses']:
+                if self.address_is_on_subnet(addr, s):
+                    return True
+            return False
+
+        # eth0 should have the management address
+        eth0 = interfaces['eth0']
+        self.assertTrue(
+            has_addr_on_subnet(
+                interfaces['eth0'],
+                self.config['management_prefix']))
+
+        # if it was created via a subnet creation, it the address should be on
+        # eth2 (eth1 is the floating network)
+        if initial_subnet:
+            self.assertTrue(
+                has_addr_on_subnet(
+                    interfaces['eth2'], initial_subnet['cidr']))
