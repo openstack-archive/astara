@@ -1,0 +1,16 @@
+# astara-rootwrap command filters for astara
+# This file should be owned by (and only-writeable by) the root user
+
+[Filters]
+# astara/common/linux/ip_lib.py: 'ip', 'link', ..  
+# astara/common/linux/ip_lib.py: 'ip', 'addr', ..
+# astara/common/linux/ip_lib.py: 'ip', 'netns', ..
+# astara/common/linux/ip_lib.py: 'ip', 'route', ..
+ip: CommandFilter, ip, root
+
+# astara/common/linux/interface.py: 'ovs-vsctl'..
+ovs-vsctl: CommandFilter, ovs-vsctl, root
+
+# astara/common/linux/ovs_lib.py: 'ovs-ofctl'..
+ovs-ofctl: CommandFilter, ovs-ofctl, root
+

@@ -75,7 +75,8 @@ class FakePort:
 class TestBase(unittest.TestCase):
     def setUp(self):
         root_helper_opt = [
-            cfg.StrOpt('root_helper', default='sudo'),
+            cfg.StrOpt('root_helper',
+                default='sudo astara-rootwrap /etc/astara/rootwrap.conf'),
         ]
         self.conf = cfg.CONF
         self.conf.register_opts(root_helper_opt)
@@ -114,7 +115,7 @@ class TestABCDriver(TestBase):
         ns = '12345678-1234-5678-90ab-ba0987654321'
         bc.init_l3('tap0', ['192.168.1.2/24'], namespace=ns)
         self.ip_dev.assert_has_calls(
-            [mock.call('tap0', 'sudo', namespace=ns),
+            [mock.call('tap0', self.conf.root_helper, namespace=ns),
              mock.call().addr.list(scope='global', filters=['permanent']),
              mock.call().addr.add(4, '192.168.1.2/24', '192.168.1.255'),
              mock.call().addr.delete(4, '172.16.77.240/24')])
@@ -158,9 +159,9 @@ class TestOVSInterfaceDriver(TestBase):
                      'aa:bb:cc:dd:ee:ff',
                      bridge=bridge,
                      namespace=namespace)
-            execute.assert_called_once_with(vsctl_cmd, 'sudo')
+            execute.assert_called_once_with(vsctl_cmd, self.conf.root_helper)
 
-        expected = [mock.call('sudo'),
+        expected = [mock.call(self.conf.root_helper),
                     mock.call().device('tap0'),
                     mock.call().device().link.set_address('aa:bb:cc:dd:ee:ff')]
         expected.extend(additional_expectation)
@@ -183,7 +184,7 @@ class TestOVSInterfaceDriver(TestBase):
         with mock.patch('astara.common.linux.ovs_lib.OVSBridge') as ovs_br:
             ovs = interface.OVSInterfaceDriver(self.conf)
             ovs.unplug('tap0')
-            ovs_br.assert_has_calls([mock.call(bridge, 'sudo'),
+            ovs_br.assert_has_calls([mock.call(bridge, self.conf.root_helper),
                                      mock.call().delete_port('tap0')])
 
 
@@ -216,7 +217,8 @@ class TestBridgeInterfaceDriver(TestBase):
                 'aa:bb:cc:dd:ee:ff',
                 namespace=namespace)
 
-        ip_calls = [mock.call('sudo'), mock.call().add_veth('tap0', 'ns-0')]
+        ip_calls = [mock.call(self.conf.root_helper),
+                    mock.call().add_veth('tap0', 'ns-0')]
         if namespace:
             ip_calls.extend([
                 mock.call().ensure_namespace('01234567-1234-1234-99'),
@@ -246,7 +248,9 @@ class TestBridgeInterfaceDriver(TestBase):
         with mock.patch('astara.common.linux.interface.LOG') as log:
             br = interface.BridgeInterfaceDriver(self.conf)
             br.unplug('tap0')
-            [mock.call(), mock.call('tap0', 'sudo'), mock.call().link.delete()]
+            [mock.call(),
+             mock.call('tap0', self.conf.root_helper),
+             mock.call().link.delete()]
             self.assertEqual(log.exception.call_count, 1)
 
     def test_unplug(self):
@@ -256,5 +260,5 @@ class TestBridgeInterfaceDriver(TestBase):
             br.unplug('tap0')
             self.assertEqual(log.call_count, 1)
 
-        self.ip_dev.assert_has_calls([mock.call('tap0', 'sudo', None),
+        self.ip_dev.assert_has_calls([mock.call('tap0', self.conf.root_helper, None),
                                       mock.call().link.delete()])
