@@ -1,0 +1,9 @@
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Workflow+1: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+1: Tang Chen <tangchen@cn.fujitsu.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 07 Jan 2016 04:20:00 +0000
+Reviewed-on: https://review.openstack.org/264511
+Project: openstack/astara
+Branch: refs/heads/master
