@@ -16,7 +16,7 @@ import time
 
 from oslo_config import cfg
 from astara.test.functional import base
-
+from astara.test.functional import utils
 
 CONF = cfg.CONF
 
@@ -33,9 +33,11 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
         super(TestAstaraRouter, self).setUp()
         self.assert_router_is_active(self.router['id'])
 
-        # refresh router ref now that its active
+        # refresh refs now that its active
         router = self.neutronclient.show_router(self.router['id'])
         self.router = router['router']
+        network = self.neutronclient.show_network(self.network['id'])
+        self.network = network['network']
 
     def test_router_recovery(self):
         """
@@ -88,3 +90,30 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
 
         self.assert_router_is_active(self.router['id'])
         self.ping_router_mgt_address(self.router['id'])
+
+    def test_router_interfaces(self):
+        initial_subnet = self.neutronclient.show_subnet(
+            self.network['subnets'][0])['subnet']
+
+        interface_data = self.ssh_client(self.router['id']).exec_command(
+            'ip addr show').strip()
+        interfaces = utils.parse_interfaces(interface_data)
+
+        def has_addr_on_subnet(i, s):
+            for addr in i['addresses']:
+                if self.address_is_on_subnet(addr, s):
+                    return True
+            return False
+
+        # eth0 should have the management address
+        eth0 = interfaces['eth0']
+        self.assertTrue(
+            has_addr_on_subnet(
+                interfaces['eth0'],
+                CONF.management_prefix))
+
+        # eth2 should contain the subnet of the first fixed network router
+        # interface
+        self.assertTrue(
+            has_addr_on_subnet(
+                interfaces['eth2'], initial_subnet['cidr']))
