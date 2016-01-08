@@ -57,10 +57,8 @@ class _TenantRouterCmd(message.MessageSending):
     def make_message(self, parsed_args):
         router_id = parsed_args.router_id.lower()
         reason = parsed_args.reason
-        if router_id == 'error':
-            tenant_id = 'error'
-        elif router_id == '*':
-            tenant_id = '*'
+        if router_id in ['error', '*']:
+            tenant_id = 'router_id'
         else:
             # Look up the tenant for a given router so we can send the
             # command using both and the rug can route it to the correct
