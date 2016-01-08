@@ -265,8 +265,14 @@ class Nova(object):
             session=ks_session.session,
             region_name=conf.auth_region)
 
-        self.instance_provider = get_instance_provider(
-            conf.instance_provider)(self.client)
+        try:
+            self.instance_provider = get_instance_provider(
+                conf.instance_provider)(self.client)
+        except AttributeError:
+            default = INSTANCE_PROVIDERS['default']
+            LOG.error(_LE('Could not find provider config, using default %s'),
+                      default)
+            self.instance_provider = default
 
     def get_instance_info(self, name):
         """Retrieves an InstanceInfo object for a given instance name
