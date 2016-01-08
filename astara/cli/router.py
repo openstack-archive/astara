@@ -76,8 +76,8 @@ class _TenantRouterCmd(message.MessageSending):
             try:
                 router_details = response['routers'][0]
             except (KeyError, IndexError):
-                raise ValueError('No router with id %r found: %s' %
-                                 (router_id, response))
+                raise ValueError('No router with id %r found.' %
+                                 (router_id))
             assert router_details['id'] == router_id
             tenant_id = router_details['tenant_id']
         self.log.info(
