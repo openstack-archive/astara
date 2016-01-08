@@ -46,16 +46,11 @@ class GlobalDebug(message.MessageSending):
             m = "Invalid global-debug command, must 'enable' or 'disable'"
             raise ValueError(m)
 
-        if status == 'enable':
-            enabled = 1
-        else:
-            enabled = 0
-
         self.log.info(
             "sending instruction to %s global debug mode" % status
         )
         return {
             'command': self._COMMAND,
-            'enabled': enabled,
+            'enabled': 1 if status == "enable" else 0,
             'reason': parsed_args.reason,
         }
