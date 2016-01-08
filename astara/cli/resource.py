@@ -15,7 +15,7 @@
 # under the License.
 
 
-"""Commands related to routers.
+"""Commands related to astara resources.
 """
 from astara.api import nova
 from astara.cli import message
