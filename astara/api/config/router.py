@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 DEFAULT_AS = 64512
 
 OPTIONS = [
-    cfg.StrOpt('provider_rules_path'),
+    cfg.StrOpt('provider_rules_path', default='/etc/provider_rules.json'),
     cfg.IntOpt('asn', default=DEFAULT_AS),
     cfg.IntOpt('neighbor_asn', default=DEFAULT_AS),
 ]
