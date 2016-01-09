@@ -31,19 +31,6 @@ from sqlalchemy import schema, String
 from sqlalchemy.ext.declarative import declarative_base
 
 
-sql_opts = [
-    cfg.StrOpt('mysql_engine',
-               default='InnoDB',
-               help=_('MySQL engine to use.'))
-]
-
-_DEFAULT_SQL_CONNECTION = 'sqlite:///astara.db'
-
-
-cfg.CONF.register_opts(sql_opts, 'database')
-db_options.set_defaults(cfg.CONF, _DEFAULT_SQL_CONNECTION, 'ironic.sqlite')
-
-
 def table_args():
     engine_name = urlparse.urlparse(cfg.CONF.database.connection).scheme
     if engine_name == 'mysql':

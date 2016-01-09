@@ -23,6 +23,7 @@ ASTARA_HORIZON_BRANCH=${ASTARA_HORIZON_BRANCH:-master}
 
 ASTARA_CONF_DIR=/etc/astara
 ASTARA_CONF=$ASTARA_CONF_DIR/orchestrator.ini
+ASTARA_PROVIDER_RULE_CONF=$ASTARA_CONF_DIR/provider_rules.json
 
 # Router instances will run as a specific Nova flavor. These values configure
 # the specs of the flavor devstack will create.
@@ -63,9 +64,14 @@ function configure_astara() {
     sudo mkdir -p $ASTARA_CACHE_DIR
     sudo chown $STACK_USER $ASTARA_CACHE_DIR
 
-    cp $ASTARA_DIR/etc/orchestrator.ini $ASTARA_CONF
+    (cd $ASTARA_DIR ;exec tools/generate_config_file_samples.sh)
+    cp $ASTARA_DIR/etc/orchestrator.ini.sample $ASTARA_CONF
+    cp $ASTARA_DIR/etc/provider_rules.json $ASTARA_PROVIDER_RULE_CONF
     iniset $ASTARA_CONF DEFAULT verbose True
     configure_auth_token_middleware $ASTARA_CONF $Q_ADMIN_USERNAME $ASTARA_CACHE_DIR
+    iniset $ASTARA_CONF keystone_authtoken auth_plugin password
+    iniset $ASTARA_CONF DEFAULT auth_region $REGION_NAME
+
     iniset_rpc_backend astara $ASTARA_CONF
 
     iniset $ASTARA_CONF DEFAULT control_exchange "neutron"

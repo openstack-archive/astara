@@ -33,24 +33,6 @@ from oslo_log import log as logging
 from astara.common.i18n import _LE
 
 
-cfg.CONF.register_group(cfg.OptGroup(name='rabbit',
-                                     title='RabbitMQ options'))
-RABBIT_OPTIONS = [
-    cfg.IntOpt('max_retries', default=0,
-               help='Maximum number of RabbitMQ connection retries. '
-                    'Default is 0 (infinite retry count)'),
-    cfg.IntOpt('interval_start', default=2,
-               help='The starting interval time between connection '
-                    'attempts.'),
-    cfg.IntOpt('interval_step', default=2,
-               help='The amount to increase the re-connection '
-                    'interval by.'),
-    cfg.IntOpt('interval_max', default=30,
-               help='The maximum time interval to try between '
-                    're-connection attempts.'),
-]
-cfg.CONF.register_opts(RABBIT_OPTIONS, group='rabbit')
-
 NOTIFICATIONS_OPTS = [
     cfg.StrOpt('amqp-url',
                help='connection for AMQP server'),

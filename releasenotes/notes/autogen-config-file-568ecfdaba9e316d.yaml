@@ -1,0 +1,6 @@
+---
+features:
+  - >
+    [`blueprint autogen-astara-conf-file <https://blueprints.launchpad.net/astara/+spec/autogen-astara-conf-file>`_]
+    This switches astara to use oslo-config-generator, where the contents of our sample configuration file are 
+    configured using a configuration file in etc/oslo-config-generator/.

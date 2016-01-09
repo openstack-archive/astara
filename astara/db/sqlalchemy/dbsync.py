@@ -24,17 +24,6 @@ from oslo_config import cfg
 from astara.common.i18n import _
 
 
-_db_opts = [
-    cfg.StrOpt('connection',
-               deprecated_name='sql_connection',
-               default='',
-               secret=True,
-               help=_('URL to database')),
-    cfg.StrOpt('engine',
-               default='',
-               help=_('Database engine')),
-]
-
 CONF = cfg.CONF
 
 
