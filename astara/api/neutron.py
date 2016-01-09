@@ -50,7 +50,8 @@ neutron_opts = [
     cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
     cfg.IntOpt('astara_mgt_service_port', default=5000),
     cfg.StrOpt('default_instance_flavor', default=1),
-    cfg.StrOpt('interface_driver'),
+    cfg.StrOpt('interface_driver',
+               default='astara.common.linux.interface.OVSInterfaceDriver'),
     cfg.BoolOpt('neutron_port_security_extension_enabled', default=True),
 
     # legacy_fallback option is deprecated and will be removed in the N-release

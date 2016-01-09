@@ -46,7 +46,7 @@ MAIN_OPTS = [
     cfg.StrOpt('host',
                default=socket.getfqdn(),
                help="The hostname Astara is running on"),
-    cfg.BoolOpt('plug_external_port', default=False),
+    cfg.BoolOpt('plug_external_port', default=True),
 ]
 CONF.register_opts(MAIN_OPTS)
 
