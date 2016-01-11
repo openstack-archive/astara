@@ -116,6 +116,7 @@ class InstanceManager(object):
         self.instance_info = None
         self.last_error = None
         self._boot_counter = BootAttemptCounter()
+        self._boot_logged = False
         self._last_synced_status = None
 
         self.state = self.update_state(worker_context, silent=True)
@@ -204,10 +205,12 @@ class InstanceManager(object):
             # If we didn't boot the server (because we were restarted
             # while it remained running, for example), we won't have a
             # duration to log.
-            self.log.info('%s booted in %s seconds after %s attempts',
-                          self.driver.RESOURCE_NAME,
-                          self.instance_info.time_since_boot.total_seconds(),
-                          self._boot_counter.count)
+            if not self._boot_logged:
+                boot_time = self.instance_info.time_since_boot.total_seconds()
+                self.log.info('%s booted in %s seconds after %s attempts',
+                              self.driver.RESOURCE_NAME, boot_time,
+                              self._boot_counter.count)
+                self._boot_logged = True
 
             # Always reset the boot counter, even if we didn't boot
             # the server ourself, so we don't accidentally think we
