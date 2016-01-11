@@ -327,8 +327,7 @@ class InstanceManager(object):
             self.log.info(_LI('Instance already destroyed.'))
             return states.GONE
 
-        worker_context.neutron.delete_vrrp_port(self.driver.id)
-        worker_context.neutron.delete_vrrp_port(self.driver.id, label='MGT')
+        self.driver.delete_ports(worker_context)
 
         try:
             worker_context.nova_client.destroy_instance(self.instance_info)

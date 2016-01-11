@@ -452,18 +452,7 @@ class TestInstanceManager(base.RugTestBase):
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO
         )
-
-        # the VRRP port gets deleted
-        self.assertIn(
-            mock.call(self.instance_mgr.driver.id),
-            self.ctx.neutron.delete_vrrp_port.call_args_list
-        )
-        # the MGT port gets deleted
-        self.assertIn(
-            mock.call(self.instance_mgr.driver.id, label='MGT'),
-            self.ctx.neutron.delete_vrrp_port.call_args_list
-        )
-
+        self.instance_mgr.driver.delete_ports.assert_called_once_with(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
 
     @mock.patch('time.time')
