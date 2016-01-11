@@ -148,6 +148,7 @@ class TestInstanceManager(base.RugTestBase):
 
     def test_update_state_instance_no_ports_still_booting(self):
         self.update_state_p.stop()
+        self.INSTANCE_INFO.management_address = '10.0.1.1'
         self.ctx.nova_client.get_instance_info_for_obj.return_value = \
             self.INSTANCE_INFO
         self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
@@ -155,6 +156,23 @@ class TestInstanceManager(base.RugTestBase):
         self.assertEqual(self.instance_mgr.update_state(self.ctx),
                          states.BOOTING)
         self.assertFalse(self.fake_driver.is_alive.called)
+
+    def test_update_state_log_boot_time_once(self):
+        self.update_state_p.stop()
+        self.instance_mgr.log = mock.Mock(
+            info=mock.Mock())
+        self.ctx.nova_client.update_instance_info.return_value = (
+            self.INSTANCE_INFO)
+        self.instance_mgr.state = states.CONFIGURED
+        self.fake_driver.is_alive.return_value = True
+        self.instance_mgr.update_state(self.ctx)
+        self.assertEqual(
+            len(self.instance_mgr.log.info.call_args_list),
+            1)
+        self.instance_mgr.update_state(self.ctx)
+        self.assertEqual(
+            len(self.instance_mgr.log.info.call_args_list),
+            1)
 
     @mock.patch('time.sleep', lambda *a: None)
     def test_router_status_sync(self):
