@@ -38,6 +38,9 @@ ROUTER_OPTS = [
     cfg.IntOpt('mgt_service_port', default=5000,
                help='The port on which the loadbalancer API service listens '
                     'on loadbalancer appliances'),
+    cfg.IntOpt('max_sleep', default=15,
+               help='The max sleep seconds between each attempt and ignore '
+                    'neutron client exceptions '),
 ]
 cfg.CONF.register_group(cfg.OptGroup(name='loadbalancer'))
 cfg.CONF.register_opts(ROUTER_OPTS, 'loadbalancer')
@@ -175,7 +178,6 @@ class LoadBalancer(BaseDriver):
 
         """
         nap_time = 1
-        max_sleep = 15
 
         neutron_client = neutron.Neutron(cfg.CONF)
 
@@ -198,8 +200,7 @@ class LoadBalancer(BaseDriver):
                 LOG.warning(_LW(
                     'sleeping %s seconds before retrying'), nap_time)
                 time.sleep(nap_time)
-                # FIXME(rods): should we get max_sleep from the config file?
-                nap_time = min(nap_time * 2, max_sleep)
+                nap_time = min(nap_time * 2, cfg.CONF.loadbalancer.max_sleep)
 
     @staticmethod
     def get_resource_id_for_tenant(worker_context, tenant_id, message):
