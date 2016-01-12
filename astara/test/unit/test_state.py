@@ -534,8 +534,7 @@ class TestAutomaton(unittest.TestCase):
         self.bandwidth_callback = mock.Mock()
 
         self.sm = state.Automaton(
-            driver=self.fake_driver,
-            resource_id=self.fake_driver.id,
+            resource=self.fake_driver,
             tenant_id='tenant-id',
             delete_callback=self.delete_callback,
             bandwidth_callback=self.bandwidth_callback,
@@ -547,7 +546,7 @@ class TestAutomaton(unittest.TestCase):
     def test_send_message(self):
         message = mock.Mock()
         message.crud = 'update'
-        with mock.patch.object(self.sm.driver, 'log') as logger:
+        with mock.patch.object(self.sm.resource, 'log') as logger:
             self.sm.send_message(message)
             self.assertEqual(len(self.sm._queue), 1)
             logger.debug.assert_called_with(
@@ -560,7 +559,7 @@ class TestAutomaton(unittest.TestCase):
         message.crud = 'update'
         for i in range(3):
             self.sm.send_message(message)
-        with mock.patch.object(self.sm.driver, 'log') as logger:
+        with mock.patch.object(self.sm.resource, 'log') as logger:
             self.sm.send_message(message)
             logger.warning.assert_called_with(
                 'incoming message brings queue length to %s',
@@ -586,7 +585,7 @@ class TestAutomaton(unittest.TestCase):
 
         # Non-POLL events should *not* be ignored for routers in ERROR state
         message.crud = 'create'
-        with mock.patch.object(self.sm.driver, 'log') as logger:
+        with mock.patch.object(self.sm.resource, 'log') as logger:
             self.sm.send_message(message)
             self.assertEqual(len(self.sm._queue), 1)
             logger.debug.assert_called_with(
@@ -645,7 +644,7 @@ class TestAutomaton(unittest.TestCase):
         self.sm.action = 'fake'
         self.sm.state = fake_state
 
-        with mock.patch.object(self.sm.driver, 'log') as log:
+        with mock.patch.object(self.sm.resource, 'log') as log:
             self.sm.update(self.ctx)
 
             log.exception.assert_called_once_with(mock.ANY, fake_state, 'fake')
