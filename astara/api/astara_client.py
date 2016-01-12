@@ -73,7 +73,7 @@ def update_config(host, port, config_dict):
     s = _get_proxyless_session()
     r = s.put(
         _mgt_url(host, port, path),
-        data=jsonutils.dumps(config_dict),
+        data=jsonutils.dump_as_bytes(config_dict),
         headers=headers,
         timeout=cfg.CONF.config_timeout)
 

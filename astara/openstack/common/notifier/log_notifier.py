@@ -49,4 +49,4 @@ def notify(_context, message):
     logger = logging.getLogger(
         'astara.openstack.common.notification.%s' %
         message['event_type'])
-    getattr(logger, priority)(jsonutils.dumps(message))
+    getattr(logger, priority)(jsonutils.dump_as_bytes(message))
