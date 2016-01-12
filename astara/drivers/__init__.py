@@ -22,6 +22,9 @@ DRIVER_OPTS = [
     cfg.ListOpt('enabled_drivers',
                 default=['router', ],
                 help='list of drivers the rug process will load'),
+    cfg.IntOpt('max_sleep', default=15,
+               help='The max sleep seconds between each attempt by'
+                    ' neutron client for fetching resource.'),
 ]
 
 cfg.CONF.register_opts(DRIVER_OPTS)
