@@ -110,7 +110,6 @@ class TestInstanceManager(base.RugTestBase):
         self.mock_update_state = self.update_state_p.start()
         self.instance_mgr = instance_manager.InstanceManager(
             self.fake_driver,
-            'fake_resource_id',
             self.ctx
         )
         self.instance_mgr.instance_info = self.INSTANCE_INFO
@@ -387,7 +386,8 @@ class TestInstanceManager(base.RugTestBase):
             image_uuid=self.fake_driver.image_uuid,
             flavor=self.fake_driver.flavor,
             make_ports_callback='fake_ports_callback')
-        self.instance_mgr.driver.delete_ports.assert_called_once_with(self.ctx)
+        self.instance_mgr.resource.delete_ports.assert_called_once_with(
+            self.ctx)
 
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):
@@ -397,7 +397,8 @@ class TestInstanceManager(base.RugTestBase):
         self.ctx.nova_client.destroy_instance.assert_called_once_with(
             self.INSTANCE_INFO
         )
-        self.instance_mgr.driver.delete_ports.assert_called_once_with(self.ctx)
+        self.instance_mgr.resource.delete_ports.assert_called_once_with(
+            self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
 
     @mock.patch('time.time')

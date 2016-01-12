@@ -35,7 +35,7 @@ from astara.drivers import states
 class StateParams(object):
     def __init__(self, driver, instance, queue, bandwidth_callback,
                  reboot_error_threshold):
-        self.driver = driver
+        self.resource = driver
         self.instance = instance
         self.log = driver.log
         self.queue = queue
@@ -83,11 +83,11 @@ class CalcAction(State):
     def execute(self, action, worker_context):
         queue = self.queue
         if DELETE in queue:
-            self.params.driver.log.debug('shortcutting to delete')
+            self.params.resource.log.debug('shortcutting to delete')
             return DELETE
 
         while queue:
-            self.params.driver.log.debug(
+            self.params.resource.log.debug(
                 'action = %s, len(queue) = %s, queue = %s',
                 action,
                 len(queue),
@@ -97,22 +97,23 @@ class CalcAction(State):
             if action == UPDATE and queue[0] == CREATE:
                 # upgrade to CREATE from UPDATE by taking the next
                 # item from the queue
-                self.params.driver.log.debug('upgrading from update to create')
+                self.params.resource.log.debug(
+                    'upgrading from update to create')
                 action = queue.popleft()
                 continue
 
             elif action in (CREATE, UPDATE) and queue[0] == REBUILD:
                 # upgrade to REBUILD from CREATE/UPDATE by taking the next
                 # item from the queue
-                self.params.driver.log.debug('upgrading from %s to rebuild',
-                                             action)
+                self.params.resource.log.debug('upgrading from %s to rebuild',
+                                               action)
                 action = queue.popleft()
                 continue
 
             elif action == CREATE and queue[0] == UPDATE:
                 # CREATE implies an UPDATE so eat the update event
                 # without changing the action
-                self.params.driver.log.debug('merging create and update')
+                self.params.resource.log.debug('merging create and update')
                 queue.popleft()
                 continue
 
@@ -120,9 +121,9 @@ class CalcAction(State):
                 # Throw away a poll following any other valid action,
                 # because a create or update will automatically handle
                 # the poll and repeated polls are not needed.
-                self.params.driver.log.debug('discarding poll event following '
-                                             'action %s',
-                                             action)
+                self.params.resource.log.debug(
+                    'discarding poll event following action %s',
+                    action)
                 queue.popleft()
                 continue
 
@@ -130,10 +131,10 @@ class CalcAction(State):
                 # We are not polling and the next action is something
                 # different from what we are doing, so just do the
                 # current action.
-                self.params.driver.log.debug('done collapsing events')
+                self.params.resource.log.debug('done collapsing events')
                 break
 
-            self.params.driver.log.debug('popping action from queue')
+            self.params.resource.log.debug('popping action from queue')
             action = queue.popleft()
 
         return action
@@ -159,7 +160,7 @@ class CalcAction(State):
                 # here.
                 next_action = self
             elif self.instance.error_cooldown:
-                    self.params.driver.log.debug(
+                    self.params.resource.log.debug(
                         'Resource is in ERROR cooldown, '
                         'ignoring event.'
                     )
@@ -229,15 +230,15 @@ class CreateInstance(State):
         # Check for a loop where the resource keeps failing to boot or
         # accept the configuration.
         if self.instance.attempts >= self.params.reboot_error_threshold:
-            self.params.driver.log.info(_LI('Dropping out of boot loop after '
-                                        ' %s trials'),
-                                        self.instance.attempts)
+            self.params.resource.log.info(_LI(
+                'Dropping out of boot loop after  %s trials'),
+                self.instance.attempts)
             self.instance.set_error(worker_context)
             return action
         self.instance.boot(worker_context)
-        self.params.driver.log.debug('CreateInstance attempt %s/%s',
-                                     self.instance.attempts,
-                                     self.params.reboot_error_threshold)
+        self.params.resource.log.debug('CreateInstance attempt %s/%s',
+                                       self.instance.attempts,
+                                       self.params.reboot_error_threshold)
         return action
 
     def transition(self, action, worker_context):
@@ -253,7 +254,7 @@ class CreateInstance(State):
 class CheckBoot(State):
     def execute(self, action, worker_context):
         self.instance.update_state(worker_context)
-        self.params.driver.log.debug(
+        self.params.resource.log.debug(
             'Instance is %s' % self.instance.state.upper())
         # Put the action back on the front of the queue so that we can yield
         # and handle it in another state machine traversal (which will proceed
@@ -366,14 +367,12 @@ class ReadStats(State):
 
 
 class Automaton(object):
-    def __init__(self, driver, resource_id, tenant_id,
+    def __init__(self, resource, tenant_id,
                  delete_callback, bandwidth_callback,
                  worker_context, queue_warning_threshold,
                  reboot_error_threshold):
         """
-        :param driver: An instantiated driver object for the managed resource
-        :param resource_id: UUID of the resource being managed
-        :type resource_id: str
+        :param resource: An instantiated driver object for the managed resource
         :param tenant_id: UUID of the tenant being managed
         :type tenant_id: str
         :param delete_callback: Invoked when the Automaton decides
@@ -392,8 +391,7 @@ class Automaton(object):
                                        the router puts it into an error state.
         :type reboot_error_threshold: int
         """
-        self.driver = driver
-        self.resource_id = resource_id
+        self.resource = resource
         self.tenant_id = tenant_id
         self._delete_callback = delete_callback
         self._queue_warning_threshold = queue_warning_threshold
@@ -403,11 +401,10 @@ class Automaton(object):
         self._queue = collections.deque()
 
         self.action = POLL
-        self.instance = instance_manager.InstanceManager(self.driver,
-                                                         self.resource_id,
+        self.instance = instance_manager.InstanceManager(self.resource,
                                                          worker_context)
         self._state_params = StateParams(
-            self.driver,
+            self.resource,
             self.instance,
             self._queue,
             self.bandwidth_callback,
@@ -415,15 +412,17 @@ class Automaton(object):
         )
         self.state = CalcAction(self._state_params)
 
-        self.resource = Resource(
-            driver=self.driver, id=self.resource_id, tenant_id=self.tenant_id)
+    @property
+    def resource_id(self):
+        """Returns the ID of the managed resource"""
+        return self.resource.id
 
     def service_shutdown(self):
         "Called when the parent process is being stopped"
 
     def _do_delete(self):
         if self._delete_callback is not None:
-            self.driver.log.debug('calling delete callback')
+            self.resource.log.debug('calling delete callback')
             self._delete_callback()
             # Avoid calling the delete callback more than once.
             self._delete_callback = None
@@ -435,26 +434,28 @@ class Automaton(object):
         while self._queue:
             while True:
                 if self.deleted:
-                    self.driver.log.debug(
+                    self.resource.log.debug(
                         'skipping update because the router is being deleted'
                     )
                     return
 
                 try:
-                    self.driver.log.debug('%s.execute(%s) instance.state=%s',
-                                          self.state,
-                                          self.action,
-                                          self.instance.state)
+                    self.resource.log.debug(
+                        '%s.execute(%s) instance.state=%s',
+                        self.state,
+                        self.action,
+                        self.instance.state)
                     self.action = self.state.execute(
                         self.action,
                         worker_context,
                     )
-                    self.driver.log.debug('%s.execute -> %s instance.state=%s',
-                                          self.state,
-                                          self.action,
-                                          self.instance.state)
+                    self.resource.log.debug(
+                        '%s.execute -> %s instance.state=%s',
+                        self.state,
+                        self.action,
+                        self.instance.state)
                 except:
-                    self.driver.log.exception(
+                    self.resource.log.exception(
                         _LE('%s.execute() failed for action: %s'),
                         self.state,
                         self.action
@@ -465,7 +466,7 @@ class Automaton(object):
                     self.action,
                     worker_context,
                 )
-                self.driver.log.debug(
+                self.resource.log.debug(
                     '%s.transition(%s) -> %s instance.state=%s',
                     old_state,
                     self.action,
@@ -488,7 +489,7 @@ class Automaton(object):
         "Called when the worker put a message in the state machine queue"
         if self.deleted:
             # Ignore any more incoming messages
-            self.driver.log.debug(
+            self.resource.log.debug(
                 'deleted state machine, ignoring incoming message %s',
                 message)
             return False
@@ -501,7 +502,7 @@ class Automaton(object):
         # do any work.
         if message.crud == POLL and \
                 self.instance.state == states.ERROR:
-            self.driver.log.info(_LI(
+            self.resource.log.info(_LI(
                 'Resource status is ERROR, ignoring POLL message: %s'),
                 message,
             )
@@ -509,20 +510,20 @@ class Automaton(object):
 
         if message.crud == REBUILD:
             if message.body.get('image_uuid'):
-                self.driver.log.info(_LI(
+                self.resource.log.info(_LI(
                     'Resource is being REBUILT with custom image %s'),
                     message.body['image_uuid']
                 )
                 self.image_uuid = message.body['image_uuid']
             else:
-                self.image_uuid = self.driver.image_uuid
+                self.image_uuid = self.resource.image_uuid
 
         self._queue.append(message.crud)
         queue_len = len(self._queue)
         if queue_len > self._queue_warning_threshold:
-            logger = self.driver.log.warning
+            logger = self.resource.log.warning
         else:
-            logger = self.driver.log.debug
+            logger = self.resource.log.debug
         logger(_LW('incoming message brings queue length to %s'), queue_len)
         return True
 
@@ -547,6 +548,6 @@ class Automaton(object):
         This is used after a ring rebalance if this state machine no longer
         maps to the local Rug process.
         """
-        self.driver.log.debug(
+        self.resource.log.info(
             'Dropping %s pending actions from queue', len(self._queue))
         self._queue.clear()
