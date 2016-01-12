@@ -48,6 +48,8 @@ ROUTER_OPTS = [
                deprecated_opts=[
                     cfg.DeprecatedOpt('akanda_mgt_service_port',
                                       group='DEFAULT')]),
+    cfg.IntOpt('max_sleep', default=15,
+               help='The max sleep seconds between each attempt.'),
 ]
 cfg.CONF.register_group(cfg.OptGroup(name='router'))
 cfg.CONF.register_opts(ROUTER_OPTS, 'router')
@@ -115,6 +117,7 @@ class Router(BaseDriver):
             return [p for p in self._router.ports]
         else:
             return []
+
 
     def pre_boot(self, worker_context):
         """pre boot hook
@@ -223,7 +226,6 @@ class Router(BaseDriver):
 
         """
         nap_time = 1
-        max_sleep = 15
 
         neutron_client = neutron.Neutron(cfg.CONF)
 
@@ -248,8 +250,7 @@ class Router(BaseDriver):
                 LOG.warning(_LW(
                     'sleeping %s seconds before retrying'), nap_time)
                 time.sleep(nap_time)
-                # FIXME(rods): should we get max_sleep from the config file?
-                nap_time = min(nap_time * 2, max_sleep)
+                nap_time = min(nap_time * 2, cfg.CONF.router.max_sleep)
 
     @staticmethod
     def get_resource_id_for_tenant(worker_context, tenant_id, message):
