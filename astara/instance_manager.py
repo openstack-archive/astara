@@ -47,7 +47,7 @@ def synchronize_driver_state(f):
     """Wrapper that triggers a driver's synchronize_state function"""
     def wrapper(self, *args, **kw):
         state = f(self, *args, **kw)
-        self.driver.synchronize_state(*args, state=state)
+        self.resource.synchronize_state(*args, state=state)
         return state
     return wrapper
 
@@ -65,9 +65,8 @@ def ensure_cache(f):
     def wrapper(self, worker_context, *args, **kw):
         # insure that self.instance_info is current before doing anything.
         self.instance_info = (
-            worker_context.nova_client.get_instance_info(self.driver.name)
+            worker_context.nova_client.get_instance_info(self.resource.name)
         )
-
         if self.instance_info:
             (
                 self.instance_info.management_port,
@@ -98,19 +97,18 @@ class BootAttemptCounter(object):
 
 class InstanceManager(object):
 
-    def __init__(self, driver, resource_id, worker_context):
+    def __init__(self, resource, worker_context):
         """The instance manager is your interface to the running instance.
         wether it be virtual, container or physical.
 
         Service specific code lives in the driver which is passed in here.
 
-        :param driver: driver object
+        :param resource: An driver instance for the managed resource
         :param resource_id: UUID of logical resource
         :param worker_context:
         """
-        self.driver = driver
-        self.id = resource_id
-        self.log = self.driver.log
+        self.resource = resource
+        self.log = self.resource.log
 
         self.state = states.DOWN
 
@@ -146,9 +144,9 @@ class InstanceManager(object):
         :param silent:
         :returns: state
         """
-        if self.driver.get_state(worker_context) == states.GONE:
+        if self.resource.get_state(worker_context) == states.GONE:
             self.log.debug('%s driver reported its state is %s',
-                           self.driver.RESOURCE_NAME, states.GONE)
+                           self.resource.RESOURCE_NAME, states.GONE)
             self.state = states.GONE
             return self.state
 
@@ -165,7 +163,7 @@ class InstanceManager(object):
             return self.state
 
         for i in six.moves.range(cfg.CONF.max_retries):
-            if self.driver.is_alive(self.instance_info.management_address):
+            if self.resource.is_alive(self.instance_info.management_address):
                 if self.state != states.CONFIGURED:
                     self.state = states.UP
                 break
@@ -179,7 +177,8 @@ class InstanceManager(object):
             self._check_boot_timeout()
 
             # If the instance isn't responding, make sure Nova knows about it
-            instance = worker_context.nova_client.get_instance_for_obj(self.id)
+            instance = worker_context.nova_client.get_instance_for_obj(
+                self.resource.id)
             if instance is None and self.state != states.ERROR:
                 self.log.info('No instance was found; rebooting')
                 self.state = states.DOWN
@@ -208,7 +207,7 @@ class InstanceManager(object):
             if not self._boot_logged:
                 boot_time = self.instance_info.time_since_boot.total_seconds()
                 self.log.info('%s booted in %s seconds after %s attempts',
-                              self.driver.RESOURCE_NAME, boot_time,
+                              self.resource.RESOURCE_NAME, boot_time,
                               self._boot_counter.count)
                 self._boot_logged = True
 
@@ -224,22 +223,22 @@ class InstanceManager(object):
 
         :returns: None
         """
-        self.log.info('Booting %s' % self.driver.RESOURCE_NAME)
+        self.log.info('Booting %s' % self.resource.RESOURCE_NAME)
         self.state = states.DOWN
         self._boot_counter.start()
 
         # driver preboot hook
-        self.driver.pre_boot(worker_context)
+        self.resource.pre_boot(worker_context)
 
         # try to boot the instance
         try:
             instance_info = worker_context.nova_client.boot_instance(
-                resource_type=self.driver.RESOURCE_NAME,
+                resource_type=self.resource.RESOURCE_NAME,
                 prev_instance_info=self.instance_info,
-                name=self.driver.name,
-                image_uuid=self.driver.image_uuid,
-                flavor=self.driver.flavor,
-                make_ports_callback=self.driver.make_ports(worker_context)
+                name=self.resource.name,
+                image_uuid=self.resource.image_uuid,
+                flavor=self.resource.flavor,
+                make_ports_callback=self.resource.make_ports(worker_context)
             )
             if not instance_info:
                 self.log.info(_LI('Previous instance is still deleting'))
@@ -250,7 +249,7 @@ class InstanceManager(object):
                 return
         except:
             self.log.exception(_LE('Instance failed to start boot'))
-            self.driver.delete_ports(worker_context)
+            self.resource.delete_ports(worker_context)
         else:
             # We have successfully started a (re)boot attempt so
             # record the timestamp so we can report how long it takes.
@@ -258,7 +257,7 @@ class InstanceManager(object):
             self.instance_info = instance_info
 
         # driver post boot hook
-        self.driver.post_boot(worker_context)
+        self.resource.post_boot(worker_context)
 
     @synchronize_driver_state
     @ensure_cache
@@ -311,7 +310,7 @@ class InstanceManager(object):
         """
         self.log.info(_LI('Destroying instance'))
 
-        self.driver.delete_ports(worker_context)
+        self.resource.delete_ports(worker_context)
 
         if not self.instance_info:
             self.log.info(_LI('Instance already destroyed.'))
@@ -353,13 +352,15 @@ class InstanceManager(object):
         self.state = states.UP
         attempts = cfg.CONF.max_retries
 
-        if self.driver.get_state(worker_context) == states.GONE:
+        if self.resource.get_state(worker_context) == states.GONE:
             return states.GONE
 
-        interfaces = self.driver.get_interfaces(
+        interfaces = self.resource.get_interfaces(
             self.instance_info.management_address)
 
-        if not self._verify_interfaces(self.driver.ports, interfaces):
+        if not self._verify_interfaces(self.resource.ports, interfaces):
+            # FIXME: Need a states.REPLUG state when we support hot-plugging
+            # interfaces.
             self.log.debug("Interfaces aren't plugged as expected.")
             self.state = states.REPLUG
             return self.state
@@ -381,7 +382,7 @@ class InstanceManager(object):
         }
 
         # sending all the standard config over to the driver for final updates
-        config = self.driver.build_config(
+        config = self.resource.build_config(
             worker_context,
             mgt_port,
             iface_map
@@ -391,7 +392,7 @@ class InstanceManager(object):
 
         for i in six.moves.range(attempts):
             try:
-                self.driver.update_config(
+                self.resource.update_config(
                     self.instance_info.management_address,
                     config)
             except Exception:
@@ -421,9 +422,9 @@ class InstanceManager(object):
         """
         self.log.debug('Attempting to replug...')
 
-        self.driver.pre_plug(worker_context)
+        self.resource.pre_plug(worker_context)
 
-        interfaces = self.driver.get_interfaces(
+        interfaces = self.resource.get_interfaces(
             self.instance_info.management_address)
 
         actual_macs = set((iface['lladdr'] for iface in interfaces))
@@ -443,7 +444,7 @@ class InstanceManager(object):
         instance_ports = {p.network_id: p for p in self.instance_info.ports}
         instance_networks = set(instance_ports.keys())
 
-        logical_networks = set(p.network_id for p in self.driver.ports)
+        logical_networks = set(p.network_id for p in self.resource.ports)
 
         if logical_networks != instance_networks:
             instance = worker_context.nova_client.get_instance_by_id(
@@ -453,7 +454,7 @@ class InstanceManager(object):
             # For each port that doesn't have a mac address on the instance...
             for network_id in logical_networks - instance_networks:
                 port = worker_context.neutron.create_vrrp_port(
-                    self.driver.id,
+                    self.resource.id,
                     network_id
                 )
                 self.log.debug(
@@ -494,10 +495,10 @@ class InstanceManager(object):
             self.log.debug(
                 "Waiting for interface attachments to take effect..."
             )
-            interfaces = self.driver.get_interfaces(
+            interfaces = self.resource.get_interfaces(
                 self.instance_info.management_address)
 
-            if self._verify_interfaces(self.driver.ports, interfaces):
+            if self._verify_interfaces(self.resource.ports, interfaces):
                 # replugging was successful
                 # TODO(mark) update port states
                 return

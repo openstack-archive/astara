@@ -196,11 +196,11 @@ class TenantResourceManager(object):
                               'a driver.'))
                 return []
 
-            driver_obj = \
+            resource_obj = \
                 drivers.get(message.resource.driver)(worker_context,
                                                      message.resource.id)
 
-            if not driver_obj:
+            if not resource_obj:
                 # this means the driver didn't load for some reason..
                 # this might not be needed at all.
                 LOG.debug('for some reason loading the driver failed')
@@ -210,8 +210,7 @@ class TenantResourceManager(object):
                 self._delete_resource(message.resource)
 
             new_state_machine = state.Automaton(
-                driver=driver_obj,
-                resource_id=message.resource.id,
+                resource=resource_obj,
                 tenant_id=self.tenant_id,
                 delete_callback=deleter,
                 bandwidth_callback=self._report_bandwidth,
@@ -231,7 +230,7 @@ class TenantResourceManager(object):
             machine
             for machine in state_machines
             if (not machine.deleted and
-                not self.state_machines.has_been_deleted(machine.resource_id))
+                not self.state_machines.has_been_deleted(machine.resource.id))
         ]
 
     def get_state_machine_by_resource_id(self, resource_id):

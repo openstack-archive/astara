@@ -657,7 +657,7 @@ class Worker(object):
                 return
             new_res = event.Resource(
                 id=resource_id,
-                driver=sm.driver.RESOURCE_NAME,
+                driver=sm.resource.RESOURCE_NAME,
                 tenant_id=sm.tenant_id)
             new_msg = event.Event(
                 resource=new_res,

@@ -45,8 +45,7 @@ class TestDebug(base.RugTestBase):
 
         assert set_trace.called
         automaton.assert_called_once_with(
-            driver=drivers_get.return_value.return_value,
-            resource_id='X',
+            resource=drivers_get.return_value.return_value,
             tenant_id=mock_router.tenant_id,
             delete_callback=debug.delete_callback,
             bandwidth_callback=debug.bandwidth_callback,
