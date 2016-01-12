@@ -59,11 +59,10 @@ def debug_one_router(args=sys.argv[1:]):
     log.debug('Proxy settings: %r', os.getenv('no_proxy'))
 
     context = worker.WorkerContext()
-    driver = drivers.get('router')(context, cfg.CONF.router_id)
+    resource = drivers.get('router')(context, cfg.CONF.router_id)
     a = state.Automaton(
-        driver=driver,
-        resource_id=cfg.CONF.router_id,
-        tenant_id=driver._router.tenant_id,
+        resource=resource,
+        tenant_id=resource._router.tenant_id,
         delete_callback=delete_callback,
         bandwidth_callback=bandwidth_callback,
         worker_context=context,

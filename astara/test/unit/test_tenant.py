@@ -80,9 +80,8 @@ class TestTenantResourceManager(unittest.TestCase):
             rid = str(uuid.uuid4())
             driver = fakes.fake_driver(rid)
             sm = state.Automaton(
-                driver=driver,
+                resource=driver,
                 worker_context=self.ctx,
-                resource_id=driver.id,
                 tenant_id=self.tenant_id,
                 delete_callback=None,
                 bandwidth_callback=None,
@@ -108,9 +107,8 @@ class TestTenantResourceManager(unittest.TestCase):
             rid = str(uuid.uuid4())
             driver = fakes.fake_driver(rid)
             sm = state.Automaton(
-                driver=driver,
+                resource=driver,
                 worker_context=self.ctx,
-                resource_id=i,
                 tenant_id=self.tenant_id,
                 delete_callback=None,
                 bandwidth_callback=None,
@@ -121,15 +119,16 @@ class TestTenantResourceManager(unittest.TestCase):
             # Replace the default mock with one that has 'state' set.
             if i == 2:
                 status = states.ERROR
+                err_id = sm.resource_id
             else:
                 status = states.UP
 
             sm.instance = mock.Mock(state=status)
-            self.trm.state_machines.state_machines[str(i)] = sm
+            self.trm.state_machines.state_machines[sm.resource_id] = sm
 
         r = event.Resource(
             tenant_id=self.tenant_id,
-            id='2',
+            id=err_id,
             driver=router.Router.RESOURCE_NAME,
         )
         msg = event.Event(
@@ -139,8 +138,8 @@ class TestTenantResourceManager(unittest.TestCase):
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
         self.assertEqual(1, len(sms))
-        self.assertEqual(2, sms[0].resource_id)
-        self.assertIs(self.trm.state_machines.state_machines['2'], sms[0])
+        self.assertEqual(err_id, sms[0].resource_id)
+        self.assertIs(self.trm.state_machines.state_machines[err_id], sms[0])
 
     def test_existing_resource(self):
         r = event.Resource(

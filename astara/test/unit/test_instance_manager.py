@@ -114,7 +114,6 @@ class TestInstanceManager(base.RugTestBase):
         self.mock_update_state = self.update_state_p.start()
         self.instance_mgr = instance_manager.InstanceManager(
             self.fake_driver,
-            'fake_resource_id',
             self.ctx
         )
         self.instance_mgr.instance_info = self.INSTANCE_INFO
@@ -376,7 +375,8 @@ class TestInstanceManager(base.RugTestBase):
             image_uuid=self.fake_driver.image_uuid,
             flavor=self.fake_driver.flavor,
             make_ports_callback='fake_ports_callback')
-        self.instance_mgr.driver.delete_ports.assert_called_once_with(self.ctx)
+        self.instance_mgr.resource.delete_ports.assert_called_once_with(
+            self.ctx)
 
     def test_boot_check_up(self):
         with mock.patch.object(
@@ -455,12 +455,12 @@ class TestInstanceManager(base.RugTestBase):
 
         # the VRRP port gets deleted
         self.assertIn(
-            mock.call(self.instance_mgr.driver.id),
+            mock.call(self.instance_mgr.resource.id),
             self.ctx.neutron.delete_vrrp_port.call_args_list
         )
         # the MGT port gets deleted
         self.assertIn(
-            mock.call(self.instance_mgr.driver.id, label='MGT'),
+            mock.call(self.instance_mgr.resource.id, label='MGT'),
             self.ctx.neutron.delete_vrrp_port.call_args_list
         )
 
