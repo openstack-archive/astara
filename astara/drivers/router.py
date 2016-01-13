@@ -79,12 +79,24 @@ _ROUTER_INTERESTING_NOTIFICATIONS = set([
 
 DRIVER_NAME = 'router'
 
+def ensure_cache(f):
+    def wrapper(self, worker_context, *args, **kw):
+        try:
+            self._router = worker_context.neutron.get_router_detail(self.id)
+        except neutron.RouterGone:
+            self._router = None
+
+        return f(self, worker_context, *args, **kw)
+
+    return wrapper
+
 
 class Router(BaseDriver):
 
     RESOURCE_NAME = DRIVER_NAME
     _last_synced_status = None
 
+    @ensure_cache
     def post_init(self, worker_context):
         """Called at end of __init__ in BaseDriver.
 
@@ -96,14 +108,6 @@ class Router(BaseDriver):
         self.image_uuid = cfg.CONF.router.image_uuid
         self.flavor = cfg.CONF.router.instance_flavor
         self.mgt_port = cfg.CONF.router.mgt_service_port
-
-        self._ensure_cache(worker_context)
-
-    def _ensure_cache(self, worker_context):
-        try:
-            self._router = worker_context.neutron.get_router_detail(self.id)
-        except neutron.RouterGone:
-            self._router = None
 
     @property
     def ports(self):
@@ -133,6 +137,7 @@ class Router(BaseDriver):
         """
         pass
 
+    @ensure_cache
     def build_config(self, worker_context, mgt_port, iface_map):
         """Builds / rebuilds config
 
@@ -141,7 +146,6 @@ class Router(BaseDriver):
         :param iface_map:
         :returns: configuration object
         """
-        self._ensure_cache(worker_context)
         return configuration.build_config(
             worker_context.neutron,
             self._router,
@@ -179,6 +183,7 @@ class Router(BaseDriver):
                 self._router)
             self._router.external_port = ext_port
 
+    @ensure_cache
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
 
@@ -187,7 +192,6 @@ class Router(BaseDriver):
         :returns: A tuple (managment_port, [instance_ports])
         """
         def _make_ports():
-            self._ensure_cache(worker_context)
             mgt_port = worker_context.neutron.create_management_port(
                 self.id
             )
@@ -315,8 +319,8 @@ class Router(BaseDriver):
         )
         return e
 
+    @ensure_cache
     def get_state(self, worker_context):
-        self._ensure_cache(worker_context)
         if not self._router:
             return states.GONE
         else:
@@ -324,8 +328,8 @@ class Router(BaseDriver):
             # an internal astara status
             return self._router.status
 
+    @ensure_cache
     def synchronize_state(self, worker_context, state):
-        self._ensure_cache(worker_context)
         if not self._router:
             LOG.debug('Not synchronizing state with missing router %s',
                       self.id)
