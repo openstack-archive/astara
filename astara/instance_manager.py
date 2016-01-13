@@ -481,6 +481,7 @@ class InstanceManager(object):
                     return
                 self.instance_info.ports.append(port)
 
+            ports_to_delete = []
             for network_id in instance_networks - logical_networks:
                 port = instance_ports[network_id]
                 self.log.debug(
@@ -490,6 +491,7 @@ class InstanceManager(object):
 
                 try:
                     instance.interface_detach(port.id)
+                    ports_to_delete.append(port)
                 except:
                     self.log.exception('Interface detach failed')
                     self.state = states.RESTART
@@ -512,6 +514,8 @@ class InstanceManager(object):
             if self._verify_interfaces(self.driver.ports, interfaces):
                 # replugging was successful
                 # TODO(mark) update port states
+                for p in ports_to_delete:
+                     worker_context.neutron.api_client.delete_port(port.id)
                 return
 
             time.sleep(1)
