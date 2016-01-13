@@ -53,11 +53,26 @@ STATUS_MAP = {
 }
 
 
+def ensure_cache(f):
+    """Decorator to wrap around any function that uses self._loadbalancer."""
+    def wrapper(self, worker_context, *args, **kw):
+        try:
+            lb = worker_context.neutron.get_loadbalancer_detail(self.id)
+            self._loadbalancer = lb
+        except neutron.LoadBalancerGone:
+            self._loadbalancer = None
+
+        return f(self, worker_context, *args, **kw)
+
+    return wrapper
+
+
 class LoadBalancer(BaseDriver):
 
     RESOURCE_NAME = 'loadbalancer'
     _last_synced_status = None
 
+    @ensure_cache
     def post_init(self, worker_context):
         """Called at end of __init__ in BaseDriver.
 
@@ -69,15 +84,6 @@ class LoadBalancer(BaseDriver):
         self.image_uuid = cfg.CONF.loadbalancer.image_uuid
         self.flavor = cfg.CONF.loadbalancer.instance_flavor
         self.mgt_port = cfg.CONF.loadbalancer.mgt_service_port
-
-        self._ensure_cache(worker_context)
-
-    def _ensure_cache(self, worker_context):
-        try:
-            lb = worker_context.neutron.get_loadbalancer_detail(self.id)
-            self._loadbalancer = lb
-        except neutron.LoadBalancerGone:
-            self._loadbalancer = None
 
     @property
     def ports(self):
@@ -107,6 +113,7 @@ class LoadBalancer(BaseDriver):
         """
         pass
 
+    @ensure_cache
     def build_config(self, worker_context, mgt_port, iface_map):
         """Builds / rebuilds config
 
@@ -116,7 +123,6 @@ class LoadBalancer(BaseDriver):
         :returns: configuration object
         """
 
-        self._ensure_cache(worker_context)
         return config.build_config(
             worker_context.neutron,
             self._loadbalancer,
@@ -140,6 +146,7 @@ class LoadBalancer(BaseDriver):
         :returs: None
         """
 
+    @ensure_cache
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
 
@@ -148,7 +155,6 @@ class LoadBalancer(BaseDriver):
         :returns: A tuple (managment_port, [instance_ports])
         """
         def _make_ports():
-            self._ensure_cache(worker_context)
             mgt_port = worker_context.neutron.create_management_port(
                 self.id
             )
@@ -300,8 +306,8 @@ class LoadBalancer(BaseDriver):
         )
         return e
 
+    @ensure_cache
     def get_state(self, worker_context):
-        self._ensure_cache(worker_context)
         if not self._loadbalancer:
             return states.GONE
         else:
@@ -309,8 +315,8 @@ class LoadBalancer(BaseDriver):
             # an internal astara status
             return self._loadbalancer.status
 
+    @ensure_cache
     def synchronize_state(self, worker_context, state):
-        self._ensure_cache(worker_context)
         if not self._loadbalancer:
             LOG.debug('Not synchronizing state with missing loadbalancer %s',
                       self.id)
