@@ -369,7 +369,7 @@ class RouterDriverTest(base.RugTestBase):
             rtr.id,
             'ACTIVE',
         )
-        self.assertEquals(rtr._last_synced_status, 'ACTIVE')
+        self.assertEqual(rtr._last_synced_status, 'ACTIVE')
 
     @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_synchronize_state_no_change(self, mock_ensure_cache):
@@ -385,7 +385,7 @@ class RouterDriverTest(base.RugTestBase):
     def test_get_interfaces(self, mock_get_interfaces):
         mock_get_interfaces.return_value = ['fake_interface']
         rtr = self._init_driver()
-        self.assertEquals(
+        self.assertEqual(
             rtr.get_interfaces('fake_mgt_addr'), ['fake_interface'])
         mock_get_interfaces.assert_called_with(
             'fake_mgt_addr', self.mgt_port)
