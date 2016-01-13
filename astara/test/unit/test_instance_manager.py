@@ -74,6 +74,7 @@ class TestInstanceManager(base.RugTestBase):
         self.fake_driver = fakes.fake_driver()
         self.ctx = mock.Mock()
         self.neutron = self.ctx.neutron
+        self.neutron.api_client = mock.Mock()
         self.config(boot_timeout=30)
         self.config(astara_mgt_service_port=5000)
         self.config(max_retries=3)
