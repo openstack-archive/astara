@@ -61,21 +61,19 @@ def ensure_cache(f):
     """
     def wrapper(self, worker_context, *args, **kw):
         # insure that self.instance_info is current before doing anything.
-        if not self.instance_info:
-            # attempt to populate instance_info
-            self.instance_info = (
-                worker_context.nova_client.get_instance_info(self.driver.name)
+        self.instance_info = (
+            worker_context.nova_client.get_instance_info(self.driver.name)
+        )
+
+        if self.instance_info:
+            (
+                self.instance_info.management_port,
+                self.instance_info.ports
+            ) = worker_context.neutron.get_ports_for_instance(
+                self.instance_info.id_
             )
 
-            if self.instance_info:
-                (
-                    self.instance_info.management_port,
-                    self.instance_info.ports
-                ) = worker_context.neutron.get_ports_for_instance(
-                    self.instance_info.id_
-                )
-
-            return f(self, worker_context, *args, **kw)
+        return f(self, worker_context, *args, **kw)
 
     return wrapper
 
@@ -136,6 +134,7 @@ class InstanceManager(object):
         self._boot_counter.reset()
 
     @synchronize_driver_state
+    @ensure_cache
     def update_state(self, worker_context, silent=False):
         """Updates state of the instance and, by extension, its logical resource
 
@@ -143,8 +142,6 @@ class InstanceManager(object):
         :param silent:
         :returns: state
         """
-        self._ensure_cache(worker_context)
-
         if self.driver.get_state(worker_context) == states.GONE:
             self.log.debug('%s driver reported its state is %s',
                            self.driver.RESOURCE_NAME, states.GONE)
@@ -215,13 +212,12 @@ class InstanceManager(object):
             self._boot_counter.reset()
         return self.state
 
+    @ensure_cache
     def boot(self, worker_context):
         """Boots the instance with driver pre/post boot hooks.
 
         :returns: None
         """
-        self._ensure_cache(worker_context)
-
         self.log.info('Booting %s' % self.driver.RESOURCE_NAME)
         self.state = states.DOWN
         self._boot_counter.start()
@@ -273,6 +269,7 @@ class InstanceManager(object):
         return False
 
     @synchronize_driver_state
+    @ensure_cache
     def set_error(self, worker_context, silent=False):
         """Set the internal and neutron status for the router to states.ERROR.
 
@@ -281,12 +278,12 @@ class InstanceManager(object):
         supposed to do what it's told and not make decisions about
         whether or not the router is fatally broken.
         """
-        self._ensure_cache(worker_context)
         self.state = states.ERROR
         self.last_error = datetime.utcnow()
         return self.state
 
     @synchronize_driver_state
+    @ensure_cache
     def clear_error(self, worker_context, silent=False):
         """Clear the internal error state.
 
@@ -297,7 +294,6 @@ class InstanceManager(object):
         """
         # Clear the boot counter.
         self._boot_counter.reset()
-        self._ensure_cache(worker_context)
         self.state = states.DOWN
         return self.state
 
@@ -314,13 +310,13 @@ class InstanceManager(object):
         return False
 
     @synchronize_driver_state
+    @ensure_cache
     def stop(self, worker_context):
         """Attempts to destroy the instance with configured timeout.
 
         :param worker_context:
         :returns:
         """
-        self._ensure_cache(worker_context)
         self.log.info(_LI('Destroying instance'))
 
         if not self.instance_info:
@@ -351,6 +347,7 @@ class InstanceManager(object):
             cfg.CONF.boot_timeout)
 
     @synchronize_driver_state
+    @ensure_cache
     def configure(self, worker_context):
         """Pushes config to instance
 
@@ -363,7 +360,6 @@ class InstanceManager(object):
         self.state = states.UP
         attempts = cfg.CONF.max_retries
 
-        self._ensure_cache(worker_context)
         if self.driver.get_state(worker_context) == states.GONE:
             return states.GONE
 
@@ -519,19 +515,6 @@ class InstanceManager(object):
 
         self.log.debug("Interfaces aren't plugged as expected, rebooting.")
         self.state = states.RESTART
-
-    def _ensure_cache(self, worker_context):
-        self.instance_info = (
-            worker_context.nova_client.get_instance_info(self.driver.name)
-        )
-
-        if self.instance_info:
-            (
-                self.instance_info.management_port,
-                self.instance_info.ports
-            ) = worker_context.neutron.get_ports_for_instance(
-                self.instance_info.id_
-            )
 
     def _check_boot_timeout(self):
         """If the instance was created more than `boot_timeout` seconds
