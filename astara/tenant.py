@@ -22,11 +22,11 @@ import collections
 import threading
 
 from oslo_log import log as logging
+from oslo_utils import timeutils
 
 from astara.common.i18n import _LE
 from astara import state
 from astara import drivers
-from astara.openstack.common import timeutils
 
 
 LOG = logging.getLogger(__name__)
