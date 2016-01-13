@@ -78,8 +78,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb.pre_plug(self.ctx)
 
     @mock.patch('astara.api.config.loadbalancer.build_config')
-    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_build_config(self, mock_ensure_cache, mock_build_config):
+    def test_build_config(self, mock_build_config):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
         fake_mgt_port = mock.Mock()
@@ -87,7 +86,6 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb._loadbalancer = fake_lb
         mock_build_config.return_value = 'fake_config'
         res = lb.build_config(self.ctx, fake_mgt_port, fake_iface_map)
-        self.assertTrue(mock_ensure_cache.called)
         mock_build_config.return_value = 'fake_config'
         mock_build_config.assert_called_with(
             self.ctx.neutron, lb._loadbalancer, fake_mgt_port, fake_iface_map)
@@ -102,8 +100,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             lb.mgt_port,
             'fake_config',)
 
-    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_make_ports(self, mock_ensure_cache):
+    def test_make_ports(self):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
         lb._loadbalancer = fake_lb
@@ -300,42 +297,34 @@ class LoadBalancerDriverTest(base.RugTestBase):
     def test_process_notification_not_subscribed(self):
         self._test_notification('whocares.about.this', {}, None)
 
-    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_get_state_no_lb(self, mock_ensure_cache):
+    def test_get_state_no_lb(self):
         lb = self._init_driver()
-        lb._loadbalancer = None
+        self.ctx.neutron.get_loadbalancer_detail.return_value = None
         self.assertEqual(
             lb.get_state(self.ctx),
             states.GONE,
         )
-        mock_ensure_cache.assert_called_with(self.ctx)
 
-    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_get_state(self, mock_ensure_cache):
+    def test_get_state(self):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
-        lb._loadbalancer = fake_lb
+        self.ctx.neutron.get_loadbalancer_detail.return_value = fake_lb
         self.assertEqual(
             lb.get_state(self.ctx),
             fake_lb.status,
         )
-        mock_ensure_cache.assert_called_with(self.ctx)
 
-    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_synchronize_state_no_router(self, mock_ensure_cache):
+    def test_synchronize_state_no_router(self):
         lb = self._init_driver()
-        lb._loadbalancer = None
+        self.ctx.neutron.get_loadbalancer_detail.return_value = None
         lb.synchronize_state(self.ctx, states.DOWN)
-        mock_ensure_cache.assert_called_with(self.ctx)
         self.assertFalse(self.ctx.neutron.update_loadbalancer_status.called)
 
-    @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_synchronize_state(self, mock_ensure_cache):
+    def test_synchronize_state(self):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
-        lb._loadbalancer = fake_lb
+        self.ctx.neutron.get_loadbalancer_detail.return_value = fake_lb
         lb.synchronize_state(self.ctx, states.CONFIGURED)
-        mock_ensure_cache.assert_called_with(self.ctx)
         self.ctx.neutron.update_loadbalancer_status.assert_called_with(
             lb.id,
             'ACTIVE',
@@ -359,18 +348,24 @@ class LoadBalancerDriverTest(base.RugTestBase):
         mock_is_alive.assert_called_with(
             'fake_mgt_addr', self.mgt_port)
 
-    def test__ensure_cache(self):
+    def test_ensure_cache(self):
         lb = self._init_driver()
         self.ctx.neutron.get_loadbalancer_detail.return_value = 'fake_lb'
-        lb._ensure_cache(self.ctx)
+        def ensured_cache(self, ctx):
+            pass
+        wrapped = loadbalancer.ensure_cache(ensured_cache)
+        wrapped(lb, self.ctx)
         self.assertEqual(lb._loadbalancer, 'fake_lb')
         self.ctx.neutron.get_loadbalancer_detail.assert_called_with(lb.id)
 
-    def test__ensure_cache_not_found(self):
+    def test_ensure_cache_not_found(self):
         lb = self._init_driver()
         self.ctx.neutron.get_loadbalancer_detail.side_effect = [
             neutron.LoadBalancerGone
         ]
-        lb._ensure_cache(self.ctx)
+        def ensured_cache(self, ctx):
+            pass
+        wrapped = loadbalancer.ensure_cache(ensured_cache)
+        wrapped(lb, self.ctx)
         self.assertEqual(lb._loadbalancer, None)
         self.ctx.neutron.get_loadbalancer_detail.assert_called_with(lb.id)
