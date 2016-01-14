@@ -419,4 +419,6 @@ def format_userdata(mgt_port):
         'boot_command': cfg.CONF.astara_boot_command,
         'prefix': mgt_net.prefixlen
     }
-    return TEMPLATE % ctxt
+    out = TEMPLATE % ctxt
+    LOG.debug('Rendered cloud-init for instance: %s' % out)
+    return out
