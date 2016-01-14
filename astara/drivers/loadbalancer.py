@@ -30,7 +30,7 @@ from astara.common.i18n import _LW
 LOG = logging.getLogger(__name__)
 
 
-ROUTER_OPTS = [
+LOADBALANCER_OPTS = [
     cfg.StrOpt('image_uuid',
                help='The image_uuid for loadbalancer instances.'),
     cfg.StrOpt('instance_flavor',
@@ -40,7 +40,7 @@ ROUTER_OPTS = [
                     'on loadbalancer appliances'),
 ]
 cfg.CONF.register_group(cfg.OptGroup(name='loadbalancer'))
-cfg.CONF.register_opts(ROUTER_OPTS, 'loadbalancer')
+cfg.CONF.register_opts(LOADBALANCER_OPTS, 'loadbalancer')
 
 
 STATUS_MAP = {
@@ -203,7 +203,7 @@ class LoadBalancer(BaseDriver):
 
     @staticmethod
     def get_resource_id_for_tenant(worker_context, tenant_id, message):
-        """Find the id of the router owned by tenant
+        """Find the id of the loadbalancer owned by tenant
 
         Some events (ie, member.create.end) give us no context about which
         LB the event is associated and only show us the tenant_id and member
@@ -212,7 +212,7 @@ class LoadBalancer(BaseDriver):
         :param tenant_id: The tenant uuid to search for
         :param message: Message associated /w the request
 
-        :returns: uuid of the router owned by the tenant
+        :returns: uuid of the loadbalancer owned by the tenant
         """
 
         lb_id = None
@@ -252,7 +252,7 @@ class LoadBalancer(BaseDriver):
         object appropriate for this driver.
 
         :param tenant_id: str The UUID tenant_id for the incoming event
-        :param event_type: str event type, for example router.create.end
+        :param event_type: str event type, for example loadbalancer.create.end
         :param payload: The payload body of the incoming event
 
         :returns: A populated Event objet if it should process, or None if not
