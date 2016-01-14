@@ -62,9 +62,9 @@ OPTS = [
 CONF.register_opts(OPTS)
 
 
-# NOTE(adam_g): These need a better home
 AGENT_OPTIONS = [
-    cfg.StrOpt('root_helper', default='sudo'),
+    cfg.StrOpt('root_helper',
+               default='sudo astara-rootwrap /etc/astara/rootwrap.conf'),
 ]
 CONF.register_group(cfg.OptGroup(name='AGENT'))
 CONF.register_opts(AGENT_OPTIONS, 'AGENT')

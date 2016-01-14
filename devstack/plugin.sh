@@ -63,6 +63,13 @@ function configure_astara() {
     sudo mkdir -p $ASTARA_CACHE_DIR
     sudo chown $STACK_USER $ASTARA_CACHE_DIR
 
+    if [[ ! -d $ASTARA_CONF_DIR/rootwrap.d ]]; then
+        sudo mkdir -p $ASTARA_CONF_DIR/rootwrap.d
+    fi
+
+    sudo cp $ASTARA_DIR/etc/rootwrap.conf $ASTARA_CONF_DIR
+    sudo cp $ASTARA_DIR/etc/rootwrap.d/* $ASTARA_CONF_DIR/rootwrap.d/
+
     cp $ASTARA_DIR/etc/orchestrator.ini $ASTARA_CONF
     iniset $ASTARA_CONF DEFAULT verbose True
     configure_auth_token_middleware $ASTARA_CONF $Q_ADMIN_USERNAME $ASTARA_CACHE_DIR
