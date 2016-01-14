@@ -59,6 +59,7 @@ STATUS_MAP = {
     states.UP: neutron.STATUS_BUILD,
     states.CONFIGURED: neutron.STATUS_ACTIVE,
     states.ERROR: neutron.STATUS_ERROR,
+    states.DEGRADED: neutron.STATUS_BUILD,
 }
 
 

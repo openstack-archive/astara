@@ -60,7 +60,7 @@ def debug_one_router(args=sys.argv[1:]):
 
     context = worker.WorkerContext()
     driver = drivers.get('router')(context, cfg.CONF.router_id)
-    a = state.Automaton(
+    auto = state.Automaton(
         resource=driver,
         tenant_id=driver._router.tenant_id,
         delete_callback=delete_callback,
@@ -70,9 +70,7 @@ def debug_one_router(args=sys.argv[1:]):
         reboot_error_threshold=1,
     )
 
-    a.send_message(Fake('update'))
-
-    import pdb
-    pdb.set_trace()
-
-    a.update(context)
+    while True:
+        from pprint import pprint;     import pdb; pdb.set_trace() ############################## Br    eakpoint ##############################
+        auto.send_message(Fake('poll'))
+        auto.update(context)
