@@ -51,6 +51,7 @@ from oslo_config import cfg
 import webob
 import webob.dec
 import webob.exc
+import six
 
 from oslo_log import log as logging
 from oslo_log import loggers
@@ -188,7 +189,7 @@ class MetadataProxy(object):
         :returns: returns nothing
         """
         app = MetadataProxyHandler()
-        for i in xrange(5):
+        for i in six.moves.range(5):
             LOG.info(_LI(
                 'Starting the metadata proxy on %s:%s'),
                 ip_address, port

@@ -21,6 +21,7 @@ import eventlet.wsgi
 import webob
 import webob.dec
 import webob.exc
+import six
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -77,7 +78,7 @@ class RugAPIServer(object):
 
     def run(self, ip_address, port=cfg.CONF.rug_api_port):
         app = RugAPI()
-        for i in xrange(5):
+        for i in six.moves.range(5):
             LOG.info(_LI(
                 'Starting the rug-api on %s:%s'),
                 ip_address, port,

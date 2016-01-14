@@ -22,6 +22,7 @@ import time
 import uuid
 
 import netaddr
+import six
 
 from neutronclient.v2_0 import client
 from neutronclient.common import exceptions as neutron_exc
@@ -747,7 +748,7 @@ class Neutron(object):
         return new_port
 
     def get_router_external_port(self, router):
-        for i in xrange(self.conf.max_retries):
+        for i in six.moves.range(self.conf.max_retries):
             LOG.debug(
                 'Looking for router external port. Attempt %d of %d',
                 i,

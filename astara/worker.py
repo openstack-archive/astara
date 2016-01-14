@@ -22,6 +22,7 @@ import collections
 import Queue
 import threading
 import uuid
+import six
 
 from logging import INFO
 
@@ -162,7 +163,7 @@ class Worker(object):
                 name='t%02d' % i,
                 target=self._thread_target,
             )
-            for i in xrange(cfg.CONF.num_worker_threads)
+            for i in six.moves.range(cfg.CONF.num_worker_threads)
         ]
 
         self.hash_ring_mgr = hash_ring.HashRingManager()

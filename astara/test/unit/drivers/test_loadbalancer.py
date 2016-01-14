@@ -13,6 +13,7 @@
 # under the License.
 
 import mock
+import six
 
 from neutronclient.common import exceptions as neutron_exceptions
 
@@ -129,7 +130,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             neutron_client.get_loadbalancers.call_args_list,
             [
                 mock.call()
-                for value in xrange(len(returned_value))
+                for value in six.moves.range(len(returned_value))
             ]
         )
         self.assertEqual(
