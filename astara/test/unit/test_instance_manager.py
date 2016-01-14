@@ -101,17 +101,19 @@ class TestInstanceManager(base.RugTestBase):
             status='ACTIVE',
             last_boot=(datetime.utcnow() - timedelta(minutes=15)),
         )
-
-        self.ctx.nova_client.get_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.ctx.neutron.get_ports_for_instance.return_value = (
-            fake_mgt_port, [fake_int_port, fake_ext_port])
+#
+#        self.ctx.nova_client.get_instance_info.return_value = (
+#            self.INSTANCE_INFO)
+#        self.ctx.neutron.get_ports_for_instance.return_value = (
+#            fake_mgt_port, [fake_int_port, fake_ext_port])
 
         self.mock_update_state = self.update_state_p.start()
         self.instance_mgr = instance_manager.InstanceManager(
             self.fake_driver,
             self.ctx
         )
+        self.instances_patch = mock.patch.object(instance_manager, 'InstanceGroupManager', autospec=True)
+        self.instance_mgr.instances = self.instances_patch.start()
         self.instance_mgr.instance_info = self.INSTANCE_INFO
 
         self.next_state = None
@@ -122,273 +124,373 @@ class TestInstanceManager(base.RugTestBase):
             return self.instance_mgr.state
         self.mock_update_state.side_effect = next_state
 
-    def test_update_state_is_alive(self):
+#    def test_update_state_is_alive(self):
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = True
+#
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.UP)
+#        self.fake_driver.is_alive.assert_called_once_with(
+#            self.INSTANCE_INFO.management_address)
+#
+#    def test_update_state_no_backing_instance(self):
+#        # this tests that a mgr gets its instance_info updated to None
+#        # when the backing instance is no longer present.
+#        self.instance_mgr.instance_info = None
+#        self.ctx.nova_client.get_instance_info.return_value = None
+#        self.update_state_p.stop()
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.DOWN)
+#        self.assertFalse(self.fake_driver.is_alive.called)
+#
+#    def test_update_state_instance_no_ports_still_booting(self):
+#        self.update_state_p.stop()
+#        self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
+#
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.BOOTING)
+#        self.assertFalse(self.fake_driver.is_alive.called)
+#
+#    def test_update_state_log_boot_time_once(self):
+#        self.update_state_p.stop()
+#        self.instance_mgr.log = mock.Mock(
+#            info=mock.Mock())
+#        self.ctx.nova_client.update_instance_info.return_value = (
+#            self.INSTANCE_INFO)
+#        self.instance_mgr.state = states.CONFIGURED
+#        self.fake_driver.is_alive.return_value = True
+#        self.instance_mgr.update_state(self.ctx)
+#        self.assertEqual(
+#            len(self.instance_mgr.log.info.call_args_list),
+#            1)
+#        self.instance_mgr.update_state(self.ctx)
+#        self.assertEqual(
+#            len(self.instance_mgr.log.info.call_args_list),
+#            1)
+#
+#    @mock.patch('time.sleep', lambda *a: None)
+#    def test_router_status_sync(self):
+#        self.ctx.nova_client.update_instance_info.return_value = (
+#            self.INSTANCE_INFO)
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        # Router state should start down
+#        self.instance_mgr.update_state(self.ctx)
+#        self.fake_driver.synchronize_state.assert_called_with(
+#            self.ctx,
+#            state='down',
+#        )
+#        self.fake_driver.synchronize_state.reset_mock()
+#
+#        # Bring the router to UP with `is_alive = True`
+#        self.fake_driver.is_alive.return_value = True
+#        self.instance_mgr.update_state(self.ctx)
+#        self.fake_driver.synchronize_state.assert_called_with(
+#            self.ctx,
+#            state='up',
+#        )
+#        self.fake_driver.synchronize_state.reset_mock()
+#        self.fake_driver.build_config.return_value = {}
+#
+#        # Configure the router and make sure state is synchronized as ACTIVE
+#        with mock.patch.object(self.instance_mgr,
+#                               '_verify_interfaces') as verify:
+#            verify.return_value = True
+#            self.instance_mgr.last_boot = datetime.utcnow()
+#            self.instance_mgr.configure(self.ctx)
+#            self.instance_mgr.update_state(self.ctx)
+#            self.fake_driver.synchronize_state.assert_called_with(
+#                self.ctx,
+#                state='configured',
+#            )
+#            self.fake_driver.synchronize_state.reset_mock()
+#
+#    @mock.patch('time.sleep', lambda *a: None)
+#    def test_router_status_caching(self):
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        # Router state should start down
+#        self.instance_mgr.update_state(self.ctx)
+#        self.fake_driver.synchronize_state.assert_called_once_with(
+#            self.ctx, state='down')
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout_still_booting(self, sleep):
+#        now = datetime.utcnow()
+#        self.INSTANCE_INFO.last_boot = now
+#        self.instance_mgr.last_boot = now
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(
+#            self.instance_mgr.update_state(self.ctx),
+#            states.BOOTING
+#        )
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout_error(self, sleep):
+#        self.instance_mgr.state = states.ERROR
+#        self.instance_mgr.last_boot = datetime.utcnow()
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(
+#            self.instance_mgr.update_state(self.ctx),
+#            states.ERROR,
+#        )
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout_error_no_last_boot(self, sleep):
+#        self.instance_mgr.state = states.ERROR
+#        self.instance_mgr.last_boot = None
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(
+#            self.instance_mgr.update_state(self.ctx),
+#            states.ERROR,
+#        )
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout(self, sleep):
+#        self.fake_driver.get_state.return_value = states.DOWN
+#
+#        self.instance_mgr.instances.validate_ports.return_value = \
+#            ([mock.Mock()], [])  # (has_ports, no_ports)
+#
+#        self.instance_mgr.instances.are_alive.return_value = \
+#            ([], [mock.Mock()])  # (alive, dead)
+#
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.DOWN)
+#        self.assertTrue(self.instance_mgr.instances.are_alive.called)
+#
+    def test_update_state_gone(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = True
-
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.UP)
-        self.fake_driver.is_alive.assert_called_once_with(
-            self.INSTANCE_INFO.management_address)
-
-    def test_update_state_no_backing_instance(self):
-        # this tests that a mgr gets its instance_info updated to None
-        # when the backing instance is no longer present.
-        self.instance_mgr.instance_info = None
-        self.ctx.nova_client.get_instance_info.return_value = None
-        self.update_state_p.stop()
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.DOWN)
-        self.assertFalse(self.fake_driver.is_alive.called)
-
-    def test_update_state_instance_no_ports_still_booting(self):
-        self.update_state_p.stop()
-        self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
-
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.BOOTING)
-        self.assertFalse(self.fake_driver.is_alive.called)
-
-    def test_update_state_log_boot_time_once(self):
-        self.update_state_p.stop()
-        self.instance_mgr.log = mock.Mock(
-            info=mock.Mock())
-        self.ctx.nova_client.update_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.instance_mgr.state = states.CONFIGURED
-        self.fake_driver.is_alive.return_value = True
-        self.instance_mgr.update_state(self.ctx)
+        self.fake_driver.get_state.return_value = states.GONE
         self.assertEqual(
-            len(self.instance_mgr.log.info.call_args_list),
-            1)
-        self.instance_mgr.update_state(self.ctx)
+            self.instance_mgr.update_state(self.ctx),
+            states.GONE
+        )
+
+    def test_update_state_down_no_backing_instances(self):
+        self.update_state_p.stop()
+        self.fake_driver.get_state.return_value = states.UP
+        self.instance_mgr.instances.__nonzero__.return_value = False
         self.assertEqual(
-            len(self.instance_mgr.log.info.call_args_list),
-            1)
-
-    @mock.patch('time.sleep', lambda *a: None)
-    def test_router_status_sync(self):
-        self.ctx.nova_client.update_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
-
-        # Router state should start down
-        self.instance_mgr.update_state(self.ctx)
-        self.fake_driver.synchronize_state.assert_called_with(
-            self.ctx,
-            state='down',
+            self.instance_mgr.update_state(self.ctx),
+            states.DOWN
         )
-        self.fake_driver.synchronize_state.reset_mock()
-
-        # Bring the router to UP with `is_alive = True`
-        self.fake_driver.is_alive.return_value = True
-        self.instance_mgr.update_state(self.ctx)
-        self.fake_driver.synchronize_state.assert_called_with(
-            self.ctx,
-            state='up',
+        self.assertEqual(
+            self.instance_mgr.state,
+            states.DOWN
         )
-        self.fake_driver.synchronize_state.reset_mock()
-        self.fake_driver.build_config.return_value = {}
 
-        # Configure the router and make sure state is synchronized as ACTIVE
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.last_boot = datetime.utcnow()
-            self.instance_mgr.configure(self.ctx)
-            self.instance_mgr.update_state(self.ctx)
-            self.fake_driver.synchronize_state.assert_called_with(
-                self.ctx,
-                state='configured',
-            )
-            self.fake_driver.synchronize_state.reset_mock()
-
-    @mock.patch('time.sleep', lambda *a: None)
-    def test_router_status_caching(self):
+    def test_update_state_degraded(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.fake_driver.get_state.return_value = states.UP
+        self.instance_mgr.instances.cluster_degraded = True
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.DEGRADED
+        )
+        self.assertEqual(
+            self.instance_mgr.state,
+            states.DEGRADED
+        )
 
-        # Router state should start down
-        self.instance_mgr.update_state(self.ctx)
-        self.fake_driver.synchronize_state.assert_called_once_with(
-            self.ctx, state='down')
-
-    @mock.patch('time.sleep')
-    def test_boot_timeout_still_booting(self, sleep):
-        now = datetime.utcnow()
-        self.INSTANCE_INFO.last_boot = now
-        self.instance_mgr.last_boot = now
+    def test_update_state_booting(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
-
+        self.fake_driver.get_state.return_value = states.UP
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([], [mock.Mock()])  # (has_ports, no_ports)
         self.assertEqual(
             self.instance_mgr.update_state(self.ctx),
             states.BOOTING
         )
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
 
-    @mock.patch('time.sleep')
-    def test_boot_timeout_error(self, sleep):
-        self.instance_mgr.state = states.ERROR
-        self.instance_mgr.last_boot = datetime.utcnow()
+
+    def test_update_state_down_all_instances_dead(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([], [mock.Mock()])  # (alive, dead)
 
         self.assertEqual(
             self.instance_mgr.update_state(self.ctx),
-            states.ERROR,
+            states.DOWN
         )
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
 
-    @mock.patch('time.sleep')
-    def test_boot_timeout_error_no_last_boot(self, sleep):
-        self.instance_mgr.state = states.ERROR
-        self.instance_mgr.last_boot = None
+    def test_update_state_degraded_some_instances_dead(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock()], [mock.Mock()])  # (alive, dead)
 
         self.assertEqual(
             self.instance_mgr.update_state(self.ctx),
-            states.ERROR,
-        )
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
-
-    @mock.patch('time.sleep')
-    def test_boot_timeout(self, sleep):
-        self.instance_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
-        self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
-
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.DOWN)
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
-        self.instance_mgr.log.info.assert_called_once_with(
-            mock.ANY,
-            self.conf.boot_timeout,
+            states.DEGRADED
         )
 
-    @mock.patch('time.sleep')
-    def test_update_state_is_down(self, sleep):
+    def test_update_state_degraded_some_instances_dead(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock()], [mock.Mock()])  # (alive, dead)
 
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.DOWN)
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.DEGRADED
+        )
 
-    @mock.patch('time.sleep')
-    def test_update_state_retry_delay(self, sleep):
+    def test_update_state_up(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.side_effect = [False, False, True]
-        max_retries = 5
-        self.conf.max_retries = max_retries
-        self.instance_mgr.update_state(self.ctx, silent=False)
-        self.assertEqual(sleep.call_count, 2)
+        self.instance_mgr.state = states.BOOTING
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock()], [])  # (alive, dead)
 
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.UP
+        )
+
+    def test_update_state_configured(self):
+        self.update_state_p.stop()
+        self.instance_mgr.log = mock.Mock(
+            info=mock.Mock())
+
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock(booting=False)], [])  # (alive, dead)
+
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.CONFIGURED
+        )
+
+        self.instance_mgr.update_state(self.ctx),
+        self.instance_mgr.update_state(self.ctx),
+        self.instance_mgr.update_state(self.ctx),
+        # ensure the boot was logged only once
+        self.assertEqual(len(self.instance_mgr.log.info.call_args_list), 1)
+
+#    @mock.patch('time.sleep')
+#    def test_update_state_is_down(self, sleep):
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.DOWN)
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#
+#    @mock.patch('time.sleep')
+#    def test_update_state_retry_delay(self, sleep):
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.side_effect = [False, False, True]
+#        max_retries = 5
+#        self.conf.max_retries = max_retries
+#        self.instance_mgr.update_state(self.ctx, silent=False)
+#        self.assertEqual(sleep.call_count, 2)
+#
     @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
         self.next_state = states.UP
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
-
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
-
+        self.instance_mgr.instances.create.assert_called_with(
+            self.ctx, self.fake_driver)
         self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_instance_deleted(self, sleep):
-        self.ctx.nova_client.boot_instance.return_value = None
+        self.instance_mgr.instances.__nonzero__.return_value = False
         self.instance_mgr.boot(self.ctx)
         # a deleted VM should reset the vm mgr state and not as a failed
         # attempt
         self.assertEqual(self.instance_mgr.attempts, 0)
-        self.assertIsNone(self.instance_mgr.instance_info)
 
-    @mock.patch('time.sleep')
-    def test_boot_fail(self, sleep):
-        self.next_state = states.DOWN
-        self.instance_mgr.boot(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.BOOTING)
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
-        self.assertEqual(1, self.instance_mgr.attempts)
-
+#    @mock.patch('time.sleep')
+#    def test_boot_fail(self, sleep):
+#        self.next_state = states.DOWN
+#        self.instance_mgr.boot(self.ctx)
+#        self.assertEqual(self.instance_mgr.state, states.BOOTING)
+#        self.instance_mgr.instances.create.assert_called_with(
+#            self.ctx, self.fake_driver)
+#        self.assertEqual(1, self.instance_mgr.attempts)
+#
     @mock.patch('time.sleep')
     def test_boot_exception(self, sleep):
-        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
+        self.instance_mgr.instances.create.side_effect = RuntimeError
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
+        self.instance_mgr.instances.create.assert_called_with(
+            self.ctx, self.fake_driver)
         self.assertEqual(1, self.instance_mgr.attempts)
-
-    @mock.patch('time.sleep')
-    def test_boot_with_port_cleanup(self, sleep):
-        self.next_state = states.UP
-
-        management_port = mock.Mock(id='mgmt', device_id='INSTANCE1')
-        external_port = mock.Mock(id='ext', device_id='INSTANCE1')
-        internal_port = mock.Mock(id='int', device_id='INSTANCE1')
-
-        rtr = mock.sentinel.router
-        instance = mock.sentinel.instance
-        self.ctx.neutron.get_router_detail.return_value = rtr
-        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
-        rtr.id = 'ROUTER1'
-        instance.id = 'INSTANCE1'
-        rtr.management_port = management_port
-        rtr.external_port = external_port
-        rtr.ports = mock.MagicMock()
-        rtr.ports.__iter__.return_value = [management_port, external_port,
-                                           internal_port]
-        self.instance_mgr.boot(self.ctx)
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
-        self.instance_mgr.resource.delete_ports.assert_called_once_with(
-            self.ctx)
-
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_with_port_cleanup(self, sleep):
+#        self.next_state = states.UP
+#
+#        management_port = mock.Mock(id='mgmt', device_id='INSTANCE1')
+#        external_port = mock.Mock(id='ext', device_id='INSTANCE1')
+#        internal_port = mock.Mock(id='int', device_id='INSTANCE1')
+#
+#        rtr = mock.sentinel.router
+#        instance = mock.sentinel.instance
+#        self.ctx.neutron.get_router_detail.return_value = rtr
+#        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
+#        rtr.id = 'ROUTER1'
+#        instance.id = 'INSTANCE1'
+#        rtr.management_port = management_port
+#        rtr.external_port = external_port
+#        rtr.ports = mock.MagicMock()
+#        rtr.ports.__iter__.return_value = [management_port, external_port,
+#                                           internal_port]
+#        self.instance_mgr.boot(self.ctx)
+#        self.ctx.nova_client.boot_instance.assert_called_once_with(
+#            resource_type=self.fake_driver.RESOURCE_NAME,
+#            prev_instance_info=self.INSTANCE_INFO,
+#            name=self.fake_driver.name,
+#            image_uuid=self.fake_driver.image_uuid,
+#            flavor=self.fake_driver.flavor,
+#            make_ports_callback='fake_ports_callback')
+#        self.instance_mgr.resource.delete_ports.assert_called_once_with(
+#            self.ctx)
+#
     @mock.patch('time.sleep')
     def test_stop_success(self, sleep):
         self.instance_mgr.state = states.UP
@@ -447,65 +549,29 @@ class TestInstanceManager(base.RugTestBase):
         self.fake_driver.delete_ports.assert_called_with(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
 
-    def test_configure_success(self):
-        fake_config_dict = {'fake_config': 'foo'}
-        self.fake_driver.build_config.return_value = dict(fake_config_dict)
-        self.config(astara_metadata_port=4321)
-        self.config(host='foobarhost')
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.configure(self.ctx)
-
-            verify.assert_called_once_with(
-                self.fake_driver.ports,
-                self.fake_driver.get_interfaces.return_value)
-
-            self.fake_driver.build_config.assert_called_once_with(
-                self.ctx,
-                self.INSTANCE_INFO.management_port,
-                {'ext-net': 'ge1', 'int-net': 'ge2', 'mgt-net': 'ge0'})
-
-            self.fake_driver.update_config.assert_called_with(
-                self.INSTANCE_INFO.management_address, fake_config_dict)
-            self.assertEqual(self.instance_mgr.state,
-                             states.CONFIGURED)
-
     def test_configure_mismatched_interfaces(self):
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = False
-            self.instance_mgr.configure(self.ctx)
+        self.instance_mgr.instances.verify_interfaces.return_value = False
+        self.assertEqual(
+            self.instance_mgr.configure(self.ctx),
+            states.REPLUG,
+        )
 
-            verify.assert_called_once_with(
-                self.fake_driver.ports,
-                self.fake_driver.get_interfaces.return_value)
+    def test_configure_gone(self):
+        self.fake_driver.get_state.return_value = states.GONE
+        self.assertEqual(
+            self.instance_mgr.configure(self.ctx), states.GONE)
 
-            self.assertFalse(self.fake_driver.update_config.called)
-            self.assertEqual(self.instance_mgr.state, states.REPLUG)
-
-    @mock.patch('time.sleep')
-    def test_configure_failure(self, sleep):
-        fake_config_dict = {'fake_config': 'foo'}
-
-        self.fake_driver.update_config.side_effect = Exception
-        self.fake_driver.build_config.return_value = fake_config_dict
-
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.configure(self.ctx)
-
-            interfaces = self.fake_driver.get_interfaces.return_value
-            verify.assert_called_once_with(
-                self.fake_driver.ports, interfaces)
-
-            expected_calls = [
-                mock.call(self.INSTANCE_INFO.management_address,
-                          fake_config_dict)
-                for i in range(0, 2)]
-            self.fake_driver.update_config.assert_has_calls(expected_calls)
-            self.assertEqual(self.instance_mgr.state, states.RESTART)
+    def test_configure(self):
+        self.instance_mgr.instances.verify_interfaces.return_value = True
+        self.instance_mgr.instances.configure.return_value = states.RESTART
+        self.assertEqual(
+            self.instance_mgr.configure(self.ctx),
+            states.RESTART,
+        )
+        self.instance_mgr.instances.verify_interfaces.assert_called_with(
+            self.fake_driver.ports
+        )
+        self.instance_mgr.instances.configure.assert_called_with(self.ctx)
 
     @mock.patch('time.sleep', lambda *a: None)
     def test_replug_add_new_port_success(self):
@@ -671,14 +737,8 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.set_error(self.ctx)
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
-
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
+        self.instance_mgr.instances.create.assert_called_with(
+            self.ctx, self.fake_driver)
 
     def test_error_cooldown(self):
         self.config(error_state_cooldown=30)
@@ -693,16 +753,33 @@ class TestInstanceManager(base.RugTestBase):
         self.assertFalse(self.instance_mgr.error_cooldown)
 
     def test_ensure_cache(self):
-        self.instance_mgr.instance_info = 'stale_info'
-        self.ctx.nova_client.get_instance_info.return_value = \
-            self.INSTANCE_INFO
+
+        class FakeInstancesContainer(dict):
+            update_ports = mock.Mock()
+
+        self.instances_patch.stop()
+        self.instance_mgr.instances = FakeInstancesContainer()
+        self.instance_mgr.instances['fake_instance_id1'] = 'stale_instance1'
+        self.instance_mgr.instances['fake_instance_id2'] = 'stale_instance2'
+
+        fake_inst_1 = mock.Mock(id_='fake_instance_id1')
+        fake_inst_2 = mock.Mock(id_='fake_instance_id2')
+
+        self.ctx.nova_client.get_instances_for_obj.return_value = [
+            fake_inst_1, fake_inst_2]
 
         def ensured_cache(self, ctx):
             pass
+
         wrapped = instance_manager.ensure_cache(ensured_cache)
         wrapped(self.instance_mgr, self.ctx)
-        self.assertEqual(self.instance_mgr.instance_info, self.INSTANCE_INFO)
-
+        exp_updated_instances = {
+            'fake_instance_id1': fake_inst_1,
+            'fake_instance_id2': fake_inst_2,
+        }
+        self.assertEqual(
+            self.instance_mgr.instances, exp_updated_instances)
+        self.instance_mgr.instances.update_ports.assert_called_with(self.ctx)
 
 class TestBootAttemptCounter(unittest.TestCase):
 
