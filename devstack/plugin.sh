@@ -164,9 +164,9 @@ function _auth_args() {
 }
 
 function create_astara_nova_flavor() {
-    nova flavor-create astara $ROUTER_INSTANCE_FLAVOR_ID \
-      $ROUTER_INSTANCE_FLAVOR_RAM $ROUTER_INSTANCE_FLAVOR_DISK \
-      $ROUTER_INSTANCE_FLAVOR_CPUS
+    openstack --os-cloud=devstack-admin flavor create astara \
+      --id $ROUTER_INSTANCE_FLAVOR_ID --ram $ROUTER_INSTANCE_FLAVOR_RAM \
+      --disk $ROUTER_INSTANCE_FLAVOR_DISK --vcpus $ROUTER_INSTANCE_FLAVOR_CPUS
     iniset $ASTARA_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
@@ -183,7 +183,13 @@ function pre_start_astara() {
     # Create and init the database
     recreate_database astara
     astara-dbsync --config-file $ASTARA_CONF upgrade
+
     local auth_args="$(_auth_args $Q_ADMIN_USERNAME $SERVICE_PASSWORD $SERVICE_TENANT_NAME)"
+
+    # having these set by something else in devstack will override those that we pass on
+    # CLI.
+    unset OS_TENANT_NAME OS_PROJECT_NAME
+
     if ! neutron $auth_args net-show $PUBLIC_NETWORK_NAME; then
         neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
     fi
@@ -253,10 +259,7 @@ function pre_start_astara() {
         astara_dev_image_src=$ASTARA_DEV_APPLIANCE_URL
     fi
 
-    env
-    TOKEN=$(openstack token issue -c id -f value)
-    die_if_not_set $LINENO TOKEN "Keystone fail to get token"
-    upload_image $astara_dev_image_src $TOKEN
+    upload_image $astara_dev_image_src
 
     local image_name=$(basename $astara_dev_image_src | cut -d. -f1)
     typeset image_id=$(glance $auth_args image-list | grep $image_name | get_field 1)
