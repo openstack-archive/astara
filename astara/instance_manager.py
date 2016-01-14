@@ -370,8 +370,6 @@ class InstanceManager(object):
             self.instance_info.management_address)
 
         if not self._verify_interfaces(self.driver.ports, interfaces):
-            # FIXME: Need a states.REPLUG state when we support hot-plugging
-            # interfaces.
             self.log.debug("Interfaces aren't plugged as expected.")
             self.state = states.REPLUG
             return self.state
