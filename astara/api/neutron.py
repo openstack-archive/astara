@@ -157,7 +157,8 @@ class DictModelBase(object):
 
 class Router(object):
     def __init__(self, id_, tenant_id, name, admin_state_up, status,
-                 external_port=None, internal_ports=None, floating_ips=None):
+                 external_port=None, internal_ports=None, floating_ips=None,
+                 ha=False):
         self.id = id_
         self.tenant_id = tenant_id
         self.name = name
@@ -166,6 +167,7 @@ class Router(object):
         self.external_port = external_port
         self.internal_ports = internal_ports or []
         self.floating_ips = floating_ips or []
+        self.ha = ha
 
     def __repr__(self):
         return '<%s (%s:%s)>' % (self.__class__.__name__,
@@ -193,6 +195,9 @@ class Router(object):
 
         fips = [FloatingIP.from_dict(fip) for fip in d.get('_floatingips', [])]
 
+        # XXX Derive this from neutron resource. defaulting to true for testing
+        ha = d.get('ha', True)
+
         return cls(
             d['id'],
             d['tenant_id'],
@@ -202,6 +207,7 @@ class Router(object):
             external_port,
             internal_ports,
             floating_ips=fips,
+            ha=ha,
         )
 
     @property
