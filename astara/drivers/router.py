@@ -171,6 +171,7 @@ class Router(BaseDriver):
         :param worker_context:
         :returs: None
         """
+        self._ensure_cache(worker_context)
         if self._router.external_port is None:
             # FIXME: Need to do some work to pick the right external
             # network for a tenant.
