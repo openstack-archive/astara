@@ -42,12 +42,12 @@ class Fake(object):
         self.crud = crud
 
 
-def delete_callback(self):
-    print('DELETE')
+def delete_callback():
+    print 'DELETE'
 
 
-def bandwidth_callback(self, *args, **kwargs):
-    print('BANDWIDTH:', args, kwargs)
+def bandwidth_callback(*args, **kwargs):
+    print 'BANDWIDTH:', args, kwargs
 
 
 def debug_one_router(args=sys.argv[1:]):
