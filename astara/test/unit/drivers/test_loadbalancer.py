@@ -243,7 +243,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             tenant_id, event_type, payload)
         self.assertEqual(res, expected)
 
-    def test_process_notification_routerstatus(self):
+    def test_process_notification_loadbalancerstatus(self):
         self._test_notification('loadbalancerstatus.update', {}, None)
 
     def test_process_notification_lb_create(self):
@@ -322,7 +322,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         mock_ensure_cache.assert_called_with(self.ctx)
 
     @mock.patch('astara.drivers.loadbalancer.LoadBalancer._ensure_cache')
-    def test_synchronize_state_no_router(self, mock_ensure_cache):
+    def test_synchronize_state_no_loadbalancer(self, mock_ensure_cache):
         lb = self._init_driver()
         lb._loadbalancer = None
         lb.synchronize_state(self.ctx, states.DOWN)
