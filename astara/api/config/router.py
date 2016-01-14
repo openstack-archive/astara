@@ -67,6 +67,7 @@ def build_config(worker_context, router, management_port, interfaces):
         'tenant_id': router.tenant_id,
         'hostname': 'ak-%s' % router.tenant_id,
         'orchestrator': worker_context.config,
+        'ha_resource': router.ha,
     }
 
 
