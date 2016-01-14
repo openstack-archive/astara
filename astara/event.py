@@ -23,6 +23,7 @@ POLL = 'poll'
 COMMAND = 'command'  # an external command to be processed
 REBUILD = 'rebuild'
 REBALANCE = 'rebalance'
+CLUSTER_REBUILD = 'cluster_rebuild'
 
 
 class Event(object):
