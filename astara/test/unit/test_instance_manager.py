@@ -15,8 +15,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import collections
 import mock
-import unittest2 as unittest
+import six
+import uuid
+
 from datetime import datetime, timedelta
 from six.moves import range
 
@@ -63,6 +66,21 @@ fake_add_port = FakeModel(
     fixed_ips=[FakeModel('', ip_address='8.8.8.8', subnet_id='s3')])
 
 
+def instance_info(mgt_port=fake_mgt_port, name=None):
+        if not name:
+            name = 'ak-router-' + str(uuid.uuid4())
+
+        return nova.InstanceInfo(
+            instance_id=str(uuid.uuid4()),
+            name=name,
+            management_port=mgt_port,
+            ports=[fake_int_port, fake_ext_port],
+            image_uuid='9f3dbe8e-66d8-11e5-9952-525400cfc326',
+            status='ACTIVE',
+            last_boot=(datetime.utcnow() - timedelta(minutes=15)),
+        )
+
+
 class TestInstanceManager(base.RugTestBase):
 
     def setUp(self):
@@ -92,27 +110,14 @@ class TestInstanceManager(base.RugTestBase):
         ]
         self.fake_driver.ports = ports
 
-        self.INSTANCE_INFO = nova.InstanceInfo(
-            instance_id='fake_instance_id',
-            name='ak-router-83f16d4c-66d8-11e5-938a-525400cfc326',
-            management_port=fake_mgt_port,
-            ports=[fake_int_port, fake_ext_port, fake_mgt_port],
-            image_uuid='9f3dbe8e-66d8-11e5-9952-525400cfc326',
-            status='ACTIVE',
-            last_boot=(datetime.utcnow() - timedelta(minutes=15)),
-        )
-
-        self.ctx.nova_client.get_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.ctx.neutron.get_ports_for_instance.return_value = (
-            fake_mgt_port, [fake_int_port, fake_ext_port])
-
         self.mock_update_state = self.update_state_p.start()
         self.instance_mgr = instance_manager.InstanceManager(
             self.fake_driver,
             self.ctx
         )
-        self.instance_mgr.instance_info = self.INSTANCE_INFO
+        self.instances_patch = mock.patch.object(
+            instance_manager, 'InstanceGroupManager', autospec=True)
+        self.instance_mgr.instances = self.instances_patch.start()
 
         self.next_state = None
 
@@ -122,528 +127,737 @@ class TestInstanceManager(base.RugTestBase):
             return self.instance_mgr.state
         self.mock_update_state.side_effect = next_state
 
-    def test_update_state_is_alive(self):
+    def set_instances_container_mocks(self, instances=None, mocks=None):
+        # set up a mock InstanceGroupManager based on dict
+        # with specified mocks
+        self.instances_patch.stop()
+
+        mocks = mocks or []
+        instances = instances or []
+
+        class FakeInstancesContainer(dict):
+            @property
+            def instance_count(self):
+                return len(self.values())
+
+            @property
+            def cluster_degraded(self):
+                return len(self.values()) < self.count
+
+            def remove(self, worker_context, instance):
+                self.pop(instance.id_)
+
+        self.instance_mgr.instances = FakeInstancesContainer()
+        for attr, _mock in mocks:
+            if attr not in dir(instance_manager.InstanceGroupManager):
+                raise AttributeError(
+                    'Attempting to mock non-existent method: %s' % attr)
+            setattr(self.instance_mgr.instances, attr, _mock)
+
+        self.instance_mgr.instances.update({
+            i.id_: i for i in instances
+        })
+        self.instance_mgr.instances.count = len(instances)
+
+#    def test_update_state_is_alive(self):
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = True
+#
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.UP)
+#        self.fake_driver.is_alive.assert_called_once_with(
+#            self.INSTANCE_INFO.management_address)
+#
+#    def test_update_state_no_backing_instance(self):
+#        # this tests that a mgr gets its instance_info updated to None
+#        # when the backing instance is no longer present.
+#        self.instance_mgr.instance_info = None
+#        self.ctx.nova_client.get_instance_info.return_value = None
+#        self.update_state_p.stop()
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.DOWN)
+#        self.assertFalse(self.fake_driver.is_alive.called)
+#
+#    def test_update_state_instance_no_ports_still_booting(self):
+#        self.update_state_p.stop()
+#        self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
+#
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.BOOTING)
+#        self.assertFalse(self.fake_driver.is_alive.called)
+#
+#    def test_update_state_log_boot_time_once(self):
+#        self.update_state_p.stop()
+#        self.instance_mgr.log = mock.Mock(
+#            info=mock.Mock())
+#        self.ctx.nova_client.update_instance_info.return_value = (
+#            self.INSTANCE_INFO)
+#        self.instance_mgr.state = states.CONFIGURED
+#        self.fake_driver.is_alive.return_value = True
+#        self.instance_mgr.update_state(self.ctx)
+#        self.assertEqual(
+#            len(self.instance_mgr.log.info.call_args_list),
+#            1)
+#        self.instance_mgr.update_state(self.ctx)
+#        self.assertEqual(
+#            len(self.instance_mgr.log.info.call_args_list),
+#            1)
+#
+#    @mock.patch('time.sleep', lambda *a: None)
+#    def test_router_status_sync(self):
+#        self.ctx.nova_client.update_instance_info.return_value = (
+#            self.INSTANCE_INFO)
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        # Router state should start down
+#        self.instance_mgr.update_state(self.ctx)
+#        self.fake_driver.synchronize_state.assert_called_with(
+#            self.ctx,
+#            state='down',
+#        )
+#        self.fake_driver.synchronize_state.reset_mock()
+#
+#        # Bring the router to UP with `is_alive = True`
+#        self.fake_driver.is_alive.return_value = True
+#        self.instance_mgr.update_state(self.ctx)
+#        self.fake_driver.synchronize_state.assert_called_with(
+#            self.ctx,
+#            state='up',
+#        )
+#        self.fake_driver.synchronize_state.reset_mock()
+#        self.fake_driver.build_config.return_value = {}
+#
+#        # Configure the router and make sure state is synchronized as ACTIVE
+#        with mock.patch.object(self.instance_mgr,
+#                               '_verify_interfaces') as verify:
+#            verify.return_value = True
+#            self.instance_mgr.last_boot = datetime.utcnow()
+#            self.instance_mgr.configure(self.ctx)
+#            self.instance_mgr.update_state(self.ctx)
+#            self.fake_driver.synchronize_state.assert_called_with(
+#                self.ctx,
+#                state='configured',
+#            )
+#            self.fake_driver.synchronize_state.reset_mock()
+#
+#    @mock.patch('time.sleep', lambda *a: None)
+#    def test_router_status_caching(self):
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        # Router state should start down
+#        self.instance_mgr.update_state(self.ctx)
+#        self.fake_driver.synchronize_state.assert_called_once_with(
+#            self.ctx, state='down')
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout_still_booting(self, sleep):
+#        now = datetime.utcnow()
+#        self.INSTANCE_INFO.last_boot = now
+#        self.instance_mgr.last_boot = now
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(
+#            self.instance_mgr.update_state(self.ctx),
+#            states.BOOTING
+#        )
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout_error(self, sleep):
+#        self.instance_mgr.state = states.ERROR
+#        self.instance_mgr.last_boot = datetime.utcnow()
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(
+#            self.instance_mgr.update_state(self.ctx),
+#            states.ERROR,
+#        )
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout_error_no_last_boot(self, sleep):
+#        self.instance_mgr.state = states.ERROR
+#        self.instance_mgr.last_boot = None
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#
+#        self.assertEqual(
+#            self.instance_mgr.update_state(self.ctx),
+#            states.ERROR,
+#        )
+#        self.fake_driver.is_alive.assert_has_calls([
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#            mock.call(self.INSTANCE_INFO.management_address),
+#        ])
+#
+#    @mock.patch('time.sleep')
+#    def test_boot_timeout(self, sleep):
+#        self.fake_driver.get_state.return_value = states.DOWN
+#
+#        self.instance_mgr.instances.validate_ports.return_value = \
+#            ([mock.Mock()], [])  # (has_ports, no_ports)
+#
+#        self.instance_mgr.instances.are_alive.return_value = \
+#            ([], [mock.Mock()])  # (alive, dead)
+#
+#        self.update_state_p.stop()
+#        self.fake_driver.is_alive.return_value = False
+#        self.assertEqual(self.instance_mgr.update_state(self.ctx),
+#                         states.DOWN)
+#        self.assertTrue(self.instance_mgr.instances.are_alive.called)
+#
+    def test_update_state_gone(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = True
-
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.UP)
-        self.fake_driver.is_alive.assert_called_once_with(
-            self.INSTANCE_INFO.management_address)
-
-    def test_update_state_no_backing_instance(self):
-        # this tests that a mgr gets its instance_info updated to None
-        # when the backing instance is no longer present.
-        self.instance_mgr.instance_info = None
-        self.ctx.nova_client.get_instance_info.return_value = None
-        self.update_state_p.stop()
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.DOWN)
-        self.assertFalse(self.fake_driver.is_alive.called)
-
-    def test_update_state_instance_no_ports_still_booting(self):
-        self.update_state_p.stop()
-        self.ctx.neutron.get_ports_for_instance.return_value = (None, [])
-
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.BOOTING)
-        self.assertFalse(self.fake_driver.is_alive.called)
-
-    def test_update_state_log_boot_time_once(self):
-        self.update_state_p.stop()
-        self.instance_mgr.log = mock.Mock(
-            info=mock.Mock())
-        self.ctx.nova_client.update_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.instance_mgr.state = states.CONFIGURED
-        self.fake_driver.is_alive.return_value = True
-        self.instance_mgr.update_state(self.ctx)
+        self.fake_driver.get_state.return_value = states.GONE
         self.assertEqual(
-            len(self.instance_mgr.log.info.call_args_list),
-            1)
-        self.instance_mgr.update_state(self.ctx)
+            self.instance_mgr.update_state(self.ctx),
+            states.GONE
+        )
+
+    def test_update_state_down_no_backing_instances(self):
+        self.update_state_p.stop()
+        self.fake_driver.get_state.return_value = states.UP
+        self.instance_mgr.instances.__nonzero__.return_value = False
         self.assertEqual(
-            len(self.instance_mgr.log.info.call_args_list),
-            1)
-
-    @mock.patch('time.sleep', lambda *a: None)
-    def test_router_status_sync(self):
-        self.ctx.nova_client.update_instance_info.return_value = (
-            self.INSTANCE_INFO)
-        self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
-
-        # Router state should start down
-        self.instance_mgr.update_state(self.ctx)
-        self.fake_driver.synchronize_state.assert_called_with(
-            self.ctx,
-            state='down',
+            self.instance_mgr.update_state(self.ctx),
+            states.DOWN
         )
-        self.fake_driver.synchronize_state.reset_mock()
-
-        # Bring the router to UP with `is_alive = True`
-        self.fake_driver.is_alive.return_value = True
-        self.instance_mgr.update_state(self.ctx)
-        self.fake_driver.synchronize_state.assert_called_with(
-            self.ctx,
-            state='up',
+        self.assertEqual(
+            self.instance_mgr.state,
+            states.DOWN
         )
-        self.fake_driver.synchronize_state.reset_mock()
-        self.fake_driver.build_config.return_value = {}
 
-        # Configure the router and make sure state is synchronized as ACTIVE
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.last_boot = datetime.utcnow()
-            self.instance_mgr.configure(self.ctx)
-            self.instance_mgr.update_state(self.ctx)
-            self.fake_driver.synchronize_state.assert_called_with(
-                self.ctx,
-                state='configured',
-            )
-            self.fake_driver.synchronize_state.reset_mock()
-
-    @mock.patch('time.sleep', lambda *a: None)
-    def test_router_status_caching(self):
+    def test_update_state_degraded(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.fake_driver.get_state.return_value = states.UP
+        self.instance_mgr.instances.cluster_degraded = True
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.DEGRADED
+        )
+        self.assertEqual(
+            self.instance_mgr.state,
+            states.DEGRADED
+        )
 
-        # Router state should start down
-        self.instance_mgr.update_state(self.ctx)
-        self.fake_driver.synchronize_state.assert_called_once_with(
-            self.ctx, state='down')
-
-    @mock.patch('time.sleep')
-    def test_boot_timeout_still_booting(self, sleep):
-        now = datetime.utcnow()
-        self.INSTANCE_INFO.last_boot = now
-        self.instance_mgr.last_boot = now
+    def test_update_state_booting(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
-
+        self.fake_driver.get_state.return_value = states.UP
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([], [mock.Mock()])  # (has_ports, no_ports)
         self.assertEqual(
             self.instance_mgr.update_state(self.ctx),
             states.BOOTING
         )
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
 
-    @mock.patch('time.sleep')
-    def test_boot_timeout_error(self, sleep):
-        self.instance_mgr.state = states.ERROR
-        self.instance_mgr.last_boot = datetime.utcnow()
+    def test_update_state_down_all_instances_dead(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([], [mock.Mock()])  # (alive, dead)
 
         self.assertEqual(
             self.instance_mgr.update_state(self.ctx),
-            states.ERROR,
+            states.DOWN
         )
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
 
-    @mock.patch('time.sleep')
-    def test_boot_timeout_error_no_last_boot(self, sleep):
-        self.instance_mgr.state = states.ERROR
-        self.instance_mgr.last_boot = None
+    def test_update_state_degraded_some_instances_dead(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock()], [mock.Mock()])  # (alive, dead)
 
         self.assertEqual(
             self.instance_mgr.update_state(self.ctx),
-            states.ERROR,
-        )
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
-
-    @mock.patch('time.sleep')
-    def test_boot_timeout(self, sleep):
-        self.instance_mgr.last_boot = datetime.utcnow() - timedelta(minutes=5)
-        self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
-
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.DOWN)
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
-        self.instance_mgr.log.info.assert_called_once_with(
-            mock.ANY,
-            self.conf.boot_timeout,
+            states.DEGRADED
         )
 
-    @mock.patch('time.sleep')
-    def test_update_state_is_down(self, sleep):
+    def test_update_state_up(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.return_value = False
+        self.instance_mgr.state = states.BOOTING
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock()], [])  # (alive, dead)
 
-        self.assertEqual(self.instance_mgr.update_state(self.ctx),
-                         states.DOWN)
-        self.fake_driver.is_alive.assert_has_calls([
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-            mock.call(self.INSTANCE_INFO.management_address),
-        ])
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.UP
+        )
 
-    @mock.patch('time.sleep')
-    def test_update_state_retry_delay(self, sleep):
+    def test_update_state_configured(self):
         self.update_state_p.stop()
-        self.fake_driver.is_alive.side_effect = [False, False, True]
-        max_retries = 5
-        self.conf.max_retries = max_retries
-        self.instance_mgr.update_state(self.ctx, silent=False)
-        self.assertEqual(sleep.call_count, 2)
+        self.instance_mgr.log = mock.Mock(
+            info=mock.Mock())
+
+        self.instance_mgr.state = states.CONFIGURED
+        self.instance_mgr.instances.validate_ports.return_value = \
+            ([mock.Mock()], [])  # (has_ports, no_ports)
+        self.instance_mgr.instances.are_alive.return_value = \
+            ([mock.Mock(booting=False)], [])  # (alive, dead)
+
+        self.assertEqual(
+            self.instance_mgr.update_state(self.ctx),
+            states.CONFIGURED
+        )
+
+        self.instance_mgr.update_state(self.ctx),
+        self.instance_mgr.update_state(self.ctx),
+        self.instance_mgr.update_state(self.ctx),
+        # ensure the boot was logged only once
+        self.assertEqual(len(self.instance_mgr.log.info.call_args_list), 1)
 
     @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
         self.next_state = states.UP
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
-
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
-
+        self.instance_mgr.instances.create.assert_called_with(
+            self.ctx)
         self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_instance_deleted(self, sleep):
-        self.ctx.nova_client.boot_instance.return_value = None
+        self.instance_mgr.instances.__nonzero__.return_value = False
         self.instance_mgr.boot(self.ctx)
         # a deleted VM should reset the vm mgr state and not as a failed
         # attempt
         self.assertEqual(self.instance_mgr.attempts, 0)
-        self.assertIsNone(self.instance_mgr.instance_info)
-
-    @mock.patch('time.sleep')
-    def test_boot_fail(self, sleep):
-        self.next_state = states.DOWN
-        self.instance_mgr.boot(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.BOOTING)
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
-        self.assertEqual(1, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_exception(self, sleep):
-        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
+        self.instance_mgr.instances.create.side_effect = RuntimeError
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
+        self.instance_mgr.instances.create.assert_called_with(
+            self.ctx)
         self.assertEqual(1, self.instance_mgr.attempts)
 
-    @mock.patch('time.sleep')
-    def test_boot_with_port_cleanup(self, sleep):
-        self.next_state = states.UP
-
-        management_port = mock.Mock(id='mgmt', device_id='INSTANCE1')
-        external_port = mock.Mock(id='ext', device_id='INSTANCE1')
-        internal_port = mock.Mock(id='int', device_id='INSTANCE1')
-
-        rtr = mock.sentinel.router
-        instance = mock.sentinel.instance
-        self.ctx.neutron.get_router_detail.return_value = rtr
-        self.ctx.nova_client.boot_instance.side_effect = RuntimeError
-        rtr.id = 'ROUTER1'
-        instance.id = 'INSTANCE1'
-        rtr.management_port = management_port
-        rtr.external_port = external_port
-        rtr.ports = mock.MagicMock()
-        rtr.ports.__iter__.return_value = [management_port, external_port,
-                                           internal_port]
-        self.instance_mgr.boot(self.ctx)
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
-        self.instance_mgr.resource.delete_ports.assert_called_once_with(
-            self.ctx)
-
-    @mock.patch('time.sleep')
-    def test_stop_success(self, sleep):
+    def test_stop_success(self):
         self.instance_mgr.state = states.UP
-        self.ctx.nova_client.get_instance_by_id.return_value = None
+        instance = instance_info()
+        self.set_instances_container_mocks(
+            instances=[instance],
+            mocks=[
+                ('destroy', mock.Mock()),
+                ('update_ports', mock.Mock())])
+
         self.instance_mgr.stop(self.ctx)
-        self.ctx.nova_client.destroy_instance.assert_called_once_with(
-            self.INSTANCE_INFO
-        )
+        self.instance_mgr.instances.destroy.assert_called_with(self.ctx)
         self.instance_mgr.resource.delete_ports.assert_called_once_with(
             self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
 
-    @mock.patch('time.time')
-    @mock.patch('time.sleep')
-    def test_stop_fail(self, sleep, time):
-        t = 1444679566
-        side_effects = [t]
-        for i in range(30):
-            t = t + 1
-            side_effects.append(t)
-        time.side_effect = side_effects
-        self.config(boot_timeout=30)
+    def test_stop_fail(self):
         self.instance_mgr.state = states.UP
+        self.set_instances_container_mocks(
+            instances=[instance_info()],
+            mocks=[
+                ('destroy', mock.Mock()),
+                ('update_ports', mock.Mock())])
+        self.instance_mgr.instances.destroy.side_effect = Exception
         self.instance_mgr.stop(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.UP)
-        self.ctx.nova_client.destroy_instance.assert_called_once_with(
-            self.INSTANCE_INFO
-        )
+        self.fake_driver.delete_ports.assert_called_with(self.ctx)
 
-    @mock.patch('time.sleep')
-    def test_stop_router_already_deleted_from_neutron(self, sleep):
+    def test_stop_router_already_deleted_from_neutron(self):
         self.instance_mgr.state = states.GONE
-        self.ctx.nova_client.get_instance_by_id.return_value = None
+        instance = instance_info()
+        self.set_instances_container_mocks(
+            instances=[instance],
+            mocks=[
+                ('destroy', mock.Mock()),
+                ('update_ports', mock.Mock())])
+
         self.instance_mgr.stop(self.ctx)
-        self.ctx.nova_client.destroy_instance.assert_called_once_with(
-            self.INSTANCE_INFO)
-        self.ctx.nova_client.get_instance_by_id.assert_called_with(
-            self.INSTANCE_INFO.id_
-        )
+        self.instance_mgr.instances.destroy.assert_called_with(self.ctx)
+        self.instance_mgr.resource.delete_ports.assert_called_once_with(
+            self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.GONE)
+
+    def test_stop_no_inst_router_already_deleted_from_neutron(self):
+        self.instance_mgr.state = states.GONE
+        self.set_instances_container_mocks(
+            instances=[],
+            mocks=[
+                ('destroy', mock.Mock()),
+                ('update_ports', mock.Mock())])
+        self.instance_mgr.stop(self.ctx)
         self.fake_driver.delete_ports.assert_called_with(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.GONE)
 
-    @mock.patch('time.sleep')
-    def test_stop_no_inst_router_already_deleted_from_neutron(self, sleep):
-        self.instance_mgr.state = states.GONE
-        self.ctx.nova_client.get_instance_info.return_value = None
-        self.instance_mgr.stop(self.ctx)
-        self.fake_driver.delete_ports.assert_called_with(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.GONE)
-
-    @mock.patch('time.sleep')
-    def test_stop_instance_already_deleted_from_nova(self, sleep):
+    def test_stop_instance_already_deleted_from_nova(self):
         self.instance_mgr.state = states.RESTART
-        self.ctx.nova_client.get_instance_info.return_value = None
+        self.set_instances_container_mocks(
+            instances=[],
+            mocks=[
+                ('destroy', mock.Mock()),
+                ('update_ports', mock.Mock())])
+
         self.instance_mgr.stop(self.ctx)
         self.fake_driver.delete_ports.assert_called_with(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.DOWN)
 
-    def test_configure_success(self):
-        fake_config_dict = {'fake_config': 'foo'}
-        self.fake_driver.build_config.return_value = dict(fake_config_dict)
-        self.config(astara_metadata_port=4321)
-        self.config(host='foobarhost')
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.configure(self.ctx)
-
-            verify.assert_called_once_with(
-                self.fake_driver.ports,
-                self.fake_driver.get_interfaces.return_value)
-
-            self.fake_driver.build_config.assert_called_once_with(
-                self.ctx,
-                self.INSTANCE_INFO.management_port,
-                {'ext-net': 'ge1', 'int-net': 'ge2', 'mgt-net': 'ge0'})
-
-            self.fake_driver.update_config.assert_called_with(
-                self.INSTANCE_INFO.management_address, fake_config_dict)
-            self.assertEqual(self.instance_mgr.state,
-                             states.CONFIGURED)
-
     def test_configure_mismatched_interfaces(self):
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = False
-            self.instance_mgr.configure(self.ctx)
+        self.instance_mgr.instances.verify_interfaces.return_value = False
+        self.assertEqual(
+            self.instance_mgr.configure(self.ctx),
+            states.REPLUG,
+        )
 
-            verify.assert_called_once_with(
-                self.fake_driver.ports,
-                self.fake_driver.get_interfaces.return_value)
+    def test_configure_gone(self):
+        self.fake_driver.get_state.return_value = states.GONE
+        self.assertEqual(
+            self.instance_mgr.configure(self.ctx), states.GONE)
 
-            self.assertFalse(self.fake_driver.update_config.called)
-            self.assertEqual(self.instance_mgr.state, states.REPLUG)
+    def test_configure(self):
+        self.instance_mgr.instances.verify_interfaces.return_value = True
+        self.instance_mgr.instances.configure.return_value = states.RESTART
+        self.assertEqual(
+            self.instance_mgr.configure(self.ctx),
+            states.RESTART,
+        )
+        self.instance_mgr.instances.verify_interfaces.assert_called_with(
+            self.fake_driver.ports
+        )
+        self.instance_mgr.instances.configure.assert_called_with(self.ctx)
 
-    @mock.patch('time.sleep')
-    def test_configure_failure(self, sleep):
-        fake_config_dict = {'fake_config': 'foo'}
-
-        self.fake_driver.update_config.side_effect = Exception
-        self.fake_driver.build_config.return_value = fake_config_dict
-
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True
-            self.instance_mgr.configure(self.ctx)
-
-            interfaces = self.fake_driver.get_interfaces.return_value
-            verify.assert_called_once_with(
-                self.fake_driver.ports, interfaces)
-
-            expected_calls = [
-                mock.call(self.INSTANCE_INFO.management_address,
-                          fake_config_dict)
-                for i in range(0, 2)]
-            self.fake_driver.update_config.assert_has_calls(expected_calls)
-            self.assertEqual(self.instance_mgr.state, states.RESTART)
-
-    @mock.patch('time.sleep', lambda *a: None)
-    def test_replug_add_new_port_success(self):
+    @mock.patch.object(instance_manager.InstanceManager,
+                       '_wait_for_interface_hotplug')
+    def test_replug_add_new_port_success(self, wait_for_hotplug):
         self.instance_mgr.state = states.REPLUG
-
-        self.fake_driver.get_interfaces.return_value = [
-            {'lladdr': fake_mgt_port.mac_address},
-            {'lladdr': fake_ext_port.mac_address},
-            {'lladdr': fake_int_port.mac_address}
-        ]
-        self.conf.hotplug_timeout = 5
+        instance = instance_info()
+        get_interfaces = mock.Mock(
+            return_value={
+                instance: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address}]
+            }
+        )
+        self.set_instances_container_mocks(
+            instances=[instance], mocks=[('get_interfaces', get_interfaces)])
 
         fake_instance = mock.MagicMock()
         self.ctx.nova_client.get_instance_by_id = mock.Mock(
             return_value=fake_instance)
+
         fake_new_port = fake_add_port
         self.fake_driver.ports.append(fake_new_port)
         self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
 
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True  # the hotplug worked!
-            self.instance_mgr.replug(self.ctx)
+        self.fake_driver.get_interfaces.return_value = [
+            {'lladdr': fake_mgt_port.mac_address},
+            {'lladdr': fake_ext_port.mac_address},
+            {'lladdr': fake_int_port.mac_address},
+            {'lladdr': fake_new_port.mac_address},
+        ]
 
-            self.ctx.neutron.create_vrrp_port.assert_called_with(
-                self.fake_driver.id, 'additional-net'
-            )
-            self.assertEqual(self.instance_mgr.state, states.REPLUG)
-            fake_instance.interface_attach.assert_called_once_with(
-                fake_new_port.id, None, None
-            )
-            self.assertIn(fake_new_port, self.INSTANCE_INFO.ports)
+        wait_for_hotplug.return_value = True
+        self.instance_mgr.replug(self.ctx)
 
-    @mock.patch('time.sleep', lambda *a: None)
+        self.ctx.neutron.create_vrrp_port.assert_called_with(
+            self.fake_driver.id, 'additional-net'
+        )
+        self.assertEqual(self.instance_mgr.state, states.REPLUG)
+        fake_instance.interface_attach.assert_called_once_with(
+            fake_new_port.id, None, None
+        )
+        self.assertIn(fake_new_port, instance.ports)
+
     def test_replug_add_new_port_failure(self):
         self.instance_mgr.state = states.REPLUG
+        instance = instance_info()
+        get_interfaces = mock.Mock(
+            return_value={
+                instance: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address}]
+            }
+        )
 
+        self.set_instances_container_mocks(
+            instances=[instance],
+            mocks=[('get_interfaces', get_interfaces)]
+        )
         self.fake_driver.get_interfaces.return_value = [
             {'lladdr': fake_mgt_port.mac_address},
             {'lladdr': fake_ext_port.mac_address},
             {'lladdr': fake_int_port.mac_address}
         ]
-        self.conf.hotplug_timeout = 5
-
         fake_instance = mock.MagicMock()
+        fake_instance.interface_attach = mock.Mock(
+            side_effect=Exception,
+        )
         self.ctx.nova_client.get_instance_by_id = mock.Mock(
             return_value=fake_instance)
 
         fake_new_port = fake_add_port
         self.fake_driver.ports.append(fake_new_port)
         self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
+        self.instance_mgr.replug(self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.RESTART)
 
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = False  # The hotplug didn't work!
-            self.instance_mgr.replug(self.ctx)
-            self.assertEqual(self.instance_mgr.state, states.RESTART)
+        fake_instance.interface_attach.assert_called_once_with(
+            fake_new_port.id, None, None)
 
-            fake_instance.interface_attach.assert_called_once_with(
-                fake_new_port.id, None, None
-            )
+    @mock.patch.object(instance_manager.InstanceManager,
+                       '_wait_for_interface_hotplug')
+    def test_replug_add_new_port_failed_degraded(self, wait_for_hotplug):
+        self.conf.hotplug_timeout = 2
+        self.instance_mgr.state = states.REPLUG
+        instance_1 = instance_info()
+        instance_2 = instance_info()
+        get_interfaces = mock.Mock(
+            return_value={
+                instance_1: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address}],
+                instance_2: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address}]
+            }
+        )
 
-    @mock.patch('time.sleep', lambda *a: None)
-    def test_replug_remove_port_success(self):
+        self.set_instances_container_mocks(
+            instances=[instance_1, instance_2],
+            mocks=[('get_interfaces', get_interfaces)])
+        self.instance_mgr.instances.update({
+            i.id_: i for i in [instance_1, instance_2]
+        })
+
+        instances = []
+        for i in range(2):
+            fake_instance = mock.MagicMock()
+            fake_instance.interface_attach = mock.Mock()
+            instances.append(fake_instance)
+
+        instances[1].interface_attach.side_effect = Exception
+        self.ctx.nova_client.get_instance_by_id.side_effect = instances
+
+        fake_new_port = fake_add_port
+        self.fake_driver.ports.append(fake_new_port)
+        self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
+
+        wait_for_hotplug.return_value = True
+        self.instance_mgr.replug(self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.DEGRADED)
+
+        for instance in instances:
+            instance.interface_attach.assert_called_with(
+                fake_new_port.id, None, None)
+        self.assertNotIn(instances[1], self.instance_mgr.instances.values())
+
+    @mock.patch.object(instance_manager.InstanceManager,
+                       '_wait_for_interface_hotplug')
+    def test_replug_add_new_port_hotplug_failed_degraded(self,
+                                                         wait_for_hotplug):
+        self.instance_mgr.state = states.REPLUG
+        instance_1 = instance_info()
+        instance_2 = instance_info()
+        get_interfaces = mock.Mock(
+            return_value={
+                instance_1: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address}],
+                instance_2: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address}]
+            }
+        )
+
+        self.set_instances_container_mocks(
+            instances=[instance_1, instance_2],
+            mocks=[('get_interfaces', get_interfaces)])
+
+        fake_new_port = fake_add_port
+
+        instances = []
+        for i in range(2):
+            fake_instance = mock.MagicMock()
+            fake_instance.interface_attach = mock.Mock()
+            instances.append(fake_instance)
+        self.ctx.nova_client.get_instance_by_id.side_effect = instances
+
+        fake_new_port = fake_add_port
+        self.fake_driver.ports.append(fake_new_port)
+        self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
+
+        # the second instance fails to hotplug
+        wait_for_hotplug.side_effect = [True, False]
+
+        self.instance_mgr.replug(self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.DEGRADED)
+
+        for instance in instances:
+            instance.interface_attach.assert_called_with(
+                fake_new_port.id, None, None)
+        self.assertNotIn(instances[1], self.instance_mgr.instances.values())
+
+    @mock.patch.object(instance_manager.InstanceManager,
+                       '_wait_for_interface_hotplug')
+    def test_replug_remove_port_success(self, wait_for_hotplug):
         self.instance_mgr.state = states.REPLUG
 
-        # Resource lacks the fake_ext_port, it will be unplugged
-        self.fake_driver.ports = [fake_mgt_port, fake_int_port]
-        self.fake_driver.get_interfaces.return_value = [
-            {'lladdr': fake_mgt_port.mac_address},
-            {'lladdr': fake_int_port.mac_address},
-            {'lladdr': fake_ext_port.mac_address},
-        ]
-        self.conf.hotplug_timeout = 5
+        self.fake_driver.ports = [fake_ext_port, fake_int_port]
+
+        instance_1 = instance_info()
+        instance_1.ports.append(fake_add_port)
+
+        get_interfaces = mock.Mock(
+            return_value={
+                # Instance contains an extra port, it will be removed
+                instance_1: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address},
+                    {'lladdr': fake_add_port.mac_address},
+                ],
+            }
+        )
+        self.set_instances_container_mocks(
+            instances=[instance_1],
+            mocks=[('get_interfaces', get_interfaces)])
 
         fake_instance = mock.MagicMock()
         self.ctx.nova_client.get_instance_by_id = mock.Mock(
             return_value=fake_instance)
 
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = True  # the unplug worked!
-            self.instance_mgr.replug(self.ctx)
-            self.assertEqual(self.instance_mgr.state, states.REPLUG)
-            fake_instance.interface_detach.assert_called_once_with(
-                fake_ext_port.id
-            )
-            self.assertNotIn(fake_ext_port, self.INSTANCE_INFO.ports)
+        wait_for_hotplug.return_value = True
+        self.instance_mgr.replug(self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.REPLUG)
+        fake_instance.interface_detach.assert_called_once_with(
+            fake_add_port.id)
+        self.assertNotIn(fake_add_port, instance_1.ports)
 
-    @mock.patch('time.sleep', lambda *a: None)
     def test_replug_remove_port_failure(self):
         self.instance_mgr.state = states.REPLUG
 
-        # Router lacks the fake_ext_port, it will be unplugged
-        self.fake_driver.ports = [fake_mgt_port, fake_int_port]
-        self.fake_driver.get_interfaces.return_value = [
-            {'lladdr': fake_mgt_port.mac_address},
-            {'lladdr': fake_ext_port.mac_address},
-            {'lladdr': fake_int_port.mac_address}
-        ]
-        self.conf.hotplug_timeout = 5
+        self.fake_driver.ports = [fake_ext_port, fake_int_port]
+
+        instance_1 = instance_info()
+        instance_1.ports.append(fake_add_port)
+
+        get_interfaces = mock.Mock(
+            return_value={
+                # Instance contains an extra port, it will be removed
+                instance_1: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address},
+                    {'lladdr': fake_add_port.mac_address}],
+            }
+        )
+        self.set_instances_container_mocks(
+            instances=[instance_1],
+            mocks=[('get_interfaces', get_interfaces)])
+
+        fake_instance = mock.MagicMock()
+        self.ctx.nova_client.get_instance_by_id = mock.Mock(
+            return_value=fake_instance)
+        fake_instance.interface_detach.side_effect = Exception
+
+        self.instance_mgr.replug(self.ctx)
+        self.assertEqual(self.instance_mgr.state,
+                         states.RESTART)
+        fake_instance.interface_detach.assert_called_once_with(
+            fake_add_port.id
+        )
+
+    @mock.patch.object(instance_manager.InstanceManager,
+                       '_wait_for_interface_hotplug')
+    def test_replug_remove_port_hotplug_failed(self, wait_for_hotplug):
+        self.instance_mgr.state = states.REPLUG
+
+        self.fake_driver.ports = [fake_ext_port, fake_int_port]
+
+        instance_1 = instance_info()
+        instance_1.ports.append(fake_add_port)
+
+        get_interfaces = mock.Mock(
+            return_value={
+                # Instance contains an extra port, it will be removed
+                instance_1: [
+                    {'lladdr': fake_mgt_port.mac_address},
+                    {'lladdr': fake_ext_port.mac_address},
+                    {'lladdr': fake_int_port.mac_address},
+                    {'lladdr': fake_add_port.mac_address}
+                ],
+            }
+        )
+        self.set_instances_container_mocks(
+            instances=[instance_1],
+            mocks=[('get_interfaces', get_interfaces)])
 
         fake_instance = mock.MagicMock()
         self.ctx.nova_client.get_instance_by_id = mock.Mock(
             return_value=fake_instance)
 
-        with mock.patch.object(self.instance_mgr,
-                               '_verify_interfaces') as verify:
-            verify.return_value = False  # the unplug failed!
-            self.instance_mgr.replug(self.ctx)
-            self.assertEqual(self.instance_mgr.state,
-                             states.RESTART)
-            fake_instance.interface_detach.assert_called_once_with(
-                fake_ext_port.id
-            )
+        wait_for_hotplug.return_value = False
+        self.instance_mgr.replug(self.ctx)
+        self.assertEqual(self.instance_mgr.state,
+                         states.RESTART)
+        fake_instance.interface_detach.assert_called_once_with(
+            fake_add_port.id
+        )
 
-    def test_verify_interfaces(self):
-        self.fake_driver.ports = [fake_mgt_port, fake_ext_port, fake_int_port]
-        interfaces = [
-            {'lladdr': fake_mgt_port.mac_address},
-            {'lladdr': fake_ext_port.mac_address},
-            {'lladdr': fake_int_port.mac_address}
+    def test_wait_for_interface_hotplug_true(self):
+        instance = instance_info()
+        self.fake_driver.get_interfaces.side_effect = [
+            [
+                {'lladdr': fake_mgt_port.mac_address},
+                {'lladdr': fake_ext_port.mac_address},
+            ],
+            [
+                {'lladdr': fake_mgt_port.mac_address},
+                {'lladdr': fake_ext_port.mac_address},
+            ],
+            [
+                {'lladdr': fake_mgt_port.mac_address},
+                {'lladdr': fake_ext_port.mac_address},
+                {'lladdr': fake_int_port.mac_address},
+            ],
         ]
+        self.assertEqual(
+            self.instance_mgr._wait_for_interface_hotplug(instance), True)
+        self.assertEqual(
+            len(self.fake_driver.get_interfaces.call_args_list), 3)
 
-        self.assertTrue(self.instance_mgr._verify_interfaces(
-            self.fake_driver.ports, interfaces))
-
-    def test_verify_interfaces_with_cleared_gateway(self):
-        self.fake_driver.ports = [fake_mgt_port, fake_ext_port, fake_int_port]
-
-        interfaces = [
-            {'lladdr': 'a:b:c:d'},
-            {'lladdr': 'd:c:b:a'},
-            {'lladdr': 'a:a:a:a'}
-        ]
-
-        self.assertFalse(self.instance_mgr._verify_interfaces(
-            self.fake_driver.ports, interfaces))
+    def test_wait_for_interface_hotplug_false(self):
+        self.conf.hotplug_timeout = 5
+        instance = instance_info()
+        self.fake_driver.get_interfaces.side_effect = [
+            [
+                {'lladdr': fake_mgt_port.mac_address},
+                {'lladdr': fake_ext_port.mac_address},
+            ]
+            for i in six.moves.range(5)]
+        self.assertEqual(
+            self.instance_mgr._wait_for_interface_hotplug(instance), False)
+        self.assertEqual(
+            len(self.fake_driver.get_interfaces.call_args_list), 4)
 
     def test_set_error_when_booting(self):
         self.instance_mgr.state = states.BOOTING
@@ -671,14 +885,7 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.set_error(self.ctx)
         self.instance_mgr.boot(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.BOOTING)
-
-        self.ctx.nova_client.boot_instance.assert_called_once_with(
-            resource_type=self.fake_driver.RESOURCE_NAME,
-            prev_instance_info=self.INSTANCE_INFO,
-            name=self.fake_driver.name,
-            image_uuid=self.fake_driver.image_uuid,
-            flavor=self.fake_driver.flavor,
-            make_ports_callback='fake_ports_callback')
+        self.instance_mgr.instances.create.assert_called_with(self.ctx)
 
     def test_error_cooldown(self):
         self.config(error_state_cooldown=30)
@@ -693,20 +900,35 @@ class TestInstanceManager(base.RugTestBase):
         self.assertFalse(self.instance_mgr.error_cooldown)
 
     def test_ensure_cache(self):
-        self.instance_mgr.instance_info = 'stale_info'
-        self.ctx.nova_client.get_instance_info.return_value = \
-            self.INSTANCE_INFO
+        self.set_instances_container_mocks(mocks=[
+            ('update_ports', mock.Mock())
+        ])
+        self.instance_mgr.instances['fake_instance_id1'] = 'stale_instance1'
+        self.instance_mgr.instances['fake_instance_id2'] = 'stale_instance2'
+
+        fake_inst_1 = mock.Mock(id_='fake_instance_id1')
+        fake_inst_2 = mock.Mock(id_='fake_instance_id2')
+
+        self.ctx.nova_client.get_instances_for_obj.return_value = [
+            fake_inst_1, fake_inst_2]
 
         def ensured_cache(self, ctx):
             pass
+
         wrapped = instance_manager.ensure_cache(ensured_cache)
         wrapped(self.instance_mgr, self.ctx)
-        self.assertEqual(self.instance_mgr.instance_info, self.INSTANCE_INFO)
+        exp_updated_instances = {
+            'fake_instance_id1': fake_inst_1,
+            'fake_instance_id2': fake_inst_2,
+        }
+        self.assertEqual(
+            self.instance_mgr.instances, exp_updated_instances)
+        self.instance_mgr.instances.update_ports.assert_called_with(self.ctx)
 
 
-class TestBootAttemptCounter(unittest.TestCase):
-
+class TestBootAttemptCounter(base.RugTestBase):
     def setUp(self):
+        super(TestBootAttemptCounter, self).setUp()
         self.c = instance_manager.BootAttemptCounter()
 
     def test_start(self):
@@ -719,3 +941,383 @@ class TestBootAttemptCounter(unittest.TestCase):
         self.c._attempts = 2
         self.c.reset()
         self.assertEqual(0, self.c._attempts)
+
+
+class TestInstanceGroupManager(base.RugTestBase):
+    def setUp(self):
+        super(TestInstanceGroupManager, self).setUp()
+        self.ctx = fakes.fake_worker_context()
+        self.fake_driver = fakes.fake_driver()
+        self.group_mgr = instance_manager.InstanceGroupManager(
+            log=mock.Mock(), resource=self.fake_driver)
+        name = 'ak-resource-' + str(uuid.uuid4())
+        self.instance_1 = instance_info(mgt_port=fake_mgt_port,
+                                        name=name + '_0')
+        self.instance_2 = instance_info(mgt_port=fake_add_port,
+                                        name=name + '_1')
+        self.instances = [self.instance_1, self.instance_2]
+        [self.group_mgr.add_instance(i) for i in self.instances]
+
+    def test_validate_ports(self):
+        self.instance_2.management_port = None
+        has_ports, no_ports = self.group_mgr.validate_ports()
+        self.assertIn(self.instance_1, has_ports)
+        self.assertIn(self.instance_2, no_ports)
+
+    def test_are_alive_all_alive(self):
+        self.fake_driver.is_alive.side_effect = [
+            False, False, True, False, True]
+        alive, dead = self.group_mgr.are_alive()
+        self.assertEqual(sorted(alive), sorted(self.instances))
+
+    def test_are_alive_all_dead(self):
+        self.fake_driver.is_alive.return_value = False
+        alive, dead = self.group_mgr.are_alive()
+        self.assertEqual(sorted(dead), sorted(self.instances))
+        self.assertEqual(alive, [])
+
+    def test_are_alive_some_dead(self):
+        self.group_mgr = instance_manager.InstanceGroupManager(
+            log=mock.Mock(), resource=self.fake_driver)
+        self.instance_1 = instance_info(mgt_port=fake_mgt_port)
+        self.instance_2 = instance_info(mgt_port=fake_add_port)
+        instances = [self.instance_1, self.instance_2]
+        [self.group_mgr.add_instance(i) for i in instances]
+
+        def fake_is_alive(mgt_addr, i1=self.instance_1, i2=self.instance_2):
+            # tag instance 2 as dead
+            if mgt_addr == fake_add_port.fixed_ips[0].ip_address:
+                return False
+            else:
+                return True
+        [self.group_mgr.add_instance(i) for i in instances]
+        self.fake_driver.is_alive = fake_is_alive
+        alive, dead = self.group_mgr.are_alive()
+        self.assertEqual(dead, [self.instance_2])
+        self.assertEqual(alive, [self.instance_1])
+
+    def test_update_ports(self):
+        self.ctx.neutron.get_ports_for_instance.side_effect = [
+            ('instance1_mgt_port', ['instance1_inst_port']),
+            ('instance2_mgt_port', ['instance2_inst_port']),
+        ]
+        self.group_mgr.update_ports(self.ctx)
+        self.assertEqual(self.instance_1.management_port, 'instance1_mgt_port')
+        self.assertEqual(self.instance_1.ports, ['instance1_inst_port'])
+        self.assertEqual(self.instance_2.management_port, 'instance2_mgt_port')
+        self.assertEqual(self.instance_2.ports, ['instance2_inst_port'])
+
+    def test_get_interfaces(self):
+        self.fake_driver.get_interfaces.side_effect = [
+            ['instance1_interfaces'],
+            ['instance2_interfaces'],
+        ]
+        self.group_mgr._alive = [i.id_ for i in self.instances]
+        interfaces_dict = self.group_mgr.get_interfaces()
+        self.assertIn(
+            (self.instance_1, ['instance1_interfaces']),
+            interfaces_dict.items())
+        self.assertIn(
+            (self.instance_2, ['instance2_interfaces']),
+            interfaces_dict.items())
+
+    def test_get_interfaces_skip_dead(self):
+        self.fake_driver.get_interfaces.side_effect = [
+            ['instance1_interfaces'],
+            ['instance2_interfaces'],
+        ]
+        self.group_mgr._alive = [self.instance_1.id_]
+        interfaces_dict = self.group_mgr.get_interfaces()
+        self.assertIn(
+            (self.instance_1, ['instance1_interfaces']),
+            interfaces_dict.items())
+        self.assertNotIn(
+            (self.instance_2, ['instance2_interfaces']),
+            interfaces_dict.items())
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_verify_interfaces_true(self, fake_get_interfaces):
+        fake_get_interfaces.return_value = {
+            self.instance_1: [
+                {'lladdr': p.mac_address}
+                for p in self.instance_1.ports +
+                [self.instance_1.management_port]
+            ],
+            self.instance_2: [
+                {'lladdr': p.mac_address}
+                for p in self.instance_2.ports +
+                [self.instance_2.management_port]
+            ]
+        }
+
+        ports = [fake_ext_port, fake_int_port]
+        self.assertTrue(self.group_mgr.verify_interfaces(ports))
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_verify_interfaces_false_missing_inst_port(self,
+                                                       fake_get_interfaces):
+        fake_get_interfaces.return_value = {
+            self.instance_1: [
+                {'lladdr': p.mac_address}
+                for p in self.instance_1.ports +
+                [self.instance_1.management_port]
+            ],
+            self.instance_2: [
+                {'lladdr': p.mac_address}
+                for p in self.instance_2.ports +
+                [self.instance_2.management_port]
+            ]
+        }
+
+        ports = [fake_ext_port, fake_int_port, fake_add_port]
+        self.assertFalse(self.group_mgr.verify_interfaces(ports))
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_verify_interfaces_false_missing_macs(self, fake_get_interfaces):
+        fake_get_interfaces.return_value = {
+            self.instance_1: [
+                {'lladdr': p.mac_address}
+                for p in self.instance_1.ports
+            ],
+            self.instance_2: [
+                {'lladdr': p.mac_address}
+                for p in self.instance_2.ports]
+        }
+
+        ports = [fake_ext_port, fake_int_port]
+        self.assertFalse(self.group_mgr.verify_interfaces(ports))
+
+    def test__update_config_success(self):
+        self.fake_driver.update_config.side_effect = [
+            Exception, Exception, True]
+        self.assertTrue(self.group_mgr._update_config(self.instance_1, {}))
+        self.fake_driver.update_config.assert_called_with(
+            self.instance_1.management_address, {})
+
+    def test__update_config_fail(self):
+        self.fake_driver.update_config.side_effect = Exception
+        self.assertFalse(self.group_mgr._update_config(self.instance_1, {}))
+        self.fake_driver.update_config.assert_called_with(
+            self.instance_1.management_address, {})
+
+    def test__ha_config(self):
+        instance_1_ha_config = self.group_mgr._ha_config(self.instance_1)
+        instance_2_ha_config = self.group_mgr._ha_config(self.instance_2)
+        self.assertEqual(
+            instance_1_ha_config,
+            {
+                'priority': 100,
+                'peers': [self.instance_2.management_address],
+            })
+        self.assertEqual(
+            instance_2_ha_config,
+            {
+                'priority': 50,
+                'peers': [self.instance_1.management_address],
+            })
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
+    @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
+    @mock.patch('astara.instance_manager._generate_interface_map')
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_configure_success(self, fake_get_interfaces, fake_gen_iface_map,
+                               fake_ha_config, fake_update_config):
+        fake_ha_config.return_value = {'fake_ha_config': 'peers'}
+        self.fake_driver.is_ha = True
+        self.fake_driver.build_config.side_effect = [
+            {'instance_1_config': 'config'},
+            {'instance_2_config': 'config'},
+        ]
+        fake_get_interfaces.return_value = collections.OrderedDict([
+            (self.instance_1, [
+             {'lladdr': p.mac_address} for p in self.instance_1.ports +
+             [self.instance_1.management_port]]),
+            (self.instance_2, [
+             {'lladdr': p.mac_address} for p in self.instance_2.ports +
+             [self.instance_2.management_port]])
+        ])
+
+        fake_update_config.return_value = True
+        self.assertEqual(self.group_mgr.configure(self.ctx), states.CONFIGURED)
+        self.assertIn(
+            mock.call(
+                self.instance_1,
+                {
+                    'instance_1_config': 'config',
+                    'ha_config': {'fake_ha_config': 'peers'}
+                }),
+            fake_update_config.call_args_list)
+        self.assertIn(
+            mock.call(
+                self.instance_2,
+                {
+                    'instance_2_config': 'config',
+                    'ha_config': {'fake_ha_config': 'peers'}
+                }),
+            fake_update_config.call_args_list)
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
+    @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
+    @mock.patch('astara.instance_manager._generate_interface_map')
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_configure_failed_all(self, fake_get_interfaces,
+                                  fake_gen_iface_map, fake_ha_config,
+                                  fake_update_config):
+        fake_ha_config.return_value = {'fake_ha_config': 'peers'}
+        self.fake_driver.is_ha = True
+        self.fake_driver.build_config.side_effect = [
+            {'instance_1_config': 'config'},
+            {'instance_2_config': 'config'},
+        ]
+        fake_get_interfaces.return_value = collections.OrderedDict([
+            (self.instance_1, [
+             {'lladdr': p.mac_address} for p in self.instance_1.ports +
+             [self.instance_1.management_port]]),
+            (self.instance_2, [
+             {'lladdr': p.mac_address} for p in self.instance_2.ports +
+             [self.instance_2.management_port]])
+        ])
+
+        fake_update_config.return_value = False
+        self.assertEqual(self.group_mgr.configure(self.ctx), states.RESTART)
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
+    @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
+    @mock.patch('astara.instance_manager._generate_interface_map')
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_configure_failed_some(self, fake_get_interfaces,
+                                   fake_gen_iface_map, fake_ha_config,
+                                   fake_update_config):
+        fake_ha_config.return_value = {'fake_ha_config': 'peers'}
+        self.fake_driver.is_ha = True
+        self.fake_driver.build_config.side_effect = [
+            {'instance_1_config': 'config'},
+            {'instance_2_config': 'config'},
+        ]
+        fake_get_interfaces.return_value = collections.OrderedDict([
+            (self.instance_1, [
+             {'lladdr': p.mac_address} for p in self.instance_1.ports +
+             [self.instance_1.management_port]]),
+            (self.instance_2, [
+             {'lladdr': p.mac_address} for p in self.instance_2.ports +
+             [self.instance_2.management_port]])])
+
+        fake_update_config.side_effect = [False, True]
+        self.assertEqual(self.group_mgr.configure(self.ctx), states.DEGRADED)
+
+    @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
+    @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
+    @mock.patch('astara.instance_manager._generate_interface_map')
+    @mock.patch('astara.instance_manager.InstanceGroupManager.get_interfaces')
+    def test_configure_degraded_waiting(self, fake_get_interfaces,
+                                        fake_gen_iface_map, fake_ha_config,
+                                        fake_update_config):
+        fake_ha_config.return_value = {'fake_ha_config': 'peers'}
+        self.fake_driver.is_ha = True
+        self.fake_driver.build_config.side_effect = [
+            {'instance_1_config': 'config'},
+            {'instance_2_config': 'config'},
+        ]
+        fake_get_interfaces.return_value = collections.OrderedDict([
+            (self.instance_1, [
+             {'lladdr': p.mac_address} for p in self.instance_1.ports +
+             [self.instance_1.management_port]])
+        ])
+
+        fake_update_config.return_value = True
+        self.assertEqual(self.group_mgr.configure(self.ctx), states.DEGRADED)
+
+    def test_delete(self):
+        self.group_mgr.delete(self.instance_2)
+        self.assertNotIn(
+            self.instance_2, self.group_mgr.instances)
+
+    def test_refresh(self):
+        self.ctx.nova_client.update_instance_info.return_value = True
+        self.group_mgr.refresh(self.ctx)
+        [self.assertIn(mock.call(i),
+         self.ctx.nova_client.update_instance_info.call_args_list)
+         for i in self.instances]
+        [self.assertIn(i, self.group_mgr.instances) for i in self.instances]
+
+    def test_refresh_instance_gone(self):
+        self.ctx.nova_client.update_instance_info.side_effect = [True, None]
+        self.group_mgr.refresh(self.ctx)
+        [self.assertIn(mock.call(i),
+         self.ctx.nova_client.update_instance_info.call_args_list)
+         for i in self.instances]
+        self.assertIn(self.instance_1, self.group_mgr.instances)
+        self.assertNotIn(self.instance_2, self.group_mgr.instances)
+
+    def test_destroy(self):
+        self.group_mgr.destroy(self.ctx)
+        self.ctx.nova_client.delete_instances_and_wait.assert_called_with(
+            self.group_mgr.instances)
+
+    def test_remove(self):
+        self.group_mgr.remove(self.ctx, self.instance_1)
+        self.ctx.nova_client.destroy_instance.assert_called_with(
+            self.instance_1)
+        self.assertNotIn(self.instance_1, self.group_mgr.instances)
+
+    def test_next_instance_index(self):
+        self.assertEqual(
+            self.group_mgr.next_instance_index, 2)
+
+    def test_next_instance_index_empty(self):
+        group_mgr = instance_manager.InstanceGroupManager(
+            log=mock.Mock(), resource=self.fake_driver)
+        self.assertEqual(
+            group_mgr.next_instance_index, 0)
+
+    def test_create_all(self):
+        [self.group_mgr.delete(i) for i in self.instances]
+        self.ctx.nova_client.boot_instance.side_effect = [
+            instance_info(name='new-instance_0'),
+            instance_info(name='new-instance_1'),
+        ]
+        self.group_mgr.create(self.ctx)
+        self.assertEqual(
+            len(self.ctx.nova_client.boot_instance.call_args_list), 2)
+
+    def test_create_some(self):
+        self.group_mgr.delete(self.instance_1)
+        self.ctx.nova_client.boot_instance.side_effect = [
+            instance_info(name='new-instance_0'),
+        ]
+        self.group_mgr.create(self.ctx)
+        self.assertEqual(
+            len(self.ctx.nova_client.boot_instance.call_args_list), 1)
+        self.ctx.nova_client.boot_instance.assert_called_with(
+            resource_type=self.fake_driver.RESOURCE_NAME,
+            prev_instance_info=None,
+            name='ak-FakeDriver-fake_resource_id_2',
+            image_uuid=self.fake_driver.image_uuid,
+            flavor=self.fake_driver.flavor,
+            make_ports_callback=self.fake_driver.make_ports(self.ctx),
+        )
+
+    def test_required_instance_count(self):
+        self.fake_driver.is_ha = True
+        self.assertEqual(self.group_mgr.required_instance_count, 2)
+        self.fake_driver.is_ha = False
+        self.assertEqual(self.group_mgr.required_instance_count, 1)
+
+    def test_instance_count(self):
+        self.assertEqual(self.group_mgr.instance_count, 2)
+
+    def test_cluster_degraded_false(self):
+        self.assertFalse(self.group_mgr.cluster_degraded)
+
+    def test_cluster_degraded_true(self):
+        self.group_mgr.delete(self.instance_1)
+        self.assertTrue(self.group_mgr.cluster_degraded)
+
+    def test_cluster_degraded_true_booting(self):
+        self.instance_1.nova_status = 'BUILD'
+        self.assertTrue(self.group_mgr.cluster_degraded)
+
+    def test_add_instance(self):
+        instance_3 = instance_info()
+        self.group_mgr.add_instance(instance_3)
+        self.assertIn(instance_3, self.group_mgr.instances)

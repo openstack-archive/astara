@@ -114,4 +114,5 @@ fake_router = FakeModel(
     name='router_name',
     external_port=fake_ext_port,
     management_port=fake_mgt_port,
-    internal_ports=[fake_int_port])
+    internal_ports=[fake_int_port],
+    ha=False)
