@@ -16,6 +16,7 @@
 
 from datetime import datetime
 import time
+import six
 
 from oslo_config import cfg
 
@@ -163,7 +164,7 @@ class InstanceManager(object):
             self.state = states.BOOTING
             return self.state
 
-        for i in xrange(cfg.CONF.max_retries):
+        for i in six.moves.range(cfg.CONF.max_retries):
             if self.driver.is_alive(self.instance_info.management_address):
                 if self.state != states.CONFIGURED:
                     self.state = states.UP
@@ -398,7 +399,7 @@ class InstanceManager(object):
         )
         self.log.debug('preparing to update config to %r', config)
 
-        for i in xrange(attempts):
+        for i in six.moves.range(attempts):
             try:
                 self.driver.update_config(
                     self.instance_info.management_address,

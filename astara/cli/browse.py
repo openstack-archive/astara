@@ -23,6 +23,7 @@ import Queue
 import sqlite3
 import tempfile
 import threading
+import six
 from contextlib import closing
 from datetime import datetime
 
@@ -105,7 +106,7 @@ class RouterFetcher(object):
                 name='fetcher-t%02d' % i,
                 target=self.fetch_router_metadata,
             )
-            for i in xrange(workers)
+            for i in six.moves.range(workers)
         ]
         for t in threads:
             t.setDaemon(True)
