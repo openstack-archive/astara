@@ -92,6 +92,7 @@ class TestAstaraClient(unittest.TestCase):
                 'asn': 64512,
                 'neighbor_asn': 64512,
                 'tenant_id': 'tenant_id',
+                'ha_resource': False,
                 'hostname': 'ak-tenant_id',
                 'orchestrator': {
                     'host': 'foohost',

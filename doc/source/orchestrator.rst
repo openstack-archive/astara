@@ -146,3 +146,23 @@ event transitions the state machine into the ``Alive`` state, which (depending
 on the availability of the router), may simply exit the state machine (because
 the router's status API replies with an ``HTTP 200``) or transition to the
 ``CreateVM`` state (because the router is unresponsive and must be recreated).
+
+High Availability
+-----------------
+
+Astara supports high-availability (HA) on both the control plane and data
+plane.
+
+The ``astara-orchestrator`` service may be deployed in a configuration that
+allows multiple service processes to span nodes to allow load-distribution
+and HA.  For more information on clustering, see the :ref:`install docs<cluster_astara>`.
+
+It also supports orchestrating pairs of virtual appliances to provide
+HA of the data path, allowing pairs of virtual routers to be clustered among
+themselves using VRRP and connection tracking.  To enable this, simply
+create Neutron routers with the ``ha=True`` parameter or set this property
+on existing routers and issue a rebuild command via ``astara-ctl`` for that
+router.
+
+
+

@@ -1,3 +1,5 @@
+.. _install_astara:
+
 Astara Installation
 ===================
 
@@ -244,7 +246,7 @@ All configuration is to be performed on the controller node.
 
   If you don't plan to build your own appliance image, one can be downloaded for testing at: http://tarballs.openstack.org/akanda-appliance/images/
 
-  If you want to build one yourself instructions are found in the :ref:`appliance documation<appliance_build>`
+  If you want to build one yourself instructions are found in the :ref:`appliance documentation`
   In either case, upload the image to Glance (this command must be performed in the directory where the image was downloaded/created)::
 
     openstack image create astara --public --container-format=bare --disk-format=qcow2 --file astara.qcow2
@@ -321,3 +323,24 @@ Output similar to::
     +--------------------------------------+------------------------------------------------+----------------------------------+--------+------------+-------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 The line with the ak-router shows that astara has built the router VM. Further operation and debug information can be found in the :ref:`operator tools<operator_tools>`` section.
+
+.. _cluster_astara:
+
+Clustering astara-orchestrator
+------------------------------
+
+The ``astara-orchestartor`` service supports clustering among multiple processes spanning multiple nodes to provide active/active clustering for
+purposes of load-distribution and high-availability (HA). In this setup, multiple ``astara-orchestrator`` processes form a distributed hash ring,
+in which each is responsible for orchestrating a subset of virtual appliances.  When one ``astara-orchestrator`` falls offline, management of
+its resources are redistributed to remaining nodes.  This feature requires the use of an external coordination service (ie, zookeeper),
+as provided by the `tooz library <http://docs.openstack.org/developer/tooz/>`_.  To find out more about which services ``tooz`` supports,
+see `<http://docs.openstack.org/developer/tooz/drivers.html>`_.
+
+To enable this feature, you must set the following in ``orchestrator.ini``::
+
+    [coordination]
+    enabled=True  # enable the feature
+    url=kazoo://zookeeper.localnet:2181?timeout=5  # a URL to a tooz-supported coordination service
+    group_id=astara.orchestrator # optional, change this if deploying multiple clusters
+    heartbeat_interval=1 # optional, tune as needed
+
