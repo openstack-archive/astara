@@ -26,7 +26,8 @@ import collections
 import itertools
 
 from astara.common.i18n import _LE, _LI, _LW
-from astara.event import POLL, CREATE, READ, UPDATE, DELETE, REBUILD
+from astara.event import (POLL, CREATE, READ, UPDATE, DELETE, REBUILD,
+                          CLUSTER_REBUILD)
 from astara import instance_manager
 from astara.drivers import states
 
@@ -85,6 +86,12 @@ class CalcAction(State):
             self.params.resource.log.debug('shortcutting to delete')
             return DELETE
 
+        if (self.params.instance.state == states.DEGRADED and
+           CLUSTER_REBUILD not in queue):
+            self.params.resource.log.debug(
+                'Scheduling a rebuild on degraded cluster')
+            queue.append(CLUSTER_REBUILD)
+
         while queue:
             self.params.resource.log.debug(
                 'action = %s, len(queue) = %s, queue = %s',
@@ -101,7 +108,8 @@ class CalcAction(State):
                 action = queue.popleft()
                 continue
 
-            elif action in (CREATE, UPDATE) and queue[0] == REBUILD:
+            elif (action in (CREATE, UPDATE, CLUSTER_REBUILD) and
+                  queue[0] == REBUILD):
                 # upgrade to REBUILD from CREATE/UPDATE by taking the next
                 # item from the queue
                 self.params.resource.log.debug('upgrading from %s to rebuild',
@@ -145,12 +153,16 @@ class CalcAction(State):
             next_action = StopInstance(self.params)
         elif action == REBUILD:
             next_action = RebuildInstance(self.params)
+        elif (action == CLUSTER_REBUILD and
+              self.instance.state in (states.DEGRADED, states.DOWN)):
+            next_action = CreateInstance(self.params)
         elif self.instance.state == states.BOOTING:
             next_action = CheckBoot(self.params)
-        elif self.instance.state == states.DOWN:
+        elif self.instance.state in (states.DOWN, states.DEGRADED):
             next_action = CreateInstance(self.params)
         else:
             next_action = Alive(self.params)
+
         if self.instance.state == states.ERROR:
             if action == POLL:
                 # If the selected action is to poll, and we are in an
@@ -212,7 +224,7 @@ class Alive(State):
     def transition(self, action, worker_context):
         if self.instance.state == states.GONE:
             return StopInstance(self.params)
-        elif self.instance.state == states.DOWN:
+        elif self.instance.state in (states.DOWN, states.DEGRADED):
             return CreateInstance(self.params)
         elif action == POLL and \
                 self.instance.state == states.CONFIGURED:
@@ -228,7 +240,8 @@ class CreateInstance(State):
     def execute(self, action, worker_context):
         # Check for a loop where the resource keeps failing to boot or
         # accept the configuration.
-        if self.instance.attempts >= self.params.reboot_error_threshold:
+        if (not self.instance.state == states.DEGRADED and
+           self.instance.attempts >= self.params.reboot_error_threshold):
             self.params.resource.log.info(_LI(
                 'Dropping out of boot loop after  %s trials'),
                 self.instance.attempts)

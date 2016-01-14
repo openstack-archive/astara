@@ -18,8 +18,6 @@
 """Manage the resources for a given tenant.
 """
 
-import collections
-import threading
 import datetime
 
 from oslo_config import cfg
@@ -29,6 +27,7 @@ from oslo_utils import timeutils
 from astara.common.i18n import _LE
 from astara import state
 from astara import drivers
+from astara.common import container
 
 
 LOG = logging.getLogger(__name__)
@@ -45,50 +44,7 @@ class InvalidIncomingMessage(Exception):
     pass
 
 
-class ResourceContainer(object):
-
-    def __init__(self):
-        self.state_machines = {}
-        self.deleted = collections.deque(maxlen=50)
-        self.lock = threading.Lock()
-
-    def __delitem__(self, item):
-        with self.lock:
-            del self.state_machines[item]
-            self.deleted.append(item)
-
-    def items(self):
-        """Get all state machines.
-        :returns: all state machines in this RouterContainer
-        """
-        with self.lock:
-            return list(self.state_machines.items())
-
-    def values(self):
-        with self.lock:
-            return list(self.state_machines.values())
-
-    def has_been_deleted(self, resource_id):
-        """Check if a resource has been deleted.
-
-        :param resource_id: The resource's id to check against the deleted list
-        :returns: Returns True if the resource_id has been deleted.
-        """
-        with self.lock:
-            return resource_id in self.deleted
-
-    def __getitem__(self, item):
-        with self.lock:
-            return self.state_machines[item]
-
-    def __setitem__(self, key, value):
-        with self.lock:
-            self.state_machines[key] = value
-
-    def __contains__(self, item):
-        with self.lock:
-            return item in self.state_machines
-
+class StateMachineContainer(container.ResourceContainer):
     def unmanage(self, resource_id):
         """Used to delete a state machine from local management
 
@@ -102,7 +58,7 @@ class ResourceContainer(object):
         """
         try:
             with self.lock:
-                sm = self.state_machines.pop(resource_id)
+                sm = self.resources.pop(resource_id)
                 sm.drop_queue()
                 LOG.debug('unmanaged tenant state machine for resource %s',
                           resource_id)
@@ -123,7 +79,7 @@ class TenantResourceManager(object):
         self.notify = notify_callback
         self._queue_warning_threshold = queue_warning_threshold
         self._reboot_error_threshold = reboot_error_threshold
-        self.state_machines = ResourceContainer()
+        self.state_machines = StateMachineContainer()
         self._default_resource_id = None
 
     def _delete_resource(self, resource):

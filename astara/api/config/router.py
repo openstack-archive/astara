@@ -67,7 +67,8 @@ def build_config(worker_context, router, management_port, interfaces):
         'tenant_id': router.tenant_id,
         'hostname': 'ak-%s' % router.tenant_id,
         'orchestrator': worker_context.config,
-        'vpn': generate_vpn_config(router, worker_context.neutron)
+        'ha_resource': router.ha,
+        'vpn': generate_vpn_config(router, worker_context.neutron),
     }
 
 

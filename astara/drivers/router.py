@@ -61,6 +61,7 @@ STATUS_MAP = {
     states.UP: neutron.STATUS_BUILD,
     states.CONFIGURED: neutron.STATUS_ACTIVE,
     states.ERROR: neutron.STATUS_ERROR,
+    states.DEGRADED: neutron.STATUS_BUILD,
 }
 
 
@@ -356,3 +357,10 @@ class Router(BaseDriver):
         :returns: bool True if alive, False if not
         """
         return astara_client.is_alive(management_address, self.mgt_port)
+
+    @property
+    def is_ha(self):
+        """Returns True if logical resource is set to be highly-available"""
+        if not self._router:
+            return False
+        return self._router.ha
