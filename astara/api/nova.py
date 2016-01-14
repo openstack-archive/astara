@@ -47,6 +47,10 @@ OPTIONS = [
 cfg.CONF.register_opts(OPTIONS)
 
 
+class NovaInstanceDeleteTimeout(Exception):
+    pass
+
+
 class InstanceInfo(object):
     def __init__(self, instance_id, name, management_port=None, ports=(),
                  image_uuid=None, status=None, last_boot=None):
@@ -256,17 +260,20 @@ class Nova(object):
                       default)
             self.instance_provider = default(self.client)
 
-    def get_instance_info(self, name):
-        """Retrieves an InstanceInfo object for a given instance name
+    def get_instances_for_obj(self, name):
+        """Retreives all nova servers for a given instance name.
 
         :param name: name of the instance being queried
 
-        :returns: an InstanceInfo object representing the router instance
+        :returns: a list of novaclient.v2.servers.Server objects or []
         """
-        instance = self.get_instance_for_obj(name)
-
-        if instance:
-            return InstanceInfo.from_nova(instance)
+        search_opt = '^' + name + '.*$'
+        instances = self.client.servers.list(
+            search_opts=dict(name=search_opt)
+        )
+        if not instances:
+            return []
+        return [InstanceInfo.from_nova(i) for i in instances]
 
     def get_instance_for_obj(self, name):
         """Retreives a nova server for a given instance name.
@@ -342,8 +349,47 @@ class Nova(object):
     def update_instance_info(self, instance_info):
         """Used primarily for updating tracked instance status"""
         instance = self.get_instance_by_id(instance_info.id_)
+        if not instance:
+            return None
         instance_info.nova_status = instance.status
         return instance_info
+
+    def delete_instances_and_wait(self, instance_infos):
+        """Deletes the nova instance and waits for its deletion to complete"""
+        to_poll = list(instance_infos)
+
+        for inst in instance_infos:
+            try:
+                self.destroy_instance(inst)
+            except novaclient_exceptions.NotFound:
+                pass
+            except Exception:
+                LOG.exception(
+                    _LE('Error deleting instance %s' % inst.id_))
+                to_poll.remove(inst)
+
+        # XXX parallelize this
+        timed_out = []
+        for inst in to_poll:
+            start = time.time()
+            i = 0
+            while time.time() - start < cfg.CONF.boot_timeout:
+                i += 1
+                if not self.get_instance_by_id(inst.id_):
+                    LOG.debug('Instance %s has been deleted', inst.id_)
+                    break
+                LOG.debug(
+                    'Instance %s has not finished stopping', inst.id_)
+                time.sleep(cfg.CONF.retry_delay)
+            else:
+                timed_out.append(inst)
+                LOG.error(_LE(
+                    'Instance %s failed to stop within %d secs'),
+                    inst.id_, cfg.CONF.boot_timeout)
+
+        if timed_out:
+            raise NovaInstanceDeleteTimeout()
+
 
 # TODO(mark): Convert this to dynamic yaml, proper network prefix and ssh-keys
 

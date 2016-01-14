@@ -40,11 +40,11 @@ class Fake(object):
         self.crud = crud
 
 
-def delete_callback(self):
+def delete_callback():
     print 'DELETE'
 
 
-def bandwidth_callback(self, *args, **kwargs):
+def bandwidth_callback(*args, **kwargs):
     print 'BANDWIDTH:', args, kwargs
 
 
