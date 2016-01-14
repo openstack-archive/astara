@@ -160,7 +160,7 @@ class TestWorker(WorkerTestBase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
-        self.assertEquals(
+        self.assertEqual(
             expected,
             self.w._should_process_message(self.target, msg))
 

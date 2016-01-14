@@ -650,8 +650,8 @@ class TestInstanceManager(base.RugTestBase):
                                '_verify_interfaces') as verify:
             verify.return_value = False  # the unplug failed!
             self.instance_mgr.replug(self.ctx)
-            self.assertEquals(self.instance_mgr.state,
-                              states.RESTART)
+            self.assertEqual(self.instance_mgr.state,
+                             states.RESTART)
             fake_instance.interface_detach.assert_called_once_with(
                 fake_ext_port.id
             )
