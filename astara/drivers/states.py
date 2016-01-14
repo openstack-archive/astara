@@ -24,6 +24,7 @@ RESTART = 'restart'
 REPLUG = 'replug'
 GONE = 'gone'
 ERROR = 'error'
+DEGRADED = 'degraded'
 
 # base list of ready states, driver can use its own list.
 READY_STATES = (UP, CONFIGURED)
