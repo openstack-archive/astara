@@ -187,3 +187,8 @@ class BaseDriver(object):
 
     def get_state(self, worker_context):
         """Returns the state of the managed resource"""
+
+    @property
+    def is_ha(self):
+        """Returns True if logical resource is set to be highly-available"""
+        return False
