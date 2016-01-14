@@ -167,6 +167,9 @@ class Router(object):
         self.internal_ports = internal_ports or []
         self.floating_ips = floating_ips or []
 
+        # XXX derive from the Neutron resource, this is set for testing.
+        self.ha = True
+
     def __repr__(self):
         return '<%s (%s:%s)>' % (self.__class__.__name__,
                                  self.name,

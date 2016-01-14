@@ -23,6 +23,8 @@ from oslo_config import cfg
 
 from astara.drivers import states
 from astara.common.i18n import _LE, _LI
+from astara.common import container
+
 
 CONF = cfg.CONF
 INSTANCE_MANAGER_OPTS = [
@@ -41,6 +43,24 @@ INSTANCE_MANAGER_OPTS = [
     ),
 ]
 CONF.register_opts(INSTANCE_MANAGER_OPTS)
+
+
+def _generate_interface_map(instance, interfaces):
+    # TODO(mark): We're in the first phase of VRRP, so we need
+    # map the interface to the network ID.
+    # Eventually we'll send VRRP data and real interface data
+    port_mac_to_net = {
+        p.mac_address: p.network_id
+        for p in instance.ports
+    }
+    # Add in the management port
+    mgt_port = instance.management_port
+    port_mac_to_net[mgt_port.mac_address] = mgt_port.network_id
+    # this is a network to logical interface id
+    return {
+        port_mac_to_net[i['lladdr']]: i['ifname']
+        for i in interfaces if i['lladdr'] in port_mac_to_net
+    }
 
 
 def synchronize_driver_state(f):
@@ -64,16 +84,11 @@ def ensure_cache(f):
     @wraps(f)
     def wrapper(self, worker_context, *args, **kw):
         # insure that self.instance_info is current before doing anything.
-        self.instance_info = (
-            worker_context.nova_client.get_instance_info(self.resource.name)
-        )
-        if self.instance_info:
-            (
-                self.instance_info.management_port,
-                self.instance_info.ports
-            ) = worker_context.neutron.get_ports_for_instance(
-                self.instance_info.id_
-            )
+        instances = worker_context.nova_client.get_instances_for_obj(
+            self.resource.name)
+        for inst_info in instances:
+            self.instances[inst_info.id_] = inst_info
+            self.instances.update_ports(worker_context)
 
         return f(self, worker_context, *args, **kw)
 
@@ -95,6 +110,277 @@ class BootAttemptCounter(object):
         return self._attempts
 
 
+class InstanceGroupManager(container.ResourceContainer):
+    def __init__(self, log, resource):
+        super(InstanceGroupManager, self).__init__()
+        self.log = log
+        self.resource = resource
+        self._alive = set()
+
+    def validate_ports(self):
+        """Checks whether instance have management ports attached
+
+        :returns: tuple containing two lists:
+             (instances that have ports, instances that don't)
+        """
+        has_ports = set()
+        for inst_info in set(self.resources.values()):
+            if inst_info.management_address:
+                has_ports.add(inst_info)
+        return has_ports, set(self.resources.values()) - has_ports
+
+    def are_alive(self):
+        """Calls the check_check function all instances to ensure liveliness
+
+        :returns: tuple containing two lists (alive_instances, dead_instances)
+        """
+        alive = set()
+        for i in six.moves.range(cfg.CONF.max_retries):
+            for inst_info in set(self.resources.values()) - alive:
+                if (inst_info.management_address and
+                   self.resource.is_alive(inst_info.management_address)):
+                    self.log.debug(
+                        'Instance %s found alive after %s of %s attempts',
+                        inst_info.id_, i, cfg.CONF.max_retries)
+                    alive.add(inst_info)
+                else:
+                    self.log.debug(
+                        'Alive check failed for instance %s. Attempt %d of %d',
+                        inst_info.id_, i, cfg.CONF.max_retries)
+
+            if not alive - set(self.resources.values()):
+                self._alive = [i.id_ for i in alive]
+                return alive, []
+
+        if not alive:
+            self.log.debug(
+                'Alive check failed for all instnaces after %s attempts.',
+                cfg.CONF.max_retries)
+            return [], self.resources.values()
+        dead = set(self.resources.values()) - alive
+        self._alive = [i.id_ for i in alive - dead]
+        return list(alive), list(dead)
+
+    def update_ports(self, worker_context):
+        for instance_info in self.resources.values():
+            if not instance_info:
+                continue
+            (
+                instance_info.management_port,
+                instance_info.ports
+            ) = worker_context.neutron.get_ports_for_instance(
+                instance_info.id_
+            )
+
+    def get_interfaces(self):
+        interfaces = {}
+        for inst in self.resources.values():
+            if inst.id_ not in self._alive:
+                self.log.debug("SKIPING %s ITS NOT ALIVE YET", inst)
+                continue
+            else:
+                interfaces[inst] = self.resource.get_interfaces(
+                    inst.management_address)
+        return interfaces
+
+    def verify_interfaces(self, ports):
+        """Verify at least one instance in group has correct ports plugged"""
+        for inst, interfaces in self.get_interfaces().items():
+            actual_macs = set((iface['lladdr'] for iface in interfaces))
+            self.log.debug(
+                'MACs found on %s: %s', inst.id_,
+                ', '.join(sorted(actual_macs)))
+            if not all(
+                getattr(p, 'mac_address', None) for p in ports
+            ):
+                return False
+
+            num_instance_ports = len(list(inst.ports))
+            num_logical_ports = len(list(ports))
+            if num_logical_ports != num_instance_ports:
+                self.log.debug(
+                    'Expected %s instance ports but found %s',
+                    num_logical_ports, num_instance_ports)
+                return False
+
+            expected_macs = set(p.mac_address
+                                for p in inst.ports)
+            expected_macs.add(inst.management_port.mac_address)
+            self.log.debug(
+                'MACs expected on: %s, %s',
+                inst.id_, ', '.join(sorted(expected_macs)))
+
+            if actual_macs == expected_macs:
+                self.log.debug('Found all expected MACs on %s', inst.id_)
+                return True
+
+        self.log.debug(
+            'Did not find all expected MACs on %s, actual MACs: %s',
+            self.resource.id, ', '.join(actual_macs))
+        return False
+
+    def _update_config(self, instance, config):
+        self.log.debug(
+            'Updating config for instance %s on resource %s',
+            instance.id_, self.resource.id)
+        self.log.debug('New config: %r', config)
+        attempts = cfg.CONF.max_retries
+        for i in six.moves.range(attempts):
+            try:
+                self.resource.update_config(
+                    instance.management_address,
+                    config)
+            except Exception:
+                if i == attempts - 1:
+                    # Only log the traceback if we encounter it many times.
+                    self.log.exception(_LE('failed to update config'))
+                else:
+                    self.log.debug(
+                        'failed to update config, attempt %d',
+                        i
+                    )
+                time.sleep(cfg.CONF.retry_delay)
+            else:
+                self.log.info('Instance config updated')
+                return True
+        else:
+            return False
+
+    def _ha_config(self, instance):
+        """Builds configuration describing the HA cluster
+
+        This informs the instance about any configuration relating to the HA
+        cluster it should be joining.  ATM this is primarily used to inform
+        an instance about the management addresses of its peers.
+
+        :param instance: InstanceInfo object
+        :returns: dict of HA configuration
+        """
+        peers = [
+            i.management_address for i in self.resources.values()
+            if i.management_address != instance.management_address]
+
+        # determine cluster priority by instance age. the older instance
+        # gets the higher priority
+        sorted_by_age = sorted(
+            self.resources.values(), key=lambda i: i.time_since_boot,
+            reverse=True)
+        if sorted_by_age.index(instance) == 0:
+            priority = 100
+        else:
+            priority = 50
+
+        return {
+            'peers': peers,
+            'priority': priority,
+        }
+
+    def configure(self, worker_context):
+        # XXX config update can be dispatched to threads to speed
+        # things up across multiple instances
+        failed = []
+        for inst, interfaces in self.get_interfaces().items():
+            # sending all the standard config over to the driver for
+            # final updates
+            config = self.resource.build_config(
+                worker_context,
+                inst.management_port,
+                _generate_interface_map(inst, interfaces)
+            )
+
+            # while drivers are free to express their own ha config
+            # requirements, the instance manager is the only one with
+            # high level view of the cluster, ie knowledge of membership
+            if self.resource.is_ha:
+                config['ha_config'] = config.get('ha') or {}
+                config['ha_config'].update(self._ha_config(inst))
+
+            self.log.debug(
+                'preparing to update config for instance %s on %s resource '
+                'to %r', inst.id_, self.resource.RESOURCE_NAME, config)
+
+            if not self._update_config(inst, config):
+                failed.append(inst)
+
+        if set(failed) == set(self.resources.values()):
+            self.log.error(
+                'Could not update config for any instances on %s resource %s, '
+                'marking resource state %s',
+                self.resource.id, self.resource.RESOURCE_NAME, states.RESTART)
+            return states.RESTART
+        elif failed:
+            self.log.error(
+                'Could not update config for some instances on %s '
+                'resource %s marking %s resource state',
+                self.resource.id, self.resource.RESOURCE_NAME, states.RESTART)
+
+            return states.DEGRADED
+        else:
+            self.log.debug(
+                'Config updated across all instances on %s resource %s',
+                self.resource.RESOURCE_NAME, self.resource.id)
+            return states.CONFIGURED
+
+    def delete(self, instance):
+        del self.resources[instance]
+
+    def refresh(self, worker_context):
+        for i in self.resources.values():
+            if not worker_context.nova_client.update_instance_info(i):
+                del self.resources[i.id_]
+
+    def destroy(self, worker_context):
+        worker_context.nova_client.delete_instances_and_wait(
+            self.resources.values())
+
+    @property
+    def next_instance_index(self):
+        ids = [
+            int(i.name.split('_')[1]) for i in
+            self.resources.values()]
+        try:
+            return max(ids) + 1
+        except ValueError:
+            return 0
+
+    def create(self, worker_context, resource):
+        # TODO: derive from resource based on HA needs
+        instance_count = 2
+
+        to_boot = instance_count - len(self.resources.items())
+        self.log.debug(
+            'Booting an additional %s instance(s) for resource %s',
+            to_boot, resource.id)
+
+        for i in six.moves.range(to_boot):
+            name = '%s_%s' % (resource.name, self.next_instance_index)
+            instance = worker_context.nova_client.boot_instance(
+                resource_type=self.resource.RESOURCE_NAME,
+                prev_instance_info=None,
+                name=name,
+                image_uuid=self.resource.image_uuid,
+                flavor=self.resource.flavor,
+                make_ports_callback=self.resource.make_ports(worker_context)
+
+            )
+            self.resources[instance.id_] = instance
+
+    @property
+    def required_instance_count(self):
+        if self.resource.is_ha:
+            return 2
+        else:
+            return 1
+
+    @property
+    def cluster_degraded(self):
+        if len(self.resources.values()) < self.required_instance_count:
+            return True
+        for inst in self.resources.values():
+            if inst.booting:
+                return True
+
+
 class InstanceManager(object):
 
     def __init__(self, resource, worker_context):
@@ -113,9 +399,10 @@ class InstanceManager(object):
         self.state = states.DOWN
 
         self.instance_info = None
+        self.instances = InstanceGroupManager(self.log, self.resource)
         self.last_error = None
         self._boot_counter = BootAttemptCounter()
-        self._boot_logged = False
+        self._boot_logged = []
         self._last_synced_status = None
 
         self.state = self.update_state(worker_context, silent=True)
@@ -150,71 +437,67 @@ class InstanceManager(object):
             self.state = states.GONE
             return self.state
 
-        if self.instance_info is None:
-            self.log.info(_LI('no backing instance, marking as %s'),
+        if not self.instances:
+            self.log.info(_LI('no backing instance(s), marking as %s'),
                           states.DOWN)
             self.state = states.DOWN
             return self.state
+        elif self.instances.cluster_degraded:
+            self.log.info(_LI(
+                'instance cluster for resource %s reports degraded'),
+                self.resource.id)
+            self.state = states.DEGRADED
+            return self.state
 
-        addr = self.instance_info.management_address
-        if not addr:
+        has_ports, no_ports = self.instances.validate_ports()
+
+        # ports_state=None means no instances have ports
+        if not has_ports:
             self.log.debug('waiting for instance ports to be attached')
             self.state = states.BOOTING
             return self.state
 
-        for i in six.moves.range(cfg.CONF.max_retries):
-            if self.resource.is_alive(self.instance_info.management_address):
-                if self.state != states.CONFIGURED:
-                    self.state = states.UP
-                break
-            if not silent:
-                self.log.debug('Alive check failed. Attempt %d of %d',
-                               i,
-                               cfg.CONF.max_retries)
-            time.sleep(cfg.CONF.retry_delay)
-        else:
-            old_state = self.state
-            self._check_boot_timeout()
+        # only a subset have ports
+        # elif no_ports:
+        #    degraded = True
 
-            # If the instance isn't responding, make sure Nova knows about it
-            instance = worker_context.nova_client.get_instance_for_obj(
-                self.resource.id)
-            if instance is None and self.state != states.ERROR:
-                self.log.info('No instance was found; rebooting')
-                self.state = states.DOWN
-                self.instance_info = None
+        alive, dead = self.instances.are_alive()
+        if not alive:
+            # alive checked failed on all instances for an already configured
+            # resource, mark it down.
+            # XXX need to track timeouts per instance
+            # self._check_boot_timeout()
 
-            # update_state() is called from Alive() to check the
-            # status of the router. If we can't talk to the API at
-            # that point, the router should be considered missing and
-            # we should reboot it, so mark it states.DOWN if we think it was
-            # configured before.
-            if old_state == states.CONFIGURED and self.state != states.ERROR:
-                self.log.debug('Instance not alive, marking it as %s',
+            if self.state == states.CONFIGURED:
+                self.log.debug('No instance(s) alive, marking it as %s',
                                states.DOWN)
                 self.state = states.DOWN
+                return self.state
+        elif dead:
+            # some subset of instances reported not alive, mark it degraded.
+            if self.state == states.CONFIGURED:
+                for i in dead:
+                    instance = worker_context.nova_client.get_instance_by_id(
+                        i.id_)
+                    if instance is None and self.state != states.ERROR:
+                        self.log.info(
+                            'Instance %s was found; rebooting', i.id_)
+                    self.instances.delete(i)
 
-        # After the instance is all the way up, record how long it took
-        # to boot and accept a configuration.
-        self.instance_info = (
-            worker_context.nova_client.update_instance_info(
-                self.instance_info))
+        self.instances.refresh(worker_context)
+        if self.state == states.CONFIGURED:
+            for i in alive:
+                if not i.booting and i not in self._boot_logged:
+                    self.log.info(
+                        '%s booted in %s seconds after %s attempts',
+                        self.resource.RESOURCE_NAME,
+                        i.time_since_boot.total_seconds(),
+                        self._boot_counter.count)
+                    self._boot_logged.append(i)
+        else:
+            if alive:
+                self.state = states.UP
 
-        if not self.instance_info.booting and self.state == states.CONFIGURED:
-            # If we didn't boot the server (because we were restarted
-            # while it remained running, for example), we won't have a
-            # duration to log.
-            if not self._boot_logged:
-                boot_time = self.instance_info.time_since_boot.total_seconds()
-                self.log.info('%s booted in %s seconds after %s attempts',
-                              self.resource.RESOURCE_NAME, boot_time,
-                              self._boot_counter.count)
-                self._boot_logged = True
-
-            # Always reset the boot counter, even if we didn't boot
-            # the server ourself, so we don't accidentally think we
-            # have an erroring router.
-            self._boot_counter.reset()
         return self.state
 
     @ensure_cache
@@ -230,34 +513,12 @@ class InstanceManager(object):
         # driver preboot hook
         self.resource.pre_boot(worker_context)
 
-        # try to boot the instance
-        try:
-            instance_info = worker_context.nova_client.boot_instance(
-                resource_type=self.resource.RESOURCE_NAME,
-                prev_instance_info=self.instance_info,
-                name=self.resource.name,
-                image_uuid=self.resource.image_uuid,
-                flavor=self.resource.flavor,
-                make_ports_callback=self.resource.make_ports(worker_context)
-            )
-            if not instance_info:
-                self.log.info(_LI('Previous instance is still deleting'))
-                # Reset the boot counter, causing the state machine to start
-                # again with a new Instance.
-                self.reset_boot_counter()
-                self.instance_info = None
-                return
-        except:
-            self.log.exception(_LE('Instance failed to start boot'))
-            self.resource.delete_ports(worker_context)
-        else:
-            # We have successfully started a (re)boot attempt so
-            # record the timestamp so we can report how long it takes.
-            self.state = states.BOOTING
-            self.instance_info = instance_info
+        self.instances.create(worker_context, self.resource)
+        self.state = states.BOOTING
 
         # driver post boot hook
         self.resource.post_boot(worker_context)
+        self.reset_boot_counter()
 
     @synchronize_driver_state
     @ensure_cache
@@ -312,31 +573,18 @@ class InstanceManager(object):
 
         self.resource.delete_ports(worker_context)
 
-        if not self.instance_info:
-            self.log.info(_LI('Instance already destroyed.'))
+        if not self.instances:
+            self.log.info(_LI('Instance(s) already destroyed.'))
             if self.state != states.GONE:
                 self.state = states.DOWN
             return self.state
 
         try:
-            worker_context.nova_client.destroy_instance(self.instance_info)
+            self.instances.destroy(worker_context)
+            if self.state != states.GONE:
+                self.state = states.DOWN
         except Exception:
-            self.log.exception(_LE('Error deleting router instance'))
-
-        start = time.time()
-        i = 0
-        while time.time() - start < cfg.CONF.boot_timeout:
-            i += 1
-            if not worker_context.nova_client.\
-                    get_instance_by_id(self.instance_info.id_):
-                if self.state != states.GONE:
-                    self.state = states.DOWN
-                return self.state
-            self.log.debug('Router has not finished stopping')
-            time.sleep(cfg.CONF.retry_delay)
-        self.log.error(_LE(
-            'Router failed to stop within %d secs'),
-            cfg.CONF.boot_timeout)
+            self.log.exception(_LE('Failed to stop instance(s)'))
 
     @synchronize_driver_state
     @ensure_cache
@@ -350,68 +598,19 @@ class InstanceManager(object):
         """
         self.log.debug('Begin instance config')
         self.state = states.UP
-        attempts = cfg.CONF.max_retries
 
         if self.resource.get_state(worker_context) == states.GONE:
             return states.GONE
 
-        interfaces = self.resource.get_interfaces(
-            self.instance_info.management_address)
-
-        if not self._verify_interfaces(self.resource.ports, interfaces):
-            # FIXME: Need a states.REPLUG state when we support hot-plugging
-            # interfaces.
+        if not self.instances.verify_interfaces(self.resource.ports):
+            # XXX Need to acct for degraded cluster /w subset of nodes
+            # having incorrect plugging.
             self.log.debug("Interfaces aren't plugged as expected.")
             self.state = states.REPLUG
             return self.state
 
-        # TODO(mark): We're in the first phase of VRRP, so we need
-        # map the interface to the network ID.
-        # Eventually we'll send VRRP data and real interface data
-        port_mac_to_net = {
-            p.mac_address: p.network_id
-            for p in self.instance_info.ports
-        }
-        # Add in the management port
-        mgt_port = self.instance_info.management_port
-        port_mac_to_net[mgt_port.mac_address] = mgt_port.network_id
-        # this is a network to logical interface id
-        iface_map = {
-            port_mac_to_net[i['lladdr']]: i['ifname']
-            for i in interfaces if i['lladdr'] in port_mac_to_net
-        }
-
-        # sending all the standard config over to the driver for final updates
-        config = self.resource.build_config(
-            worker_context,
-            mgt_port,
-            iface_map
-        )
-
-        self.log.debug('preparing to update config to %r', config)
-
-        for i in six.moves.range(attempts):
-            try:
-                self.resource.update_config(
-                    self.instance_info.management_address,
-                    config)
-            except Exception:
-                if i == attempts - 1:
-                    # Only log the traceback if we encounter it many times.
-                    self.log.exception(_LE('failed to update config'))
-                else:
-                    self.log.debug(
-                        'failed to update config, attempt %d',
-                        i
-                    )
-                time.sleep(cfg.CONF.retry_delay)
-            else:
-                self.state = states.CONFIGURED
-                self.log.info('Instance config updated')
-                return self.state
-        else:
-            self.state = states.RESTART
-            return self.state
+        self.state = self.instances.configure(worker_context)
+        return self.state
 
     def replug(self, worker_context):
 
@@ -424,51 +623,49 @@ class InstanceManager(object):
 
         self.resource.pre_plug(worker_context)
 
-        interfaces = self.resource.get_interfaces(
-            self.instance_info.management_address)
+        for instance, interfaces in self.instances.get_interfaces().items():
+            actual_macs = set((iface['lladdr'] for iface in interfaces))
+            instance_macs = set(p.mac_address for p in instance.ports)
+            instance_macs.add(instance.management_port.mac_address)
 
-        actual_macs = set((iface['lladdr'] for iface in interfaces))
-        instance_macs = set(p.mac_address for p in self.instance_info.ports)
-        instance_macs.add(self.instance_info.management_port.mac_address)
-
-        if instance_macs != actual_macs:
-            # our cached copy of the ports is wrong reboot and clean up
-            self.log.warning(
-                ('Instance macs(%s) do not match actual macs (%s). Instance '
-                 'cache appears out-of-sync'),
-                instance_macs, actual_macs
-            )
-            self.state = states.RESTART
-            return
-
-        instance_ports = {p.network_id: p for p in self.instance_info.ports}
-        instance_networks = set(instance_ports.keys())
-
-        logical_networks = set(p.network_id for p in self.resource.ports)
-
-        if logical_networks != instance_networks:
-            instance = worker_context.nova_client.get_instance_by_id(
-                self.instance_info.id_
-            )
-
-            # For each port that doesn't have a mac address on the instance...
-            for network_id in logical_networks - instance_networks:
-                port = worker_context.neutron.create_vrrp_port(
-                    self.resource.id,
-                    network_id
+            if instance_macs != actual_macs:
+                # our cached copy of the ports is wrong reboot and clean up
+                self.log.warning((
+                    'Instance macs(%s) do not match actual macs (%s). Instance'
+                    ' cache appears out-of-sync'),
+                    instance_macs, actual_macs
                 )
-                self.log.debug(
-                    'Net %s is missing from the router, plugging: %s',
-                    network_id, port.id
+                self.state = states.RESTART
+                return
+
+            instance_ports = {p.network_id: p for p in instance.ports}
+            instance_networks = set(instance_ports.keys())
+
+            logical_networks = set(p.network_id for p in self.resource.ports)
+
+            if logical_networks != instance_networks:
+                nova_instance = worker_context.nova_client.get_instance_by_id(
+                    instance.id_
                 )
 
-                try:
-                    instance.interface_attach(port.id, None, None)
-                except:
-                    self.log.exception('Interface attach failed')
-                    self.state = states.RESTART
-                    return
-                self.instance_info.ports.append(port)
+                # For each port that doesn't have a mac address on the instance
+                for network_id in logical_networks - instance_networks:
+                    port = worker_context.neutron.create_vrrp_port(
+                        self.resource.id,
+                        network_id
+                    )
+                    self.log.debug(
+                        'Net %s is missing from the appliance instance %s, '
+                        'plugging: %s', network_id, instance.id_, port.id
+                    )
+
+                    try:
+                        nova_instance.interface_attach(port.id, None, None)
+                    except:
+                        self.log.exception('Interface attach failed')
+                        self.state = states.RESTART
+                        return
+                    instance.ports.append(port)
 
             for network_id in instance_networks - logical_networks:
                 port = instance_ports[network_id]
@@ -478,36 +675,35 @@ class InstanceManager(object):
                 )
 
                 try:
-                    instance.interface_detach(port.id)
+                    nova_instance.interface_detach(port.id)
                 except:
                     self.log.exception('Interface detach failed')
                     self.state = states.RESTART
                     return
 
-                self.instance_info.ports.remove(port)
+                instance.ports.remove(port)
 
-        # The action of attaching/detaching interfaces in Nova happens via the
-        # message bus and is *not* blocking.  We need to wait a few seconds to
-        # see if the list of tap devices on the appliance actually changed.  If
-        # not, assume the hotplug failed, and reboot the Instance.
-        replug_seconds = cfg.CONF.hotplug_timeout
-        while replug_seconds > 0:
-            self.log.debug(
-                "Waiting for interface attachments to take effect..."
-            )
-            interfaces = self.resource.get_interfaces(
-                self.instance_info.management_address)
+            # The action of attaching/detaching interfaces in Nova happens via
+            # the message bus and is *not* blocking.  We need to wait a few
+            # seconds to if the list of tap devices on the appliance actually
+            # changed.  If not, assume the hotplug failed, and reboot the
+            # Instance.
+            for i in six.moves.range(1, cfg.CONF.hotplug_timeout):
+                self.log.debug(
+                    "Waiting for interface attachments to take effect..."
+                )
+                interfaces = self.resource.get_interfaces(
+                    instance.management_address)
 
-            if self._verify_interfaces(self.resource.ports, interfaces):
-                # replugging was successful
-                # TODO(mark) update port states
-                return
+                actual_macs = set((iface['lladdr'] for iface in interfaces))
+                instance_macs = set(p.mac_address for p in instance.ports)
+                instance_macs.add(instance.management_port.mac_address)
+                if actual_macs == instance_macs:
+                    return
+                time.sleep(1)
 
-            time.sleep(1)
-            replug_seconds -= 1
-
-        self.log.debug("Interfaces aren't plugged as expected, rebooting.")
-        self.state = states.RESTART
+            self.log.debug("Interfaces aren't plugged as expected, rebooting.")
+            self.state = states.RESTART
 
     def _check_boot_timeout(self):
         """If the instance was created more than `boot_timeout` seconds
