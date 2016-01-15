@@ -210,4 +210,3 @@ class TenantResourceManager(object):
             return self.state_machines[resource_id]
         except KeyError:
             return None
-        return self.state_machines.get_by_resource_id(resource_id)
