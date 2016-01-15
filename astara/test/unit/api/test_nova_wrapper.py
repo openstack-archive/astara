@@ -85,6 +85,17 @@ class FakeConf:
     instance_provider = 'foo'
 
 
+class NoProviderConf:
+    admin_user = 'admin'
+    admin_password = 'password'
+    admin_tenant_name = 'admin'
+    auth_url = 'http://127.0.0.1/'
+    auth_strategy = 'keystone'
+    auth_region = 'RegionOne'
+    router_image_uuid = 'astara-image'
+    router_instance_flavor = 1
+
+
 EXPECTED_USERDATA = """
 #cloud-config
 
@@ -361,6 +372,16 @@ class TestNovaWrapper(base.RugTestBase):
     def test_booting_true(self):
         self.INSTANCE_INFO.nova_status = 'BUILDING'
         self.assertTrue(self.INSTANCE_INFO.booting)
+
+    def test_no_provider_true(self):
+        instance = mock.Mock()
+        self.client.servers.list.return_value = [instance]
+
+        expected = [
+            mock.call.servers.list(search_opts={'name': 'foo_instance_name'})
+        ]
+        self.nova = nova.Nova(NoProviderConf)
+        assert isinstance(self.nova.instance_provider.create_instance, object)
 
 
 class TestOnDemandInstanceProvider(base.RugTestBase):
