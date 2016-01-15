@@ -53,6 +53,8 @@ function configure_astara() {
     # config_timeout in the RUG to reflect that timeout.
     iniset $ASTARA_CONF DEFAULT config_timeout 60
 
+    iniset $ASTARA_CONF DEFAULT enabled_drivers $ASTARA_ENABLED_DRIVERS
+
     if [[ "$Q_AGENT" == "linuxbridge" ]]; then
         iniset $ASTARA_CONF DEFAULT interface_driver "astara.common.linux.interface.BridgeInterfaceDriver"
     fi
@@ -81,7 +83,6 @@ function configure_astara_nova() {
 
 function configure_astara_neutron() {
     iniset $NEUTRON_CONF DEFAULT core_plugin astara_neutron.plugins.ml2_neutron_plugin.Ml2Plugin
-    iniset $NEUTRON_CONF DEFAULT service_plugins astara_neutron.plugins.ml2_neutron_plugin.L3RouterPlugin
     iniset $NEUTRON_CONF DEFAULT api_extensions_path $ASTARA_NEUTRON_DIR/astara_neutron/extensions
     # Use rpc as notification driver instead of the default no_ops driver
     # We need the RUG to be able to get neutron's events notification like port.create.start/end
