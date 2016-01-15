@@ -221,23 +221,6 @@ class OnDemandInstanceProvider(InstanceProvider):
 
         return instance_info
 
-    def get_instance_info(self, name):
-        """Retrieves an InstanceInfo object for a given instance name
-
-        :param name: name of the instance being queried
-
-        :returns: an InstanceInfo object representing the resource instance
-        """
-        instance = self.get_instance_for_obj(name)
-
-        if instance:
-            return InstanceInfo(
-                instance.id,
-                name,
-                image_uuid=instance.image['id']
-            )
-
-
 INSTANCE_PROVIDERS = {
     'on_demand': OnDemandInstanceProvider,
     'pez': PezInstanceProvider,
