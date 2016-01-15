@@ -1,50 +1,5 @@
 # -*- mode: shell-script -*-
 
-# Set up default directories
-ASTARA_DIR=${ASTARA_DIR:-$DEST/astara}
-ASTARA_CACHE_DIR=${ASTARA_CACHE_DIR:-/var/cache/astara}
-ASTARA_NEUTRON_DIR=${ASTARA_NEUTRON_DIR:-$DEST/astara-neutron}
-ASTARA_NEUTRON_REPO=${ASTARA_NEUTRON_REPO:-${GIT_BASE}/openstack/astara-neutron.git}
-ASTARA_NEUTRON_BRANCH=${ASTARA_NEUTRON_BRANCH:-master}
-
-ASTARA_APPLIANCE_DIR=${ASTARA_APPLIANCE_DIR:-$DEST/astara-appliance}
-ASTARA_APPLIANCE_REPO=${ASTARA_APPLIANCE_REPO:-${GIT_BASE}/openstack/astara-appliance.git}
-ASTARA_APPLIANCE_BRANCH=${ASTARA_APPLIANCE_BRANCH:-master}
-
-BUILD_ASTARA_APPLIANCE_IMAGE=$(trueorfalse False BUILD_ASTARA_APPLIANCE_IMAGE)
-ASTARA_DEV_APPLIANCE_URL=${ASTARA_DEV_APPLIANCE_URL:-http://tarballs.openstack.org/astara-appliance/images/astara_appliance.qcow2}
-ASTARA_DEV_APPLIANCE_FILE=${ASTARA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/astara.qcow2}
-ASTARA_DEV_APPLIANCE_BUILD_PROXY=${ASTARA_DEV_APPLIANCE_BUILD_PROXY:-""}
-ASTARA_DEV_APPLIANCE_ENABLED_DRIVERS="router,loadbalancer"
-
-ASTARA_HORIZON_DIR=${ASTARA_HORIZON_DIR:-$DEST/astara-horizon}
-ASTARA_HORIZON_REPO=${ASTARA_HORIZON_REPO:-${GIT_BASE}/openstack/astara-horizon}
-ASTARA_HORIZON_BRANCH=${ASTARA_HORIZON_BRANCH:-master}
-
-ASTARA_CONF_DIR=/etc/astara
-ASTARA_CONF=$ASTARA_CONF_DIR/orchestrator.ini
-
-# Router instances will run as a specific Nova flavor. These values configure
-# the specs of the flavor devstack will create.
-ROUTER_INSTANCE_FLAVOR_ID=${ROUTER_INSTANCE_FLAVOR_ID:-135}  # NOTE(adam_g): This can be auto-generated UUID once RUG supports non-int IDs here
-ROUTER_INSTANCE_FLAVOR_RAM=${ROUTER_INSTANCE_FLAVOR_RAM:-512}
-ROUTER_INSTANCE_FLAVOR_DISK=${ROUTER_INSTANCE_FLAVOR_DISK:-5}
-ROUTER_INSTANCE_FLAVOR_CPUS=${ROUTER_INSTANCE_FLAVOR_CPUS:-1}
-
-PUBLIC_INTERFACE_DEFAULT='eth0'
-ASTARA_MANAGEMENT_PREFIX=${ASTARA_MANAGEMENT_PREFIX:-"fdca:3ba5:a17a:acda::/64"}
-ASTARA_MANAGEMENT_PORT=${ASTARA_MANAGEMENT_PORT:-5000}
-ASTARA_API_PORT=${ASTARA_API_PORT:-44250}
-
-HORIZON_LOCAL_SETTINGS=$HORIZON_DIR/openstack_dashboard/local/local_settings.py
-
-# Path to public ssh key that will be added to the 'astara' users authorized_keys
-# within the appliance VM.
-ASTARA_APPLIANCE_SSH_PUBLIC_KEY=${ASTARA_APPLIANCE_SSH_PUBLIC_KEY:-$HOME/.ssh/id_rsa.pub}
-
-ASTARA_COORDINATION_ENABLED=$(trueorfalse True ASTARA_COORDINATION_ENABLED)
-ASTARA_COORDINATION_URL=${ASTARA_COORDINATION_URL:-memcached://localhost:11211}
-
 function colorize_logging {
     # Add color to logging output - this is lifted from devstack's functions to colorize the non-standard
     # astara format
@@ -358,7 +313,7 @@ if is_service_enabled astara; then
         install_astara
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
-        echo_summary "Installing Astara"
+        echo_summary "Astara Post-Config"
         configure_astara
         configure_astara_nova
         configure_astara_neutron
