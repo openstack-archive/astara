@@ -123,7 +123,7 @@ class PezPoolManager(object):
 
     def _check_err_instances(self, pools):
         """Scans the pool and deletes any instances in error state"""
-        for resource, pool in copy.copy(pools).iteritems():
+        for resource, pool in copy.copy(pools).items():
             err_instances = [i for i in pool if i.status == ERROR]
             for err_inst in err_instances:
                 LOG.error(_LE(
@@ -140,7 +140,7 @@ class PezPoolManager(object):
         # out what to do with them later.
         stuck_instances = []
         del_instances = []
-        for resource, pool in pools.iteritems():
+        for resource, pool in pools.items():
             del_instances += [i for i in pool if i.status == DELETING]
 
         # clean out counters for old instances that have been deleted entirely
@@ -164,7 +164,7 @@ class PezPoolManager(object):
 
     def _check_outdated_instances(self, pools):
         outdated_instances = []
-        for resource, pool in pools.iteritems():
+        for resource, pool in pools.items():
             for server in pool:
                 if server.image['id'] != str(self.images[resource]):
                     LOG.info(_LI(
