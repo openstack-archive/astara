@@ -347,7 +347,7 @@ class RouterDriverTest(base.RugTestBase):
         rtr._router = fake_router
         self.assertEqual(
             rtr.get_state(self.ctx),
-            fake_router.status,
+            states.CONFIGURED,
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 

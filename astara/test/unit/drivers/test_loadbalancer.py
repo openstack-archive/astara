@@ -318,7 +318,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb._loadbalancer = fake_lb
         self.assertEqual(
             lb.get_state(self.ctx),
-            fake_lb.status,
+            states.CONFIGURED,
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 

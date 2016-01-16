@@ -27,3 +27,11 @@ ERROR = 'error'
 
 # base list of ready states, driver can use its own list.
 READY_STATES = (UP, CONFIGURED)
+
+
+def internal(state_map, value):
+    """Helper function to map service state back to astara internal state"""
+    for k, v in state_map.items():
+        if v == value:
+            return k
+    return GONE
