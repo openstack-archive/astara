@@ -304,9 +304,7 @@ class LoadBalancer(BaseDriver):
         if not self._loadbalancer:
             return states.GONE
         else:
-            # NOTE(adam_g): We probably want to map this status back to
-            # an internal astara status
-            return self._loadbalancer.status
+            return states.internal(STATUS_MAP, self._loadbalancer.status)
 
     def synchronize_state(self, worker_context, state):
         self._ensure_cache(worker_context)

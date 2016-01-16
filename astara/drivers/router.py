@@ -319,9 +319,7 @@ class Router(BaseDriver):
         if not self._router:
             return states.GONE
         else:
-            # NOTE(adam_g): We probably want to map this status back to
-            # an internal astara status
-            return self._router.status
+            return states.internal(STATUS_MAP, self._router.status)
 
     def synchronize_state(self, worker_context, state):
         self._ensure_cache(worker_context)
