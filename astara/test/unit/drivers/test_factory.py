@@ -19,7 +19,7 @@ from astara import drivers
 
 class DriverFactoryTest(base.RugTestBase):
     def test_get_driver(self):
-        for k, v in drivers.AVAILABLE_DRIVERS.iteritems():
+        for k, v in drivers.AVAILABLE_DRIVERS.items():
             self.assertEqual(drivers.get(k), v)
 
     def test_get_bad_driver(self):
