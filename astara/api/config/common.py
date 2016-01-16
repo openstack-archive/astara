@@ -17,10 +17,6 @@
 
 import re
 
-from oslo_log import log as logging
-
-LOG = logging.getLogger(__name__)
-
 SERVICE_STATIC = 'static'
 
 

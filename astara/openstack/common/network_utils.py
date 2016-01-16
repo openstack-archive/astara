@@ -36,10 +36,6 @@
 Network-related utilities and helper functions.
 """
 
-import logging
-
-LOG = logging.getLogger(__name__)
-
 
 def parse_host_port(address, default_port=None):
     """
