@@ -48,7 +48,7 @@ Kick off an image build using diskimage-builder:
 ::
 
     cd astara-appliance
-    ELEMENTS_PATH=diskimage-builder/elements DIB_RELEASE=wheezy DIB_EXTLINUX=1 \
+    ELEMENTS_PATH=diskimage-builder/elements DIB_RELEASE=jessie DIB_EXTLINUX=1 \
     disk-image-create debian vm astara -o astara
 
 Publish the image
