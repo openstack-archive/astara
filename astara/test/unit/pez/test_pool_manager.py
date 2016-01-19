@@ -18,6 +18,7 @@ import copy
 import mock
 import time
 
+from six.moves import range
 from astara.pez import pool as ak_pool
 from astara.test.unit import base
 

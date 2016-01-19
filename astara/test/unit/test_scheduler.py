@@ -18,6 +18,7 @@
 import uuid
 
 import mock
+from six.moves import range as six_range
 from oslo_config import cfg
 import unittest2 as unittest
 
@@ -65,7 +66,7 @@ class TestDispatcher(unittest.TestCase):
         return str(uuid.UUID(fields=(1, 2, 3, 4, 5, i)))
 
     def test_pick(self):
-        for i in range(len(self.workers)):
+        for i in six_range(len(self.workers)):
             router_id = self._mk_uuid(i)
             self.assertEqual(
                 [i],
@@ -82,7 +83,7 @@ class TestDispatcher(unittest.TestCase):
         )
 
     def test_pick_with_spaces(self):
-        for i in range(len(self.workers)):
+        for i in six_range(len(self.workers)):
             router_id = ' %s ' % self._mk_uuid(i)
             self.assertEqual(
                 [i],
@@ -91,7 +92,7 @@ class TestDispatcher(unittest.TestCase):
             )
 
     def test_pick_invalid(self):
-        for i in range(len(self.workers)):
+        for i in six_range(len(self.workers)):
             router_id = self._mk_uuid(i) + 'Z'
             self.assertEqual(
                 [],

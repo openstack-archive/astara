@@ -20,6 +20,7 @@ from collections import deque
 import mock
 import unittest2 as unittest
 
+from six.moves import range
 from astara import event
 from astara import state
 from astara import instance_manager

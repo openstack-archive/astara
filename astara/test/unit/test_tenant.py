@@ -19,6 +19,7 @@ import uuid
 import mock
 import unittest2 as unittest
 
+from six.moves import range
 from astara import event
 from astara import tenant
 from astara.drivers import router
