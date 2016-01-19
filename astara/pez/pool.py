@@ -17,6 +17,7 @@
 import copy
 import time
 
+from six.moves import range
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
