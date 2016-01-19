@@ -219,7 +219,6 @@ class OnDemandInstanceProvider(InstanceProvider):
             status=server.status,
             last_boot=boot_time)
 
-        instance_info.nova_status = server_status
         return instance_info
 
     def get_instance_info(self, name):
