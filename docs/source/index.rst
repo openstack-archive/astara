@@ -26,6 +26,7 @@ Narrative Documentation
    appliance.rst
    contribute.rst
    operation.rst
+   install.rst
    developer_quickstart.rst
    reference.rst
    release_notes.rst
