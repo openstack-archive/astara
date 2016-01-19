@@ -48,7 +48,7 @@ class Event(object):
     def __eq__(self, other):
         if not type(self) == type(other):
             return False
-        for k, v in vars(self).iteritems():
+        for k, v in vars(self).items():
             if k not in vars(other):
                 return False
             if vars(other)[k] != v:
