@@ -15,8 +15,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import logging
-
 import mock
 import unittest2 as unittest
 from datetime import datetime, timedelta
@@ -31,8 +29,6 @@ from oslo_config import cfg
 
 states.RETRY_DELAY = 0.4
 states.BOOT_WAIT = 1
-
-LOG = logging.getLogger(__name__)
 
 
 class FakeModel(object):
