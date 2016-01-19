@@ -15,10 +15,7 @@
 import os
 
 from oslo_config import cfg
-from oslo_log import log
 
-
-LOG = log.getLogger(__name__)
 
 PREFERRED_CONFIG_FILEPATH = '/etc/astara/orchestrator.ini'
 SEARCH_DIRS = ['/etc/astara', '/etc/akanda-rug', '/etc/akanda']
