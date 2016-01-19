@@ -18,6 +18,7 @@
 import uuid
 
 import mock
+from six.moves import range
 from oslo_config import cfg
 import unittest2 as unittest
 

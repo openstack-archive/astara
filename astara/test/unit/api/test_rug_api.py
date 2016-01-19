@@ -1,6 +1,7 @@
 import unittest
 import socket
 
+from six.moves import range
 from cliff import commandmanager
 import mock
 from oslo_log import loggers

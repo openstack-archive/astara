@@ -16,6 +16,7 @@
 
 import uuid
 
+from six.moves import range
 from astara.test.unit.db import base
 
 

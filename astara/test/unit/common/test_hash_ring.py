@@ -17,6 +17,7 @@
 import hashlib
 
 import mock
+from six.moves import range
 from oslo_config import cfg
 from testtools import matchers
 

@@ -20,6 +20,7 @@ import logging
 import mock
 import unittest2 as unittest
 from datetime import datetime, timedelta
+from six.moves import range
 
 from astara import instance_manager
 from astara.api import nova

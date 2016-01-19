@@ -21,6 +21,7 @@ import threading
 
 from oslo_config import cfg
 import six
+from six.moves import range
 
 from astara.common.i18n import _
 
