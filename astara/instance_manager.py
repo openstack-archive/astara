@@ -324,11 +324,13 @@ class InstanceManager(object):
         self._ensure_cache(worker_context)
         self.log.info(_LI('Destroying instance'))
 
+        self.driver.delete_ports(worker_context)
+
         if not self.instance_info:
             self.log.info(_LI('Instance already destroyed.'))
-            return states.GONE
-
-        self.driver.delete_ports(worker_context)
+            if self.state != states.GONE:
+                self.state = states.DOWN
+            return self.state
 
         try:
             worker_context.nova_client.destroy_instance(self.instance_info)
