@@ -25,7 +25,7 @@ SEARCH_DIRS = ['/etc/astara', '/etc/akanda-rug', '/etc/akanda']
 LEGACY_FILE_MAP = {
     'orchestrator.ini': 'rug.ini',
     'astara.pub': 'akanda.pub'
-    }
+}
 
 DEFAULT_CONFIG_FILES = [
     PREFERRED_CONFIG_FILEPATH
