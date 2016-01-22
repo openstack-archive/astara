@@ -1,0 +1,10 @@
+Code-Review+1: Yang Hongyang <hongyang.yang@easystack.cn>
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 22 Jan 2016 18:44:36 +0000
+Reviewed-on: https://review.openstack.org/268085
+Project: openstack/astara
+Branch: refs/heads/master
