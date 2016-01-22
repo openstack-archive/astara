@@ -1,0 +1,3 @@
+---
+fixes:
+  - Bug `1535857 <https://bugs.launchpad.net/astara/+bug/1535857/>`_ The additional \"leadership\" member reported by zookeeper is now ignored to avoid hashing resources to a non-existent node.
