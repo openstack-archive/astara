@@ -64,8 +64,7 @@ def fake_loadbalancer():
                 {'ip_address': '192.168.0.132',
                  'subnet_id': u'8c58b558-be54-45de-9873-169fe845bb80'},
                 {'ip_address': 'fdd6:a1fa:cfa8:6af6:f816:3eff:feff:327c',
-                 'subnet_id': u'89fe7a9d-be92-469c-9a1e-503a39462ed1'}]
-            }
+                 'subnet_id': u'89fe7a9d-be92-469c-9a1e-503a39462ed1'}]}
     }
     return neutron.LoadBalancer.from_dict(lb_dict)
 

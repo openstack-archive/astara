@@ -62,8 +62,7 @@ class TestAstaraClient(unittest.TestCase):
                   'dns_nameservers': [],
                   'host_routes': [],
                   'gateway_ip': '10.0.0.1',
-                  },
-                 ],
+                  }, ],
              'allocations': []}
         ]
 

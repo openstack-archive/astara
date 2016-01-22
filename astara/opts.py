@@ -44,7 +44,7 @@ def list_opts():
              astara.metadata.METADATA_OPTS,
              astara.health.HEALTH_INSPECTOR_OPTS,
              astara.instance_manager.INSTANCE_MANAGER_OPTS
-             ))
+         ))
     ]
 
 
