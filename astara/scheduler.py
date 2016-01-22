@@ -21,6 +21,7 @@
 import multiprocessing
 import uuid
 
+from six.moves import range
 from oslo_config import cfg
 from oslo_log import log as logging
 

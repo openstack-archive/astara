@@ -17,6 +17,7 @@
 
 import mock
 
+from six.moves import range
 from astara.test.unit import base
 from astara.test.unit import fakes
 

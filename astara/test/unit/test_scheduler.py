@@ -18,6 +18,7 @@
 import uuid
 
 import mock
+from six.moves import range
 from oslo_config import cfg
 import unittest2 as unittest
 
@@ -57,7 +58,7 @@ class TestDispatcher(unittest.TestCase):
 
     def setUp(self):
         super(TestDispatcher, self).setUp()
-        self.workers = range(5)
+        self.workers = list(range(5))
         self.d = scheduler.Dispatcher(self.workers)
 
     def _mk_uuid(self, i):
