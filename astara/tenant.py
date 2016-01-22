@@ -20,6 +20,7 @@
 
 import collections
 import threading
+import datetime
 
 from oslo_log import log as logging
 from oslo_utils import timeutils
@@ -118,7 +119,7 @@ class TenantResourceManager(object):
         LOG.debug('reporting bandwidth for %s', resource_id)
         msg = {
             'tenant_id': self.tenant_id,
-            'timestamp': timeutils.isotime(),
+            'timestamp': datetime.datetime.isoformat(timeutils.utcnow()),
             'event_type': 'astara.bandwidth.used',
             'payload': dict((b.pop('name'), b) for b in bandwidth),
             'uuid': resource_id,
