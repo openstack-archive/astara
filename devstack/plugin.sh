@@ -72,6 +72,7 @@ function configure_astara() {
     sudo cp $ASTARA_DIR/etc/rootwrap.conf $ASTARA_CONF_DIR
     sudo cp $ASTARA_DIR/etc/rootwrap.d/* $ASTARA_CONF_DIR/rootwrap.d/
 
+    (cd $ASTARA_DIR ;exec tools/generate_config_file_samples.sh)
     cp $ASTARA_DIR/etc/orchestrator.ini.sample $ASTARA_CONF
     cp $ASTARA_DIR/etc/provider_rules.json $ASTARA_PROVIDER_RULE_CONF
     iniset $ASTARA_CONF DEFAULT debug True

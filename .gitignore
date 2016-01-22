@@ -33,6 +33,7 @@ pip-log.txt
 AUTHORS
 ChangeLog
 
+orchestrator.ini.sample
 test.conf
 
 *.swp
