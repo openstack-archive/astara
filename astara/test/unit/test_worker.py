@@ -333,6 +333,28 @@ class TestWorker(WorkerTestBase):
         self._test__should_process_command(
             fake_hash, cmds=cmds, key=DC_KEY, negative=True)
 
+    def test__release_resource_lock(self):
+        resource_id = '0ae77286-c0d6-11e5-9181-525400137dfc'
+        fake_lock = mock.Mock(release=mock.Mock())
+
+        self.w._resource_locks = {
+            resource_id: fake_lock
+        }
+        fake_sm = mock.Mock(resource_id=resource_id)
+        self.w._release_resource_lock(fake_sm)
+        self.assertTrue(fake_lock.release.called)
+
+    def test__release_resource_lock_unlocked(self):
+        resource_id = '0ae77286-c0d6-11e5-9181-525400137dfc'
+        fake_lock = mock.Mock(release=mock.Mock())
+        fake_lock.release.side_effect = threading.ThreadError()
+        self.w._resource_locks = {
+            resource_id: fake_lock
+        }
+        fake_sm = mock.Mock(resource_id=resource_id)
+        # just ensure we dont raise
+        self.w._release_resource_lock(fake_sm)
+
 
 class TestResourceCache(WorkerTestBase):
     def setUp(self):
