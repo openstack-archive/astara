@@ -496,7 +496,24 @@ class TestInstanceManager(base.RugTestBase):
         self.ctx.nova_client.get_instance_by_id.assert_called_with(
             self.INSTANCE_INFO.id_
         )
+        self.fake_driver.delete_ports.assert_called_with(self.ctx)
         self.assertEqual(self.instance_mgr.state, states.GONE)
+
+    @mock.patch('time.sleep')
+    def test_stop_no_inst_router_already_deleted_from_neutron(self, sleep):
+        self.instance_mgr.state = states.GONE
+        self.ctx.nova_client.get_instance_info.return_value = None
+        self.instance_mgr.stop(self.ctx)
+        self.fake_driver.delete_ports.assert_called_with(self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.GONE)
+
+    @mock.patch('time.sleep')
+    def test_stop_instance_already_deleted_from_nova(self, sleep):
+        self.instance_mgr.state = states.RESTART
+        self.ctx.nova_client.get_instance_info.return_value = None
+        self.instance_mgr.stop(self.ctx)
+        self.fake_driver.delete_ports.assert_called_with(self.ctx)
+        self.assertEqual(self.instance_mgr.state, states.DOWN)
 
     def test_configure_success(self):
         self.fake_driver.build_config.return_value = 'fake_config'
