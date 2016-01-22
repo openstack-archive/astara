@@ -20,13 +20,11 @@
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_db.sqlalchemy import session as db_session
-from oslo_log import log
 
 from astara.db import api
 from astara.db.sqlalchemy import models
 
 CONF = cfg.CONF
-LOG = log.getLogger(__name__)
 
 
 _FACADE = None

@@ -23,9 +23,6 @@ from astara import commands
 
 from novaclient import exceptions
 from oslo_config import cfg
-from oslo_log import log as logging
-
-LOG = logging.getLogger(__name__)
 
 
 class _TenantResourceCmd(message.MessageSending):
