@@ -18,6 +18,7 @@
 from datetime import datetime, timedelta
 
 import mock
+import copy
 from novaclient import exceptions as novaclient_exceptions
 from six.moves import builtins as __builtins__
 
@@ -361,6 +362,12 @@ class TestNovaWrapper(base.RugTestBase):
     def test_booting_true(self):
         self.INSTANCE_INFO.nova_status = 'BUILDING'
         self.assertTrue(self.INSTANCE_INFO.booting)
+
+    def test_no_provider_not_none(self):
+        NoProviderConf = copy.deepcopy(FakeConf)
+        del NoProviderConf.instance_provider
+        self.nova = nova.Nova(NoProviderConf)
+        self.assertIsNotNone(self.nova.instance_provider.create_instance)
 
 
 class TestOnDemandInstanceProvider(base.RugTestBase):

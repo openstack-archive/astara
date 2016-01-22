@@ -254,7 +254,7 @@ class Nova(object):
             default = INSTANCE_PROVIDERS['default']
             LOG.error(_LE('Could not find provider config, using default %s'),
                       default)
-            self.instance_provider = default
+            self.instance_provider = default(self.client)
 
     def get_instance_info(self, name):
         """Retrieves an InstanceInfo object for a given instance name
