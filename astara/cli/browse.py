@@ -78,7 +78,8 @@ class RouterRow(object):
         self.image_name = self.image_name or ''
         self.booted_at = self.booted_at or ''
         self.nova_status = self.nova_status or ''
-        if self.name:
+        self.tenant_id = '*'
+        if self.name and self.name.startswith('ak-'):
             self.tenant_id = self.name.replace('ak-', '')
 
     @classmethod
