@@ -1,0 +1,4 @@
+---
+fixes:
+  - Bug `1537500 <https://bugs.launchpad.net/astara/+bug/1537500>`_
+    Fixes tenant_id issue when rebuilding router from the astara-ctl browser
