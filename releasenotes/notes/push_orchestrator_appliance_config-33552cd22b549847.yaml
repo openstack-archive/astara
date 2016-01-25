@@ -1,0 +1,5 @@
+---
+features:
+  - >
+    The orchestrator now pushes local orchestrator-specific configuration into the appliance, allowing
+    services like the metadata proxy to be configured specifically for current cluster layout.

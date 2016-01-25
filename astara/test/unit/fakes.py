@@ -18,6 +18,8 @@ from astara.drivers import base
 from astara.api import neutron, nova
 from astara import worker
 
+FAKE_MGT_ADDR = '10.10.1.13'
+
 
 def fake_loadbalancer():
     lb_dict = {
@@ -170,4 +172,4 @@ def fake_worker_context():
         nova, 'Nova', autospec=True).start()
     mock.patch.object(
         nova, 'Nova', return_value=fake_nova_obj).start()
-    return worker.WorkerContext()
+    return worker.WorkerContext(FAKE_MGT_ADDR)
