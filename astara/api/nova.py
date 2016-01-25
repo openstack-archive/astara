@@ -110,7 +110,7 @@ class InstanceInfo(object):
 class InstanceProvider(object):
     def __init__(self, client):
         self.nova_client = client
-        LOG.info(_LI(
+        LOG.debug(_LI(
             'Initialized %s with novaclient %s'),
             self.__class__.__name__, self.nova_client)
 
@@ -129,7 +129,7 @@ class PezInstanceProvider(InstanceProvider):
     def __init__(self, client):
         super(PezInstanceProvider, self).__init__(client)
         self.rpc_client = pez_api.AstaraPezAPI(rpc_topic='astara-pez')
-        LOG.info(_LI(
+        LOG.debug(_LI(
             'Initialized %s with rpc client %s'),
             self.__class__.__name__, self.rpc_client)
 
