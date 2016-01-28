@@ -227,9 +227,9 @@ function pre_start_akanda() {
     local akanda_dev_image_src=""
     local lb_element=""
 
-    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ]; then
+    if [ "$BUILD_AKANDA_APPLIANCE_IMAGE" == "True" ] || [ "$BUILD_ASTARA_APPLIANCE_IMAGE" == "True" ]; then
         if [[ $(type -P disk-image-create) == "" ]]; then
-            pip_install "diskimage-builder<0.1.43"
+            pip_install "diskimage-builder"
         fi
 
         if [[ "$AKANDA_DEV_APPLIANCE_ENABLED_DRIVERS" =~ "loadbalancer" ]]; then
