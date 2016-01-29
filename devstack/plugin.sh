@@ -178,9 +178,6 @@ function pre_start_astara() {
     iniset $ASTARA_CONF DEFAULT external_subnet_id $public_subnet_id
     neutron $auth_args subnet-create --ip-version 6 $PUBLIC_NETWORK_NAME fdee:9f85:83be::/48
 
-    # Point neutron-astara at the subnet to use for floating IPs.  This requires a neutron service restart (later) to take effect.
-    iniset $NEUTRON_CONF astara floatingip_subnet $public_subnet_id
-
     # setup masq rule for public network
     sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
 
