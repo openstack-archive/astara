@@ -212,6 +212,40 @@ class Router(object):
         )
 
 
+class Network(DictModelBase):
+    DICT_ATTRS = ('id', 'name', 'tenant_id', 'status', 'shared',
+                  'admin_state_up', 'mtu', 'port_security_enabled')
+
+    def __init__(self, id_, name, tenant_id, status, shared, admin_state_up,
+                 mtu=None, port_security_enabled=False, subnets=()):
+        self.id = id_
+        self.name = name
+        self.tenant_id = tenant_id
+        self.shared = shared
+        self.admin_state_up = admin_state_up
+        self.mtu = mtu
+        self.port_security_enabled = port_security_enabled
+        self.subnets = subnets
+
+    @classmethod
+    def from_dict(cls, d):
+        optional = {}
+
+        for opt in ['mtu', 'port_security_enabled']:
+            if opt in d:
+                optional[opt] = d[opt]
+
+        return cls(
+            d['id'],
+            d['name'],
+            d['tenant_id'],
+            d['status'],
+            d['shared'],
+            d['admin_state_up'],
+            **optional
+        )
+
+
 class Subnet(DictModelBase):
     DICT_ATTRS = ('id', 'name', 'tenant_id', 'network_id', 'ip_version',
                   'cidr', 'gateway_ip', 'enable_dhcp', 'dns_nameservers',
@@ -649,6 +683,13 @@ class Neutron(object):
                          s.get('id'), s.get('cidr'),
                          network_id, e)
         return response
+
+    def get_network_detail(self, network_id):
+        network_response = self.api_client.show_network(network_id)['network']
+        network = Network.from_dict(network_response)
+        network.subnets = self.get_network_subnets(network_id)
+
+        return network
 
     def get_ports_for_instance(self, instance_id):
         ports = self.api_client.list_ports(device_id=instance_id)['ports']
