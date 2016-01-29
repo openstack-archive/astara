@@ -17,7 +17,6 @@
 
 import mock
 import netaddr
-from oslo_config import cfg
 import unittest2 as unittest
 
 from astara.api.config import common
@@ -26,15 +25,9 @@ from astara.test.unit.api.config import config_fakes as fakes
 
 
 class TestCommonConfig(unittest.TestCase):
-    def setUp(self):
-        cfg.CONF.set_override('provider_rules_path', '/the/path')
-
-    def tearDown(self):
-        cfg.CONF.reset()
-
     def test_network_config(self):
         mock_client = mock.Mock()
-        mock_client.get_network_subnets.return_value = [fakes.fake_subnet]
+        mock_client.get_network_detail.return_value = fakes.fake_network
         subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
 
         with mock.patch.object(common, '_make_network_config_dict') as nc:
@@ -50,13 +43,14 @@ class TestCommonConfig(unittest.TestCase):
                     [])
 
                 ic.assert_called_once_with(
-                    'ge1', fakes.fake_int_port, subnets_dict)
+                    'ge1', fakes.fake_int_port, subnets_dict, 1280)
                 nc.assert_called_once_with(
                     mock_interface,
                     'internal',
                     'int-net',
+                    mtu=1280,
                     subnets_dict=subnets_dict,
-                    network_ports=[])
+                    network_ports=[]),
 
     def test_make_network_config(self):
         interface = {'ifname': 'ge2'}
@@ -65,6 +59,7 @@ class TestCommonConfig(unittest.TestCase):
             interface,
             'internal',
             fakes.fake_int_port.network_id,
+            1280,
             'dhcp',
             'ra',
             subnets_dict={fakes.fake_subnet.id: fakes.fake_subnet},
@@ -76,6 +71,7 @@ class TestCommonConfig(unittest.TestCase):
             'v4_conf_service': 'dhcp',
             'v6_conf_service': 'ra',
             'network_type': 'internal',
+            'mtu': 1280,
             'subnets': [{'cidr': '192.168.1.0/24',
                          'dhcp_enabled': True,
                          'dns_nameservers': ['8.8.8.8'],
@@ -94,12 +90,22 @@ class TestCommonConfig(unittest.TestCase):
         self.assertEqual(result, expected)
 
     def test_interface_config(self):
-        expected = {'addresses': ['192.168.1.1/24'], 'ifname': 'ge1'}
+        expected = {
+            'addresses': ['192.168.1.1/24'],
+            'ifname': 'ge1',
+            'mtu': 1280
+        }
         subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
 
         self.assertEqual(
             expected,
-            common._interface_config('ge1', fakes.fake_int_port, subnets_dict))
+            common._interface_config(
+                'ge1',
+                fakes.fake_int_port,
+                subnets_dict,
+                1280
+            )
+        )
 
     def test_subnet_config(self):
         expected = {

@@ -1,0 +1,3 @@
+---
+fixes:
+  - Bug `1539786 <https://bugs.launchpad.net/astara/+bug/1539786/>`_ Varible MTU support is now supported by the orchestrator and passed to appliance. This requires Neutron with MTU extension enabled to support.
