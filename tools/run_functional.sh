@@ -7,7 +7,11 @@ LOG_FILE=$LOGDIR/astara_functional.log
 APPLIANCE_API_PORT=${APPLIANCE_API_PORT:-5000}
 SERVICE_TENANT_NAME=${SERVICE_TENANT_NAME:-service}
 if [ -z "$SERVICE_TENANT_ID" ]; then
-    SERVICE_TENANT_ID="$(keystone tenant-list | grep $SERVICE_TENANT_NAME | awk '{ print $2 }')"
+    SERVICE_TENANT_ID="$(openstack project list | grep $SERVICE_TENANT_NAME | awk '{ print $2 }')"
+    if [ -z "$SERVICE_TENANT_ID" ]; then
+        # Fallback to V2
+        SERVICE_TENANT_ID="$(keystone tenant-list | grep $SERVICE_TENANT_NAME | awk '{ print $2 }')"
+    fi
 fi
 
 cat <<END >$CONFIG_FILE
