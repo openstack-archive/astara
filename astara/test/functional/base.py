@@ -24,7 +24,10 @@ from oslo_log import log as logging
 
 from astara.api import astara_client
 
-from keystoneclient.v2_0 import client as _keystoneclient
+from keystoneclient import client as _keystoneclient
+from keystoneclient import auth as ksauth
+from keystoneclient import session as kssession
+
 from neutronclient.v2_0 import client as _neutronclient
 from novaclient import client as _novaclient
 
@@ -38,6 +41,8 @@ from astara.test.functional import config
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
 DEFAULT_ACTIVE_TIMEOUT = 340
 DEFAULT_DELETE_TIMEOUT = 60
+DEFAULT_DOMAIN = 'default'
+
 
 config.register_opts()
 CONF = cfg.CONF
@@ -76,16 +81,39 @@ class ClientManager(object):
         self._novaclient = None
 
     @property
+    def auth_version(self):
+        if self.auth_url.endswith('v3'):
+            return 3
+        else:
+            return 2.0
+
+    @property
+    def keystone_session(self):
+        auth_plugin = ksauth.get_plugin_class('password')
+        _args = {
+            'auth_url': self.auth_url,
+            'username': self.username,
+            'password': self.password,
+        }
+        if self.auth_version == 3:
+            _args.update({
+                'user_domain_name': DEFAULT_DOMAIN,
+                'project_domain_name': DEFAULT_DOMAIN,
+                'project_name': self.tenant_name,
+            })
+        else:
+            _args.update({
+                'tenant_name': self.tenant_name,
+            })
+        _auth = auth_plugin(**_args)
+        return kssession.Session(auth=_auth)
+
+    @property
     def novaclient(self):
         if not self._novaclient:
             self._novaclient = _novaclient.Client(
                 version=2,
-                username=self.username,
-                api_key=self.password,
-                project_id=self.tenant_name,
-                auth_url=self.auth_url,
-                auth_system='keystone',
-                auth_plugin='password',
+                session=self.keystone_session,
             )
         return self._novaclient
 
@@ -93,23 +121,15 @@ class ClientManager(object):
     def neutronclient(self):
         if not self._neutronclient:
             self._neutronclient = _neutronclient.Client(
-                username=self.username,
-                password=self.password,
-                tenant_name=self.tenant_name,
-                auth_url=self.auth_url,
-                auth_system='keystone',
+                session=self.keystone_session,
             )
         return self._neutronclient
 
     @property
     def keystoneclient(self):
         if not self._keystoneclient:
-            self._keystoneclient = _keystoneclient.Client(
-                username=self.username,
-                password=self.password,
-                tenant_name=self.tenant_name,
-                auth_url=self.auth_url
-            )
+            client = _keystoneclient.Client(session=self.keystone_session)
+            self._keystoneclient = client
         return self._keystoneclient
 
     @property
@@ -196,6 +216,7 @@ class TestTenant(object):
         self.password = data_utils.rand_password()
         self.tenant_name = data_utils.rand_name(name='tenant', prefix='akanda')
         self.tenant_id = None
+        self.role_name = data_utils.rand_name(name='role', prefix='akanda')
 
         self._admin_clients = AdminClientManager()
         self._admin_ks_client = self._admin_clients.keystoneclient
@@ -206,17 +227,32 @@ class TestTenant(object):
 
         self.clients = ClientManager(self.username, self.password,
                                      self.tenant_name, self.auth_url)
+        self.tester = ClientManager('demo', 'akanda', 'demo', self.auth_url)
 
         self._subnets = []
         self._routers = []
 
     def _create_tenant(self):
-        tenant = self._admin_ks_client.tenants.create(self.tenant_name)
-        self.tenant_id = tenant.id
-        user = self._admin_ks_client.users.create(name=self.username,
-                                                  password=self.password,
-                                                  tenant_id=self.tenant_id)
+        if self._admin_clients.auth_version == 3:
+            tenant = self._admin_ks_client.projects.create(
+                name=self.tenant_name,
+                domain=DEFAULT_DOMAIN)
+            user = self._admin_ks_client.users.create(
+                name=self.username,
+                password=self.password,
+                project_domain_name=DEFAULT_DOMAIN,
+                default_project=self.tenant_name)
+        else:
+            tenant = self._admin_ks_client.tenants.create(self.tenant_name)
+            self.tenant_id = tenant.id
+            user = self._admin_ks_client.users.create(
+                name=self.username,
+                password=self.password,
+                tenant_id=self.tenant_id)
+        role = self._admin_ks_client.roles.create(name=self.role_name)
+        self._admin_ks_client.roles.grant(role=role, user=user, project=tenant)
         self.user_id = user.id
+        self.tenant_id = tenant.id
         LOG.debug('Created new test tenant: %s (%s)',
                   self.tenant_id, self.user_id)
 
@@ -452,7 +488,10 @@ class TestTenant(object):
         self.cleanup_neutron()
 
         self._admin_ks_client.users.delete(self.user_id)
-        self._admin_ks_client.tenants.delete(self.tenant_id)
+        if self._admin_clients.auth_version == 3:
+            self._admin_ks_client.projects.delete(self.tenant_id)
+        else:
+            self._admin_ks_client.tenants.delete(self.tenant_id)
 
 
 class AstaraFunctionalBase(testtools.TestCase):
