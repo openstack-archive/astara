@@ -23,8 +23,15 @@ DRIVER_OPTS = [
                 default=['router', ],
                 help='list of drivers the rug process will load'),
 ]
-
 cfg.CONF.register_opts(DRIVER_OPTS)
+
+ASTARA_APP_OPTS = [
+    cfg.IntOpt('max_sleep', default=15,
+               help='The max sleep seconds between each attempt by'
+                    ' neutron client for fetching resource.'),
+]
+cfg.CONF.register_group(cfg.OptGroup(name='astara_appliance'))
+cfg.CONF.register_opts(ASTARA_APP_OPTS, 'astara_appliance')
 
 LOG = logging.getLogger(__name__)
 
