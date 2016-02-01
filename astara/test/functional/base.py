@@ -242,6 +242,9 @@ class TestTenant(object):
                 password=self.password,
                 project_domain_name=DEFAULT_DOMAIN,
                 default_project=self.tenant_name)
+            role = self._admin_ks_client.roles.create(name=self.role_name)
+            self._admin_ks_client.roles.grant(role=role, user=user, project=tenant)
+
         else:
             tenant = self._admin_ks_client.tenants.create(self.tenant_name)
             self.tenant_id = tenant.id
@@ -249,8 +252,7 @@ class TestTenant(object):
                 name=self.username,
                 password=self.password,
                 tenant_id=self.tenant_id)
-        role = self._admin_ks_client.roles.create(name=self.role_name)
-        self._admin_ks_client.roles.grant(role=role, user=user, project=tenant)
+
         self.user_id = user.id
         self.tenant_id = tenant.id
         LOG.debug('Created new test tenant: %s (%s)',
