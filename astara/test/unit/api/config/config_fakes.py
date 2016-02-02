@@ -96,6 +96,18 @@ fake_subnet_with_slaac = Subnet(
     ipv6_ra_mode='slaac',
     host_routes={})
 
+fake_network = FakeModel(
+    'fake_network_id',
+    name='thenet',
+    tenant_id='tenant_id',
+    status='ACTIVE',
+    shared=False,
+    admin_statue_up=True,
+    mtu=1280,
+    port_security_enabled=False,
+    subnets=[fake_subnet]
+)
+
 fake_router = FakeModel(
     'router_id',
     tenant_id='tenant_id',

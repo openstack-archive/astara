@@ -21,21 +21,24 @@ SERVICE_STATIC = 'static'
 
 
 def network_config(client, port, ifname, network_type, network_ports=[]):
-    subnets = client.get_network_subnets(port.network_id)
-    subnets_dict = dict((s.id, s) for s in subnets)
+    network = client.get_network_detail(port.network_id)
+    subnets_dict = dict((s.id, s) for s in network.subnets)
+
     return _make_network_config_dict(
-        _interface_config(ifname, port, subnets_dict),
+        _interface_config(ifname, port, subnets_dict, network.mtu),
         network_type,
         port.network_id,
+        mtu=network.mtu,
         subnets_dict=subnets_dict,
         network_ports=network_ports)
 
 
-def _make_network_config_dict(interface, network_type, network_id,
+def _make_network_config_dict(interface, network_type, network_id, mtu=None,
                               v4_conf=SERVICE_STATIC, v6_conf=SERVICE_STATIC,
                               subnets_dict={}, network_ports=[]):
     return {'interface': interface,
             'network_id': network_id,
+            'mtu': mtu,
             'v4_conf_service': v4_conf,
             'v6_conf_service': v6_conf,
             'network_type': network_type,
@@ -43,13 +46,17 @@ def _make_network_config_dict(interface, network_type, network_id,
             'allocations': _allocation_config(network_ports, subnets_dict)}
 
 
-def _interface_config(ifname, port, subnets_dict):
+def _interface_config(ifname, port, subnets_dict, mtu):
     def fmt(fixed):
         return '%s/%s' % (fixed.ip_address,
                           subnets_dict[fixed.subnet_id].cidr.prefixlen)
 
-    return {'ifname': ifname,
-            'addresses': [fmt(fixed) for fixed in port.fixed_ips]}
+    retval = {'ifname': ifname,
+              'addresses': [fmt(fixed) for fixed in port.fixed_ips]}
+    if mtu:
+        retval['mtu'] = mtu
+
+    return retval
 
 
 def _subnet_config(subnet):
