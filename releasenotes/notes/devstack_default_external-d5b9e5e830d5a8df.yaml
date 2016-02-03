@@ -1,0 +1,17 @@
+---
+prelude: >
+    Astara has dropped a number of legacy convenience hooks available in
+    earlier releases.  The hooks complicated automation and created
+    potential for mismatch of end state and the desired state.
+fixes:
+    - Bug `1539345 <https://bugs.launchpad.net/astara/+bug/1539345>`_
+      auto added resources break interoperability
+upgrade:
+  - Astara will no longer automatically add the external gateway to a router.
+    Previous usage was causing issues with automation tooling.
+  - Astara no longer requires the external network and subnet id to be known.
+    In production deployments this step was handled externally and the
+    internal hooks were often disabled.
+critical:
+  - The devstack plugin no longer creates the external network as before and
+    instead follows the setup used for reference implementation.

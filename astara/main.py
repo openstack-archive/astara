@@ -46,7 +46,6 @@ MAIN_OPTS = [
     cfg.StrOpt('host',
                default=socket.getfqdn(),
                help="The hostname Astara is running on"),
-    cfg.BoolOpt('plug_external_port', default=True),
 ]
 CONF.register_opts(MAIN_OPTS)
 
@@ -121,10 +120,6 @@ def main(argv=sys.argv[1:]):
 
     # bring the mgt tap interface up
     mgt_ip_address = neutron.ensure_local_service_port().split('/')[0]
-
-    # bring the external port
-    if cfg.CONF.plug_external_port:
-        neutron.ensure_local_external_port()
 
     # Set up the queue to move messages between the eventlet-based
     # listening process and the scheduler.

@@ -164,21 +164,6 @@ class Router(BaseDriver):
         self.log.info(_('Config updated for %s after %s seconds'),
                       self.name, round(delta, 2))
 
-    def pre_plug(self, worker_context):
-        """pre-plug hook
-        Sets up the external port.
-
-        :param worker_context:
-        :returs: None
-        """
-        if self._router.external_port is None:
-            # FIXME: Need to do some work to pick the right external
-            # network for a tenant.
-            self.log.debug('Adding external port to router %s')
-            ext_port = worker_context.neutron.create_router_external_port(
-                self._router)
-            self._router.external_port = ext_port
-
     def make_ports(self, worker_context):
         """make ports call back for the nova client.
 
