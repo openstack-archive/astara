@@ -6,7 +6,7 @@ Service VM Orchestration and Management
 Astara Orchestrator
 -----------------------------
 
-:program:`astara-orchestrator` is a multiprocessed, multithreaded Python process
+:program:`astara-orchestrator` is a multi-processed, multithreaded Python process
 composed of three primary subsystems, each of which are spawned as a subprocess
 of the main :py:mod:`astara-orchestrator` process:
 
@@ -86,7 +86,7 @@ The supported states in the state machine are:
         a Neutron router is deleted or via explicit operator tools.
 
     :ClearError: After a (configurable) number of ``nova boot`` failures, Neutron
-        routers are automatically transitioned into a cooldown ``ERROR`` state
+        routers are automatically transitioned into a cool down ``ERROR`` state
         (so that :py:mod:`astara` will not continue to boot them forever; this is
         to prevent further exasperation of failing hypervisors).   This state
         transition is utilized to add routers back into management after issues
