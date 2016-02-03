@@ -296,9 +296,11 @@ function set_neutron_user_permission() {
     # public networks, we need to modify the policy and allow users with the service
     # to do that too.
 
+    echo "Updating Nova policy file"
+
     local old_value='"network:attach_external_network": "rule:admin_api"'
     local new_value='"network:attach_external_network": "rule:admin_api or role:service"'
-    sed -i "s/$old_value/$new_value/g" /etc/nova/policy.json
+    sed -i "s/$old_value/$new_value/g" "$NOVA_CONF_DIR/policy.json"
 }
 
 function set_demo_tenant_sec_group_private_traffic() {
@@ -332,7 +334,10 @@ if is_service_enabled astara; then
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Astara"
-        set_neutron_user_permission
+
+        if is_service_enabled n-api; then
+            set_neutron_user_permission
+        fi
         install_astara
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
