@@ -88,6 +88,7 @@ function configure_astara_neutron() {
     # We need the RUG to be able to get neutron's events notification like port.create.start/end
     # or router.interface.start/end to make it able to boot astara routers
     iniset $NEUTRON_CONF DEFAULT notification_driver "neutron.openstack.common.notifier.rpc_notifier"
+    iniset $NEUTRON_CONF DEFAULT astara_auto_add_resources False
 }
 
 function configure_astara_horizon() {
@@ -146,15 +147,6 @@ function create_astara_nova_flavor() {
     iniset $ASTARA_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
-function _remove_subnets() {
-    # Attempt to delete subnets associated with a network.
-    # We have to modify the output of net-show to allow it to be
-    # parsed properly as shell variables, and we run both commands in
-    # a subshell to avoid polluting the local namespace.
-    (eval $(neutron $auth_args net-show -f shell $1 | sed 's/:/_/g');
-        neutron $auth_args subnet-delete $subnets || true)
-}
-
 function pre_start_astara() {
     # Create and init the database
     recreate_database astara
@@ -166,32 +158,12 @@ function pre_start_astara() {
     # CLI.
     unset OS_TENANT_NAME OS_PROJECT_NAME
 
-    if ! neutron $auth_args net-show $PUBLIC_NETWORK_NAME; then
-        neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
-    fi
-
-    # Remove the ipv6 subnet created automatically before adding our own.
-    # NOTE(adam_g): For some reason this fails the first time and needs to be repeated?
-    _remove_subnets $PUBLIC_NETWORK_NAME ; _remove_subnets $PUBLIC_NETWORK_NAME
-
-    typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 $PUBLIC_NETWORK_NAME 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
-    iniset $ASTARA_CONF DEFAULT external_subnet_id $public_subnet_id
-    neutron $auth_args subnet-create --ip-version 6 $PUBLIC_NETWORK_NAME fdee:9f85:83be::/48
-
     # setup masq rule for public network
-    sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
-
-    neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }'
-
-    typeset public_network_id=$(neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }')
-    iniset $ASTARA_CONF DEFAULT external_network_id $public_network_id
+    #sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
 
     neutron $auth_args net-create mgt
     typeset mgt_network_id=$(neutron $auth_args net-show mgt | grep ' id ' | awk '{ print $4 }')
     iniset $ASTARA_CONF DEFAULT management_network_id $mgt_network_id
-
-    # Remove the ipv6 subnet created automatically before adding our own.
-    _remove_subnets mgt
 
     local subnet_create_args=""
     if [[ "$ASTARA_MANAGEMENT_PREFIX" =~ ':' ]]; then
@@ -199,10 +171,6 @@ function pre_start_astara() {
     fi
     typeset mgt_subnet_id=$(neutron $auth_args subnet-create mgt $ASTARA_MANAGEMENT_PREFIX $subnet_create_args | grep ' id ' | awk '{ print $4 }')
     iniset $ASTARA_CONF DEFAULT management_subnet_id $mgt_subnet_id
-
-    # Remove the private network created by devstack
-    neutron $auth_args subnet-delete $PRIVATE_SUBNET_NAME
-    neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
     local astara_dev_image_src=""
     local lb_element=""
@@ -251,15 +219,6 @@ function pre_start_astara() {
     fi
 
     create_astara_nova_flavor
-
-    # Restart neutron so that `astara.floatingip_subnet` is properly set
-    if [[ "$USE_SCREEN" == "True" ]]; then
-        screen_stop_service q-svc
-    else
-        stop_process q-svc
-    fi
-    start_neutron_service_and_check
-    sleep 10
 }
 
 function start_astara() {
@@ -271,13 +230,8 @@ function start_astara() {
 }
 
 function post_start_astara() {
-    echo "Creating demo user network and subnet"
-    local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
-    neutron $auth_args net-create thenet
-    neutron $auth_args subnet-create thenet $FIXED_RANGE
-
     # Open all traffic on the private CIDR
-    set_demo_tenant_sec_group_private_traffic
+     set_demo_tenant_sec_group_private_traffic
 }
 
 function stop_astara() {
@@ -292,8 +246,6 @@ function set_neutron_user_permission() {
     # Since nova policy allows only vms booted by admin users to attach ports on the
     # public networks, we need to modify the policy and allow users with the service
     # to do that too.
-
-    echo "Updating Nova policy file"
 
     local old_value='"network:attach_external_network": "rule:admin_api"'
     local new_value='"network:attach_external_network": "rule:admin_api or role:service"'
@@ -331,7 +283,6 @@ if is_service_enabled astara; then
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Astara"
-
         if is_service_enabled n-api; then
             set_neutron_user_permission
         fi

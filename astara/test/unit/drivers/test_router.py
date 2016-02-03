@@ -117,25 +117,6 @@ class RouterDriverTest(base.RugTestBase):
             rtr.mgt_port,
             'fake_config',)
 
-    def test_pre_plug_no_external_port(self):
-        rtr = self._init_driver()
-        fake_router_obj = fakes.fake_router()
-        fake_router_obj.external_port = None
-        rtr._router = fake_router_obj
-        self.ctx.neutron.create_router_external_port.return_value = 'fake_port'
-        rtr.pre_plug(self.ctx)
-        self.ctx.neutron.create_router_external_port.assert_called_with(
-            fake_router_obj,
-        )
-        self.assertEqual(rtr._router.external_port, 'fake_port')
-
-    def test_pre_plug_with_external_port(self):
-        rtr = self._init_driver()
-        fake_router_obj = fakes.fake_router()
-        fake_router_obj.external_port = 'fake_port'
-        rtr.pre_plug(self.ctx)
-        self.assertFalse(self.ctx.neutron.create_router_external_port.called)
-
     @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_make_ports(self, mock_ensure_cache):
         rtr = self._init_driver()
