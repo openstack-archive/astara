@@ -88,6 +88,7 @@ function configure_astara_neutron() {
     # We need the RUG to be able to get neutron's events notification like port.create.start/end
     # or router.interface.start/end to make it able to boot astara routers
     iniset $NEUTRON_CONF DEFAULT notification_driver "neutron.openstack.common.notifier.rpc_notifier"
+    iniset $NEUTRON_CONF DEFAULT astara_auto_add_resources False
 }
 
 function configure_astara_horizon() {
@@ -146,15 +147,6 @@ function create_astara_nova_flavor() {
     iniset $ASTARA_CONF router instance_flavor $ROUTER_INSTANCE_FLAVOR_ID
 }
 
-function _remove_subnets() {
-    # Attempt to delete subnets associated with a network.
-    # We have to modify the output of net-show to allow it to be
-    # parsed properly as shell variables, and we run both commands in
-    # a subshell to avoid polluting the local namespace.
-    (eval $(neutron $auth_args net-show -f shell $1 | sed 's/:/_/g');
-        neutron $auth_args subnet-delete $subnets || true)
-}
-
 function pre_start_astara() {
     # Create and init the database
     recreate_database astara
@@ -166,32 +158,12 @@ function pre_start_astara() {
     # CLI.
     unset OS_TENANT_NAME OS_PROJECT_NAME
 
-    if ! neutron $auth_args net-show $PUBLIC_NETWORK_NAME; then
-        neutron $auth_args net-create $PUBLIC_NETWORK_NAME --router:external
-    fi
-
-    # Remove the ipv6 subnet created automatically before adding our own.
-    # NOTE(adam_g): For some reason this fails the first time and needs to be repeated?
-    _remove_subnets $PUBLIC_NETWORK_NAME ; _remove_subnets $PUBLIC_NETWORK_NAME
-
-    typeset public_subnet_id=$(neutron $auth_args subnet-create --ip-version 4 $PUBLIC_NETWORK_NAME 172.16.77.0/24 | grep ' id ' | awk '{ print $4 }')
-    iniset $ASTARA_CONF DEFAULT external_subnet_id $public_subnet_id
-    neutron $auth_args subnet-create --ip-version 6 $PUBLIC_NETWORK_NAME fdee:9f85:83be::/48
-
     # setup masq rule for public network
-    sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
-
-    neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }'
-
-    typeset public_network_id=$(neutron $auth_args net-show $PUBLIC_NETWORK_NAME | grep ' id ' | awk '{ print $4 }')
-    iniset $ASTARA_CONF DEFAULT external_network_id $public_network_id
+    #sudo iptables -t nat -A POSTROUTING -s 172.16.77.0/24 -o $PUBLIC_INTERFACE_DEFAULT -j MASQUERADE
 
     neutron $auth_args net-create mgt
     typeset mgt_network_id=$(neutron $auth_args net-show mgt | grep ' id ' | awk '{ print $4 }')
     iniset $ASTARA_CONF DEFAULT management_network_id $mgt_network_id
-
-    # Remove the ipv6 subnet created automatically before adding our own.
-    _remove_subnets mgt
 
     local subnet_create_args=""
     if [[ "$ASTARA_MANAGEMENT_PREFIX" =~ ':' ]]; then
@@ -199,10 +171,6 @@ function pre_start_astara() {
     fi
     typeset mgt_subnet_id=$(neutron $auth_args subnet-create mgt $ASTARA_MANAGEMENT_PREFIX $subnet_create_args | grep ' id ' | awk '{ print $4 }')
     iniset $ASTARA_CONF DEFAULT management_subnet_id $mgt_subnet_id
-
-    # Remove the private network created by devstack
-    neutron $auth_args subnet-delete $PRIVATE_SUBNET_NAME
-    neutron $auth_args net-delete $PRIVATE_NETWORK_NAME
 
     local astara_dev_image_src=""
     local lb_element=""
@@ -251,15 +219,6 @@ function pre_start_astara() {
     fi
 
     create_astara_nova_flavor
-
-    # Restart neutron so that `astara.floatingip_subnet` is properly set
-    if [[ "$USE_SCREEN" == "True" ]]; then
-        screen_stop_service q-svc
-    else
-        stop_process q-svc
-    fi
-    start_neutron_service_and_check
-    sleep 10
 }
 
 function start_astara() {
@@ -271,13 +230,18 @@ function start_astara() {
 }
 
 function post_start_astara() {
-    echo "Creating demo user network and subnet"
-    local auth_args="$(_auth_args demo $OS_PASSWORD demo)"
-    neutron $auth_args net-create thenet
-    neutron $auth_args subnet-create thenet $FIXED_RANGE
-
     # Open all traffic on the private CIDR
-    set_demo_tenant_sec_group_private_traffic
+    # XXX
+    # set_demo_tenant_sec_group_private_traffic
+
+    if [[ "$ASTARA_ENABLED_DRIVERS" =~ "router" ]]; then
+        if [[ "$IP_VERSION" =~ 4.* ]]; then
+            post_start_configure_external_v4
+        fi
+        if [[ "$IP_VERSION" =~ 4.* ]]; then
+            post_start_configure_external_v6
+        fi
+    fi
 }
 
 function stop_astara() {
@@ -292,8 +256,6 @@ function set_neutron_user_permission() {
     # Since nova policy allows only vms booted by admin users to attach ports on the
     # public networks, we need to modify the policy and allow users with the service
     # to do that too.
-
-    echo "Updating Nova policy file"
 
     local old_value='"network:attach_external_network": "rule:admin_api"'
     local new_value='"network:attach_external_network": "rule:admin_api or role:service"'
@@ -324,6 +286,54 @@ function configure_astara_ssh_keypair {
     fi
 }
 
+function post_start_configure_external_v4() {
+ # this code is mostly from _neutron_configure_router_v4 from devstack. See
+ # http://git.openstack.org/cgit/openstack-dev/devstack/tree/lib/neutron-legacy
+    local ext_gw_interface="none"
+    if is_neutron_ovs_base_plugin; then
+        ext_gw_interface=$(_neutron_get_ext_gw_interface)
+    elif [[ "$Q_AGENT" = "linuxbridge" ]]; then
+        # Search for the brq device the neutron router and network for $FIXED_RANGE
+        # will be using.
+        # e.x. brq3592e767-da for NET_ID 3592e767-da66-4bcb-9bec-cdb03cd96102
+        ext_gw_interface=brq${EXT_NET_ID:0:11}
+    fi
+
+    if [[ "$ext_gw_interface" != "none" ]]; then
+        local cidr_len=${FLOATING_RANGE#*/}
+        local testcmd="ip -o link | grep -q $ext_gw_interface"
+        test_with_retry "$testcmd" "$ext_gw_interface creation failed"
+        if [[ $(ip addr show dev $ext_gw_interface | grep -c $ext_gw_ip) == 0 && ( $Q_USE_PROVIDERNET_FOR_PUBLIC == "False" || $Q_USE_PUBLIC_VETH == "True" ) ]]; then
+            sudo ip addr add $ext_gw_ip/$cidr_len dev $ext_gw_interface
+            sudo ip link set $ext_gw_interface up
+        fi
+        ROUTER_GW_IP=`neutron port-list -c fixed_ips -c device_owner | grep router_gateway | awk -F'ip_address'  '{ print $2 }' | cut -f3 -d\" | tr '\n' ' '`
+        die_if_not_set $LINENO ROUTER_GW_IP "Failure retrieving ROUTER_GW_IP"
+        sudo ip route replace  $FIXED_RANGE via $ROUTER_GW_IP
+    fi
+}
+
+function post_start_configure_external_v6(){
+ # this code is mostly from _neutron_configure_router_v6 from devstack. See
+ # http://git.openstack.org/cgit/openstack-dev/devstack/tree/lib/neutron-legacy
+
+    IPV6_ROUTER_GW_IP=`neutron port-list -c fixed_ips | grep $ipv6_pub_subnet_id | awk -F'ip_address' '{ print $2 }' | cut -f3 -d\" | tr '\n' ' '`
+    die_if_not_set $LINENO IPV6_ROUTER_GW_IP "Failure retrieving IPV6_ROUTER_GW_IP"
+
+    if is_neutron_ovs_base_plugin; then
+        local ext_gw_interface
+        ext_gw_interface=$(_neutron_get_ext_gw_interface)
+        local ipv6_cidr_len=${IPV6_PUBLIC_RANGE#*/}
+    elif [[ "$Q_AGENT" = "linuxbridge" ]]; then
+        ext_gw_interface=brq${EXT_NET_ID:0:11}
+    fi
+    # Configure interface for public bridge
+    sudo ip -6 addr add $ipv6_ext_gw_ip/$ipv6_cidr_len dev $ext_gw_interface
+    sudo ip -6 route replace $FIXED_RANGE_V6 via $IPV6_ROUTER_GW_IP dev $ext_gw_interface
+}
+
+
+
 
 if is_service_enabled astara; then
     if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
@@ -331,7 +341,6 @@ if is_service_enabled astara; then
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Astara"
-
         if is_service_enabled n-api; then
             set_neutron_user_permission
         fi

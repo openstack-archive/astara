@@ -43,11 +43,8 @@ CONF = cfg.CONF
 
 neutron_opts = [
     cfg.StrOpt('management_network_id'),
-    cfg.StrOpt('external_network_id'),
     cfg.StrOpt('management_subnet_id'),
-    cfg.StrOpt('external_subnet_id'),
     cfg.StrOpt('management_prefix', default='fdca:3ba5:a17a:acda::/64'),
-    cfg.StrOpt('external_prefix', default='172.16.77.0/24'),
     cfg.IntOpt('astara_mgt_service_port', default=5000),
     cfg.StrOpt('default_instance_flavor', default=1),
     cfg.StrOpt('interface_driver',
@@ -753,63 +750,6 @@ class Neutron(object):
         for port in port_data:
             self.api_client.delete_port(port['id'])
 
-    def create_router_external_port(self, router):
-        # FIXME: Need to make this smarter in case the switch is full.
-        network_args = {'network_id': self.conf.external_network_id}
-        update_args = {
-            'name': router.name,
-            'admin_state_up': router.admin_state_up,
-            'external_gateway_info': network_args
-        }
-
-        self.api_client.update_router(
-            router.id,
-            body=dict(router=update_args)
-        )
-        new_port = self.get_router_external_port(router)
-
-        # Make sure the port has enough IPs.
-        subnets = self.get_network_subnets(self.conf.external_network_id)
-        sn_by_id = {
-            sn.id: sn
-            for sn in subnets
-        }
-        sn_by_version = collections.defaultdict(list)
-        for sn in subnets:
-            sn_by_version[sn.ip_version].append(sn)
-        versions_needed = set(sn_by_version.keys())
-        found = set(sn_by_id[fip.subnet_id].ip_version
-                    for fip in new_port.fixed_ips)
-        if found != versions_needed:
-            missing_versions = list(sorted(versions_needed - found))
-            raise MissingIPAllocation(
-                new_port.id,
-                [(mv, [sn.id for sn in sn_by_version[mv]])
-                 for mv in missing_versions]
-            )
-        return new_port
-
-    def get_router_external_port(self, router):
-        for i in six.moves.range(self.conf.max_retries):
-            LOG.debug(
-                'Looking for router external port. Attempt %d of %d',
-                i,
-                cfg.CONF.max_retries,
-            )
-            query_dict = {
-                'device_owner': DEVICE_OWNER_ROUTER_GW,
-                'device_id': router.id,
-                'network_id': self.conf.external_network_id
-            }
-            ports = self.api_client.list_ports(**query_dict)['ports']
-
-            if len(ports):
-                port = Port.from_dict(ports[0])
-                LOG.debug('Found router external port: %s', port.id)
-                return port
-            time.sleep(self.conf.retry_delay)
-        raise RouterGatewayMissing()
-
     def _ensure_local_port(self, network_id, subnet_id, prefix,
                            network_type):
         driver = importutils.import_object(self.conf.interface_driver,
@@ -899,13 +839,6 @@ class Neutron(object):
         ip_cidr = '%s/%s' % (fixed_ip.ip_address, prefix.split('/')[1])
         driver.init_l3(driver.get_device_name(port), [ip_cidr])
         return ip_cidr
-
-    def ensure_local_external_port(self):
-        return self._ensure_local_port(
-            self.conf.external_network_id,
-            self.conf.external_subnet_id,
-            self.conf.external_prefix,
-            'external')
 
     def ensure_local_service_port(self):
         return self._ensure_local_port(
