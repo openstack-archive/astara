@@ -148,14 +148,16 @@ class TestAstaraClient(unittest.TestCase):
 
         expected_calls = [
             mock.call(
-                mock_client, fakes.fake_router.external_port,
-                'ge1', 'external'),
-            mock.call(
                 mock_client, fakes.fake_router.management_port,
                 'ge0', 'management'),
             mock.call(
+                mock_client, fakes.fake_router.external_port,
+                'ge1', 'external'),
+            mock.call(
                 mock_client, fakes.fake_int_port,
                 'ge2', 'internal', mock.ANY)]
+        for c in expected_calls:
+            self.assertIn(c, mock_net_conf.call_args_list)
         mock_net_conf.assert_has_calls(expected_calls)
 
     def test_generate_floating_config(self):
