@@ -252,7 +252,9 @@ class CreateInstance(State):
 
 class CheckBoot(State):
     def execute(self, action, worker_context):
-        self.instance.check_boot(worker_context)
+        self.instance.update_state(worker_context)
+        self.params.driver.log.debug(
+            'Instance is %s' % self.instance.state.upper())
         # Put the action back on the front of the queue so that we can yield
         # and handle it in another state machine traversal (which will proceed
         # from CalcAction directly to CheckBoot).
