@@ -373,7 +373,7 @@ class TestCheckBootState(BaseTestStateCase):
             self.state.execute('passthrough', self.ctx),
             'passthrough'
         )
-        self.instance.check_boot.assert_called_once_with(self.ctx)
+        self.instance.update_state.assert_called_once_with(self.ctx)
         assert list(self.params.queue) == ['passthrough']
 
     def test_transition_instance_configure(self):

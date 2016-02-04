@@ -262,20 +262,6 @@ class InstanceManager(object):
         # driver post boot hook
         self.driver.post_boot(worker_context)
 
-    def check_boot(self, worker_context):
-        """Checks status of instance, if ready triggers self.configure
-        """
-        state = self.update_state(worker_context, silent=True)
-        if state in states.READY_STATES:
-            self.log.info('Instance has booted, attempting initial config')
-            self.configure(worker_context)
-            if self.state != states.CONFIGURED:
-                self._check_boot_timeout()
-            return self.state == states.CONFIGURED
-
-        self.log.debug('Instance is %s' % self.state.upper())
-        return False
-
     @synchronize_driver_state
     def set_error(self, worker_context, silent=False):
         """Set the internal and neutron status for the router to states.ERROR.
