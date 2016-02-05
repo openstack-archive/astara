@@ -677,7 +677,11 @@ class Worker(object):
             LOG.debug('%s is already in the work queue', sm.resource_id)
 
     def _release_resource_lock(self, sm):
-        self._resource_locks[sm.resource_id].release()
+        try:
+            self._resource_locks[sm.resource_id].release()
+        except threading.ThreadError:
+            # Already unlocked, that's OK.
+            pass
 
     def report_status(self, show_config=True):
         if show_config:
