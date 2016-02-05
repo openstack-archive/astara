@@ -453,3 +453,27 @@ class TestNormalizeUUID(unittest.TestCase):
                 'ac194fc5f317412e8611fb290629f624'
             )
         )
+
+
+class TestReleaseLock(WorkerTestBase):
+    def test__release_router_lock(self):
+        router_id = '0ae77286-c0d6-11e5-9181-525400137dfc'
+        fake_lock = mock.Mock(release=mock.Mock())
+
+        self.w._router_locks = {
+            router_id: fake_lock
+        }
+        fake_sm = mock.Mock(router_id=router_id)
+        self.w._release_router_lock(fake_sm)
+        self.assertTrue(fake_lock.release.called)
+
+    def test__release_router_lock_unlocked(self):
+        router_id = '0ae77286-c0d6-11e5-9181-525400137dfc'
+        fake_lock = mock.Mock(release=mock.Mock())
+        fake_lock.release.side_effect = threading.ThreadError()
+        self.w._router_locks = {
+            router_id: fake_lock
+        }
+        fake_sm = mock.Mock(router_id=router_id)
+        # just ensure we dont raise
+        self.w._release_router_lock(fake_sm)

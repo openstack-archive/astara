@@ -364,7 +364,11 @@ class Worker(object):
             LOG.debug('%s is already in the work queue', sm.router_id)
 
     def _release_router_lock(self, sm):
-        self._router_locks[sm.router_id].release()
+        try:
+            self._router_locks[sm.router_id].release()
+        except threading.ThreadError:
+            # Already unlocked, that's OK.
+            pass
 
     def report_status(self, show_config=True):
         if show_config:
