@@ -1,0 +1,10 @@
+Code-Review+1: David Wahlstrom <david.wahlstrom@gmail.com>
+Code-Review+1: j_king <james@agentultra.com>
+Code-Review+2: Ryan Petrello <ryan@ryanpetrello.com>
+Workflow+1: Ryan Petrello <ryan@ryanpetrello.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 05 Feb 2016 20:25:55 +0000
+Reviewed-on: https://review.openstack.org/276875
+Project: openstack/astara
+Branch: refs/heads/stable/kilo
