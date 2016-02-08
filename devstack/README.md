@@ -6,7 +6,7 @@ following to the [[local|localrc]] section.
 
 For example:
 
-    enable_plugin astara-rug http://github.com/openstack/astara
+    enable_plugin astara http://github.com/openstack/astara
 
 You will also need to enable the service:
 
