@@ -757,11 +757,15 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.last_error = datetime.utcnow() - timedelta(minutes=5)
         self.assertFalse(self.instance_mgr.error_cooldown)
 
-    def test__ensure_cache(self):
+    def test_ensure_cache(self):
         self.instance_mgr.instance_info = 'stale_info'
         self.ctx.nova_client.get_instance_info.return_value = \
             self.INSTANCE_INFO
-        self.instance_mgr._ensure_cache(self.ctx)
+
+        def ensured_cache(self, ctx):
+            pass
+        wrapped = instance_manager.ensure_cache(ensured_cache)
+        wrapped(self.instance_mgr, self.ctx)
         self.assertEqual(self.instance_mgr.instance_info, self.INSTANCE_INFO)
 
 
