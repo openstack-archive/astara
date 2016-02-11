@@ -4,7 +4,7 @@
 unittest2 # BSD
 nose # LGPL
 coverage>=3.6 # Apache-2.0
-mock>=1.2;python_version<'3.3' # BSD
+mock>=1.2 # BSD
 pep8==1.5.7 # MIT
 iso8601>=0.1.9 # MIT
 mox>=0.5.3 # Apache-2.0
