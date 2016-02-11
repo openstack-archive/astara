@@ -1,4 +1,4 @@
-AKANDA_RUG_DIR=$DEST/akanda-rug
+AKANDA_RUG_DIR=$DEST/astara
 
 for svc in q-dhcp q-l3 q-fwaas q-lbaas q-meta q-vpn; do
     if is_service_enabled $svc; then

@@ -1,16 +1,16 @@
 # -*- mode: shell-script -*-
 
 # Set up default directories
-AKANDA_NEUTRON_DIR=$DEST/akanda-neutron
-AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/stackforge/akanda-neutron.git}
+AKANDA_NEUTRON_DIR=$DEST/astara-neutron
+AKANDA_NEUTRON_REPO=${AKANDA_NEUTRON_REPO:-http://github.com/openstack/astara-neutron.git}
 AKANDA_NEUTRON_BRANCH=${AKANDA_NEUTRON_BRANCH:-stable/kilo}
 
-AKANDA_APPLIANCE_DIR=$DEST/akanda-appliance
-AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/stackforge/akanda-appliance.git}
+AKANDA_APPLIANCE_DIR=$DEST/astara-appliance
+AKANDA_APPLIANCE_REPO=${AKANDA_APPLIANCE_REPO:-http://github.com/openstack/astara-appliance.git}
 AKANDA_APPLIANCE_BRANCH=${AKANDA_APPLIANCE_BRANCH:-stable/kilo}
 
 AKANDA_APPLIANCE_BUILDER_DIR=$DEST/akanda-appliance-builder
-AKANDA_APPLIANCE_BUILDER_REPO=${AKANDA_APPLIANCE_BUILDER_REPO:-http://github.com/stackforge/akanda-appliance-builder.git}
+AKANDA_APPLIANCE_BUILDER_REPO=${AKANDA_APPLIANCE_BUILDER_REPO:-http://github.com/openstack/akanda-appliance-builder.git}
 AKANDA_APPLIANCE_BUILDER_BRANCH=${AKANDA_APPLIANCE_BUILDER_BRANCH:-stable/kilo}
 
 BUILD_AKANDA_DEV_APPLIANCE=${BUILD_AKANDA_DEV_APPLIANCE:-False}
@@ -18,8 +18,8 @@ AKANDA_DEV_APPLIANCE_URL=${AKANDA_DEV_APPLIANCE_URL:-http://akandaio.objects.dre
 AKANDA_DEV_APPLIANCE_FILE=${AKANDA_DEV_APPLIANCE_FILE:-$TOP_DIR/files/akanda.qcow2}
 AKANDA_DEV_APPLIANCE_BUILD_PROXY=${AKANDA_DEV_APPLIANCE_BUILD_PROXY:-""}
 
-AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/akanda-horizon}
-AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/stackforge/akanda-horizon}
+AKANDA_HORIZON_DIR=${AKANDA_HORIZON_DIR:-$DEST/astara-horizon}
+AKANDA_HORIZON_REPO=${AKANDA_HORIZON_REPO:-http://github.com/openstack/astara-horizon}
 AKANDA_HORIZON_BRANCH=${AKANDA_HORIZON_BRANCH:-stable/kilo}
 
 AKANDA_CONF_DIR=/etc/akanda-rug
