@@ -1,0 +1,8 @@
+Code-Review+2: Ryan Petrello <ryan@ryanpetrello.com>
+Workflow+1: Ryan Petrello <ryan@ryanpetrello.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 11 Feb 2016 21:56:21 +0000
+Reviewed-on: https://review.openstack.org/279241
+Project: openstack/astara
+Branch: refs/heads/stable/kilo
