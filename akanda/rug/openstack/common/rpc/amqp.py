@@ -45,6 +45,7 @@ AMQP, but is deprecated and predates this code.
 import collections
 import inspect
 import sys
+import threading
 import uuid
 
 from eventlet import greenpool
@@ -107,7 +108,7 @@ class Pool(pools.Pool):
         self.connection_cls.pool = None
 
 
-_pool_create_sem = semaphore.Semaphore()
+_pool_create_sem = threading.Semaphore()
 
 
 def get_connection_pool(conf, connection_cls):
