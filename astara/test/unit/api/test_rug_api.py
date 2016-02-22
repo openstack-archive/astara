@@ -4,7 +4,7 @@ import socket
 from six.moves import range
 from cliff import commandmanager
 import mock
-from oslo_log import loggers
+from oslo_log import log
 import webob
 
 from astara.api import rug
@@ -176,7 +176,7 @@ class TestRugAPIServer(unittest.TestCase):
             args[0] == sock,
             isinstance(args[1], rug.RugAPI),
             kwargs['custom_pool'] == server.pool,
-            isinstance(kwargs['log'], loggers.WritableLogger)
+            isinstance(kwargs['log'], log.KeywordArgumentAdapter)
         ])
 
     @mock.patch('eventlet.listen')
@@ -195,7 +195,7 @@ class TestRugAPIServer(unittest.TestCase):
             args[0] == sock,
             isinstance(args[1], rug.RugAPI),
             kwargs['custom_pool'] == server.pool,
-            isinstance(kwargs['log'], loggers.WritableLogger)
+            isinstance(kwargs['log'], log.KeywordArgumentAdapter)
         ])
 
     @mock.patch('eventlet.listen')
@@ -238,5 +238,5 @@ class TestRugAPIServer(unittest.TestCase):
             args[0] == sock,
             isinstance(args[1], rug.RugAPI),
             kwargs['custom_pool'] == server.pool,
-            isinstance(kwargs['log'], loggers.WritableLogger)
+            isinstance(kwargs['log'], log.KeywordArgumentAdapter)
         ])

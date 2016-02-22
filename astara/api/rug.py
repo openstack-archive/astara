@@ -25,7 +25,6 @@ import six
 
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_log import loggers
 
 from astara.cli import app
 from astara.common.i18n import _, _LE, _LI, _LW
@@ -118,7 +117,7 @@ class RugAPIServer(object):
             sock,
             app,
             custom_pool=self.pool,
-            log=loggers.WritableLogger(LOG))
+            log=LOG)
 
 
 def serve():

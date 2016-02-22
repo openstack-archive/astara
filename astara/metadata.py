@@ -53,7 +53,6 @@ import webob.exc
 import six
 
 from oslo_log import log as logging
-from oslo_log import loggers
 
 from astara.common.i18n import _, _LE, _LI, _LW
 
@@ -216,7 +215,7 @@ class MetadataProxy(object):
             sock,
             app,
             custom_pool=self.pool,
-            log=loggers.WritableLogger(LOG))
+            log=LOG)
 
 
 def serve(ip_address):
