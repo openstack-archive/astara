@@ -40,8 +40,8 @@ Used by main.py
 
 import hashlib
 import hmac
+from six.moves.urllib import parse as urlparse
 import socket
-import urlparse
 
 import eventlet
 import eventlet.wsgi
