@@ -28,14 +28,14 @@ messages which are handled by a variety of Neutron agents (the L3 agent, DHCP
 agent, agents for advanced services such as load balancing, firewall, and VPN
 as a service):
 
-.. image:: _static/neutron-canonical-v2.png
+.. image:: _static/neutron-reference.png
 
 When we add Astara into the mix, we're able to replace these agents with
 a virtualized Service Instance that manages layer 3 routing and other advanced
 networking services, significantly lowering the barrier of entry for operators
 (in terms of deployment, monitoring and management):
 
-.. image:: _static/neutron-akanda-v2.png
+.. image:: _static/neutron-astara.png
 
 Astara takes the place of many of the agents that OpenStack Neutron
 communicates with (L3, DHCP, LBaaS, FWaaS)  and acts as a single control point
@@ -49,7 +49,7 @@ Astara Building Blocks
 
 From an architectural perspective, Astara is composed of a few sub-projects:
 
-    * | `astara <http://github.com/openstack/astara>`
+    * | `astara <http://github.com/openstack/astara>`_
 
       A service for managing the creation, configuration, and health of Astara
       Service Instances.  The Orchestrator acts in part as a replacement for
@@ -59,7 +59,7 @@ From an architectural perspective, Astara is composed of a few sub-projects:
       Orchestrator contains a health monitoring component which monitors health
       and guarantees uptime for existing Service Instances.
 
-    * | `astara-appliance <http://github.com/openstack/astara-appliance>`
+    * | `astara-appliance <http://github.com/openstack/astara-appliance>`_
 
       The software and services (including tools for building custom service
       images themselves) that run on the virtualized Linux appliance. Includes
