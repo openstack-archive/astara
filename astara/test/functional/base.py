@@ -159,14 +159,19 @@ class AdminClientManager(ClientManager):
         )
 
     def get_router_appliance_server(self, router_uuid, retries=10,
-                                    wait_for_active=False):
+                                    wait_for_active=False, ha_router=False):
         """Returns a Nova server object for router"""
         LOG.debug(
             'Looking for nova backing instance for resource %s',
             router_uuid)
 
+        if ha_router:
+            exp_instances = 2
+        else:
+            exp_instances = 1
+
         for i in six.moves.range(retries):
-            service_instance = \
+            service_instances = \
                 [instance for instance in
                  self.novaclient.servers.list(
                      search_opts={
@@ -174,38 +179,48 @@ class AdminClientManager(ClientManager):
                          'tenant_id': CONF.service_tenant_id}
                  ) if router_uuid in instance.name]
 
-            if service_instance:
-                service_instance = service_instance[0]
+            if service_instances and len(service_instances) == exp_instances:
                 LOG.debug(
-                    'Found backing instance for resource %s: %s',
-                    router_uuid, service_instance)
+                    'Found %s backing instance for resource %s: %s',
+                    exp_instances, router_uuid, service_instances)
                 break
-            LOG.debug('Backing instance not found, will retry %s/%s',
-                      i, retries)
+            LOG.debug('%s backing instance not found, will retry %s/%s',
+                      exp_instances, i, retries)
             time.sleep(1)
         else:
             raise ApplianceServerNotFound(
-                'Could not get nova server for router %s' % router_uuid)
+                'Could not get nova %s server(s) for router %s' %
+                (exp_instances, router_uuid))
 
-        if wait_for_active:
+        def _wait_for_active(instance):
             LOG.debug('Waiting for backing instance %s to become ACTIVE',
-                      service_instance)
+                      instance)
             for i in six.moves.range(CONF.appliance_active_timeout):
-                service_instance = self.novaclient.servers.get(
-                    service_instance.id)
-                if service_instance.status == 'ACTIVE':
-                    LOG.debug('Instance %s status==ACTIVE', service_instance)
-                    return service_instance
+                instance = self.novaclient.servers.get(
+                    instance.id)
+                if instance.status == 'ACTIVE':
+                    LOG.debug('Instance %s status==ACTIVE', instance)
+                    return
                 else:
                     LOG.debug('Instance %s status==%s, will wait',
-                              service_instance, service_instance.status)
+                              instance, instance.status)
                     time.sleep(1)
             raise ApplianceServerTimeout(
                 'Timed out waiting for backing instance of %s %s to become '
                 'ACTIVE' % router_uuid)
 
+        if wait_for_active:
+            LOG.debug('Waiting for %s backing instances to become ACTIVE',
+                      exp_instances)
+
+            [_wait_for_active(i) for i in service_instances]
+            LOG.debug('Waiting for backing instance %s to become ACTIVE',
+                      exp_instances)
+
+        if ha_router:
+            return sorted(service_instances, key=lambda i: i.name)
         else:
-            return service_instance
+            return service_instances[0]
 
 
 class TestTenant(object):
@@ -257,7 +272,7 @@ class TestTenant(object):
         LOG.debug('Created new test tenant: %s (%s)',
                   self.tenant_id, self.user_id)
 
-    def setup_networking(self):
+    def setup_networking(self, ha_router=False):
         """"Create a network + subnet for the tenant.  Also creates a router
         if required, and attaches the subnet to it.
 
@@ -298,10 +313,11 @@ class TestTenant(object):
                     'name': data_utils.rand_name(name='router', prefix='ak'),
                     'admin_state_up': True,
                     'tenant_id': self.tenant_id,
+                    'ha': ha_router,
                 }
             }
             LOG.debug('Creating router: %s', router_body)
-            router = self.clients.neutronclient.create_router(
+            router = self._admin_clients.neutronclient.create_router(
                 body=router_body)['router']
             LOG.debug('Created router: %s', router)
 
@@ -494,6 +510,9 @@ class TestTenant(object):
         else:
             self._admin_ks_client.tenants.delete(self.tenant_id)
 
+    def router_ha(self, router):
+        router = self._admin_clients.neutronclient.show_router(router['id'])
+        return router.get('ha', False)
 
 class AstaraFunctionalBase(testtools.TestCase):
     _test_tenants = []
@@ -530,10 +549,10 @@ class AstaraFunctionalBase(testtools.TestCase):
         return tenant
 
     def get_router_appliance_server(self, router_uuid, retries=10,
-                                    wait_for_active=False):
+                                    wait_for_active=False, ha_router=False):
         """Returns a Nova server object for router"""
         return self.admin_clients.get_router_appliance_server(
-            router_uuid, retries, wait_for_active)
+            router_uuid, retries, wait_for_active, ha_router)
 
     def get_management_address(self, router_uuid):
         LOG.debug('Getting management address for resource %s', router_uuid)
@@ -551,7 +570,7 @@ class AstaraFunctionalBase(testtools.TestCase):
         LOG.debug('Got management address for resource %s', router_uuid)
         return self._management_address['addr']
 
-    def assert_router_is_active(self, router_uuid):
+    def assert_router_is_active(self, router_uuid, ha_router=False):
         LOG.debug('Waiting for resource %s to become ACTIVE', router_uuid)
         for i in six.moves.range(CONF.appliance_active_timeout):
             res = self.admin_clients.neutronclient.show_router(router_uuid)
@@ -560,12 +579,16 @@ class AstaraFunctionalBase(testtools.TestCase):
                 LOG.debug('Router %s ACTIVE after %s sec.', router_uuid, i)
                 return
 
-            service_instance = self.get_router_appliance_server(
-                router_uuid)
-            if service_instance and service_instance.status == 'ERROR':
-                raise Exception(
-                    'Backing instance %s for router %s in ERROR state',
-                    service_instance.id, router_uuid)
+            service_instances = self.get_router_appliance_server(
+                router_uuid, ha_router=ha_router)
+            if not ha_router:
+                service_instances = [service_instances]
+
+            for instance in service_instances:
+                if instance.status == 'ERROR':
+                    raise Exception(
+                        'Backing instance %s for router %s in ERROR state',
+                        instance.id, router_uuid)
 
             LOG.debug(
                 'Resource %s not active. Status==%s, will wait, %s/%s sec.',
