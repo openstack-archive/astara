@@ -24,21 +24,58 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
-class TestAstaraRouter(base.AstaraFunctionalBase):
+class AstaraRouterTestBase(base.AstaraFunctionalBase):
+    HA_ROUTER = False
+
     @classmethod
     def setUpClass(cls):
-        super(TestAstaraRouter, cls).setUpClass()
+        super(AstaraRouterTestBase, cls).setUpClass()
         cls.tenant = cls.get_tenant()
         cls.neutronclient = cls.tenant.clients.neutronclient
-        cls.network, cls.router = cls.tenant.setup_networking()
+        cls.network, cls.router = cls.tenant.setup_networking(
+            ha_router=cls.HA_ROUTER)
 
     def setUp(self):
-        super(TestAstaraRouter, self).setUp()
-        self.assert_router_is_active(self.router['id'])
+        super(AstaraRouterTestBase, self).setUp()
+        self.assert_router_is_active(self.router['id'], self.HA_ROUTER)
 
         # refresh router ref now that its active
         router = self.neutronclient.show_router(self.router['id'])
         self.router = router['router']
+
+    HA_ROUTER = False
+
+    @property
+    def router_ha(self):
+        router = self.admin_clients.neutronclient.show_router(
+            self.router['id'])['router']
+        return router.get('ha', False)
+
+
+class TestAstaraHARouter(AstaraRouterTestBase):
+    HA_ROUTER = True
+
+    def test_ha_router_servers(self):
+        service_instances = self.get_router_appliance_server(
+            self.router['id'], ha_router=self.HA_ROUTER)
+        self.assertEqual(len(service_instances), 2)
+
+        # kill the master and ensure it is backfilled with a new instance
+        master, backup = service_instances
+        self.admin_clients.novaclient.servers.delete(master.id)
+
+        LOG.debug('Waiting %s seconds for astara health check to tick',
+                  CONF.health_check_period)
+        time.sleep(CONF.health_check_period)
+
+        service_instances = self.get_router_appliance_server(
+            self.router['id'], ha_router=self.HA_ROUTER)
+        self.assertEqual(len(service_instances), 2)
+        self.assertEqual(service_instances[0], backup)
+
+
+class TestAstaraRouter(AstaraRouterTestBase):
+    HA_ROUTER = False
 
     def test_router_recovery(self):
         """
