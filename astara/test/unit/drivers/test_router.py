@@ -68,7 +68,7 @@ class RouterDriverTest(base.RugTestBase):
     def test__ensure_cache_no_router(self):
         self.ctx.neutron.get_router_detail.return_value = None
         rtr = self._init_driver()
-        self.assertEqual(rtr._router, None)
+        self.assertIsNone(rtr._router)
 
     def test__ensure_cache_with_router(self):
         rtr = self._init_driver()
@@ -246,7 +246,7 @@ class RouterDriverTest(base.RugTestBase):
         self.ctx.neutron.get_router_for_tenant.return_value = None
         res = router.Router.get_resource_id_for_tenant(
             self.ctx, 'fake_tenant_id', 'fake_message')
-        self.assertEqual(res, None)
+        self.assertIsNone(res)
         self.ctx.neutron.get_router_for_tenant.assert_called_with(
             'fake_tenant_id')
 
@@ -413,5 +413,5 @@ class RouterDriverTest(base.RugTestBase):
         rtr = self._init_driver()
         self.ctx.neutron.get_router_detail.side_effect = [neutron.RouterGone]
         rtr._ensure_cache(self.ctx)
-        self.assertEqual(rtr._router, None)
+        self.assertIsNone(rtr._router)
         self.ctx.neutron.get_router_detail.assert_called_with(rtr.id)

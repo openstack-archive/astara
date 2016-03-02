@@ -189,7 +189,7 @@ class TestNovaWrapper(base.RugTestBase):
         not_found = novaclient_exceptions.NotFound('instance_id')
         self.client.servers.get.side_effect = not_found
         result = self.nova.get_instance_by_id('instance_id')
-        self.assertEqual(result, None)
+        self.assertIsNone(result)
 
     def test_destroy_instance(self):
         self.nova.destroy_instance(self.INSTANCE_INFO)
