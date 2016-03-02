@@ -27,6 +27,7 @@ Narrative Documentation
    contribute.rst
    operation.rst
    install.rst
+   loadbalancer.rst
    developer_quickstart.rst
    reference.rst
    release_notes.rst
