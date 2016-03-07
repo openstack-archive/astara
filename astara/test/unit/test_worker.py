@@ -117,6 +117,12 @@ class TestWorker(WorkerTestBase):
     def setUp(self):
         super(TestWorker, self).setUp()
         self.config(enabled=True, group='coordination')
+        self._balanced_p = mock.patch.object(
+            self.w, '_ring_balanced')
+        self._mock_balanced = self._balanced_p.start()
+        self._mock_balanced.return_value = True
+        self.addCleanup(mock.patch.stopall)
+
         self.target = self.tenant_id
         self.resource = event.Resource(
             self.driver,
@@ -212,6 +218,14 @@ class TestWorker(WorkerTestBase):
         self.w.handle_message(self.target, self.msg)
         self.assertFalse(fake_deliver.called)
         fake_should_process.assert_called_with(self.target, self.msg)
+
+    @mock.patch('astara.worker.Worker._deliver_message')
+    @mock.patch('astara.worker.Worker._defer_message')
+    def test_handle_message_defer_message(self, fake_defer, fake_deliver):
+        self._mock_balanced.return_value = False
+        self.w.handle_message(self.target, self.msg)
+        fake_defer.assert_called_with(self.target, self.msg)
+        self.assertFalse(fake_deliver.called)
 
     @mock.patch('astara.worker.hash_ring', autospec=True)
     def test__should_process_message_does_not_hash(self, fake_hash):
@@ -393,6 +407,40 @@ class TestWorker(WorkerTestBase):
             res,
             set(['sm1', 'sm2', 'sm3', 'sm4'])
         )
+
+    @mock.patch('astara.worker.hash_ring', autospec=True)
+    def test__ring_balanced(self, fake_hash):
+        self._balanced_p.stop()
+        fake_ring_manager = fake_hash.HashRingManager()
+        fake_ring_manager.balanced = False
+        self.w.hash_ring_mgr = fake_ring_manager
+        self.assertFalse(self.w._ring_balanced())
+
+    def test__defer_message(self):
+        self.assertEqual(
+            self.w._deferred_messages, [])
+        self.w._defer_message(self.target, self.msg)
+        self.assertEqual(
+            self.w._deferred_messages, [(self.target, self.msg)])
+
+    @mock.patch('astara.worker.Worker.handle_message')
+    def test__replay_deferred_messages_none(self, fakehandle):
+        self.w._deferred_messages = []
+        self.w._replay_deferred_messages()
+        self.assertFalse(fakehandle.called)
+
+    @mock.patch('astara.worker.Worker.handle_message')
+    def test__replay_deferred_messages(self, fake_handle):
+        msgs = [
+            ('fake_tgt_1', 'fake_tgt_1'),
+            ('fake_tgt_2', 'fake_tgt_2'),
+            ('fake_tgt_3', 'fake_tgt_3'),
+        ]
+        self.w._deferred_messages = msgs
+        self.w._replay_deferred_messages()
+        exp_calls = [mock.call(t, m) for t, m in msgs]
+        self.assertEqual(
+            fake_handle.call_args_list, exp_calls)
 
 
 class TestResourceCache(WorkerTestBase):
@@ -623,6 +671,7 @@ class TestReportStatus(WorkerTestBase):
 
     def test_handle_message_report_status(self):
         with mock.patch('astara.worker.cfg.CONF') as conf:
+            conf.coordination = mock.Mock(enabled=False)
             self.w.handle_message(
                 'debug',
                 event.Event('*', event.COMMAND,
@@ -774,6 +823,7 @@ class TestConfigReload(WorkerTestBase):
     def test(self, mock_cfg):
         mock_cfg.CONF = mock.MagicMock(
             log_opt_values=mock.MagicMock())
+        mock_cfg.CONF.coordination.enabled = False
         tenant_id = '*'
         resource_id = '*'
         msg = event.Event(
@@ -842,8 +892,9 @@ class TestRebalance(WorkerTestBase):
             body={'key': 'value'},
         )
 
+    @mock.patch('astara.worker.Worker._replay_deferred_messages')
     @mock.patch('astara.worker.Worker._repopulate')
-    def test_rebalance_bootstrap(self, fake_repop):
+    def test_rebalance_bootstrap(self, fake_repop, fake_replay):
         fake_hash = mock.Mock(
             rebalance=mock.Mock(),
         )
@@ -858,6 +909,7 @@ class TestRebalance(WorkerTestBase):
         )
         self.w.handle_message('*', msg)
         fake_hash.rebalance.assert_called_with(['foo', 'bar'])
+        self.assertTrue(fake_replay.called)
         self.assertFalse(fake_repop.called)
 
     @mock.patch('astara.worker.Worker._add_resource_to_work_queue')
