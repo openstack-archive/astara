@@ -348,10 +348,10 @@ if is_service_enabled astara; then
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
         echo_summary "Initializing Astara"
         pre_start_astara
-        start_astara
         if is_service_enabled horizon; then
             start_astara_horizon
         fi
+        start_astara
         post_start_astara
     fi
 
