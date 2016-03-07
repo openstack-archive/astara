@@ -15,7 +15,7 @@
 # under the License.
 
 import threading
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 from oslo_log import log as logging
 from oslo_config import cfg

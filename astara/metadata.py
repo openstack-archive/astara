@@ -42,7 +42,7 @@ Used by main.py
 import hashlib
 import hmac
 import socket
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 import eventlet
 import eventlet.wsgi
