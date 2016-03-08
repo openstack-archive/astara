@@ -26,6 +26,7 @@ os_tenant_name=$OS_TENANT_NAME
 service_tenant_name=$SERVICE_TENANT_NAME
 service_tenant_id=$SERVICE_TENANT_ID
 appliance_api_port=$APPLIANCE_API_PORT
+astara_auto_add_resources=False
 
 # Defaults for the gate
 health_check_timeout=10

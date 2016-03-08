@@ -74,7 +74,8 @@ def get_default_v4_gateway(client, router, networks):
     """Find the IPv4 default gateway for the router.
     """
     LOG.debug('networks = %r', networks)
-    LOG.debug('external interface = %s', router.external_port.mac_address)
+    if router.external_port:
+        LOG.debug('external interface = %s', router.external_port.mac_address)
 
     # Now find the subnet that our external IP is on, and return its
     # gateway.
@@ -124,16 +125,19 @@ def generate_network_config(client, router, management_port, iface_map):
     retval = [
         common.network_config(
             client,
-            router.external_port,
-            iface_map[router.external_port.network_id],
-            EXTERNAL_NET),
-        common.network_config(
-            client,
             management_port,
             iface_map[management_port.network_id],
             MANAGEMENT_NET
         )
     ]
+
+    if router.external_port:
+        retval.extend([
+            common.network_config(
+                client,
+                router.external_port,
+                iface_map[router.external_port.network_id],
+                EXTERNAL_NET)])
 
     retval.extend(
         common.network_config(
