@@ -88,7 +88,7 @@ class TestAstaraClient(unittest.TestCase):
 
         self.mock_put.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/config',
-            data='{"foo": "bar"}',
+            data=b'{"foo": "bar"}',
             headers={'Content-type': 'application/json'},
             timeout=90)
         self.assertEqual(resp, config)
@@ -104,7 +104,7 @@ class TestAstaraClient(unittest.TestCase):
 
             self.mock_put.assert_called_once_with(
                 'http://[fe80::2]:5000/v1/system/config',
-                data='{"foo": "bar"}',
+                data=b'{"foo": "bar"}',
                 headers={'Content-type': 'application/json'},
                 timeout=5)
             self.assertEqual(resp, config)
@@ -120,7 +120,7 @@ class TestAstaraClient(unittest.TestCase):
 
         self.mock_put.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/config',
-            data='{"foo": "bar"}',
+            data=b'{"foo": "bar"}',
             headers={'Content-type': 'application/json'},
             timeout=90
         )
