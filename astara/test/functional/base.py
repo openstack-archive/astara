@@ -229,7 +229,6 @@ class TestTenant(object):
                                      self.tenant_name, self.auth_url)
         self.tester = ClientManager('demo', 'akanda', 'demo', self.auth_url)
 
-        self._subnets = []
         self._routers = []
 
     def _create_tenant(self):
@@ -304,6 +303,7 @@ class TestTenant(object):
             router = self.clients.neutronclient.create_router(
                 body=router_body)['router']
             LOG.debug('Created router: %s', router)
+            self._routers.append(router)
 
             LOG.debug(
                 'Attaching interface on subnet %s to router %s',
@@ -485,7 +485,19 @@ class TestTenant(object):
 
         self._wait_for_neutron_delete('network', net_ids)
 
+    def pre_cleanup_debug_logging(self):
+        nc = self._admin_clients.novaclient.servers
+        for router in self._routers:
+            server = self._admin_clients.get_router_appliance_server(
+                router['id'], retries=1)
+            console = nc.get_console_output(server.id)
+            LOG.debug(
+                'Console output for router %s at instance %s',
+                router['id'], server.id)
+            LOG.debug(console)
+
     def cleanUp(self):
+        self.pre_cleanup_debug_logging()
         self.cleanup_neutron()
 
         self._admin_ks_client.users.delete(self.user_id)
