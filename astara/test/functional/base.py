@@ -36,7 +36,9 @@ from neutronclient.common import exceptions as neutron_exceptions
 
 from tempest_lib.common.utils import data_utils
 
+from astara.api import astara_client
 from astara.test.functional import config
+
 
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), 'test.conf')
 DEFAULT_ACTIVE_TIMEOUT = 340
@@ -229,8 +231,7 @@ class TestTenant(object):
                                      self.tenant_name, self.auth_url)
         self.tester = ClientManager('demo', 'akanda', 'demo', self.auth_url)
 
-        self._subnets = []
-        self._routers = []
+        self.routers = []
 
     def _create_tenant(self):
         if self._admin_clients.auth_version == 3:
@@ -304,6 +305,7 @@ class TestTenant(object):
             router = self.clients.neutronclient.create_router(
                 body=router_body)['router']
             LOG.debug('Created router: %s', router)
+            self.routers.append(router)
 
             LOG.debug(
                 'Attaching interface on subnet %s to router %s',
@@ -506,6 +508,7 @@ class AstaraFunctionalBase(testtools.TestCase):
         self.ak_client = astara_client
         self.admin_clients = AdminClientManager()
         self._management_address = None
+        self.addCleanup(self.cleanup)
 
     @classmethod
     def setUpClass(cls):
@@ -517,6 +520,38 @@ class AstaraFunctionalBase(testtools.TestCase):
             [t.cleanUp() for t in cls._test_tenants]
         except ksc_exceptions.NotFound:
             pass
+
+    def dump_console_output(self, router):
+        try:
+            server = self.admin_clients.get_router_appliance_server(
+                router['id'], retries=1)
+        except ApplianceServerNotFound:
+            LOG.debug('No console output, server not found for '
+                      'router %s' % router['id'])
+        console = self.admin_clients.novaclient.servers.get_console_output(
+            server.id)
+        LOG.debug(
+            'Console output for router %s at instance %s',
+            router['id'], server.id)
+        LOG.debug(console)
+
+    def cleanup(self):
+        for t in self._test_tenants:
+            for router in t.routers:
+                self.dump_console_output(router)
+                try:
+                    self.ping_router_mgt_address(router['id'], count=3)
+                    LOG.debug(
+                        'Instance for router %s ping is alive', router['id'])
+                    res = self.get_api_server_url(
+                        router['id'], path='/v1/system/interfaces')
+                    LOG.debug(
+                        'A GET (%s) to /v1/system/interfaces on router %s'
+                        'reports: %s', res.status_code, router['id'], res.text)
+                except Exception:
+                    LOG.exception(
+                        'Error getting debug info for router %s', router['id'])
+                    pass
 
     @classmethod
     def get_tenant(cls):
@@ -577,13 +612,24 @@ class AstaraFunctionalBase(testtools.TestCase):
             'Timed out waiting for router %s to become ACTIVE, '
             'current status=%s' % (router_uuid, router['status']))
 
-    def ping_router_mgt_address(self, router_uuid):
+    def ping_router_mgt_address(self, router_uuid, count=5):
         server = self.get_router_appliance_server(router_uuid)
         mgt_interface = server.addresses['mgt'][0]
         program = {4: 'ping', 6: 'ping6'}
-        cmd = [program[mgt_interface['version']], '-c5', mgt_interface['addr']]
+        cmd = [
+            program[mgt_interface['version']], '-c', str(count),
+            mgt_interface['addr']
+        ]
         LOG.debug('Pinging resource %s: %s', router_uuid, ' '.join(cmd))
         try:
             subprocess.check_call(cmd)
         except:
             raise Exception('Failed to ping router with command: %s' % cmd)
+
+    def get_api_server_url(self, router_uuid, path='/'):
+        server = self.get_router_appliance_server(router_uuid)
+        mgt_addr = server.addresses['mgt'][0]['addr']
+        url = astara_client._mgt_url(mgt_addr, '5000', path)
+        session = astara_client._get_proxyless_session()
+        req = session.get(url)
+        return req
