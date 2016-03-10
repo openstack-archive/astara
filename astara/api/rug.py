@@ -73,7 +73,8 @@ class RugAPI(object):
             LOG.exception(_LE("Unexpected error."))
             msg = _('An unknown error has occurred. '
                     'Please try your request again.')
-            return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
+            return webob.exc.HTTPInternalServerError(
+                explanation=six.text_type(msg))
 
 
 class RugAPIServer(object):
