@@ -17,7 +17,7 @@
 
 """Scheduler to send messages for a given router to the correct worker.
 """
-
+import six
 import multiprocessing
 import uuid
 
@@ -60,7 +60,7 @@ def _worker(inq, worker_factory, scheduler, proc_name):
         try:
             worker.handle_message(target, message)
         except Exception:
-            LOG.exception(_LE('Error processing data %s'), unicode(data))
+            LOG.exception(_LE('Error processing data %s'), six.text_type(data))
         if data is None:
             break
     LOG.debug('exiting')

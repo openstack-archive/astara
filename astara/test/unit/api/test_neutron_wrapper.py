@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
+import six
 import mock
 import netaddr
 
@@ -169,7 +169,7 @@ class TestuNeutronModels(base.RugTestBase):
         try:
             neutron.Subnet.from_dict(d)
         except ValueError as e:
-            self.assertIn('Invalid CIDR', unicode(e))
+            self.assertIn('Invalid CIDR', six.text_type(e))
 
     def test_subnet_cidr_not_valid(self):
         d = {
@@ -188,7 +188,7 @@ class TestuNeutronModels(base.RugTestBase):
         try:
             neutron.Subnet.from_dict(d)
         except ValueError as e:
-            self.assertIn('Invalid CIDR', unicode(e))
+            self.assertIn('Invalid CIDR', six.text_type(e))
 
     def test_port_model(self):
         d = {

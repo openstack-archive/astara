@@ -101,7 +101,7 @@ class MetadataProxyHandler(object):
             LOG.exception(_LE("Unexpected error."))
             msg = ('An unknown error has occurred. '
                    'Please try your request again.')
-            return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
+            return webob.exc.HTTPInternalServerError(explanation=six.text_type(msg))
 
     def _get_instance_id(self, req):
         """Pull the X-Instance-ID out of a request.
@@ -152,7 +152,7 @@ class MetadataProxyHandler(object):
             msg = _LW('Remote metadata server experienced an'
                       ' internal server error.')
             LOG.warning(msg)
-            return webob.exc.HTTPInternalServerError(explanation=unicode(msg))
+            return webob.exc.HTTPInternalServerError(explanation=six.text_type(msg))
         else:
             raise Exception(_('Unexpected response code: %s') % resp.status)
 
