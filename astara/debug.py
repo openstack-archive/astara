@@ -15,6 +15,8 @@
 # under the License.
 
 
+from __future__ import print_function
+
 import os
 import sys
 
@@ -41,11 +43,11 @@ class Fake(object):
 
 
 def delete_callback(self):
-    print 'DELETE'
+    print('DELETE')
 
 
 def bandwidth_callback(self, *args, **kwargs):
-    print 'BANDWIDTH:', args, kwargs
+    print('BANDWIDTH:', args, kwargs)
 
 
 def debug_one_router(args=sys.argv[1:]):

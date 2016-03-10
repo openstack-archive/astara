@@ -17,6 +17,8 @@
 
 """Interactive CLI for rebuilding routers
 """
+
+from __future__ import print_function
 import logging
 import os
 import Queue
@@ -204,7 +206,7 @@ def populate_routers(db, conf, workers):
         try:
             client.fetch()
         except (KeyboardInterrupt, SystemExit):
-            print "Killing background worker..."
+            print("Killing background worker...")
             break
 
 
@@ -334,7 +336,7 @@ class BrowseRouters(message.MessageSending):
                 ]
                 if i + offset == self.position:
                     args = map(self.term.reverse, args[:-3]) + args[-3:]
-                print self.term.move(i, 0) + ' '.join(args)
+                print(self.term.move(i, 0) + ' '.join(args))
 
     def make_message(self, router):
         return {
@@ -368,8 +370,8 @@ class BrowseRouters(message.MessageSending):
 
     def _exit(self):
         if self.interactive:
-            print 'Deleting %s...' % self.fh.name
+            print('Deleting %s...' % self.fh.name)
         self.fh.close()
         os.remove(self.fh.name)
         if self.interactive:
-            print 'Exiting...'
+            print('Exiting...')
