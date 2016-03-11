@@ -1,4 +1,4 @@
-#!/bin/bash -xe
+#!/bin/bash -x
 echo $LOGDIR
 FUNC_TEST_DIR=$(dirname $0)/../astara/test/functional/
 CONFIG_FILE=$FUNC_TEST_DIR/test.conf
@@ -35,3 +35,8 @@ log_file=/opt/stack/logs/astara_functional.log
 END
 
 tox -e  functional
+rc=$?
+if [[ $rc != 0 ]]; then
+  ./tools/debug.sh
+fi
+exit $rc

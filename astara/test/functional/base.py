@@ -486,6 +486,7 @@ class TestTenant(object):
         self._wait_for_neutron_delete('network', net_ids)
 
     def cleanUp(self):
+        return
         self.cleanup_neutron()
 
         self._admin_ks_client.users.delete(self.user_id)
