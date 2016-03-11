@@ -74,6 +74,9 @@ _ROUTER_INTERESTING_NOTIFICATIONS = set([
     'port.create.end',
     'port.change.end',
     'port.delete.end',
+    'floatingip.create.end',
+    'floatingip.change.end',
+    'floatingip.delete.end'
 ])
 
 
@@ -282,8 +285,6 @@ class Router(BaseDriver):
             crud = event.UPDATE
             router_id = payload.get('router.interface', {}).get('id')
         elif event_type in _ROUTER_INTERESTING_NOTIFICATIONS:
-            crud = event.UPDATE
-        elif event_type.endswith('.end'):
             crud = event.UPDATE
         else:
             LOG.debug('Not processing event: %s' % event_type)
