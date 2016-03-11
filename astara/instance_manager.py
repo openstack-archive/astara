@@ -251,14 +251,8 @@ class InstanceGroupManager(container.ResourceContainer):
                     instance.management_address,
                     config)
             except Exception:
-                if i == attempts - 1:
-                    # Only log the traceback if we encounter it many times.
-                    self.log.exception(_LE('failed to update config'))
-                else:
-                    self.log.debug(
-                        'failed to update config, attempt %d',
-                        i
-                    )
+                # Only log the traceback if we encounter it many times.
+                self.log.exception(_LE('failed to update config'))
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 self.log.info('Instance config updated')
