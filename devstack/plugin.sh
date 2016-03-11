@@ -99,6 +99,7 @@ function configure_astara_horizon() {
         _horizon_config_set $HORIZON_LOCAL_SETTINGS "" RUG_MANAGEMENT_PREFIX \"$ASTARA_MANAGEMENT_PREFIX\"
         _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" RUG_API_PORT \"$ASTARA_API_PORT\"
     done
+    _horizon_config_set $HORIZON_LOCAL_SETTINGS  "" HORIZON_CONFIG\[\'customization_module\'\] "'astara_horizon.astara_openstack_dashboard.overrides'"
 }
 
 function start_astara_horizon() {
