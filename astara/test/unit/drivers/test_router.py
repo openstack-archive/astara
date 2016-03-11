@@ -294,19 +294,6 @@ class RouterDriverTest(base.RugTestBase):
             )
             self._test_notification(notification, payload, e)
 
-    def test_process_notification_arbitrary_end_event(self):
-        payload = {'router': {'id': 'fake_router_id'}}
-        r = event.Resource(
-            driver=router.Router.RESOURCE_NAME,
-            id='fake_router_id',
-            tenant_id='fake_tenant_id')
-        e = event.Event(
-            resource=r,
-            crud=event.UPDATE,
-            body=payload,
-        )
-        self._test_notification('foo.bar.end', payload, e)
-
     def test_process_notification_not_subscribed(self):
         payload = {'router': {'id': 'fake_router_id'}}
         self._test_notification('whocares.about.this', payload, None)
