@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
+import collections
 import itertools
 import socket
 import time
@@ -119,6 +119,15 @@ class MissingIPAllocation(Exception):
         super(MissingIPAllocation, self).__init__(msg)
 
 
+class ItemCache(collections.defaultdict):
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError(key)
+        else:
+            ret = self[key] = self.default_factory(key)
+            return ret
+
+
 class DictModelBase(object):
     DICT_ATTRS = ()
 
@@ -141,10 +150,18 @@ class DictModelBase(object):
             if isinstance(val, list):
                 # this'll eventually break something and you can find this
                 # comment and hurt me.
-                val = [v.to_dict() for v in val]
-            if hasattr(val, 'to_dict'):
+                serialized = []
+                for v in val:
+                    if hasattr(v, 'to_dict'):
+                        serialized.append(v.to_dict())
+                    elif isinstance(v, netaddr.IPNetwork):
+                        serialized.append(str(v))
+                    else:
+                        serialized.append(v)
+                val = serialized
+            elif hasattr(val, 'to_dict'):
                 val = val.to_dict()
-            if isinstance(val, netaddr.IPAddress):
+            elif isinstance(val, (netaddr.IPAddress, netaddr.IPNetwork)):
                 val = str(val)
             d[attr] = val
         return d
@@ -501,6 +518,212 @@ class Member(DictModelBase):
         )
 
 
+class DeadPeerDetection(DictModelBase):
+    DICT_ATTRS = ('action', 'interval', 'timeout')
+
+    def __init__(self, action, interval, timeout):
+        self.action = action
+        self.interval = interval
+        self.timeout = timeout
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['action'],
+            d['interval'],
+            d['timeout']
+        )
+
+
+class Lifetime(DictModelBase):
+    DICT_ATTRS = ('units', 'value')
+
+    def __init__(self, units, value):
+        self.units = units
+        self.value = value
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['units'],
+            d['value']
+        )
+
+
+class EndpointGroup(DictModelBase):
+    DICT_ATTRS = ('id', 'tenant_id', 'name', 'type', 'endpoints')
+
+    def __init__(self, id_, tenant_id, name, type_, endpoints=()):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.type = type_
+        if type_ == 'cidr':
+            self.endpoints = [netaddr.IPNetwork(ep) for ep in endpoints]
+        else:
+            self.endpoints = endpoints
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['type'],
+            d['endpoints']
+        )
+
+
+class IkePolicy(DictModelBase):
+    DICT_ATTRS = ('id', 'tenant_id', 'name', 'ike_version', 'auth_algorithm',
+                  'encryption_algorithm', 'pfs', 'lifetime',
+                  'phase1_negotiation_mode')
+
+    def __init__(self, id_, tenant_id, name, ike_version, auth_algorithm,
+                 encryption_algorithm, pfs, phase1_negotiation_mode, lifetime):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.ike_version = ike_version
+        self.auth_algorithm = auth_algorithm
+        self.encryption_algorithm = encryption_algorithm
+        self.pfs = pfs
+        self.phase1_negotiation_mode = phase1_negotiation_mode
+        self.lifetime = lifetime
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['ike_version'],
+            d['auth_algorithm'],
+            d['encryption_algorithm'],
+            d['pfs'],
+            d['phase1_negotiation_mode'],
+            Lifetime.from_dict(d['lifetime'])
+        )
+
+
+class IpsecPolicy(DictModelBase):
+    DICT_ATTRS = ('id', 'tenant_id', 'name', 'transform_protocol',
+                  'auth_algorithm', 'encryption_algorithm',
+                  'encapsulation_mode', 'lifetime', 'pfs')
+
+    def __init__(self, id_, tenant_id, name, transform_protocol,
+                 auth_algorithm, encryption_algorithm, encapsulation_mode,
+                 lifetime, pfs):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.transform_protocol = transform_protocol
+        self.auth_algorithm = auth_algorithm
+        self.encryption_algorithm = encryption_algorithm
+        self.encapsulation_mode = encapsulation_mode
+        self.lifetime = lifetime
+        self.pfs = pfs
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['transform_protocol'],
+            d['auth_algorithm'],
+            d['encryption_algorithm'],
+            d['encapsulation_mode'],
+            Lifetime.from_dict(d['lifetime']),
+            d['pfs']
+        )
+
+
+class IpsecSiteConnection(DictModelBase):
+    DICT_ATTRS = ('id', 'tenant_id', 'name', 'peer_address', 'peer_id',
+                  'route_mode', 'mtu', 'initiator', 'auth_mode', 'psk', 'dpd',
+                  'status', 'admin_state_up', 'vpnservice_id',
+                  'local_ep_group', 'peer_ep_group', 'peer_cidrs', 'ikepolicy',
+                  'ipsecpolicy')
+
+    def __init__(self, id_, tenant_id, name, peer_address, peer_id,
+                 admin_state_up, route_mode, mtu, initiator, auth_mode, psk,
+                 dpd, status, vpnservice_id, local_ep_group=None,
+                 peer_ep_group=None, peer_cidrs=[], ikepolicy=None,
+                 ipsecpolicy=None):
+        self.id = id_
+        self.tenant_id = tenant_id
+        self.name = name
+        self.peer_address = netaddr.IPAddress(peer_address)
+        self.peer_id = peer_id
+        self.route_mode = route_mode
+        self.mtu = mtu
+        self.initiator = initiator
+        self.auth_mode = auth_mode
+        self.psk = psk
+        self.dpd = dpd
+        self.status = status
+        self.admin_state_up = admin_state_up
+        self.vpnservice_id = vpnservice_id
+        self.ipsecpolicy = ipsecpolicy
+        self.ikepolicy = ikepolicy
+        self.local_ep_group = local_ep_group
+        self.peer_ep_group = peer_ep_group
+        self.peer_cidrs = [netaddr.IPNetwork(pc) for pc in peer_cidrs]
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['tenant_id'],
+            d['name'],
+            d['peer_address'],
+            d['peer_id'],
+            d['admin_state_up'],
+            d['route_mode'],
+            d['mtu'],
+            d['initiator'],
+            d['auth_mode'],
+            d['psk'],
+            DeadPeerDetection.from_dict(d['dpd']),
+            d['status'],
+            d['vpnservice_id'],
+            peer_cidrs=d['peer_cidrs']
+        )
+
+
+class VpnService(DictModelBase):
+    DICT_ATTRS = ('id', 'name', 'status', 'admin_state_up', 'external_v4_ip',
+                  'external_v6_ip', 'subnet_id', 'router_id',
+                  'ipsec_connections')
+
+    def __init__(self, id_, name, status, admin_state_up, external_v4_ip,
+                 external_v6_ip, router_id, subnet_id=None,
+                 ipsec_connections=()):
+        self.id = id_
+        self.name = name
+        self.status = status
+        self.admin_state_up = admin_state_up
+        self.external_v4_ip = netaddr.IPAddress(external_v4_ip)
+        self.external_v6_ip = netaddr.IPAddress(external_v6_ip)
+        self.router_id = router_id
+        self.subnet_id = subnet_id
+        self.ipsec_connections = ipsec_connections
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            d['id'],
+            d['name'],
+            d['status'],
+            d['admin_state_up'],
+            d['external_v4_ip'],
+            d['external_v6_ip'],
+            d['router_id'],
+            d.get('subnet_id')
+        )
+
+
 class AstaraExtClientWrapper(client.Client):
     """Add client support for Astara Extensions. """
 
@@ -636,6 +859,56 @@ class Neutron(object):
         data = self.api_client.show_lbaas_member(member_id, pool_id)['member']
         member = Member.from_dict(data)
         return member
+
+    def get_vpnservices_for_router(self, router_id):
+        response = self.api_client.list_vpnservices(router_id=router_id)
+        retval = []
+        for vpn_svc in response.get('vpnservices', []):
+            svc = VpnService.from_dict(vpn_svc)
+            svc.ipsec_connections = self.get_ipsec_connections_for_vpnservice(
+                svc.id
+            )
+            retval.append(svc)
+
+        return retval
+
+    def get_ipsec_connections_for_vpnservice(self, vpnservice_id):
+        retval = []
+        response = self.api_client.list_ipsec_site_connections(
+            vpnservice_id=vpnservice_id
+        )
+
+        # these items could be used more than once per router, so cache
+        # response while building this object
+        ikepolicy_cache = ItemCache(self.get_ikepolicy)
+        ipsecpolicy_cache = ItemCache(self.get_ipsecpolicy)
+        ep_cache = ItemCache(self.get_vpn_endpoint_group)
+
+        for ipsec_conn in response.get('ipsec_site_connections', []):
+            conn = IpsecSiteConnection.from_dict(ipsec_conn)
+            conn.ipsecpolicy = ipsecpolicy_cache[ipsec_conn['ipsecpolicy_id']]
+            conn.ikepolicy = ikepolicy_cache[ipsec_conn['ikepolicy_id']]
+            conn.local_ep_group = ep_cache[ipsec_conn['local_ep_group_id']]
+            conn.peer_ep_group = ep_cache[ipsec_conn['peer_ep_group_id']]
+            retval.append(conn)
+
+        return retval
+
+    def get_ikepolicy(self, ikepolicy_id):
+        return IkePolicy.from_dict(
+            self.api_client.show_ikepolicy(ikepolicy_id)['ikepolicy']
+        )
+
+    def get_ipsecpolicy(self, ipsecpolicy_id):
+        return IpsecPolicy.from_dict(
+            self.api_client.show_ipsecpolicy(ipsecpolicy_id)['ipsecpolicy']
+        )
+
+    def get_vpn_endpoint_group(self, ep_group_id):
+        epg = self.api_client.show_endpoint_group(ep_group_id)['endpoint_group']
+        return EndpointGroup.from_dict(
+            self.api_client.show_endpoint_group(ep_group_id)['endpoint_group']
+        )
 
     def get_routers(self, detailed=True):
         """Return a list of routers."""

@@ -61,6 +61,7 @@ def _interface_config(ifname, port, subnets_dict, mtu):
 
 def _subnet_config(subnet):
     return {
+        'id': str(subnet.id),
         'cidr': str(subnet.cidr),
         'dhcp_enabled': subnet.enable_dhcp and subnet.ipv6_ra_mode != 'slaac',
         'dns_nameservers': subnet.dns_nameservers,

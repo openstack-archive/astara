@@ -48,6 +48,8 @@ ROUTER_OPTS = [
                deprecated_opts=[
                     cfg.DeprecatedOpt('akanda_mgt_service_port',
                                       group='DEFAULT')]),
+    cfg.BoolOpt('ipsec_vpn', default=False,
+                help='Enable ipsec vpn support'),
 ]
 cfg.CONF.register_group(cfg.OptGroup(name='router'))
 cfg.CONF.register_opts(ROUTER_OPTS, 'router')
@@ -74,6 +76,19 @@ _ROUTER_INTERESTING_NOTIFICATIONS = set([
     'port.create.end',
     'port.change.end',
     'port.delete.end',
+    'flaotingip.create.end',
+    'flaotingip.update.end',
+    'floatingip.delete.end'
+])
+
+_VPN_NOTIFICATIONS = set([
+    'vpnservice.change.end',
+    'vpnservice.delete.end',
+    'ipsec_site_connection.create.end',
+    'ipsec_site_connection.change.end',
+    'ipsec_site_connection.delete.end',
+    'ikepolicy.change.end',
+    'ipsecpolicy.change.end'
 ])
 
 
@@ -244,6 +259,7 @@ class Router(BaseDriver):
 
         :returns: uuid of the router owned by the tenant
         """
+
         router = worker_context.neutron.get_router_for_tenant(tenant_id)
         if not router:
             LOG.debug('Router not found for tenant %s.',
@@ -282,6 +298,8 @@ class Router(BaseDriver):
             crud = event.UPDATE
             router_id = payload.get('router.interface', {}).get('id')
         elif event_type in _ROUTER_INTERESTING_NOTIFICATIONS:
+            crud = event.UPDATE
+        elif cfg.CONF.router.ipsec_vpn and event_type in _VPN_NOTIFICATIONS:
             crud = event.UPDATE
         elif event_type.endswith('.end'):
             crud = event.UPDATE

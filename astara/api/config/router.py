@@ -67,6 +67,7 @@ def build_config(worker_context, router, management_port, interfaces):
         'tenant_id': router.tenant_id,
         'hostname': 'ak-%s' % router.tenant_id,
         'orchestrator': worker_context.config,
+        'vpn': generate_vpn_config(router, worker_context.neutron)
     }
 
 
@@ -156,3 +157,14 @@ def generate_floating_config(router):
         {'floating_ip': str(fip.floating_ip), 'fixed_ip': str(fip.fixed_ip)}
         for fip in router.floating_ips
     ]
+
+
+def generate_vpn_config(router, client):
+    if not cfg.CONF.router.ipsec_vpn:
+        return {}
+
+    return {
+        'ipsec': [
+            v.to_dict() for v in client.get_vpnservices_for_router(router.id)
+        ]
+    }
