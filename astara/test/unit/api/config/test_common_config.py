@@ -76,7 +76,8 @@ class TestCommonConfig(unittest.TestCase):
                          'dhcp_enabled': True,
                          'dns_nameservers': ['8.8.8.8'],
                          'gateway_ip': '192.168.1.1',
-                         'host_routes': {}}],
+                         'host_routes': {},
+                         'id': 's1'}],
             'allocations': [
                 {
                     'mac_address': 'aa:aa:aa:aa:aa:bb',
@@ -86,7 +87,6 @@ class TestCommonConfig(unittest.TestCase):
                 }
             ]
         }
-
         self.assertEqual(result, expected)
 
     def test_interface_config(self):
@@ -113,7 +113,8 @@ class TestCommonConfig(unittest.TestCase):
             'dhcp_enabled': True,
             'dns_nameservers': ['8.8.8.8'],
             'gateway_ip': '192.168.1.1',
-            'host_routes': {}
+            'host_routes': {},
+            'id': 's1',
         }
         self.assertEqual(common._subnet_config(fakes.fake_subnet), expected)
 
@@ -123,7 +124,8 @@ class TestCommonConfig(unittest.TestCase):
             'dhcp_enabled': False,
             'dns_nameservers': ['8.8.8.8'],
             'gateway_ip': 'fdee:9f85:83be::1',
-            'host_routes': {}
+            'host_routes': {},
+            'id': 'fake_id',
         }
         self.assertEqual(
             common._subnet_config(fakes.fake_subnet_with_slaac), expected)
@@ -134,7 +136,8 @@ class TestCommonConfig(unittest.TestCase):
             'dhcp_enabled': True,
             'dns_nameservers': ['8.8.8.8'],
             'gateway_ip': '',
-            'host_routes': {}
+            'host_routes': {},
+            'id': 's1',
         }
         sn = fakes.FakeModel(
             's1',
@@ -152,7 +155,8 @@ class TestCommonConfig(unittest.TestCase):
             'dhcp_enabled': True,
             'dns_nameservers': ['8.8.8.8'],
             'gateway_ip': '',
-            'host_routes': {}
+            'host_routes': {},
+            'id': 's1',
         }
         sn = fakes.FakeModel(
             's1',
