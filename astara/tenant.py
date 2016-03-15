@@ -22,6 +22,7 @@ import collections
 import threading
 import datetime
 
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
@@ -31,6 +32,13 @@ from astara import drivers
 
 
 LOG = logging.getLogger(__name__)
+
+tenant_opts = [
+    cfg.BoolOpt('enable_byonf', default=False,
+                help='Whether to enable bring-your-own-network-function '
+                     'support via operator supplied drivers and images.'),
+]
+cfg.CONF.register_opts(tenant_opts)
 
 
 class InvalidIncomingMessage(Exception):
@@ -196,9 +204,8 @@ class TenantResourceManager(object):
                               'a driver.'))
                 return []
 
-            resource_obj = \
-                drivers.get(message.resource.driver)(worker_context,
-                                                     message.resource.id)
+            resource_obj = self._load_resource_from_message(
+                worker_context, message)
 
             if not resource_obj:
                 # this means the driver didn't load for some reason..
@@ -238,3 +245,24 @@ class TenantResourceManager(object):
             return self.state_machines[resource_id]
         except KeyError:
             return None
+
+    def _load_resource_from_message(self, worker_context, message):
+        if cfg.CONF.enable_byonf:
+            byonf_res = worker_context.neutron.tenant_has_byo_for_function(
+                tenant_id=self.tenant_id.replace('-', ''),
+                function_type=message.resource.driver)
+
+            if byonf_res:
+                try:
+                    return drivers.load_from_byonf(
+                        worker_context,
+                        byonf_res,
+                        message.resource.id)
+                except drivers.InvalidDriverException:
+                    LOG.exception(_LE(
+                        'Could not load BYONF driver, falling back to '
+                        'configured image'))
+                    pass
+
+        return drivers.get(message.resource.driver)(
+            worker_context, message.resource.id)
