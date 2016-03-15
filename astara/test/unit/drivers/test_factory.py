@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import mock
+
 from astara.test.unit import base
 
 from astara import drivers
@@ -41,3 +43,21 @@ class DriverFactoryTest(base.RugTestBase):
         self.config(enabled_drivers=all_driver_cfg)
         enabled_drivers = [d for d in drivers.enabled_drivers()]
         self.assertEqual(set(all_driver_obj), set(enabled_drivers))
+
+    @mock.patch('astara.drivers.get')
+    def test_load_from_byonf(self, fake_get):
+        fake_driver_obj = mock.Mock(
+            name='fake_driver_obj',
+            image_uuid='configured_image_uuid')
+        fake_driver = mock.Mock(
+            return_value=fake_driver_obj)
+        fake_get.return_value = fake_driver
+        byonf = {
+            'driver': 'custom_driver',
+            'image_uuid': 'custom_image_uuid',
+        }
+        ctx = mock.Mock()
+        res = drivers.load_from_byonf(ctx, byonf, 'fake_resource_id')
+        self.assertEqual(res, fake_driver_obj)
+        self.assertEqual(res.image_uuid, 'custom_image_uuid')
+        fake_driver.assert_called_with(ctx, 'fake_resource_id')

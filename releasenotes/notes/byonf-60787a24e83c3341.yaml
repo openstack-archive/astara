@@ -1,0 +1,7 @@
+---
+features:
+  - Operators may now associate custom drivers and image IDs to
+    tenants, via the Neutron API,  to override global configuration, providing
+    support for dynamic user-provided network functions. To enable this feature,
+    set ``enable_byonf=True`` in ``orchestrator.ini`` and be sure the version
+    of ``astara-neutron`` loaded into Neutron supports the BYONF API.
