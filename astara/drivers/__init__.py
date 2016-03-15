@@ -62,6 +62,18 @@ def get(requested_driver):
     )
 
 
+def load_from_byonf(byonf_result, worker_context, resource_id):
+    """"Returns a loaded driver based on astara-neutron BYONF response
+
+    Responsible for also setting correct driver attributes based on BYONF
+    specs.
+    """
+    driver_obj = get(byonf_result['driver'])(worker_context, resource_id)
+    if byonf_result['image_id']:
+        driver_obj.image_uuid = byonf_result['image_id']
+    return driver_obj
+
+
 def enabled_drivers():
     for driver in cfg.CONF.enabled_drivers:
         try:

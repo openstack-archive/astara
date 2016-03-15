@@ -196,9 +196,25 @@ class TenantResourceManager(object):
                               'a driver.'))
                 return []
 
-            driver_obj = \
-                drivers.get(message.resource.driver)(worker_context,
-                                                     message.resource.id)
+            byonf_res = worker_context.neutron.tenant_has_byo_for_function(
+                tenant_id=self.tenant_id.replace('-', ''),
+                function_type=message.resource.driver)
+
+            driver_obj = None
+
+            if byonf_res:
+                try:
+                    driver_obj = drivers.load_from_byonf(
+                        byonf_res,
+                        worker_context,
+                        message.resource.id)
+                except drivers.InvalidDriverException:
+                    LOG.exception(_LE('Could not load BYONF driver'))
+                    pass
+
+            if not driver_obj:
+                driver_obj = drivers.get(message.resource.driver)(
+                    worker_context, message.resource.id)
 
             if not driver_obj:
                 # this means the driver didn't load for some reason..
