@@ -1,0 +1,9 @@
+Code-Review+1: Sharath Rao <sharath.rao@ericsson.com>
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Workflow+1: Adam Gandelman <adamg@ubuntu.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 16 Mar 2016 23:51:06 +0000
+Reviewed-on: https://review.openstack.org/293705
+Project: openstack/astara
+Branch: refs/heads/master
