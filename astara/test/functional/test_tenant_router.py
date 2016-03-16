@@ -48,13 +48,13 @@ class TestAstaraRouter(base.AstaraFunctionalBase):
         """
         # for each subnet that was created during setup, ensure we have a
         # router interface added
-        ports = self.neutronclient.list_ports()['ports']
+        ports = self.neutronclient.list_ports(
+            device_owner='network:router_interface')['ports']
         subnets = self.neutronclient.list_subnets(
             network_id=self.network['id'])
         subnets = subnets['subnets']
         self.assertEqual(len(ports), len(subnets))
         for port in ports:
-            self.assertEqual(port['device_owner'], 'network:router_interface')
             self.assertEqual(port['device_id'], self.router['id'])
             self.assertEqual(
                 sorted([subnet['id'] for subnet in subnets]),
