@@ -1,0 +1,9 @@
+Code-Review+2: Adam Gandelman <adamg@ubuntu.com>
+Code-Review+2: Rosario Di Somma <rosario.disomma@gmail.com>
+Workflow+1: Rosario Di Somma <rosario.disomma@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 17 Mar 2016 01:24:38 +0000
+Reviewed-on: https://review.openstack.org/292669
+Project: openstack/astara
+Branch: refs/heads/master
