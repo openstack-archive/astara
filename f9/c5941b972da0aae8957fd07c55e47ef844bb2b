@@ -1,0 +1,9 @@
+Code-Review+2: Rosario Di Somma <rosario.disomma@gmail.com>
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 17 Mar 2016 18:29:52 +0000
+Reviewed-on: https://review.openstack.org/289609
+Project: openstack/astara
+Branch: refs/heads/master
