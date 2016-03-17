@@ -166,6 +166,11 @@ class HashRingManager(object):
 
     def __init__(self):
         self._hosts = []
+        self._balanced = False
+
+    @property
+    def balanced(self):
+        return self._balanced
 
     @property
     def ring(self):
@@ -190,8 +195,10 @@ class HashRingManager(object):
     def reset(cls):
         with cls._lock:
             cls._hash_ring = None
+        cls._balanced = False
 
     def rebalance(self, hosts):
         self.reset()
         with self._lock:
             self._hosts = hosts
+        self._balanced = True

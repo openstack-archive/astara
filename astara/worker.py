@@ -189,6 +189,7 @@ class Worker(object):
         ]
 
         self.hash_ring_mgr = hash_ring.HashRingManager()
+        self._deferred_messages = []
 
         for t in self.threads:
             t.setDaemon(True)
@@ -415,10 +416,36 @@ class Worker(object):
 
         return message
 
+    def _ring_balanced(self):
+        return self.hash_ring_mgr.balanced
+
+    def _defer_message(self, target, message):
+        LOG.debug("Deferring message for %s: %s", target, message)
+        self._deferred_messages.append((target, message))
+
+    def _replay_deferred_messages(self):
+        if not self._deferred_messages:
+            return
+
+        LOG.debug(
+            'Replaying pre-rebalance deferred messages on worker %s',
+            self.proc_name)
+        [self.handle_message(tgt, msg) for tgt, msg in self._deferred_messages]
+
     def handle_message(self, target, message):
         """Callback to be used in main
         """
         LOG.debug('got: %s %r', target, message)
+
+        # If the cluster ring hasnt been seeded yet, we cannot make decisions
+        # about which messages to process.  Instead, receive them and defer
+        # handling until we know the ring layout.
+        if (cfg.CONF.coordination.enabled and
+           not self._ring_balanced() and
+           message.crud != event.REBALANCE):
+                self._defer_message(target, message)
+                return
+
         if target is None:
             # We got the shutdown instruction from our parent process.
             self._shutdown()
@@ -495,6 +522,9 @@ class Worker(object):
         # to a bootstrapping rebalance, we don't need to worry about adjusting
         # state because there is none yet.
         if message.body.get('node_bootstrap'):
+            # replay any messages that may have accumulated while we were
+            # waiting to finish cluster bootstrap
+            self._replay_deferred_messages()
             return
 
         # track which SMs we initially owned
