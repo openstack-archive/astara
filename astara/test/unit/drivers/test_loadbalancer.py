@@ -373,5 +373,5 @@ class LoadBalancerDriverTest(base.RugTestBase):
             neutron.LoadBalancerGone
         ]
         lb._ensure_cache(self.ctx)
-        self.assertEqual(lb._loadbalancer, None)
+        self.assertIsNone(lb._loadbalancer)
         self.ctx.neutron.get_loadbalancer_detail.assert_called_with(lb.id)
