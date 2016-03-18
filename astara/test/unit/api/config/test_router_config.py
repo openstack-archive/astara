@@ -97,7 +97,8 @@ class TestAstaraClient(unittest.TestCase):
                     'host': 'foohost',
                     'adddress': '10.0.0.1',
                     'metadata_port': 80,
-                }
+                },
+                'vpn': {}
             }
 
             self.assertEqual(config, expected)
