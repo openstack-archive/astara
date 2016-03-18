@@ -750,6 +750,12 @@ class AstaraExtClientWrapper(client.Client):
             }
         )
 
+    def list_byonfs(self, retrieve_all=True, **_params):
+        return self.list('byonfs', '/byonf', retrieve_all, **_params).get(
+            'byonfs',
+            []
+        )
+
 
 class L3PluginApi(object):
 
@@ -1142,6 +1148,7 @@ class Neutron(object):
 
         if ports:
             port = Port.from_dict(ports[0])
+
             device_name = driver.get_device_name(port)
             driver.unplug(device_name)
 
@@ -1159,3 +1166,14 @@ class Neutron(object):
 
     def clear_device_id(self, port):
         self.api_client.update_port(port.id, {'port': {'device_id': ''}})
+
+    def tenant_has_byo_for_function(self, tenant_id, function_type):
+        retval = self.api_client.list_byonfs(
+            function_type=function_type,
+            tenant_id=tenant_id
+        )
+        if retval:
+            LOG.debug(
+                'Found BYONF for tenant %s with function %s',
+                tenant_id, function_type)
+            return retval[0]

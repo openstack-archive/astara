@@ -17,7 +17,6 @@
 import uuid
 
 import mock
-import unittest2 as unittest
 
 from six.moves import range
 from astara import event
@@ -25,15 +24,20 @@ from astara import tenant
 from astara.drivers import router
 from astara import state
 from astara.drivers import states
-from astara.test.unit import fakes
+from astara.test.unit import base, fakes
 
 
-class TestTenantResourceManager(unittest.TestCase):
+class TestTenantResourceManager(base.RugTestBase):
 
     def setUp(self):
         super(TestTenantResourceManager, self).setUp()
 
         self.fake_driver = fakes.fake_driver()
+        self.load_resource_p = mock.patch(
+            'astara.tenant.TenantResourceManager._load_resource_from_message')
+        self.fake_load_resource = self.load_resource_p.start()
+        self.fake_load_resource.return_value = self.fake_driver
+
         self.tenant_id = 'cfb48b9c-66f6-11e5-a7be-525400cfc326'
         self.instance_mgr = \
             mock.patch('astara.instance_manager.InstanceManager').start()
@@ -60,6 +64,8 @@ class TestTenantResourceManager(unittest.TestCase):
             crud=event.CREATE,
             body={'key': 'value'},
         )
+        self.fake_load_resource.return_value = fakes.fake_driver(
+            resource_id='5678')
         sm = self.trm.get_state_machines(msg, self.ctx)[0]
         self.assertEqual(sm.resource_id, '5678')
         self.assertIn('5678', self.trm.state_machines)
@@ -302,3 +308,80 @@ class TestTenantResourceManager(unittest.TestCase):
         self.assertNotIn('fake-resource-id', self.trm.state_machines)
         self.assertFalse(
             self.trm.state_machines.has_been_deleted('fake-resource-id'))
+
+    @mock.patch('astara.drivers.load_from_byonf')
+    @mock.patch('astara.drivers.get')
+    def test__load_driver_from_message_no_byonf(self, fake_get, fake_byonf):
+        self.load_resource_p.stop()
+        self.config(enable_byonf=False)
+        r = event.Resource(
+            tenant_id='1234',
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
+        msg = event.Event(
+            resource=r,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        fake_driver = mock.Mock()
+        fake_driver.return_value = 'fake_driver'
+        fake_get.return_value = fake_driver
+
+        self.assertEqual(
+            self.trm._load_resource_from_message(self.ctx, msg),
+            'fake_driver')
+        fake_get.assert_called_with(msg.resource.driver)
+        fake_driver.assert_called_with(self.ctx, msg.resource.id)
+        self.assertFalse(fake_byonf.called)
+
+    @mock.patch('astara.drivers.load_from_byonf')
+    @mock.patch('astara.drivers.get')
+    def test__load_driver_from_message_with_byonf(self, fake_get, fake_byonf):
+        self.load_resource_p.stop()
+        self.config(enable_byonf=True)
+        r = event.Resource(
+            tenant_id='1234',
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
+        msg = event.Event(
+            resource=r,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+        fake_driver = mock.Mock()
+        fake_byonf.return_value = fake_driver
+
+        self.ctx.neutron.tenant_has_byo_for_function.return_value = 'byonf_res'
+        self.assertEqual(
+            self.trm._load_resource_from_message(self.ctx, msg), fake_driver)
+        fake_byonf.assert_called_with(
+            self.ctx, 'byonf_res', msg.resource.id)
+        self.assertFalse(fake_get.called)
+
+    @mock.patch('astara.drivers.load_from_byonf')
+    @mock.patch('astara.drivers.get')
+    def test__load_driver_from_message_empty_byonf(self, fake_get, fake_byonf):
+        self.load_resource_p.stop()
+        self.config(enable_byonf=True)
+        r = event.Resource(
+            tenant_id='1234',
+            id='5678',
+            driver=router.Router.RESOURCE_NAME,
+        )
+        msg = event.Event(
+            resource=r,
+            crud=event.CREATE,
+            body={'key': 'value'},
+        )
+
+        fake_driver = mock.Mock()
+        fake_driver.return_value = 'fake_fallback_driver'
+        fake_get.return_value = fake_driver
+
+        self.ctx.neutron.tenant_has_byo_for_function.return_value = None
+        self.assertEqual(
+            self.trm._load_resource_from_message(self.ctx, msg),
+            'fake_fallback_driver')
+        fake_get.assert_called_with(msg.resource.driver)
