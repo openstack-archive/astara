@@ -122,7 +122,7 @@ class TestAstaraRouter(AstaraRouterTestBase):
 
         # look for the new server, retry giving rug time to do its thing.
         new_server = self.get_router_appliance_server(
-            self.router['id'], retries=60, wait_for_active=True)
+            self.router['id'], retries=600, wait_for_active=True)
         LOG.debug('Rebuilt new server found: %s', new_server)
         self.assertNotEqual(old_server.id, new_server.id)
 
