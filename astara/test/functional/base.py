@@ -578,7 +578,7 @@ class AstaraFunctionalBase(testtools.TestCase):
                 return
 
             service_instances = self.get_router_appliance_server(
-                router_uuid, ha_router=ha_router)
+                router_uuid, wait_for_active=True, ha_router=ha_router)
             if not ha_router:
                 service_instances = [service_instances]
 
