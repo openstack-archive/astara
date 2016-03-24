@@ -412,7 +412,10 @@ class TestTenant(object):
         LOG.debug('Cleaning up created neutron resources')
         router_interface_ports = [
             p for p in self.clients.neutronclient.list_ports()['ports']
-            if 'router_interface' in p['device_owner']]
+            if (
+                'router_interface' in p['device_owner'] or
+                'ha_router_replicated_interface' in p['device_owner']
+            )]
         for rip in router_interface_ports:
             LOG.debug('Deleting router interface port: %s', rip)
             self.clients.neutronclient.remove_interface_router(
@@ -577,7 +580,7 @@ class AstaraFunctionalBase(testtools.TestCase):
                 return
 
             service_instances = self.get_router_appliance_server(
-                router_uuid, ha_router=ha_router)
+                router_uuid, wait_for_active=True, ha_router=ha_router)
             if not ha_router:
                 service_instances = [service_instances]
 
