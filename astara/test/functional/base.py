@@ -412,7 +412,10 @@ class TestTenant(object):
         LOG.debug('Cleaning up created neutron resources')
         router_interface_ports = [
             p for p in self.clients.neutronclient.list_ports()['ports']
-            if 'router_interface' in p['device_owner']]
+            if (
+                'router_interface' in p['device_owner'] or
+                'ha_router_replicated_interface' in p['device_owner']
+            )]
         for rip in router_interface_ports:
             LOG.debug('Deleting router interface port: %s', rip)
             self.clients.neutronclient.remove_interface_router(
@@ -521,7 +524,6 @@ class AstaraFunctionalBase(testtools.TestCase):
         parse_config()
         self.ak_client = astara_client
         self.admin_clients = AdminClientManager()
-        self._management_address = None
 
     @classmethod
     def setUpClass(cls):
@@ -551,33 +553,44 @@ class AstaraFunctionalBase(testtools.TestCase):
         return self.admin_clients.get_router_appliance_server(
             router_uuid, retries, wait_for_active, ha_router)
 
-    def get_management_address(self, router_uuid):
+    def get_management_address(self, router_uuid=None, service_instance=None):
         LOG.debug('Getting management address for resource %s', router_uuid)
-        if self._management_address:
-            return self._management_address['addr']
-
-        service_instance = self.get_router_appliance_server(router_uuid)
+        if router_uuid:
+            service_instance = self.get_router_appliance_server(router_uuid)
+        else:
+            service_instance = self.admin_clients.novaclient.servers.get(
+                service_instance.id)
 
         try:
-            self._management_address = service_instance.addresses['mgt'][0]
+            management_address = service_instance.addresses['mgt'][0]
         except KeyError:
             raise Exception(
                 '"mgt" port not found on service instance %s (%s)' %
                 (service_instance.id, service_instance.name))
         LOG.debug('Got management address for resource %s', router_uuid)
-        return self._management_address['addr']
+        return management_address['addr']
+
+    def assert_api_service_active(self, service_instance):
+        addr = self.get_management_address(service_instance=service_instance)
+        for i in six.moves.range(CONF.appliance_active_timeout):
+            if self.ak_client.is_alive(addr, 5000):
+                LOG.debug(
+                    'Appliance API active @ %s after %s attempts',
+                    addr, i)
+                return
+            LOG.debug(
+                'Still waiting for API to become active @ %s %s/%s',
+                addr, i, CONF.appliance_active_timeout)
+            time.sleep(1)
+        raise Exception(
+            'Appliance API still inactive @ %s after %s attempts',
+            addr, i)
 
     def assert_router_is_active(self, router_uuid, ha_router=False):
         LOG.debug('Waiting for resource %s to become ACTIVE', router_uuid)
         for i in six.moves.range(CONF.appliance_active_timeout):
-            res = self.admin_clients.neutronclient.show_router(router_uuid)
-            router = res['router']
-            if router['status'] == 'ACTIVE':
-                LOG.debug('Router %s ACTIVE after %s sec.', router_uuid, i)
-                return
-
             service_instances = self.get_router_appliance_server(
-                router_uuid, ha_router=ha_router)
+                router_uuid, wait_for_active=True, ha_router=ha_router)
             if not ha_router:
                 service_instances = [service_instances]
 
@@ -586,6 +599,14 @@ class AstaraFunctionalBase(testtools.TestCase):
                     raise Exception(
                         'Backing instance %s for router %s in ERROR state',
                         instance.id, router_uuid)
+
+            [self.assert_api_service_active(i) for i in service_instances]
+
+            res = self.admin_clients.neutronclient.show_router(router_uuid)
+            router = res['router']
+            if router['status'] == 'ACTIVE':
+                LOG.debug('Router %s ACTIVE after %s sec.', router_uuid, i)
+                return
 
             LOG.debug(
                 'Resource %s not active. Status==%s, will wait, %s/%s sec.',
