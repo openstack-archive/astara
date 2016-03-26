@@ -80,7 +80,7 @@ class BaseDriver(object):
         pass
 
     def update_config(self,  management_address, config):
-        """Updates appliance configuratino
+        """Updates appliance configuration
 
         This is responsible for pushing configuration to the managed
         appliance
@@ -103,7 +103,7 @@ class BaseDriver(object):
 
         :param worker_context:
 
-        :returns: A tuple (managment_port, [instance_ports])
+        :returns: A tuple (management_port, [instance_ports])
         """
         def _make_ports():
             pass
@@ -119,7 +119,7 @@ class BaseDriver(object):
 
     @staticmethod
     def pre_populate_hook():
-        """called in populate.py durring driver loading loop.
+        """called in populate.py during driver loading loop.
         """
         pass
 
@@ -158,7 +158,7 @@ class BaseDriver(object):
         :param event_type: str event type, for example router.create.end
         :param payload: The payload body of the incoming event
 
-        :returns: A populated Event objet if it should process, or None if not
+        :returns: A populated Event object if it should process, or None if not
         """
         pass
 
@@ -173,7 +173,7 @@ class BaseDriver(object):
         """Lists interfaces attached to the resource.
 
         This lists the interfaces attached to the resource from the POV
-        of the resource iteslf.
+        of the resource itself.
 
         :returns: A list of interfaces
         """
