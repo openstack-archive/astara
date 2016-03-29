@@ -568,19 +568,64 @@ class AstaraFunctionalBase(testtools.TestCase):
         LOG.debug('Got management address for resource %s', router_uuid)
         return management_address['addr']
 
+    def _debug_failed_appliances(self, instances, router):
+        import pprint
+        LOG.debug('XXXXXXXXXXXXXXXXXXXXXXXXXX DEBUG')
+        LOG.debug('XXX ROUTER: ')
+        LOG.debug(pprint.pformat(router))
+        for i in instances:
+            inst = self.admin_clients.novaclient.servers.get(i.id)
+            LOG.debug('XXX INSTANCE: %s / %s', inst, inst.id)
+            LOG.debug(pprint.pformat(inst.to_dict()))
+            mgt_addr = inst.addresses.get('mgt')
+
+            ping = False
+            if not mgt_addr:
+                LOG.debug('XXX no management address ?')
+            else:
+                mgt_addr = mgt_addr[0]['addr']
+                try:
+                    self.ping(mgt_addr)
+                    pung = True
+                    LOG.debug('XXX ping test passed')
+                except:
+                    LOG.debug(
+                        'XXX ping failed on instance %s at %s', inst.id, addr)
+                    pung = False
+
+            if pung:
+                LOG.debug('XXX pinging API service')
+                for i in range(30):
+                    timeout = i * 2
+                    LOG.debug('XXX with timeout %s', timeout)
+                    if not self.ak_client.is_alive(mgt_addr, 5000, timeout):
+                        LOG.debug(
+                            'XXX alive check failed with timeout %s', timeout)
+                        break
+                    else:
+                        LOG.debug(
+                            'XXX alive check passed with timeout %s', timeout)
+
+            LOG.debug('XXX Console log for instance %s' % inst)
+            LOG.debug(inst.get_console_output())
+
     def assert_router_is_active(self, router_uuid, ha_router=False):
         LOG.debug('Waiting for resource %s to become ACTIVE', router_uuid)
         for i in six.moves.range(CONF.appliance_active_timeout):
-            res = self.admin_clients.neutronclient.show_router(router_uuid)
-            router = res['router']
-            if router['status'] == 'ACTIVE':
-                LOG.debug('Router %s ACTIVE after %s sec.', router_uuid, i)
-                return
-
             service_instances = self.get_router_appliance_server(
                 router_uuid, wait_for_active=True, ha_router=ha_router)
             if not ha_router:
                 service_instances = [service_instances]
+
+            res = self.admin_clients.neutronclient.show_router(router_uuid)
+            router = res['router']
+
+            if router['status'] == 'ACTIVE':
+                LOG.debug('Router %s ACTIVE after %s sec.', router_uuid, i)
+                return
+            elif router['status'] == 'ERROR':
+                LOG.debug(
+                    'Router %s in state ERROR after %s sec.', router_uuid, i)
 
             for instance in service_instances:
                 if instance.status == 'ERROR':
@@ -594,9 +639,19 @@ class AstaraFunctionalBase(testtools.TestCase):
                 CONF.appliance_active_timeout)
             time.sleep(1)
 
+        self._debug_failed_appliances(service_instances, router)
+
         raise Exception(
             'Timed out waiting for router %s to become ACTIVE, '
             'current status=%s' % (router_uuid, router['status']))
+
+    def ping(self, addr):
+        cmd = ['ping6', '-c5', addr]
+        LOG.debug('XXX Pinging addr: %s',' '.join(cmd))
+        try:
+            subprocess.check_call(cmd)
+        except:
+            raise Exception('Failed to ping router with command: %s' % cmd)
 
     def ping_router_mgt_address(self, router_uuid):
         server = self.get_router_appliance_server(router_uuid)
