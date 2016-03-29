@@ -43,8 +43,6 @@ class AstaraRouterTestBase(base.AstaraFunctionalBase):
         router = self.neutronclient.show_router(self.router['id'])
         self.router = router['router']
 
-    HA_ROUTER = False
-
     @property
     def router_ha(self):
         router = self.admin_clients.neutronclient.show_router(
@@ -69,7 +67,7 @@ class TestAstaraHARouter(AstaraRouterTestBase):
         time.sleep(CONF.health_check_period)
 
         service_instances = self.get_router_appliance_server(
-            self.router['id'], ha_router=self.HA_ROUTER)
+            self.router['id'], retries=600, ha_router=self.HA_ROUTER)
         self.assertEqual(len(service_instances), 2)
         self.assertEqual(service_instances[0], backup)
 
