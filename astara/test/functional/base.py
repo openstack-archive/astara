@@ -412,7 +412,11 @@ class TestTenant(object):
         LOG.debug('Cleaning up created neutron resources')
         router_interface_ports = [
             p for p in self.clients.neutronclient.list_ports()['ports']
-            if 'router_interface' in p['device_owner']]
+            if (
+                'router_interface' in p['device_owner'] or
+                'ha_router_replicated_interface' in p['device_owner']
+            )]
+
         for rip in router_interface_ports:
             LOG.debug('Deleting router interface port: %s', rip)
             self.clients.neutronclient.remove_interface_router(
@@ -521,7 +525,6 @@ class AstaraFunctionalBase(testtools.TestCase):
         parse_config()
         self.ak_client = astara_client
         self.admin_clients = AdminClientManager()
-        self._management_address = None
 
     @classmethod
     def setUpClass(cls):
@@ -553,19 +556,17 @@ class AstaraFunctionalBase(testtools.TestCase):
 
     def get_management_address(self, router_uuid):
         LOG.debug('Getting management address for resource %s', router_uuid)
-        if self._management_address:
-            return self._management_address['addr']
 
         service_instance = self.get_router_appliance_server(router_uuid)
 
         try:
-            self._management_address = service_instance.addresses['mgt'][0]
+            management_address = service_instance.addresses['mgt'][0]
         except KeyError:
             raise Exception(
                 '"mgt" port not found on service instance %s (%s)' %
                 (service_instance.id, service_instance.name))
         LOG.debug('Got management address for resource %s', router_uuid)
-        return self._management_address['addr']
+        return management_address['addr']
 
     def assert_router_is_active(self, router_uuid, ha_router=False):
         LOG.debug('Waiting for resource %s to become ACTIVE', router_uuid)
@@ -577,7 +578,7 @@ class AstaraFunctionalBase(testtools.TestCase):
                 return
 
             service_instances = self.get_router_appliance_server(
-                router_uuid, ha_router=ha_router)
+                router_uuid, wait_for_active=True, ha_router=ha_router)
             if not ha_router:
                 service_instances = [service_instances]
 

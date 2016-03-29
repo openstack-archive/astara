@@ -51,7 +51,8 @@ function configure_astara() {
     # NOTE(adam_g) When running in the gate on slow VMs, gunicorn workers in the appliance
     # sometimes hang during config update and eventually timeout after 60s.  Update
     # config_timeout in the RUG to reflect that timeout.
-    iniset $ASTARA_CONF DEFAULT config_timeout 60
+    iniset $ASTARA_CONF DEFAULT alive_timeout 60
+    iniset $ASTARA_CONF DEFAULT config_timeout 600
 
     iniset $ASTARA_CONF DEFAULT enabled_drivers $ASTARA_ENABLED_DRIVERS
 
