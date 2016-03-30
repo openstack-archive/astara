@@ -1,5 +1,5 @@
 ================================================
- Astara Mitaka Series Release Notes (UNRELEASED)
+ Astara Mitaka Series Release Notes
 ================================================
 
 .. release-notes::
