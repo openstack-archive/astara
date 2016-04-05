@@ -261,7 +261,7 @@ class Nova(object):
             self.instance_provider = default(self.client)
 
     def get_instances_for_obj(self, name):
-        """Retreives all nova servers for a given instance name.
+        """Retrieves all nova servers for a given instance name.
 
         :param name: name of the instance being queried
 
@@ -276,7 +276,7 @@ class Nova(object):
         return [InstanceInfo.from_nova(i) for i in instances]
 
     def get_instance_for_obj(self, name):
-        """Retreives a nova server for a given instance name.
+        """Retrieves a nova server for a given instance name.
 
         :param name: name of the instance being queried
 
@@ -292,7 +292,7 @@ class Nova(object):
             return None
 
     def get_instance_by_id(self, instance_id):
-        """Retreives a nova server for a given instance_id.
+        """Retrieves a nova server for a given instance_id.
 
         :param instance_id: Nova instance ID of instance being queried
 

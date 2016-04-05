@@ -764,7 +764,7 @@ class AstaraExtClientWrapper(client.Client):
 
 class L3PluginApi(object):
 
-    """Agent side of the Qunatum l3 agent RPC API."""
+    """Agent side of the Quantum l3 agent RPC API."""
 
     BASE_RPC_API_VERSION = '1.0'
 
