@@ -72,6 +72,10 @@ function configure_astara() {
         iniset $ASTARA_CONF coordination enabled True
         iniset $ASTARA_CONF coordination url $ASTARA_COORDINATION_URL
     fi
+
+    if is_service_enabled "neutron-vpnaas"; then
+        iniset $ASTARA_CONF router ipsec_vpn True
+    fi
 }
 
 function configure_astara_nova() {
