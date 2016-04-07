@@ -17,6 +17,8 @@
 
 import re
 
+from astara.common import constants
+
 SERVICE_STATIC = 'static'
 
 
@@ -74,10 +76,13 @@ def _subnet_config(subnet):
 
 def _allocation_config(ports, subnets_dict):
     r = re.compile('[:.]')
+    service_ports_re = re.compile(
+        '^ASTARA:(' + '|'.join(constants.ASTARA_SERVICE_PORT_TYPES) + '):.*$'
+    )
     allocations = []
 
     for port in ports:
-        if port.name.startswith('ASTARA:VRRP:'):
+        if service_ports_re.match(port.name):
             continue
 
         addrs = {
