@@ -74,6 +74,15 @@ fake_instance_vrrp_port = FakeModel(
     first_v4='192.168.1.2',
     device_id='v-v-v-v')
 
+fake_instance_lb_port = FakeModel(
+    '4',
+    name='ASTARA:LB:foo',
+    mac_address='aa:aa:aa:aa:aa:bb',
+    network_id='int-net',
+    fixed_ips=[FakeModel('', ip_address='192.168.1.2', subnet_id='s1')],
+    first_v4='192.168.1.2',
+    device_id='v-v-v-v')
+
 fake_subnet = FakeModel(
     's1',
     cidr=netaddr.IPNetwork('192.168.1.0/24'),
