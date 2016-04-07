@@ -60,6 +60,7 @@ CONF.register_opts(neutron_opts)
 # copied from Neutron source
 DEVICE_OWNER_ROUTER_MGT = "network:router_management"
 DEVICE_OWNER_ROUTER_INT = "network:router_interface"
+DEVICE_OWNER_ROUTER_HA_INT = "network:ha_router_replicated_interface"
 DEVICE_OWNER_ROUTER_GW = "network:router_gateway"
 DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:astara"
@@ -202,7 +203,8 @@ class Router(object):
 
         for port_dict in d.get('_interfaces', []):
             port = Port.from_dict(port_dict)
-            if port.device_owner == DEVICE_OWNER_ROUTER_INT:
+            int_owners = [DEVICE_OWNER_ROUTER_INT, DEVICE_OWNER_ROUTER_HA_INT]
+            if port.device_owner in int_owners:
                 internal_ports.append(port)
 
         fips = [FloatingIP.from_dict(fip) for fip in d.get('_floatingips', [])]

@@ -40,12 +40,33 @@ class TestuNeutronModels(base.RugTestBase):
 
     def test_router_from_dict(self):
         p = {
+            'name': 'ext',
             'id': 'ext',
             'device_id': 'device_id',
             'fixed_ips': [],
             'mac_address': 'aa:bb:cc:dd:ee:ff',
             'network_id': 'net_id',
             'device_owner': 'network:router_gateway'
+        }
+
+        int_p = {
+            'name': 'int',
+            'id': 'int',
+            'device_id': 'device_id',
+            'fixed_ips': [],
+            'mac_address': 'aa:bb:cc:dd:ee:ee',
+            'network_id': 'net_id',
+            'device_owner': 'network:router_interface'
+        }
+
+        int_ha_p = {
+            'name': 'ha_int',
+            'id': 'ha_int',
+            'device_id': 'device_id',
+            'fixed_ips': [],
+            'mac_address': 'aa:bb:cc:dd:ee:ee',
+            'network_id': 'net_id',
+            'device_owner': 'network:ha_router_replicated_interface'
         }
 
         fip = {
@@ -61,7 +82,8 @@ class TestuNeutronModels(base.RugTestBase):
             'admin_state_up': True,
             'status': 'ACTIVE',
             'ports': [p],
-            '_floatingips': [fip]
+            '_floatingips': [fip],
+            '_interfaces': [int_p, int_ha_p],
         }
 
         r = neutron.Router.from_dict(d)
@@ -71,6 +93,9 @@ class TestuNeutronModels(base.RugTestBase):
         self.assertEqual(r.name, 'name')
         self.assertTrue(r.admin_state_up)
         self.assertTrue(r.floating_ips)  # just make sure this exists
+        self.assertEqual(
+            sorted([ip.id for ip in r.internal_ports]),
+            ['ha_int', 'int'])
 
     def test_router_eq(self):
         r1 = neutron.Router(
