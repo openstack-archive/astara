@@ -177,6 +177,15 @@ class TestCommonConfig(unittest.TestCase):
             []
         )
 
+    def test_allocation_config_lb(self):
+        subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
+        self.assertEqual(
+            common._allocation_config(
+                [fakes.fake_instance_lb_port],
+                subnets_dict),
+            []
+        )
+
     def test_allocation_config_mgt(self):
         subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
         expected = [
