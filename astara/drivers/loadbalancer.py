@@ -164,6 +164,16 @@ class LoadBalancer(BaseDriver):
 
         return _make_ports
 
+    def delete_ports(self, worker_context):
+        """Delete all ports.
+
+        :param worker_context:
+        :returns: None
+
+        """
+        worker_context.neutron.delete_vrrp_port(self.id, label='LB')
+        worker_context.neutron.delete_vrrp_port(self.id, label='MGT')
+
     @staticmethod
     def pre_populate_hook():
         """Fetch the existing LBs from neutron then and returns list back
