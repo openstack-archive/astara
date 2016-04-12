@@ -33,7 +33,7 @@ from oslo_utils import importutils
 from astara.common.i18n import _, _LI, _LW
 from astara.common.linux import ip_lib
 from astara.api import keystone
-from astara.common import rpc
+from astara.common import constants, rpc
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -1002,7 +1002,7 @@ class Neutron(object):
             security_groups=[]
         )
 
-        if label in ['VRRP', 'LB']:
+        if label in constants.ASTARA_SERVICE_PORT_TYPES:
             port_dict['fixed_ips'] = []
             # disable port_securty on VRRP
             if self.conf.neutron_port_security_extension_enabled:
