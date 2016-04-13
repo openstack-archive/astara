@@ -38,12 +38,15 @@ def build_config(client, loadbalancer, management_port, iface_map):
             'management'),
     ]
 
+    lb_dict = loadbalancer.to_dict()
+    lb_dict['networks'] = network_config
+
     out = {
         'hostname': 'ak-loadbalancer-%s' % loadbalancer.tenant_id,
         'tenant_id': loadbalancer.tenant_id,
         'networks': network_config,
         'services': {
-            'loadbalancer': loadbalancer.to_dict()
+            'loadbalancer': lb_dict,
         }
     }
     return out

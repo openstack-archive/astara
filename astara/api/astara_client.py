@@ -68,6 +68,10 @@ def get_interfaces(host, port):
 
 
 def update_config(host, port, config_dict):
+    import pprint
+    with open('/tmp/conf', 'w') as _out:
+        _out.write(pprint.pformat(config_dict))
+
     path = ASTARA_BASE_PATH + 'system/config'
     headers = {'Content-type': 'application/json'}
 

@@ -21,11 +21,23 @@ SERVICE_STATIC = 'static'
 
 
 def network_config(client, port, ifname, network_type, network_ports=[]):
+
     network = client.get_network_detail(port.network_id)
-    subnets_dict = dict((s.id, s) for s in network.subnets)
+
+    if network_type == 'loadbalancer':
+        # LBs will only have a single port on the subnet specified during its
+        # creation.
+        subnets_dict = dict(
+            (s.id, s) for s in network.subnets
+            if s.id == port.fixed_ips[0].subnet_id)
+        fixed_ips = [port.fixed_ips[0]]
+    else:
+        network = client.get_network_detail(port.network_id)
+        subnets_dict = dict((s.id, s) for s in network.subnets)
+        fixed_ips = port.fixed_ips
 
     return _make_network_config_dict(
-        _interface_config(ifname, port, subnets_dict, network.mtu),
+        _interface_config(ifname, fixed_ips, subnets_dict, network.mtu),
         network_type,
         port.network_id,
         mtu=network.mtu,
@@ -46,13 +58,13 @@ def _make_network_config_dict(interface, network_type, network_id, mtu=None,
             'allocations': _allocation_config(network_ports, subnets_dict)}
 
 
-def _interface_config(ifname, port, subnets_dict, mtu):
+def _interface_config(ifname, fixed_ips, subnets_dict, mtu):
     def fmt(fixed):
         return '%s/%s' % (fixed.ip_address,
                           subnets_dict[fixed.subnet_id].cidr.prefixlen)
 
     retval = {'ifname': ifname,
-              'addresses': [fmt(fixed) for fixed in port.fixed_ips]}
+              'addresses': [fmt(fixed) for fixed in fixed_ips]}
     if mtu:
         retval['mtu'] = mtu
 
