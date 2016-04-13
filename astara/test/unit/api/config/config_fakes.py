@@ -23,11 +23,17 @@ class FakeModel(object):
         self.__dict__.update(kwargs)
 
 
+fake_fixed_ip = FakeModel(
+    '1',
+    ip_address='9.9.9.9',
+    subnet_id='s1')
+
+
 fake_ext_port = FakeModel(
     '1',
     mac_address='aa:bb:cc:dd:ee:ff',
     network_id='ext-net',
-    fixed_ips=[FakeModel('', ip_address='9.9.9.9', subnet_id='s2')],
+    fixed_ips=[fake_fixed_ip],
     first_v4='9.9.9.9',
     device_id='e-e-e-e')
 
@@ -44,7 +50,7 @@ fake_int_port = FakeModel(
     name='ASTARA:RUG:foo',
     mac_address='aa:aa:aa:aa:aa:aa',
     network_id='int-net',
-    fixed_ips=[FakeModel('', ip_address='192.168.1.1', subnet_id='s1')],
+    fixed_ips=[fake_fixed_ip],
     device_id='i-i-i-i')
 
 fake_instance_port = FakeModel(

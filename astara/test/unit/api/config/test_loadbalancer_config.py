@@ -40,12 +40,14 @@ class TestLoadbalancerConfigAPI(base.RugTestBase):
         ]
         res = lb_config.build_config(
             fake_client, fake_lb, fake_mgt_port, fake_iface_map)
+        exp_lb_dict = fake_lb.to_dict()
+        exp_lb_dict['networks'] = ['fake_lb_net_dict', 'fake_mgt_net_dict']
         expected = {
             'hostname': 'ak-loadbalancer-%s' % fake_lb.tenant_id,
             'tenant_id': fake_lb.tenant_id,
             'networks': ['fake_lb_net_dict', 'fake_mgt_net_dict'],
             'services': {
-                'loadbalancer': fake_lb.to_dict(),
+                'loadbalancer': exp_lb_dict,
             }
         }
         self.assertEqual(res, expected)

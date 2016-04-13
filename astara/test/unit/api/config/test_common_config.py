@@ -30,6 +30,9 @@ class TestCommonConfig(unittest.TestCase):
         mock_client.get_network_detail.return_value = fakes.fake_network
         subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
 
+        fake_fixed_ip = fakes.fake_fixed_ip
+        fake_port = fakes.fake_int_port
+
         with mock.patch.object(common, '_make_network_config_dict') as nc:
             with mock.patch.object(common, '_interface_config') as ic:
                 mock_interface = mock.Mock()
@@ -37,13 +40,13 @@ class TestCommonConfig(unittest.TestCase):
 
                 common.network_config(
                     mock_client,
-                    fakes.fake_int_port,
+                    fake_port,
                     'ge1',
                     'internal',
                     [])
 
                 ic.assert_called_once_with(
-                    'ge1', fakes.fake_int_port, subnets_dict, 1280)
+                    'ge1', [fake_fixed_ip], subnets_dict, 1280)
                 nc.assert_called_once_with(
                     mock_interface,
                     'internal',
@@ -90,20 +93,23 @@ class TestCommonConfig(unittest.TestCase):
         self.assertEqual(result, expected)
 
     def test_interface_config(self):
+        ip = '%s/%s' % (
+            fakes.fake_fixed_ip.ip_address,
+            fakes.fake_subnet.cidr.prefixlen)
         expected = {
-            'addresses': ['192.168.1.1/24'],
+            'addresses': [ip],
             'ifname': 'ge1',
             'mtu': 1280
         }
-        subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
+        subnets_dict = {fakes.fake_fixed_ip.subnet_id: fakes.fake_subnet}
 
         self.assertEqual(
             expected,
             common._interface_config(
-                'ge1',
-                fakes.fake_int_port,
-                subnets_dict,
-                1280
+                ifname='ge1',
+                fixed_ips=[fakes.fake_fixed_ip],
+                subnets_dict=subnets_dict,
+                mtu=1280
             )
         )
 
