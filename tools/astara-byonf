@@ -31,7 +31,6 @@ class ByoExtClientWrapper(client.Client):
     byonfs_path = '/byonfs'
 
 
-    @client.APIParamsCall
     def create_byonf(self, byonf):
         return self.post(
             self.byonf_path,
@@ -49,11 +48,9 @@ class ByoExtClientWrapper(client.Client):
             body={'byonf': byonf}
         )
 
-    @client.APIParamsCall
     def list_byonfs(self, retrieve_all=True, **_params):
         return self.list('byonfs', self.byonf_path, retrieve_all, **_params)
 
-    @client.APIParamsCall
     def delete_byonf(self, byonf_id):
         return self.delete('%s/%s' % (self.byonf_path, byonf_id))
 

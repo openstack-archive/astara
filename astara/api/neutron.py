@@ -737,14 +737,12 @@ class AstaraExtClientWrapper(client.Client):
     routerstatus_path = '/dhrouterstatus'
     lbstatus_path = '/akloadbalancerstatus'
 
-    @client.APIParamsCall
     def update_router_status(self, router, status):
         return self.put(
             '%s/%s' % (self.routerstatus_path, router),
             body={'routerstatus': {'status': status}}
         )
 
-    @client.APIParamsCall
     def update_loadbalancer_status(self, load_balancer, status):
         return self.put(
             '%s/%s' % (self.lbstatus_path, load_balancer),
