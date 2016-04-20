@@ -791,6 +791,7 @@ class Neutron(object):
         ks_session = keystone.KeystoneSession()
         self.api_client = AstaraExtClientWrapper(
             session=ks_session.session,
+            endpoint_type=cfg.CONF.endpoint_type,
         )
         self.l3_rpc_client = L3PluginApi(PLUGIN_ROUTER_RPC_TOPIC,
                                          cfg.CONF.host)
