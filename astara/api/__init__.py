@@ -28,5 +28,6 @@ api_opts = [
     cfg.StrOpt('auth_region'),
     cfg.IntOpt('max_retries', default=3),
     cfg.IntOpt('retry_delay', default=1),
+    cfg.StrOpt('endpoint_type', default='publicURL'),
 ]
 CONF.register_opts(api_opts)
