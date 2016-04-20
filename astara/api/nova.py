@@ -249,7 +249,8 @@ class Nova(object):
         self.client = client.Client(
             version='2',
             session=ks_session.session,
-            region_name=conf.auth_region)
+            region_name=conf.auth_region,
+            endpoint_type=conf.endpoint_type)
 
         try:
             self.instance_provider = get_instance_provider(
