@@ -1001,9 +1001,13 @@ class Neutron(object):
             security_groups=[]
         )
 
-        if label in constants.ASTARA_SERVICE_PORT_TYPES:
+        dis_port_types = (
+            constants.ASTARA_SERVICE_PORT_TYPES +
+            constants.ASTARA_MGT_PORT_TYPES
+        )
+        if label in dis_port_types:
             port_dict['fixed_ips'] = []
-            # disable port_securty on VRRP
+            # disable port_securty on VRRP, LB, MGT
             if self.conf.neutron_port_security_extension_enabled:
                 port_dict['port_security_enabled'] = False
 
