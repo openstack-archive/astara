@@ -210,6 +210,19 @@ class TestNovaWrapper(base.RugTestBase):
         result = nova._ssh_key()
         self.assertEqual(result, 'fake-key')
 
+    @mock.patch.object(__builtins__, 'open', autospec=True)
+    def test_ssh_key_sanitize(self, fake_open):
+        mock_key_file = mock.MagicMock(spec=file)
+        mock_key_file.read.return_value = ('''
+
+            fake-key with some newlines
+
+        ''')
+        mock_key_file.__enter__.return_value = mock_key_file
+        fake_open.return_value = mock_key_file
+        result = nova._ssh_key()
+        self.assertEqual(result, 'fake-key with some newlines')
+
     @mock.patch.object(nova, 'LOG', autospec=True)
     @mock.patch.object(__builtins__, 'open', autospec=True)
     def test_ssh_key_not_found(self, fake_open, fake_log):
