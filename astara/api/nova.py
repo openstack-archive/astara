@@ -433,7 +433,7 @@ def _ssh_key():
         return ''
     try:
         with open(key) as out:
-            return out.read()
+            return out.read().strip()
     except IOError:
         LOG.warning(_LW('Could not load router ssh public key from %s'), key)
         return ''
