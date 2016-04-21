@@ -1,0 +1,10 @@
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Code-Review+2: Rosario Di Somma <rosario.disomma@gmail.com>
+Workflow+1: Rosario Di Somma <rosario.disomma@gmail.com>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 21 Apr 2016 13:47:16 +0000
+Reviewed-on: https://review.openstack.org/308765
+Project: openstack/astara
+Branch: refs/heads/stable/mitaka
