@@ -17,3 +17,8 @@ ASTARA_SERVICE_PORT_TYPES = [
     'VRRP',
     'LB',
 ]
+
+
+ASTARA_MGT_PORT_TYPES = [
+    'MGT',
+]
