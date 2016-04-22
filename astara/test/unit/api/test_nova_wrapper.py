@@ -84,6 +84,7 @@ class FakeConf:
     router_image_uuid = 'astara-image'
     router_instance_flavor = 1
     instance_provider = 'foo'
+    endpoint_type = 'publicURL'
 
 
 EXPECTED_USERDATA = """
