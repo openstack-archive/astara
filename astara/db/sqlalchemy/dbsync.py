@@ -22,6 +22,7 @@ from alembic import util as alembic_util
 from oslo_config import cfg
 
 from astara.common.i18n import _
+import pkg_resources
 
 
 CONF = cfg.CONF
@@ -85,7 +86,8 @@ def get_alembic_config():
 
 
 def main():
-    CONF(project='astara-orchestrator')
+    dist = pkg_resources.get_distribution('astara')
+    CONF(project='astara-orchestrator', version=dist.version)
     config = get_alembic_config()
     config.astara_config = CONF
     CONF.command.func(config, CONF.command.name)
