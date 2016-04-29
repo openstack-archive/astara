@@ -79,6 +79,8 @@ _ROUTER_INTERESTING_NOTIFICATIONS = set([
     'port.change.end',
     'port.delete.end',
     'floatingip.create.end',
+    'floatingip.update.end',
+    # NOTE(adam_g): Not certain this floatingip.change.* is ever broadcast?
     'floatingip.change.end',
     'floatingip.delete.end'
 ])

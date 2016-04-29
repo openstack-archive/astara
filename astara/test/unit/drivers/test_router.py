@@ -237,6 +237,25 @@ class RouterDriverTest(base.RugTestBase):
             tenant_id, event_type, payload)
         self.assertEqual(res, expected)
 
+    def test_process_notifications_floatingips(self):
+        payload = {'router': {'id': 'fake_router_id'}}
+        r = event.Resource(
+            driver=router.Router.RESOURCE_NAME,
+            id='fake_router_id',
+            tenant_id='fake_tenant_id')
+        e = event.Event(
+            resource=r,
+            crud=event.UPDATE,
+            body=payload,
+        )
+
+        events = [
+            'floatingip.create.end',
+            'floatingip.update.end',
+            'floatingip.change.end',
+            'floatingip.delete.end']
+        [self._test_notification(fipe, payload, e) for fipe in events]
+
     def test_process_notification_routerstatus(self):
         self._test_notification('routerstatus.update', {}, None)
 
