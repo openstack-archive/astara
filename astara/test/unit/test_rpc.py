@@ -112,28 +112,28 @@ class TestRPC(testtools.TestCase):
                    mock.MagicMock(return_value='fake_server'))
 @mock.patch.object(rpc, 'get_target',
                    mock.MagicMock(return_value='fake_target'))
-class TestConnection(testtools.TestCase):
+class TestMessagingService(testtools.TestCase):
     def setUp(self):
-        super(TestConnection, self).setUp()
-        self.connection = rpc.Connection()
+        super(TestMessagingService, self).setUp()
+        self.connection = rpc.MessagingService()
         self.config = self.useFixture(config_fixture.Config(cfg.CONF)).config
         self.config(host='test_host')
 
     def test_create_rpc_consumer(self):
         endpoints = []
-        self.connection._add_server_thread = mock.MagicMock()
+        self.connection._add_server = mock.MagicMock()
         self.connection.create_rpc_consumer(
             topic='foo_topic', endpoints=endpoints)
         rpc.get_target.return_value = 'fake_target'
         rpc.get_target.assert_called_with(
             topic='foo_topic', fanout=True, server='test_host')
         rpc.get_server.assert_called_with('fake_target', endpoints)
-        self.connection._add_server_thread.assert_called_with('fake_server')
+        self.connection._add_server.assert_called_with('fake_server')
 
     @mock.patch.object(oslo_messaging, 'get_notification_listener')
     def test_create_notification_listener(self, fake_get_listener):
         endpoints = []
-        self.connection._add_server_thread = mock.MagicMock()
+        self.connection._add_server = mock.MagicMock()
         fake_get_listener.return_value = 'fake_listener_server'
         self.connection.create_notification_listener(
             endpoints=[], exchange='foo_exchange', topic='foo_topic')
@@ -142,34 +142,30 @@ class TestConnection(testtools.TestCase):
             topic='foo_topic', fanout=False, exchange='foo_exchange')
         fake_get_listener.assert_called_with(
             'fake_transport', ['fake_target'], endpoints,
-            pool='astara.foo_topic.test_host')
-        self.connection._add_server_thread.assert_called_with(
+            pool='astara.foo_topic.test_host', executor='threading')
+        self.connection._add_server.assert_called_with(
             'fake_listener_server')
 
-    @mock.patch('threading.Thread')
-    def test__add_server_thread(self, fake_thread):
-        fake_thread.return_value = 'fake_server_thread'
+    def test__add_server(self):
         fake_server = mock.MagicMock(
-            start=mock.MagicMock()
-        )
-        self.connection._add_server_thread(fake_server)
-        self.assertEqual(
-            self.connection._server_threads[fake_server],
-            'fake_server_thread')
-        fake_thread.assert_called_with(target=fake_server.start)
+            start=mock.MagicMock())
+        self.connection._add_server(fake_server)
+        self.assertIn(
+            fake_server,
+            self.connection._servers)
 
-    def test_consume_in_threads(self):
+    def test_start(self):
         fake_server = mock.MagicMock(
             start=mock.MagicMock()
         )
-        self.connection._server_threads['foo'] = fake_server
-        self.connection.consume_in_threads()
+        self.connection._add_server(fake_server)
+        self.connection.start()
         self.assertTrue(fake_server.start.called)
 
-    def test_close(self):
+    def test_stop(self):
         fake_server = mock.MagicMock(
-            join=mock.MagicMock()
+            stop=mock.MagicMock()
         )
-        self.connection._server_threads['foo'] = fake_server
-        self.connection.close()
-        self.assertTrue(fake_server.join.called)
+        self.connection._add_server(fake_server)
+        self.connection.stop()
+        self.assertTrue(fake_server.wait.called)
