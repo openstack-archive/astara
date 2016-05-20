@@ -32,6 +32,7 @@ from oslo_log import log as logging
 
 from astara.common.i18n import _LE
 
+from oslo_service import service
 
 NOTIFICATIONS_OPTS = [
     cfg.StrOpt('amqp-url',
@@ -157,8 +158,8 @@ class NotificationsEndpoint(object):
 
 
 def listen(notification_queue):
-    connection = rpc.Connection()
-    # listen for neutron notifications
+    """Create and launch the messaging service"""
+    connection = rpc.MessagingService()
     connection.create_notification_listener(
         endpoints=[NotificationsEndpoint(notification_queue)],
         exchange=cfg.CONF.neutron_control_exchange,
@@ -167,10 +168,9 @@ def listen(notification_queue):
         topic=L3_AGENT_TOPIC,
         endpoints=[L3RPCEndpoint(notification_queue)]
     )
-    # NOTE(adam_g): We previously consumed dhcp_agent messages as well
-    # as agent messgaes with hostname appended, do we need them still?
-    connection.consume_in_threads()
-    connection.close()
+    launcher = service.ServiceLauncher(cfg.CONF)
+    launcher.launch_service(connection, 1)
+    launcher.wait()
 
 
 class Sender(object):
