@@ -47,3 +47,7 @@ astara/test/functional/test.conf.sample
 #macos hidden files
 .DS_Store
 ._.DS_Store
+
+# Vagrant
+vagrant/.vagrant
+vagrant/user_local.conf
