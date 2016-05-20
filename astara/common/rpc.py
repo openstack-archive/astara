@@ -14,11 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import threading
 from six.moves.urllib import parse as urlparse
 
 from oslo_log import log as logging
 from oslo_config import cfg
+from oslo_service import service
 import oslo_messaging
 
 from astara.common.i18n import _LW
@@ -94,19 +94,19 @@ def get_rpc_notifier(topic='notifications'):
     )
 
 
-class Connection(object):
+class MessagingService(service.Service):
     """Used to create objects that can manage multiple RPC connections"""
     def __init__(self):
-        super(Connection, self).__init__()
-        self._server_threads = {}
+        super(MessagingService, self).__init__()
+        self._servers = set()
 
-    def _add_server_thread(self, server):
-        self._server_threads[server] = threading.Thread(target=server.start)
+    def _add_server(self, server):
+        self._servers.add(server)
 
     def create_rpc_consumer(self, topic, endpoints):
         """Creates an RPC server for this host that will execute RPCs requested
-        by clients.  Adds the resulting consumer to the pool of RPC server
-        threads.
+        by clients.  Adds the resulting consumer to the pool of messaging
+        servers.
 
         :param topic: Topic on which to listen for RPC requests
         :param endpoints: List of endpoint objects that define methods that
@@ -115,13 +115,13 @@ class Connection(object):
         target = get_target(topic=topic, fanout=True, server=cfg.CONF.host)
         server = get_server(target, endpoints)
         LOG.debug('Created RPC server on topic %s', topic)
-        self._add_server_thread(server)
+        self._add_server(server)
 
     def create_notification_listener(self, endpoints, exchange=None,
                                      topic='notifications'):
         """Creates an oslo.messaging notification listener associated with
-        provided endpoints. Adds the resulting listener to the pool of RPC
-        server threads.
+        provided endpoints. Adds the resulting listener to the pool of
+        messaging servers.
 
         :param endpoints: list of endpoint objects that define methods for
                           processing prioritized notifications
@@ -134,19 +134,20 @@ class Connection(object):
                             exchange=exchange)
         pool = 'astara.' + topic + '.' + cfg.CONF.host
         server = oslo_messaging.get_notification_listener(
-            transport, [target], endpoints, pool=pool)
+            transport, [target], endpoints, pool=pool, executor='threading')
         LOG.debug(
             'Created RPC notification listener on topic:%s/exchange:%s.',
             topic, exchange)
-        self._add_server_thread(server)
+        self._add_server(server)
 
-    def consume_in_threads(self):
-        """Start all RPC consumers in threads"""
-        for server, thread in self._server_threads.items():
-            LOG.debug('Started RPC connection thread:%s/server:%s',
-                      thread, server)
-            thread.start()
+    def start(self):
+        LOG.info('Astara notification listener service starting...')
+        super(MessagingService, self).start()
+        [s.start() for s in self._servers]
+        LOG.info('Astara notification listener service started.')
 
-    def close(self):
-        for server, thread in self._server_threads.items():
-            thread.join()
+    def stop(self):
+        LOG.info('Astara notification listener service stopping...')
+        super(MessagingService, self).stop()
+        [s.wait() for s in self._servers]
+        LOG.info('Astara notification listener service stopped.')
