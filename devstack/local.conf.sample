@@ -1,0 +1,27 @@
+#
+# Sample DevStack local.conf.
+#
+# This sample file is intended to be used for your typical DevStack environment
+# that's running all of OpenStack on a single host.  This can also be used as
+# the first host of a multi-host test environment.
+#
+# No changes to this sample configuration are required for this to work.
+#
+
+[[local|localrc]]
+enable_plugin astara https://github.com/openstack/astara
+enable_service q-svc q-agt astara
+disable_service n-net
+
+# Build the Astara appliance
+#BUILD_ASTARA_APPLIANCE_IMAGE=True
+#ASTARA_APPLIANCE_REPO=http://github.com/openstack/astara-appliance.git
+#ASTARA_APPLIANCE_BRANCH=master
+
+HOST_IP=127.0.0.1
+LOGFILE=/opt/stack/logs/devstack.log
+DATABASE_PASSWORD=secret
+RABBIT_PASSWORD=secret
+SERVICE_TOKEN=secret
+SERVICE_PASSWORD=secret
+ADMIN_PASSWORD=secret
