@@ -17,14 +17,18 @@ If you have a license for nginx plus you will be able to take advantage of some 
 nginx-plus features but you must first copy over your nginx certs. Run this commad in the
 astara-appliance directory::
 
-    ELEMENTS_PATH=diskimage-builder/elements DIB_RELEASE=jessie DIB_EXTLINUX=1 \
-    DIB_ASTARA_ADVANCED_SERVICES=router,loadbalancer disk-image-create debian vm astara nginx -o astara-lb
+    ELEMENTS_PATH=diskimage-builder/elements \
+    DIB_RELEASE=jessie DIB_EXTLINUX=1 \
+    DIB_ASTARA_ADVANCED_SERVICES=router,loadbalancer \
+    disk-image-create debian vm astara nginx -o astara-lb
 
 or for nginx plus (nginx certs will need to be copied over before running this command).
 Run this commad in the astara-appliance directory::
 
-    ELEMENTS_PATH=diskimage-builder/elements DIB_RELEASE=jessie DIB_EXTLINUX=1 \
-    DIB_ASTARA_ADVANCED_SERVICES=router,loadbalancer disk-image-create debian vm astara nginx-plus -o astara-lb
+    ELEMENTS_PATH=diskimage-builder/elements \
+    DIB_RELEASE=jessie DIB_EXTLINUX=1 \
+    DIB_ASTARA_ADVANCED_SERVICES=router,loadbalancer \
+    disk-image-create debian vm astara nginx-plus -o astara-lb
 
 Configure Neutron for Astara loadbalancer support
 -------------------------------------------------
