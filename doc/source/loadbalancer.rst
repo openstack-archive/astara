@@ -54,7 +54,7 @@ in the [SERVICE_PROVIDERS] section (you may have to add this section if it doesn
 
 3. Create the loadbalancer tables in the neutron database::
 
-    neutron-db-manage --service lbaas upgrade head
+    neutron-db-manage --subproject neutron-lbaas upgrade head
 
 Configure Astara for loadbalancer support
 -----------------------------------------
