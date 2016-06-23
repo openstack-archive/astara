@@ -48,4 +48,4 @@ class TestLoadbalancerConfigAPI(base.RugTestBase):
                 'loadbalancer': fake_lb.to_dict(),
             }
         }
-        self.assertEqual(res, expected)
+        self.assertEqual(expected, res)

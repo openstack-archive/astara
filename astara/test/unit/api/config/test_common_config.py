@@ -87,7 +87,7 @@ class TestCommonConfig(unittest.TestCase):
                 }
             ]
         }
-        self.assertEqual(result, expected)
+        self.assertEqual(expected, result)
 
     def test_interface_config(self):
         expected = {
@@ -116,7 +116,7 @@ class TestCommonConfig(unittest.TestCase):
             'host_routes': {},
             'id': 's1',
         }
-        self.assertEqual(common._subnet_config(fakes.fake_subnet), expected)
+        self.assertEqual(expected, common._subnet_config(fakes.fake_subnet))
 
     def test_subnet_config_with_slaac_enabled(self):
         expected = {
@@ -128,7 +128,7 @@ class TestCommonConfig(unittest.TestCase):
             'id': 'fake_id',
         }
         self.assertEqual(
-            common._subnet_config(fakes.fake_subnet_with_slaac), expected)
+            expected, common._subnet_config(fakes.fake_subnet_with_slaac))
 
     def test_subnet_config_no_gateway(self):
         expected = {
@@ -147,7 +147,7 @@ class TestCommonConfig(unittest.TestCase):
             dns_nameservers=['8.8.8.8'],
             ipv6_ra_mode='',
             host_routes={})
-        self.assertEqual(common._subnet_config(sn), expected)
+        self.assertEqual(expected, common._subnet_config(sn))
 
     def test_subnet_config_gateway_none(self):
         expected = {
@@ -166,24 +166,24 @@ class TestCommonConfig(unittest.TestCase):
             dns_nameservers=['8.8.8.8'],
             ipv6_ra_mode='',
             host_routes={})
-        self.assertEqual(common._subnet_config(sn), expected)
+        self.assertEqual(expected, common._subnet_config(sn))
 
     def test_allocation_config_vrrp(self):
         subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
         self.assertEqual(
+            [],
             common._allocation_config(
                 [fakes.fake_instance_vrrp_port],
-                subnets_dict),
-            []
+                subnets_dict)
         )
 
     def test_allocation_config_lb(self):
         subnets_dict = {fakes.fake_subnet.id: fakes.fake_subnet}
         self.assertEqual(
+            [],
             common._allocation_config(
                 [fakes.fake_instance_lb_port],
-                subnets_dict),
-            []
+                subnets_dict)
         )
 
     def test_allocation_config_mgt(self):
@@ -195,8 +195,8 @@ class TestCommonConfig(unittest.TestCase):
              'device_id': 'v-v-v-v'}
         ]
         self.assertEqual(
+            expected,
             common._allocation_config([
                 fakes.fake_instance_mgt_port],
-                subnets_dict),
-            expected
+                subnets_dict)
         )

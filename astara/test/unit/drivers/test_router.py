@@ -52,17 +52,17 @@ class RouterDriverTest(base.RugTestBase):
         rtr = self._init_driver()
         rtr.post_init = mock.Mock()
         self.assertEqual(
-            rtr.name,
-            'ak-%s-%s' % (rtr.RESOURCE_NAME, self.router_id))
+            'ak-%s-%s' % (rtr.RESOURCE_NAME, self.router_id),
+            rtr.name)
         mock_post_init.assert_called_with(self.ctx)
 
     @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_post_init(self, mock_ensure_cache):
         rtr = self._init_driver()
         rtr.post_init(self.ctx)
-        self.assertEqual(rtr.image_uuid, self.image_uuid)
-        self.assertEqual(rtr.flavor, self.flavor)
-        self.assertEqual(rtr.mgt_port, self.mgt_port)
+        self.assertEqual(self.image_uuid, rtr.image_uuid)
+        self.assertEqual(self.flavor, rtr.flavor)
+        self.assertEqual(self.mgt_port, rtr.mgt_port)
         mock_ensure_cache.assert_called_with(self.ctx)
 
     def test__ensure_cache_no_router(self):
@@ -74,17 +74,17 @@ class RouterDriverTest(base.RugTestBase):
         rtr = self._init_driver()
         self.ctx.neutron.get_router_detail.return_value = 'fake_router'
         rtr._ensure_cache(self.ctx)
-        self.assertEqual(rtr._router, 'fake_router')
+        self.assertEqual('fake_router', rtr._router)
 
     def test_ports_no_router(self):
         rtr = self._init_driver()
-        self.assertEqual(rtr.ports, [])
+        self.assertEqual([], rtr.ports)
 
     def test_ports_with_router(self):
         rtr = self._init_driver()
         fake_router_obj = fakes.fake_router()
         rtr._router = fake_router_obj
-        self.assertEqual(set(rtr.ports), set(fake_router_obj.ports))
+        self.assertEqual(set(fake_router_obj.ports), set(rtr.ports))
 
     @mock.patch('astara.drivers.router.Router.pre_plug')
     def test_pre_boot(self, mock_pre_plug):
@@ -106,7 +106,7 @@ class RouterDriverTest(base.RugTestBase):
         mock_build_config.return_value = 'fake_config'
         mock_build_config.assert_called_with(
             self.ctx, rtr._router, fake_mgt_port, fake_iface_map)
-        self.assertEqual(res, 'fake_config')
+        self.assertEqual('fake_config', res)
 
     @mock.patch('astara.api.astara_client.update_config')
     def test_update_config(self, mock_update_config):
@@ -131,7 +131,7 @@ class RouterDriverTest(base.RugTestBase):
         expected_instance_ports = [
             'fake_port_%s' % p.network_id for p in fake_router_obj.ports
         ]
-        self.assertEqual(res, ('fake_mgt_port', expected_instance_ports))
+        self.assertEqual(('fake_mgt_port', expected_instance_ports), res)
 
     def test_delete_ports(self):
         rtr = self._init_driver()
@@ -153,15 +153,15 @@ class RouterDriverTest(base.RugTestBase):
         with mock.patch('time.sleep'):
             rtr.pre_populate_hook()
         self.assertEqual(
-            neutron_client.get_routers.call_args_list,
             [
                 mock.call(detailed=False)
                 for value in six.moves.range(len(returned_value))
-            ]
+            ],
+            neutron_client.get_routers.call_args_list
         )
         self.assertEqual(
-            neutron_client.get_routers.call_count,
-            len(returned_value)
+            len(returned_value),
+            neutron_client.get_routers.call_count
         )
 
     def _exit_loop_bad_auth(self, mocked_neutron_api, log, exc):
@@ -212,14 +212,14 @@ class RouterDriverTest(base.RugTestBase):
             id='2',
             tenant_id='1',
         )
-        self.assertEqual(res, [expected_resource])
+        self.assertEqual([expected_resource], res)
 
     def test_get_resource_id_for_tenant(self):
         fake_router = fakes.fake_router()
         self.ctx.neutron.get_router_for_tenant.return_value = fake_router
         res = router.Router.get_resource_id_for_tenant(
             self.ctx, 'fake_tenant_id', 'fake_message')
-        self.assertEqual(res, fake_router.id)
+        self.assertEqual(fake_router.id, res)
         self.ctx.neutron.get_router_for_tenant.assert_called_with(
             'fake_tenant_id')
 
@@ -235,7 +235,7 @@ class RouterDriverTest(base.RugTestBase):
         tenant_id = 'fake_tenant_id'
         res = router.Router.process_notification(
             tenant_id, event_type, payload)
-        self.assertEqual(res, expected)
+        self.assertEqual(expected, res)
 
     def test_process_notifications_floatingips(self):
         payload = {'router': {'id': 'fake_router_id'}}
@@ -322,8 +322,8 @@ class RouterDriverTest(base.RugTestBase):
         rtr = self._init_driver()
         rtr._router = None
         self.assertEqual(
-            rtr.get_state(self.ctx),
             states.GONE,
+            rtr.get_state(self.ctx)
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
@@ -333,8 +333,8 @@ class RouterDriverTest(base.RugTestBase):
         fake_router = fakes.fake_router()
         rtr._router = fake_router
         self.assertEqual(
-            rtr.get_state(self.ctx),
             fake_router.status,
+            rtr.get_state(self.ctx)
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
@@ -357,7 +357,7 @@ class RouterDriverTest(base.RugTestBase):
             rtr.id,
             'ACTIVE',
         )
-        self.assertEqual(rtr._last_synced_status, 'ACTIVE')
+        self.assertEqual('ACTIVE', rtr._last_synced_status)
 
     @mock.patch('astara.drivers.router.Router._ensure_cache')
     def test_synchronize_state_no_change(self, mock_ensure_cache):
@@ -374,7 +374,7 @@ class RouterDriverTest(base.RugTestBase):
         mock_get_interfaces.return_value = ['fake_interface']
         rtr = self._init_driver()
         self.assertEqual(
-            rtr.get_interfaces('fake_mgt_addr'), ['fake_interface'])
+            ['fake_interface'], rtr.get_interfaces('fake_mgt_addr'))
         mock_get_interfaces.assert_called_with(
             'fake_mgt_addr', self.mgt_port)
 
@@ -393,7 +393,7 @@ class RouterDriverTest(base.RugTestBase):
         rtr = self._init_driver()
         self.ctx.neutron.get_router_detail.return_value = 'fake_router'
         rtr._ensure_cache(self.ctx)
-        self.assertEqual(rtr._router, 'fake_router')
+        self.assertEqual('fake_router', rtr._router)
         self.ctx.neutron.get_router_detail.assert_called_with(rtr.id)
 
     def test__ensure_cache_not_found(self):

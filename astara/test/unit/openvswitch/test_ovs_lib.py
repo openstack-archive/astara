@@ -72,11 +72,11 @@ class OVS_Lib_Test(unittest.TestCase):
 
         # test __init__
         port = ovs_lib.VifPort(pname, ofport, vif_id, mac, self.br)
-        self.assertEqual(port.port_name, pname)
-        self.assertEqual(port.ofport, ofport)
-        self.assertEqual(port.vif_id, vif_id)
-        self.assertEqual(port.vif_mac, mac)
-        self.assertEqual(port.switch.br_name, self.BR_NAME)
+        self.assertEqual(pname, port.port_name)
+        self.assertEqual(ofport, port.ofport)
+        self.assertEqual(vif_id, port.vif_id)
+        self.assertEqual(mac, port.vif_mac)
+        self.assertEqual(self.BR_NAME, port.switch.br_name)
 
         # test __str__
         foo = str(port)
@@ -171,7 +171,7 @@ class OVS_Lib_Test(unittest.TestCase):
                       root_helper=self.root_helper).AndReturn(datapath_id)
         self.mox.ReplayAll()
 
-        self.assertEqual(self.br.get_datapath_id(), datapath_id.strip('"'))
+        self.assertEqual(datapath_id.strip('"'), self.br.get_datapath_id())
         self.mox.VerifyAll()
 
     def test_count_flows(self):
@@ -181,7 +181,7 @@ class OVS_Lib_Test(unittest.TestCase):
         self.mox.ReplayAll()
 
         # counts the number of flows as total lines of output - 2
-        self.assertEqual(self.br.count_flows(), 1)
+        self.assertEqual(1, self.br.count_flows())
         self.mox.VerifyAll()
 
     def test_delete_flow(self):
@@ -224,7 +224,7 @@ class OVS_Lib_Test(unittest.TestCase):
                       root_helper=self.root_helper).AndReturn(ofport)
         self.mox.ReplayAll()
 
-        self.assertEqual(self.br.add_tunnel_port(pname, ip), ofport)
+        self.assertEqual(ofport, self.br.add_tunnel_port(pname, ip))
         self.mox.VerifyAll()
 
     def test_add_patch_port(self):
@@ -244,7 +244,7 @@ class OVS_Lib_Test(unittest.TestCase):
                       root_helper=self.root_helper).AndReturn(ofport)
         self.mox.ReplayAll()
 
-        self.assertEqual(self.br.add_patch_port(pname, peer), ofport)
+        self.assertEqual(ofport, self.br.add_patch_port(pname, peer))
         self.mox.VerifyAll()
 
     def _test_get_vif_ports(self, is_xen=False):
@@ -277,11 +277,11 @@ class OVS_Lib_Test(unittest.TestCase):
 
         ports = self.br.get_vif_ports()
         self.assertEqual(1, len(ports))
-        self.assertEqual(ports[0].port_name, pname)
-        self.assertEqual(ports[0].ofport, ofport)
-        self.assertEqual(ports[0].vif_id, vif_id)
-        self.assertEqual(ports[0].vif_mac, mac)
-        self.assertEqual(ports[0].switch.br_name, self.BR_NAME)
+        self.assertEqual(pname, ports[0].port_name)
+        self.assertEqual(ofport, ports[0].ofport)
+        self.assertEqual(vif_id, ports[0].vif_id)
+        self.assertEqual(mac, ports[0].vif_mac)
+        self.assertEqual(self.BR_NAME, ports[0].switch.br_name)
         self.mox.VerifyAll()
 
     def test_get_vif_ports_nonxen(self):
@@ -308,10 +308,10 @@ class OVS_Lib_Test(unittest.TestCase):
         vif_id = match.group('vif_id')
         port_name = match.group('port_name')
         ofport = int(match.group('ofport'))
-        self.assertEqual(vif_mac, 'fa:16:3e:23:5b:f2')
-        self.assertEqual(vif_id, '5c1321a7-c73f-4a77-95e6-9f86402e5c8f')
-        self.assertEqual(port_name, 'dhc5c1321a7-c7')
-        self.assertEqual(ofport, 2)
+        self.assertEqual('fa:16:3e:23:5b:f2', vif_mac)
+        self.assertEqual('5c1321a7-c73f-4a77-95e6-9f86402e5c8f', vif_id)
+        self.assertEqual('dhc5c1321a7-c7', port_name)
+        self.assertEqual(2, ofport)
 
     def test_iface_to_br(self):
         iface = 'tap0'
@@ -321,7 +321,7 @@ class OVS_Lib_Test(unittest.TestCase):
                       root_helper=root_helper).AndReturn('br-int')
 
         self.mox.ReplayAll()
-        self.assertEqual(ovs_lib.get_bridge_for_iface(root_helper, iface), br)
+        self.assertEqual(br, ovs_lib.get_bridge_for_iface(root_helper, iface))
         self.mox.VerifyAll()
 
     def test_iface_to_br_handles_ovs_vsctl_exception(self):
@@ -365,5 +365,5 @@ class OVS_Lib_Test(unittest.TestCase):
                       root_helper=root_helper).AndReturn('br-int\nbr-ex\n')
 
         self.mox.ReplayAll()
-        self.assertEqual(ovs_lib.get_bridges(root_helper), bridges)
+        self.assertEqual(bridges, ovs_lib.get_bridges(root_helper))
         self.mox.VerifyAll()

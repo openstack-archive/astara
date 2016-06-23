@@ -22,7 +22,7 @@ from astara import drivers
 class DriverFactoryTest(base.RugTestBase):
     def test_get_driver(self):
         for k, v in drivers.AVAILABLE_DRIVERS.items():
-            self.assertEqual(drivers.get(k), v)
+            self.assertEqual(v, drivers.get(k))
 
     def test_get_bad_driver(self):
         self.assertRaises(
@@ -35,14 +35,14 @@ class DriverFactoryTest(base.RugTestBase):
         all_driver_obj = drivers.AVAILABLE_DRIVERS.values()
         self.config(enabled_drivers=all_driver_cfg)
         enabled_drivers = [d for d in drivers.enabled_drivers()]
-        self.assertEqual(set(all_driver_obj), set(enabled_drivers))
+        self.assertEqual(set(enabled_drivers), set(all_driver_obj))
 
     def test_enabled_drivers_nonexistent_left_out(self):
         all_driver_cfg = drivers.AVAILABLE_DRIVERS.keys() + ['foodriver']
         all_driver_obj = drivers.AVAILABLE_DRIVERS.values()
         self.config(enabled_drivers=all_driver_cfg)
         enabled_drivers = [d for d in drivers.enabled_drivers()]
-        self.assertEqual(set(all_driver_obj), set(enabled_drivers))
+        self.assertEqual(set(enabled_drivers), set(all_driver_obj))
 
     @mock.patch('astara.drivers.get')
     def test_load_from_byonf(self, fake_get):
@@ -58,6 +58,6 @@ class DriverFactoryTest(base.RugTestBase):
         }
         ctx = mock.Mock()
         res = drivers.load_from_byonf(ctx, byonf, 'fake_resource_id')
-        self.assertEqual(res, fake_driver_obj)
-        self.assertEqual(res.image_uuid, 'custom_image_uuid')
+        self.assertEqual(fake_driver_obj, res)
+        self.assertEqual('custom_image_uuid', res.image_uuid)
         fake_driver.assert_called_with(ctx, 'fake_resource_id')

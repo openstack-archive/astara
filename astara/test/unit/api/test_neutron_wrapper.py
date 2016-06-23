@@ -28,14 +28,14 @@ class TestuNeutronModels(base.RugTestBase):
     def test_router(self):
         r = neutron.Router(
             '1', 'tenant_id', 'name', True, 'ACTIVE', 'ext', ['int'], ['fip'])
-        self.assertEqual(r.id, '1')
-        self.assertEqual(r.tenant_id, 'tenant_id')
-        self.assertEqual(r.name, 'name')
+        self.assertEqual('1', r.id)
+        self.assertEqual('tenant_id', r.tenant_id)
+        self.assertEqual('name', r.name)
         self.assertTrue(r.admin_state_up)
-        self.assertEqual(r.status, 'ACTIVE')
-        self.assertEqual(r.external_port, 'ext')
-        self.assertEqual(r.floating_ips, ['fip'])
-        self.assertEqual(r.internal_ports, ['int'])
+        self.assertEqual('ACTIVE', r.status)
+        self.assertEqual('ext', r.external_port)
+        self.assertEqual(['fip'], r.floating_ips)
+        self.assertEqual(['int'], r.internal_ports)
         self.assertEqual(set(['ext', 'int']), set(r.ports))
 
     def test_router_from_dict(self):
@@ -88,14 +88,14 @@ class TestuNeutronModels(base.RugTestBase):
 
         r = neutron.Router.from_dict(d)
 
-        self.assertEqual(r.id, '1')
-        self.assertEqual(r.tenant_id, 'tenant_id')
-        self.assertEqual(r.name, 'name')
+        self.assertEqual('1', r.id)
+        self.assertEqual('tenant_id', r.tenant_id)
+        self.assertEqual('name', r.name)
         self.assertTrue(r.admin_state_up)
         self.assertTrue(r.floating_ips)  # just make sure this exists
         self.assertEqual(
-            sorted([ip.id for ip in r.internal_ports]),
-            ['ha_int', 'int'])
+            ['ha_int', 'int'],
+            sorted([ip.id for ip in r.internal_ports]))
 
     def test_router_eq(self):
         r1 = neutron.Router(
@@ -130,16 +130,16 @@ class TestuNeutronModels(base.RugTestBase):
 
         s = neutron.Subnet.from_dict(d)
 
-        self.assertEqual(s.id, '1')
-        self.assertEqual(s.tenant_id, 'tenant_id')
-        self.assertEqual(s.name, 'name')
-        self.assertEqual(s.network_id, 'network_id')
-        self.assertEqual(s.ip_version, 6)
-        self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
-        self.assertEqual(s.gateway_ip, netaddr.IPAddress('fe80::1'))
+        self.assertEqual('1', s.id)
+        self.assertEqual('tenant_id', s.tenant_id)
+        self.assertEqual('name', s.name)
+        self.assertEqual('network_id', s.network_id)
+        self.assertEqual(6, s.ip_version)
+        self.assertEqual(netaddr.IPNetwork('fe80::/64'), s.cidr)
+        self.assertEqual(netaddr.IPAddress('fe80::1'), s.gateway_ip)
         self.assertTrue(s.enable_dhcp, True)
-        self.assertEqual(s.dns_nameservers, ['8.8.8.8', '8.8.4.4'])
-        self.assertEqual(s.host_routes, [])
+        self.assertEqual(['8.8.8.8', '8.8.4.4'], s.dns_nameservers)
+        self.assertEqual([], s.host_routes)
 
     def test_subnet_gateway_none(self):
         d = {
@@ -156,7 +156,7 @@ class TestuNeutronModels(base.RugTestBase):
             'host_routes': []
         }
         s = neutron.Subnet.from_dict(d)
-        self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
+        self.assertEqual(netaddr.IPNetwork('fe80::/64'), s.cidr)
         self.assertIs(None, s.gateway_ip)
 
     def test_subnet_gateway_not_ip(self):
@@ -174,7 +174,7 @@ class TestuNeutronModels(base.RugTestBase):
             'host_routes': []
         }
         s = neutron.Subnet.from_dict(d)
-        self.assertEqual(s.cidr, netaddr.IPNetwork('fe80::/64'))
+        self.assertEqual(netaddr.IPNetwork('fe80::/64'), s.cidr)
         self.assertIs(None, s.gateway_ip)
 
     def test_subnet_cidr_none(self):
@@ -228,11 +228,11 @@ class TestuNeutronModels(base.RugTestBase):
 
         p = neutron.Port.from_dict(d)
 
-        self.assertEqual(p.id, '1')
-        self.assertEqual(p.device_id, 'device_id')
-        self.assertEqual(p.mac_address, 'aa:bb:cc:dd:ee:ff')
-        self.assertEqual(p.device_owner, 'test')
-        self.assertEqual(len(p.fixed_ips), 1)
+        self.assertEqual('1', p.id)
+        self.assertEqual('device_id', p.device_id)
+        self.assertEqual('aa:bb:cc:dd:ee:ff', p.mac_address)
+        self.assertEqual('test', p.device_owner)
+        self.assertEqual(1, len(p.fixed_ips))
 
     def test_fixed_ip_model(self):
         d = {
@@ -242,8 +242,8 @@ class TestuNeutronModels(base.RugTestBase):
 
         fip = neutron.FixedIp.from_dict(d)
 
-        self.assertEqual(fip.subnet_id, 'sub1')
-        self.assertEqual(fip.ip_address, netaddr.IPAddress('192.168.1.1'))
+        self.assertEqual('sub1', fip.subnet_id)
+        self.assertEqual(netaddr.IPAddress('192.168.1.1'), fip.ip_address)
 
     def test_floating_ip_model(self):
         d = {
@@ -254,9 +254,9 @@ class TestuNeutronModels(base.RugTestBase):
 
         fip = neutron.FloatingIP.from_dict(d)
 
-        self.assertEqual(fip.id, 'a-b-c-d')
-        self.assertEqual(fip.floating_ip, netaddr.IPAddress('9.9.9.9'))
-        self.assertEqual(fip.fixed_ip, netaddr.IPAddress('192.168.1.1'))
+        self.assertEqual('a-b-c-d', fip.id)
+        self.assertEqual(netaddr.IPAddress('9.9.9.9'), fip.floating_ip)
+        self.assertEqual(netaddr.IPAddress('192.168.1.1'), fip.fixed_ip)
 
 
 class FakeConf:
@@ -279,8 +279,8 @@ class TestNeutronWrapper(base.RugTestBase):
 
         neutron_wrapper = neutron.Neutron(conf)
         neutron_wrapper.purge_management_interface()
-        self.assertEqual(driver.get_device_name.call_count, 1)
-        self.assertEqual(driver.unplug.call_count, 1)
+        self.assertEqual(1, driver.get_device_name.call_count)
+        self.assertEqual(1, driver.unplug.call_count)
 
     def test_clear_device_id(self):
         neutron_wrapper = neutron.Neutron(mock.Mock())
