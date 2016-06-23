@@ -242,7 +242,7 @@ class TestBridgeInterfaceDriver(TestBase):
                     'tap0',
                     'aa:bb:cc:dd:ee:ff')
             self.ip_dev.assert_has_calls([])
-            self.assertEqual(log.call_count, 1)
+            self.assertEqual(1, log.call_count)
 
     def test_unplug_no_device(self):
         self.device_exists.return_value = False
@@ -253,14 +253,14 @@ class TestBridgeInterfaceDriver(TestBase):
             [mock.call(),
              mock.call('tap0', self.conf.root_helper),
              mock.call().link.delete()]
-            self.assertEqual(log.exception.call_count, 1)
+            self.assertEqual(1, log.exception.call_count)
 
     def test_unplug(self):
         self.device_exists.return_value = True
         with mock.patch('astara.common.linux.interface.LOG.debug') as log:
             br = interface.BridgeInterfaceDriver(self.conf)
             br.unplug('tap0')
-            self.assertEqual(log.call_count, 1)
+            self.assertEqual(1, log.call_count)
 
         self.ip_dev.assert_has_calls([
             mock.call('tap0', self.conf.root_helper, None),

@@ -75,8 +75,8 @@ class TestMainPippo(base.RugTestBase):
         notifications.NoopPublisher = mock.Mock(
             spec=ak_notifications.NoopPublisher)
         main.main(argv=self.argv)
-        self.assertEqual(len(notifications.Publisher.mock_calls), 0)
-        self.assertEqual(len(notifications.NoopPublisher.mock_calls), 2)
+        self.assertEqual(0, len(notifications.Publisher.mock_calls))
+        self.assertEqual(2, len(notifications.NoopPublisher.mock_calls))
 
     @mock.patch('astara.main.shuffle_notifications')
     def test_ceilometer_enabled(self, shuffle_notifications, health,
@@ -87,5 +87,5 @@ class TestMainPippo(base.RugTestBase):
         notifications.NoopPublisher = mock.Mock(
             spec=ak_notifications.NoopPublisher)
         main.main(argv=self.argv)
-        self.assertEqual(len(notifications.Publisher.mock_calls), 2)
-        self.assertEqual(len(notifications.NoopPublisher.mock_calls), 0)
+        self.assertEqual(2, len(notifications.Publisher.mock_calls))
+        self.assertEqual(0, len(notifications.NoopPublisher.mock_calls))

@@ -102,7 +102,7 @@ class TestAstaraClient(unittest.TestCase):
                 'vpn': {}
             }
 
-            self.assertEqual(config, expected)
+            self.assertEqual(expected, config)
 
             mocks['load_provider_rules'].assert_called_once_with('/the/path')
             mocks['generate_network_config'].assert_called_once_with(
@@ -117,13 +117,13 @@ class TestAstaraClient(unittest.TestCase):
 
                 mock_open.assert_called_once_with('/the/path')
                 load.assert_called_once_with(mock_open.return_value)
-                self.assertEqual(r, rules_dict)
+                self.assertEqual(rules_dict, r)
 
     @mock.patch.object(__builtins__, 'open', autospec=True)
     def test_load_provider_rules_not_found(self, mock_open):
         mock_open.side_effect = IOError()
         res = conf_mod.load_provider_rules('/tmp/path')
-        self.assertEqual(res, {})
+        self.assertEqual({}, res)
 
     @mock.patch('astara.api.config.common.network_config')
     def test_generate_network_config(self, mock_net_conf):
@@ -146,7 +146,7 @@ class TestAstaraClient(unittest.TestCase):
             'configured_network'
         ]
 
-        self.assertEqual(result, expected)
+        self.assertEqual(expected, result)
 
         expected_calls = [
             mock.call(
@@ -174,7 +174,7 @@ class TestAstaraClient(unittest.TestCase):
         result = conf_mod.generate_floating_config(rtr)
         expected = [{'floating_ip': '9.9.9.9', 'fixed_ip': '192.168.1.1'}]
 
-        self.assertEqual(result, expected)
+        self.assertEqual(expected, result)
 
 
 class TestAstaraClientGateway(unittest.TestCase):
@@ -261,7 +261,7 @@ class TestAstaraClientGateway(unittest.TestCase):
             fakes.fake_router,
             self.networks,
         )
-        self.assertEqual(result, '172.16.77.1')
+        self.assertEqual('172.16.77.1', result)
 
     def test_without_ipv4_on_external_port(self):
         # Only set a V6 address
@@ -274,7 +274,7 @@ class TestAstaraClientGateway(unittest.TestCase):
             fakes.fake_router,
             self.networks,
         )
-        self.assertEqual(result, '')
+        self.assertEqual('', result)
 
     def test_extra_ipv4_on_external_port(self):
         self.networks[0]['interface']['addresses'] = [
@@ -289,4 +289,4 @@ class TestAstaraClientGateway(unittest.TestCase):
             fakes.fake_router,
             self.networks,
         )
-        self.assertEqual(result, '172.16.77.1')
+        self.assertEqual('172.16.77.1', result)

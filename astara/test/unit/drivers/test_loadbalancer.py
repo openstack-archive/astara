@@ -52,19 +52,19 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb = self._init_driver()
         lb.post_init = mock.Mock()
         self.assertEqual(
-            lb.name,
-            'ak-%s-%s' % (lb.RESOURCE_NAME, self.loadbalancer_id))
+            'ak-%s-%s' % (lb.RESOURCE_NAME, self.loadbalancer_id),
+            lb.name)
         mock_post_init.assert_called_with(self.ctx)
 
     def test_ports_no_loadbalancer(self):
         lb = self._init_driver()
-        self.assertEqual(lb.ports, [])
+        self.assertEqual([], lb.ports)
 
     def test_ports_with_loadbalancer(self):
         lb = self._init_driver()
         fake_lb = fakes.fake_loadbalancer()
         lb._loadbalancer = fake_lb
-        self.assertEqual(set(lb.ports), set(fake_lb.ports))
+        self.assertEqual(set(fake_lb.ports), set(lb.ports))
 
     def test_pre_boot(self):
         lb = self._init_driver()
@@ -92,7 +92,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         mock_build_config.return_value = 'fake_config'
         mock_build_config.assert_called_with(
             self.ctx.neutron, lb._loadbalancer, fake_mgt_port, fake_iface_map)
-        self.assertEqual(res, 'fake_config')
+        self.assertEqual('fake_config', res)
 
     @mock.patch('astara.api.astara_client.update_config')
     def test_update_config(self, mock_update_config):
@@ -114,7 +114,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         self.ctx.neutron.create_vrrp_port.return_value = fake_lb_port
         callback = lb.make_ports(self.ctx)
         res = callback()
-        self.assertEqual(res, ('fake_mgt_port', [fake_lb_port]))
+        self.assertEqual(('fake_mgt_port', [fake_lb_port]), res)
 
     @mock.patch('astara.api.neutron.Neutron')
     def test_pre_populate_retry_loop(self, mocked_neutron_api):
@@ -127,15 +127,15 @@ class LoadBalancerDriverTest(base.RugTestBase):
         with mock.patch('time.sleep'):
             lb.pre_populate_hook()
         self.assertEqual(
-            neutron_client.get_loadbalancers.call_args_list,
             [
                 mock.call()
                 for value in six.moves.range(len(returned_value))
-            ]
+            ],
+            neutron_client.get_loadbalancers.call_args_list
         )
         self.assertEqual(
-            neutron_client.get_loadbalancers.call_count,
-            len(returned_value)
+            len(returned_value),
+            neutron_client.get_loadbalancers.call_count
         )
 
     def _exit_loop_bad_auth(self, mocked_neutron_api, log, exc):
@@ -186,7 +186,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
             id='2',
             tenant_id='1',
         )
-        self.assertEqual(res, [expected_resource])
+        self.assertEqual([expected_resource], res)
 
     def test_get_resource_id_loadbalancer_msg(self):
         msg = mock.Mock(
@@ -194,8 +194,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         )
         lb = self._init_driver()
         self.assertEqual(
-            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg),
-            'lb_id'
+            'lb_id',
+            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg)
         )
 
     def test_get_resource_id_listener_msg(self):
@@ -204,8 +204,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         )
         lb = self._init_driver()
         self.assertEqual(
-            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg),
-            'lb_id'
+            'lb_id',
+            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg)
         )
 
     def test_get_resource_id_pool_msg(self):
@@ -216,8 +216,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         self.ctx.neutron.get_loadbalancer_by_listener.return_value = fake_lb
         lb = self._init_driver()
         self.assertEqual(
-            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg),
-            fake_lb.id
+            fake_lb.id,
+            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg)
         )
         self.ctx.neutron.get_loadbalancer_by_listener.assert_called_with(
             'fake_listener_id', 'foo_tenant'
@@ -231,8 +231,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         self.ctx.neutron.get_loadbalancer_by_member.return_value = fake_lb
         lb = self._init_driver()
         self.assertEqual(
-            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg),
-            fake_lb.id
+            fake_lb.id,
+            lb.get_resource_id_for_tenant(self.ctx, 'foo_tenant', msg)
         )
         self.ctx.neutron.get_loadbalancer_by_member.assert_called_with(
             'fake_member_id', 'foo_tenant'
@@ -242,7 +242,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         tenant_id = 'fake_tenant_id'
         res = loadbalancer.LoadBalancer.process_notification(
             tenant_id, event_type, payload)
-        self.assertEqual(res, expected)
+        self.assertEqual(expected, res)
 
     def test_process_notification_loadbalancerstatus(self):
         self._test_notification('loadbalancerstatus.update', {}, None)
@@ -306,8 +306,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb = self._init_driver()
         lb._loadbalancer = None
         self.assertEqual(
-            lb.get_state(self.ctx),
             states.GONE,
+            lb.get_state(self.ctx)
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
@@ -317,8 +317,8 @@ class LoadBalancerDriverTest(base.RugTestBase):
         fake_lb = fakes.fake_loadbalancer()
         lb._loadbalancer = fake_lb
         self.assertEqual(
-            lb.get_state(self.ctx),
             fake_lb.status,
+            lb.get_state(self.ctx)
         )
         mock_ensure_cache.assert_called_with(self.ctx)
 
@@ -341,14 +341,14 @@ class LoadBalancerDriverTest(base.RugTestBase):
             lb.id,
             'ACTIVE',
         )
-        self.assertEqual(lb._last_synced_status, 'ACTIVE')
+        self.assertEqual('ACTIVE', lb._last_synced_status)
 
     @mock.patch('astara.api.astara_client.get_interfaces')
     def test_get_interfaces(self, mock_get_interfaces):
         mock_get_interfaces.return_value = ['fake_interface']
         lb = self._init_driver()
         self.assertEqual(
-            lb.get_interfaces('fake_mgt_addr'), ['fake_interface'])
+            ['fake_interface'], lb.get_interfaces('fake_mgt_addr'))
         mock_get_interfaces.assert_called_with(
             'fake_mgt_addr', self.mgt_port)
 
@@ -364,7 +364,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb = self._init_driver()
         self.ctx.neutron.get_loadbalancer_detail.return_value = 'fake_lb'
         lb._ensure_cache(self.ctx)
-        self.assertEqual(lb._loadbalancer, 'fake_lb')
+        self.assertEqual('fake_lb', lb._loadbalancer)
         self.ctx.neutron.get_loadbalancer_detail.assert_called_with(lb.id)
 
     def test__ensure_cache_not_found(self):
