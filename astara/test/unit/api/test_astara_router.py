@@ -72,8 +72,8 @@ class TestAstaraClient(unittest.TestCase):
             'interfaces': 'the_interfaces'
         }
 
-        self.assertEqual(astara_client.get_interfaces('fe80::2', 5000),
-                         'the_interfaces')
+        self.assertEqual('the_interfaces',
+                         astara_client.get_interfaces('fe80::2', 5000))
         self.mock_get.assert_called_once_with(
             'http://[fe80::2]:5000/v1/system/interfaces',
             timeout=30
@@ -91,7 +91,7 @@ class TestAstaraClient(unittest.TestCase):
             data=b'{"foo": "bar"}',
             headers={'Content-type': 'application/json'},
             timeout=90)
-        self.assertEqual(resp, config)
+        self.assertEqual(config, resp)
 
     def test_update_config_with_custom_config(self):
         config = {'foo': 'bar'}
@@ -107,7 +107,7 @@ class TestAstaraClient(unittest.TestCase):
                 data=b'{"foo": "bar"}',
                 headers={'Content-type': 'application/json'},
                 timeout=5)
-            self.assertEqual(resp, config)
+            self.assertEqual(config, resp)
 
     def test_update_config_failure(self):
         config = {'foo': 'bar'}
@@ -137,4 +137,4 @@ class TestAstaraClient(unittest.TestCase):
             timeout=30
         )
 
-        self.assertEqual(resp, ['label1', 'label2'])
+        self.assertEqual(['label1', 'label2'], resp)
