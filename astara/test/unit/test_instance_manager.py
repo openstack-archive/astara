@@ -167,8 +167,8 @@ class TestInstanceManager(base.RugTestBase):
         self.update_state_p.stop()
         self.fake_driver.get_state.return_value = states.GONE
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.GONE
+            states.GONE,
+            self.instance_mgr.update_state(self.ctx)
         )
 
     def test_update_state_down_no_backing_instances(self):
@@ -176,12 +176,12 @@ class TestInstanceManager(base.RugTestBase):
         self.fake_driver.get_state.return_value = states.UP
         self.instance_mgr.instances.__nonzero__.return_value = False
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.DOWN
+            states.DOWN,
+            self.instance_mgr.update_state(self.ctx)
         )
         self.assertEqual(
-            self.instance_mgr.state,
-            states.DOWN
+            states.DOWN,
+            self.instance_mgr.state
         )
 
     def test_update_state_degraded(self):
@@ -189,12 +189,12 @@ class TestInstanceManager(base.RugTestBase):
         self.fake_driver.get_state.return_value = states.UP
         self.instance_mgr.instances.cluster_degraded = True
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.DEGRADED
+            states.DEGRADED,
+            self.instance_mgr.update_state(self.ctx)
         )
         self.assertEqual(
-            self.instance_mgr.state,
-            states.DEGRADED
+            states.DEGRADED,
+            self.instance_mgr.state
         )
 
     def test_update_state_booting(self):
@@ -203,8 +203,8 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.instances.validate_ports.return_value = \
             ([], [mock.Mock()])  # (has_ports, no_ports)
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.BOOTING
+            states.BOOTING,
+            self.instance_mgr.update_state(self.ctx)
         )
 
     def test_update_state_down_all_instances_dead(self):
@@ -216,8 +216,8 @@ class TestInstanceManager(base.RugTestBase):
             ([], [mock.Mock()])  # (alive, dead)
 
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.DOWN
+            states.DOWN,
+            self.instance_mgr.update_state(self.ctx)
         )
 
     def test_update_state_degraded_some_instances_dead(self):
@@ -229,8 +229,8 @@ class TestInstanceManager(base.RugTestBase):
             ([mock.Mock()], [mock.Mock()])  # (alive, dead)
 
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.DEGRADED
+            states.DEGRADED,
+            self.instance_mgr.update_state(self.ctx)
         )
 
     def test_update_state_up(self):
@@ -242,8 +242,8 @@ class TestInstanceManager(base.RugTestBase):
             ([mock.Mock()], [])  # (alive, dead)
 
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.UP
+            states.UP,
+            self.instance_mgr.update_state(self.ctx)
         )
 
     def test_update_state_configured(self):
@@ -258,21 +258,21 @@ class TestInstanceManager(base.RugTestBase):
             ([mock.Mock(booting=False)], [])  # (alive, dead)
 
         self.assertEqual(
-            self.instance_mgr.update_state(self.ctx),
-            states.CONFIGURED
+            states.CONFIGURED,
+            self.instance_mgr.update_state(self.ctx)
         )
 
         self.instance_mgr.update_state(self.ctx),
         self.instance_mgr.update_state(self.ctx),
         self.instance_mgr.update_state(self.ctx),
         # ensure the boot was logged only once
-        self.assertEqual(len(self.instance_mgr.log.info.call_args_list), 1)
+        self.assertEqual(1, len(self.instance_mgr.log.info.call_args_list))
 
     @mock.patch('time.sleep')
     def test_boot_success(self, sleep):
         self.next_state = states.UP
         self.instance_mgr.boot(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.BOOTING)
+        self.assertEqual(states.BOOTING, self.instance_mgr.state)
         self.instance_mgr.instances.create.assert_called_with(
             self.ctx)
         self.assertEqual(1, self.instance_mgr.attempts)
@@ -283,13 +283,13 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.boot(self.ctx)
         # a deleted VM should reset the vm mgr state and not as a failed
         # attempt
-        self.assertEqual(self.instance_mgr.attempts, 0)
+        self.assertEqual(0, self.instance_mgr.attempts)
 
     @mock.patch('time.sleep')
     def test_boot_exception(self, sleep):
         self.instance_mgr.instances.create.side_effect = RuntimeError
         self.instance_mgr.boot(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.DOWN)
+        self.assertEqual(states.DOWN, self.instance_mgr.state)
         self.instance_mgr.instances.create.assert_called_with(
             self.ctx)
         self.assertEqual(1, self.instance_mgr.attempts)
@@ -307,7 +307,7 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.instances.destroy.assert_called_with(self.ctx)
         self.instance_mgr.resource.delete_ports.assert_called_once_with(
             self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.DOWN)
+        self.assertEqual(states.DOWN, self.instance_mgr.state)
 
     def test_stop_fail(self):
         self.instance_mgr.state = states.UP
@@ -318,7 +318,7 @@ class TestInstanceManager(base.RugTestBase):
                 ('update_ports', mock.Mock())])
         self.instance_mgr.instances.destroy.side_effect = Exception
         self.instance_mgr.stop(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.UP)
+        self.assertEqual(states.UP, self.instance_mgr.state)
         self.fake_driver.delete_ports.assert_called_with(self.ctx)
 
     def test_stop_router_already_deleted_from_neutron(self):
@@ -334,7 +334,7 @@ class TestInstanceManager(base.RugTestBase):
         self.instance_mgr.instances.destroy.assert_called_with(self.ctx)
         self.instance_mgr.resource.delete_ports.assert_called_once_with(
             self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.GONE)
+        self.assertEqual(states.GONE, self.instance_mgr.state)
 
     def test_stop_no_inst_router_already_deleted_from_neutron(self):
         self.instance_mgr.state = states.GONE
@@ -345,7 +345,7 @@ class TestInstanceManager(base.RugTestBase):
                 ('update_ports', mock.Mock())])
         self.instance_mgr.stop(self.ctx)
         self.fake_driver.delete_ports.assert_called_with(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.GONE)
+        self.assertEqual(states.GONE, self.instance_mgr.state)
 
     def test_stop_instance_already_deleted_from_nova(self):
         self.instance_mgr.state = states.RESTART
@@ -357,26 +357,26 @@ class TestInstanceManager(base.RugTestBase):
 
         self.instance_mgr.stop(self.ctx)
         self.fake_driver.delete_ports.assert_called_with(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.DOWN)
+        self.assertEqual(states.DOWN, self.instance_mgr.state)
 
     def test_configure_mismatched_interfaces(self):
         self.instance_mgr.instances.verify_interfaces.return_value = False
         self.assertEqual(
-            self.instance_mgr.configure(self.ctx),
             states.REPLUG,
+            self.instance_mgr.configure(self.ctx)
         )
 
     def test_configure_gone(self):
         self.fake_driver.get_state.return_value = states.GONE
         self.assertEqual(
-            self.instance_mgr.configure(self.ctx), states.GONE)
+            states.GONE, self.instance_mgr.configure(self.ctx))
 
     def test_configure(self):
         self.instance_mgr.instances.verify_interfaces.return_value = True
         self.instance_mgr.instances.configure.return_value = states.RESTART
         self.assertEqual(
-            self.instance_mgr.configure(self.ctx),
             states.RESTART,
+            self.instance_mgr.configure(self.ctx)
         )
         self.instance_mgr.instances.verify_interfaces.assert_called_with(
             self.fake_driver.ports
@@ -420,7 +420,7 @@ class TestInstanceManager(base.RugTestBase):
         self.ctx.neutron.create_vrrp_port.assert_called_with(
             self.fake_driver.id, 'additional-net'
         )
-        self.assertEqual(self.instance_mgr.state, states.REPLUG)
+        self.assertEqual(states.REPLUG, self.instance_mgr.state)
         fake_instance.interface_attach.assert_called_once_with(
             fake_new_port.id, None, None
         )
@@ -458,7 +458,7 @@ class TestInstanceManager(base.RugTestBase):
         self.fake_driver.ports.append(fake_new_port)
         self.ctx.neutron.create_vrrp_port.return_value = fake_new_port
         self.instance_mgr.replug(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.RESTART)
+        self.assertEqual(states.RESTART, self.instance_mgr.state)
 
         fake_instance.interface_attach.assert_called_once_with(
             fake_new_port.id, None, None)
@@ -505,7 +505,7 @@ class TestInstanceManager(base.RugTestBase):
 
         wait_for_hotplug.return_value = True
         self.instance_mgr.replug(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.DEGRADED)
+        self.assertEqual(states.DEGRADED, self.instance_mgr.state)
 
         for instance in instances:
             instance.interface_attach.assert_called_with(
@@ -553,7 +553,7 @@ class TestInstanceManager(base.RugTestBase):
         wait_for_hotplug.side_effect = [True, False]
 
         self.instance_mgr.replug(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.DEGRADED)
+        self.assertEqual(states.DEGRADED, self.instance_mgr.state)
 
         for instance in instances:
             instance.interface_attach.assert_called_with(
@@ -591,7 +591,7 @@ class TestInstanceManager(base.RugTestBase):
 
         wait_for_hotplug.return_value = True
         self.instance_mgr.replug(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.REPLUG)
+        self.assertEqual(states.REPLUG, self.instance_mgr.state)
         fake_instance.interface_detach.assert_called_once_with(
             fake_add_port.id)
         self.assertNotIn(fake_add_port, instance_1.ports)
@@ -624,8 +624,8 @@ class TestInstanceManager(base.RugTestBase):
         fake_instance.interface_detach.side_effect = Exception
 
         self.instance_mgr.replug(self.ctx)
-        self.assertEqual(self.instance_mgr.state,
-                         states.RESTART)
+        self.assertEqual(states.RESTART,
+                         self.instance_mgr.state)
         fake_instance.interface_detach.assert_called_once_with(
             fake_add_port.id
         )
@@ -661,8 +661,8 @@ class TestInstanceManager(base.RugTestBase):
 
         wait_for_hotplug.return_value = False
         self.instance_mgr.replug(self.ctx)
-        self.assertEqual(self.instance_mgr.state,
-                         states.RESTART)
+        self.assertEqual(states.RESTART,
+                         self.instance_mgr.state)
         fake_instance.interface_detach.assert_called_once_with(
             fake_add_port.id
         )
@@ -685,9 +685,9 @@ class TestInstanceManager(base.RugTestBase):
             ],
         ]
         self.assertEqual(
-            self.instance_mgr._wait_for_interface_hotplug(instance), True)
+            True, self.instance_mgr._wait_for_interface_hotplug(instance))
         self.assertEqual(
-            len(self.fake_driver.get_interfaces.call_args_list), 3)
+            3, len(self.fake_driver.get_interfaces.call_args_list))
 
     def test_wait_for_interface_hotplug_false(self):
         self.conf.hotplug_timeout = 5
@@ -699,9 +699,9 @@ class TestInstanceManager(base.RugTestBase):
             ]
             for i in six.moves.range(5)]
         self.assertEqual(
-            self.instance_mgr._wait_for_interface_hotplug(instance), False)
+            False, self.instance_mgr._wait_for_interface_hotplug(instance))
         self.assertEqual(
-            len(self.fake_driver.get_interfaces.call_args_list), 4)
+            4, len(self.fake_driver.get_interfaces.call_args_list))
 
     def test_set_error_when_booting(self):
         self.instance_mgr.state = states.BOOTING
@@ -728,7 +728,7 @@ class TestInstanceManager(base.RugTestBase):
         rtr.ports.__iter__.return_value = []
         self.instance_mgr.set_error(self.ctx)
         self.instance_mgr.boot(self.ctx)
-        self.assertEqual(self.instance_mgr.state, states.BOOTING)
+        self.assertEqual(states.BOOTING, self.instance_mgr.state)
         self.instance_mgr.instances.create.assert_called_with(self.ctx)
 
     def test_error_cooldown(self):
@@ -766,7 +766,7 @@ class TestInstanceManager(base.RugTestBase):
             'fake_instance_id2': fake_inst_2,
         }
         self.assertEqual(
-            self.instance_mgr.instances, exp_updated_instances)
+            exp_updated_instances, self.instance_mgr.instances)
         self.instance_mgr.instances.update_ports.assert_called_with(self.ctx)
 
 
@@ -812,13 +812,13 @@ class TestInstanceGroupManager(base.RugTestBase):
         self.fake_driver.is_alive.side_effect = [
             False, False, True, False, True]
         alive, dead = self.group_mgr.are_alive()
-        self.assertEqual(sorted(alive), sorted(self.instances))
+        self.assertEqual(sorted(self.instances), sorted(alive))
 
     def test_are_alive_all_dead(self):
         self.fake_driver.is_alive.return_value = False
         alive, dead = self.group_mgr.are_alive()
-        self.assertEqual(sorted(dead), sorted(self.instances))
-        self.assertEqual(alive, [])
+        self.assertEqual(sorted(self.instances), sorted(dead))
+        self.assertEqual([], alive)
 
     def test_are_alive_some_dead(self):
         self.group_mgr = instance_manager.InstanceGroupManager(
@@ -837,8 +837,8 @@ class TestInstanceGroupManager(base.RugTestBase):
         [self.group_mgr.add_instance(i) for i in instances]
         self.fake_driver.is_alive = fake_is_alive
         alive, dead = self.group_mgr.are_alive()
-        self.assertEqual(dead, [self.instance_2])
-        self.assertEqual(alive, [self.instance_1])
+        self.assertEqual([self.instance_2], dead)
+        self.assertEqual([self.instance_1], alive)
 
     def test_update_ports(self):
         self.ctx.neutron.get_ports_for_instance.side_effect = [
@@ -846,10 +846,10 @@ class TestInstanceGroupManager(base.RugTestBase):
             ('instance2_mgt_port', ['instance2_inst_port']),
         ]
         self.group_mgr.update_ports(self.ctx)
-        self.assertEqual(self.instance_1.management_port, 'instance1_mgt_port')
-        self.assertEqual(self.instance_1.ports, ['instance1_inst_port'])
-        self.assertEqual(self.instance_2.management_port, 'instance2_mgt_port')
-        self.assertEqual(self.instance_2.ports, ['instance2_inst_port'])
+        self.assertEqual('instance1_mgt_port', self.instance_1.management_port)
+        self.assertEqual(['instance1_inst_port'], self.instance_1.ports)
+        self.assertEqual('instance2_mgt_port', self.instance_2.management_port)
+        self.assertEqual(['instance2_inst_port'], self.instance_2.ports)
 
     def test_get_interfaces(self):
         self.fake_driver.get_interfaces.side_effect = [
@@ -948,17 +948,17 @@ class TestInstanceGroupManager(base.RugTestBase):
         instance_1_ha_config = self.group_mgr._ha_config(self.instance_1)
         instance_2_ha_config = self.group_mgr._ha_config(self.instance_2)
         self.assertEqual(
-            instance_1_ha_config,
             {
                 'priority': 100,
                 'peers': [self.instance_2.management_address],
-            })
+            },
+            instance_1_ha_config)
         self.assertEqual(
-            instance_2_ha_config,
             {
                 'priority': 50,
                 'peers': [self.instance_1.management_address],
-            })
+            },
+            instance_2_ha_config)
 
     @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
     @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
@@ -982,7 +982,7 @@ class TestInstanceGroupManager(base.RugTestBase):
         ])
 
         fake_update_config.return_value = True
-        self.assertEqual(self.group_mgr.configure(self.ctx), states.CONFIGURED)
+        self.assertEqual(states.CONFIGURED, self.group_mgr.configure(self.ctx))
         self.assertIn(
             mock.call(
                 self.instance_1,
@@ -1023,7 +1023,7 @@ class TestInstanceGroupManager(base.RugTestBase):
         ])
 
         fake_update_config.return_value = False
-        self.assertEqual(self.group_mgr.configure(self.ctx), states.RESTART)
+        self.assertEqual(states.RESTART, self.group_mgr.configure(self.ctx))
 
     @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
     @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
@@ -1047,7 +1047,7 @@ class TestInstanceGroupManager(base.RugTestBase):
              [self.instance_2.management_port]])])
 
         fake_update_config.side_effect = [False, True]
-        self.assertEqual(self.group_mgr.configure(self.ctx), states.DEGRADED)
+        self.assertEqual(states.DEGRADED, self.group_mgr.configure(self.ctx))
 
     @mock.patch('astara.instance_manager.InstanceGroupManager._update_config')
     @mock.patch('astara.instance_manager.InstanceGroupManager._ha_config')
@@ -1069,7 +1069,7 @@ class TestInstanceGroupManager(base.RugTestBase):
         ])
 
         fake_update_config.return_value = True
-        self.assertEqual(self.group_mgr.configure(self.ctx), states.DEGRADED)
+        self.assertEqual(states.DEGRADED, self.group_mgr.configure(self.ctx))
 
     def test_delete(self):
         self.group_mgr.delete(self.instance_2)
@@ -1106,13 +1106,13 @@ class TestInstanceGroupManager(base.RugTestBase):
 
     def test_next_instance_index(self):
         self.assertEqual(
-            self.group_mgr.next_instance_index, 2)
+            2, self.group_mgr.next_instance_index)
 
     def test_next_instance_index_empty(self):
         group_mgr = instance_manager.InstanceGroupManager(
             log=mock.Mock(), resource=self.fake_driver)
         self.assertEqual(
-            group_mgr.next_instance_index, 0)
+            0, group_mgr.next_instance_index)
 
     def test_create_all(self):
         [self.group_mgr.delete(i) for i in self.instances]
@@ -1122,7 +1122,7 @@ class TestInstanceGroupManager(base.RugTestBase):
         ]
         self.group_mgr.create(self.ctx)
         self.assertEqual(
-            len(self.ctx.nova_client.boot_instance.call_args_list), 2)
+            2, len(self.ctx.nova_client.boot_instance.call_args_list))
 
     def test_create_some(self):
         self.group_mgr.delete(self.instance_1)
@@ -1131,7 +1131,7 @@ class TestInstanceGroupManager(base.RugTestBase):
         ]
         self.group_mgr.create(self.ctx)
         self.assertEqual(
-            len(self.ctx.nova_client.boot_instance.call_args_list), 1)
+            1, len(self.ctx.nova_client.boot_instance.call_args_list))
         self.ctx.nova_client.boot_instance.assert_called_with(
             resource_type=self.fake_driver.RESOURCE_NAME,
             prev_instance_info=None,
@@ -1143,12 +1143,12 @@ class TestInstanceGroupManager(base.RugTestBase):
 
     def test_required_instance_count(self):
         self.fake_driver.is_ha = True
-        self.assertEqual(self.group_mgr.required_instance_count, 2)
+        self.assertEqual(2, self.group_mgr.required_instance_count)
         self.fake_driver.is_ha = False
-        self.assertEqual(self.group_mgr.required_instance_count, 1)
+        self.assertEqual(1, self.group_mgr.required_instance_count)
 
     def test_instance_count(self):
-        self.assertEqual(self.group_mgr.instance_count, 2)
+        self.assertEqual(2, self.group_mgr.instance_count)
 
     def test_cluster_degraded_false(self):
         self.assertFalse(self.group_mgr.cluster_degraded)

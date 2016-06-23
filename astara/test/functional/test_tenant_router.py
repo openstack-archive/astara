@@ -56,7 +56,7 @@ class TestAstaraHARouter(AstaraRouterTestBase):
     def test_ha_router_servers(self):
         service_instances = self.get_router_appliance_server(
             self.router['id'], ha_router=self.HA_ROUTER)
-        self.assertEqual(len(service_instances), 2)
+        self.assertEqual(2, len(service_instances))
 
         # kill the master and ensure it is backfilled with a new instance
         master, backup = service_instances
@@ -68,8 +68,8 @@ class TestAstaraHARouter(AstaraRouterTestBase):
 
         service_instances = self.get_router_appliance_server(
             self.router['id'], retries=600, ha_router=self.HA_ROUTER)
-        self.assertEqual(len(service_instances), 2)
-        self.assertEqual(service_instances[0], backup)
+        self.assertEqual(2, len(service_instances))
+        self.assertEqual(backup, service_instances[0])
 
 
 class TestAstaraRouter(AstaraRouterTestBase):

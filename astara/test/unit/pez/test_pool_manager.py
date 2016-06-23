@@ -69,7 +69,7 @@ class PoolManagerTest(base.RugTestBase):
 
         # deletion hasn't timed out yet
 
-        self.assertEqual(len(res), 0)
+        self.assertEqual(0, len(res))
         # the deleting instance is added to the counter
         self.assertIn(
             pool[self.resource][0].id, self.pool_manager._delete_counters)
