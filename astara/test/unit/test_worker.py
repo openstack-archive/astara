@@ -382,12 +382,12 @@ class TestWorker(WorkerTestBase):
         self.config(host='foohost')
         ctxt = worker.WorkerContext(fakes.FAKE_MGT_ADDR)
         self.assertEqual(
-            ctxt.config,
             {
                 'host': 'foohost',
                 'metadata_port': 1234,
                 'address': fakes.FAKE_MGT_ADDR,
-            })
+            },
+            ctxt.config)
 
     @mock.patch('astara.worker.Worker._get_trms')
     def test__get_all_state_machines(self, fake_get_trms):
@@ -404,8 +404,8 @@ class TestWorker(WorkerTestBase):
         fake_get_trms.return_value = trms
         res = self.w._get_all_state_machines()
         self.assertEqual(
-            res,
-            set(['sm1', 'sm2', 'sm3', 'sm4'])
+            set(['sm1', 'sm2', 'sm3', 'sm4']),
+            res
         )
 
     @mock.patch('astara.worker.hash_ring', autospec=True)
@@ -418,10 +418,10 @@ class TestWorker(WorkerTestBase):
 
     def test__defer_message(self):
         self.assertEqual(
-            self.w._deferred_messages, [])
+            [], self.w._deferred_messages)
         self.w._defer_message(self.target, self.msg)
         self.assertEqual(
-            self.w._deferred_messages, [(self.target, self.msg)])
+            [(self.target, self.msg)], self.w._deferred_messages)
 
     @mock.patch('astara.worker.Worker.handle_message')
     def test__replay_deferred_messages_none(self, fakehandle):
@@ -440,7 +440,7 @@ class TestWorker(WorkerTestBase):
         self.w._replay_deferred_messages()
         exp_calls = [mock.call(t, m) for t, m in msgs]
         self.assertEqual(
-            fake_handle.call_args_list, exp_calls)
+            exp_calls, fake_handle.call_args_list)
 
 
 class TestResourceCache(WorkerTestBase):
@@ -463,7 +463,7 @@ class TestResourceCache(WorkerTestBase):
         msg = event.Event(resource=r, crud=event.UPDATE, body={})
         res = self.resource_cache.get_by_tenant(
             resource=r, worker_context=self.worker_context, message=msg)
-        self.assertEqual(res, 'fake_cached_resource_id')
+        self.assertEqual('fake_cached_resource_id', res)
         self.assertFalse(self.w._context.neutron.get_router_for_tenant.called)
 
     def test_resource_cache_miss(self):
@@ -481,7 +481,7 @@ class TestResourceCache(WorkerTestBase):
             resource=r,
             worker_context=self.worker_context,
             message=msg)
-        self.assertEqual(res, 'fake_fetched_resource_id')
+        self.assertEqual('fake_fetched_resource_id', res)
         self.w._context.neutron.get_router_for_tenant.assert_called_with(
             'fake_tenant_id')
 
@@ -501,8 +501,9 @@ class TestResourceCache(WorkerTestBase):
             worker_context=self.worker_context,
             message=msg)
         self.assertEqual(
-            self.resource_cache._tenant_resources[r.driver][r.tenant_id],
-            r.id)
+            r.id,
+            self.resource_cache._tenant_resources[r.driver][r.tenant_id]
+            )
         self.resource_cache.delete(r)
         self.assertNotIn(
             r.tenant_id,
@@ -543,7 +544,7 @@ class TestCreatingResource(WorkerTestBase):
         trm = self.w.tenant_managers[self.tenant_id]
         sm = trm.get_state_machines(self.msg, worker.WorkerContext(
             fakes.FAKE_MGT_ADDR))[0]
-        self.assertEqual(len(sm._queue), 1)
+        self.assertEqual(1, len(sm._queue))
 
 
 class TestWildcardMessages(WorkerTestBase):
@@ -579,12 +580,12 @@ class TestWildcardMessages(WorkerTestBase):
     def test_wildcard_to_all(self):
         trms = self.w._get_trms('*')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(ids, [self.tenant_id_1, self.tenant_id_2])
+        self.assertEqual([self.tenant_id_1, self.tenant_id_2], ids)
 
     def test_wildcard_to_error(self):
         trms = self.w._get_trms('error')
         ids = sorted(trm.tenant_id for trm in trms)
-        self.assertEqual(ids, [self.tenant_id_1, self.tenant_id_2])
+        self.assertEqual([self.tenant_id_1, self.tenant_id_2], ids)
 
 
 class TestShutdown(WorkerTestBase):
@@ -686,7 +687,7 @@ class TestDebugRouters(WorkerTestBase):
         self.w._should_process_command = mock.MagicMock(return_value=self.msg)
 
     def testNoDebugs(self):
-        self.assertEqual(self.dbapi.resources_in_debug(), set())
+        self.assertEqual(set(), self.dbapi.resources_in_debug())
 
     def testWithDebugs(self):
         self.w.handle_message(
@@ -718,7 +719,7 @@ class TestDebugRouters(WorkerTestBase):
                       'resource_id': 'this-resource-id'}),
         )
         self.assert_not_in_debug(resource_id='this-resource-id')
-        self.assertEqual(lock.release.call_count, 1)
+        self.assertEqual(1, lock.release.call_count)
 
     def testManageNoLock(self):
         self.enable_debug(resource_id='this-resource-id')
@@ -771,7 +772,7 @@ class TestDebugTenants(WorkerTestBase):
         self.w._should_process_command = mock.MagicMock(return_value=self.msg)
 
     def testNoDebugs(self):
-        self.assertEqual(self.dbapi.tenants_in_debug(), set())
+        self.assertEqual(set(), self.dbapi.tenants_in_debug())
 
     def testWithDebugs(self):
         self.enable_debug(tenant_id='this-tenant-id')
@@ -840,14 +841,14 @@ class TestNormalizeUUID(unittest.TestCase):
 
     def test_upper(self):
         self.assertEqual(
+            'ac194fc5-f317-412e-8611-fb290629f624',
             worker._normalize_uuid(
-                'ac194fc5-f317-412e-8611-fb290629f624'.upper()),
-            'ac194fc5-f317-412e-8611-fb290629f624')
+                'ac194fc5-f317-412e-8611-fb290629f624'.upper()))
 
     def test_no_dashes(self):
         self.assertEqual(
-            worker._normalize_uuid('ac194fc5f317412e8611fb290629f624'),
-            'ac194fc5-f317-412e-8611-fb290629f624')
+            'ac194fc5-f317-412e-8611-fb290629f624',
+            worker._normalize_uuid('ac194fc5f317412e8611fb290629f624'))
 
 
 class TestGlobalDebug(WorkerTestBase):
@@ -991,9 +992,9 @@ class TestRebalance(WorkerTestBase):
         self.w.scheduler.dispatcher.pick_workers = mock.Mock(return_value=tgt)
         self.w._repopulate()
         post_rebalance_sms = self.w._get_all_state_machines()
-        self.assertEqual(len(post_rebalance_sms), 1)
+        self.assertEqual(1, len(post_rebalance_sms))
         sm = post_rebalance_sms.pop()
-        self.assertEqual(sm.resource_id,  rsc2.id)
+        self.assertEqual(rsc2.id, sm.resource_id)
 
     @mock.patch('astara.populate.repopulate')
     def test__repopulate_sm_added(self, fake_repopulate):
@@ -1040,7 +1041,7 @@ class TestRebalance(WorkerTestBase):
         self.w.scheduler.dispatcher.pick_workers = mock.Mock(return_value=tgt)
         self.w._repopulate()
         post_rebalance_sms = self.w._get_all_state_machines()
-        self.assertEqual(len(post_rebalance_sms), 3)
+        self.assertEqual(3, len(post_rebalance_sms))
         rids = [r.id for r in resources]
         for sm in post_rebalance_sms:
             self.assertIn(sm.resource_id, rids)

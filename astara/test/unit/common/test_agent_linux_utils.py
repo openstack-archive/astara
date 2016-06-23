@@ -49,35 +49,35 @@ class AgentUtilsExecuteTest(testtools.TestCase):
 
     def test_without_helper(self):
         result = utils.execute(["ls", self.test_file])
-        self.assertEqual(result, "%s\n" % self.test_file)
+        self.assertEqual("%s\n" % self.test_file, result)
 
     def test_with_helper(self):
         result = utils.execute(["ls", self.test_file],
                                self.root_helper)
-        self.assertEqual(result, "ls %s\n" % self.test_file)
+        self.assertEqual("ls %s\n" % self.test_file, result)
 
     def test_stderr(self):
         stdout, stderr = utils.execute(["ls", self.test_file],
                                        return_stderr=True)
-        self.assertEqual(stdout, "%s\n" % self.test_file)
-        self.assertEqual(stderr, "")
+        self.assertEqual("%s\n" % self.test_file, stdout)
+        self.assertEqual("", stderr)
 
     def test_check_exit_code(self):
         stdout = utils.execute(["ls", self.test_file[:-1]],
                                check_exit_code=False)
-        self.assertEqual(stdout, "")
+        self.assertEqual("", stdout)
         self.assertRaises(RuntimeError, utils.execute,
                           ["ls", self.test_file[:-1]])
 
     def test_process_input(self):
         result = utils.execute(["cat"], process_input="%s\n" %
                                self.test_file[:-1])
-        self.assertEqual(result, "%s\n" % self.test_file[:-1])
+        self.assertEqual("%s\n" % self.test_file[:-1], result)
 
     def test_with_addl_env(self):
         result = utils.execute(["ls", self.test_file],
                                addl_env={'foo': 'bar'})
-        self.assertEqual(result, "%s\n" % self.test_file)
+        self.assertEqual("%s\n" % self.test_file, result)
 
 
 class AgentUtilsGetInterfaceMAC(testtools.TestCase):
@@ -88,7 +88,7 @@ class AgentUtilsGetInterfaceMAC(testtools.TestCase):
                                           '\x01\x02\x03\x04\x05\x06',
                                           '\x00' * 232])
             actual_val = utils.get_interface_mac('eth0')
-        self.assertEqual(actual_val, expect_val)
+        self.assertEqual(expect_val, actual_val)
 
 
 class AgentUtilsReplaceFile(testtools.TestCase):

@@ -180,11 +180,11 @@ class TestIpWrapper(unittest.TestCase):
     def test_get_devices(self):
         self.execute.return_value = '\n'.join(LINK_SAMPLE)
         retval = ip_lib.IPWrapper('sudo').get_devices()
-        self.assertEqual(retval,
-                         [ip_lib.IPDevice('lo'),
+        self.assertEqual([ip_lib.IPDevice('lo'),
                           ip_lib.IPDevice('eth0'),
                           ip_lib.IPDevice('br-int'),
-                          ip_lib.IPDevice('gw-ddc717df-49')])
+                          ip_lib.IPDevice('gw-ddc717df-49')],
+                          retval)
 
         self.execute.assert_called_once_with('o', 'link', ('list',),
                                              'sudo', None)
@@ -192,11 +192,11 @@ class TestIpWrapper(unittest.TestCase):
     def test_get_devices_malformed_line(self):
         self.execute.return_value = '\n'.join(LINK_SAMPLE + ['gibberish'])
         retval = ip_lib.IPWrapper('sudo').get_devices()
-        self.assertEqual(retval,
-                         [ip_lib.IPDevice('lo'),
+        self.assertEqual([ip_lib.IPDevice('lo'),
                           ip_lib.IPDevice('eth0'),
                           ip_lib.IPDevice('br-int'),
-                          ip_lib.IPDevice('gw-ddc717df-49')])
+                          ip_lib.IPDevice('gw-ddc717df-49')],
+                          retval)
 
         self.execute.assert_called_once_with('o', 'link', ('list',),
                                              'sudo', None)
@@ -204,10 +204,10 @@ class TestIpWrapper(unittest.TestCase):
     def test_get_namespaces(self):
         self.execute.return_value = '\n'.join(NETNS_SAMPLE)
         retval = ip_lib.IPWrapper.get_namespaces('sudo')
-        self.assertEqual(retval,
-                         ['12345678-1234-5678-abcd-1234567890ab',
+        self.assertEqual(['12345678-1234-5678-abcd-1234567890ab',
                           'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-                          'cccccccc-cccc-cccc-cccc-cccccccccccc'])
+                          'cccccccc-cccc-cccc-cccc-cccccccccccc'],
+                          retval)
 
         self.execute.assert_called_once_with('', 'netns', ('list',),
                                              root_helper='sudo')
@@ -227,9 +227,9 @@ class TestIpWrapper(unittest.TestCase):
 
     def test_get_device(self):
         dev = ip_lib.IPWrapper('sudo', 'ns').device('eth0')
-        self.assertEqual(dev.root_helper, 'sudo')
-        self.assertEqual(dev.namespace, 'ns')
-        self.assertEqual(dev.name, 'eth0')
+        self.assertEqual('sudo', dev.root_helper)
+        self.assertEqual('ns', dev.namespace)
+        self.assertEqual('eth0', dev.name)
 
     def test_ensure_namespace(self):
         with mock.patch.object(ip_lib, 'IPDevice') as ip_dev:
@@ -247,7 +247,7 @@ class TestIpWrapper(unittest.TestCase):
             ip_ns_cmd.exists.return_value = True
             ns = ip_lib.IPWrapper('sudo').ensure_namespace('ns')
             self.assertFalse(self.execute.called)
-            self.assertEqual(ns.namespace, 'ns')
+            self.assertEqual('ns', ns.namespace)
 
     def test_namespace_is_empty_no_devices(self):
         ip = ip_lib.IPWrapper('sudo', 'ns')
@@ -275,7 +275,7 @@ class TestIpWrapper(unittest.TestCase):
                 ip_ns_cmd_cls.assert_has_calls([mock.call().exists('ns')])
                 self.assertNotIn(mock.call().delete('ns'),
                                  ip_ns_cmd_cls.return_value.mock_calls)
-                self.assertEqual(mock_is_empty.mock_calls, [])
+                self.assertEqual([], mock_is_empty.mock_calls)
 
     def test_garbage_collect_namespace_existing_empty_ns(self):
         with mock.patch.object(ip_lib, 'IpNetnsCommand') as ip_ns_cmd_cls:
@@ -311,7 +311,7 @@ class TestIpWrapper(unittest.TestCase):
                 mock_is_empty.assert_called_once_with()
                 expected = [mock.call(ip),
                             mock.call().exists('ns')]
-                self.assertEqual(ip_ns_cmd_cls.mock_calls, expected)
+                self.assertEqual(expected, ip_ns_cmd_cls.mock_calls)
                 self.assertNotIn(mock.call().delete('ns'),
                                  ip_ns_cmd_cls.mock_calls)
 
@@ -323,7 +323,7 @@ class TestIpWrapper(unittest.TestCase):
     def test_add_device_to_namespace_is_none(self):
         dev = mock.Mock()
         ip_lib.IPWrapper('sudo').add_device_to_namespace(dev)
-        self.assertEqual(dev.mock_calls, [])
+        self.assertEqual([], dev.mock_calls)
 
 
 class TestIPDevice(unittest.TestCase):
@@ -352,7 +352,7 @@ class TestIPDevice(unittest.TestCase):
         self.assertNotEqual(dev1, None)
 
     def test_str(self):
-        self.assertEqual(str(ip_lib.IPDevice('tap0')), 'tap0')
+        self.assertEqual('tap0', str(ip_lib.IPDevice('tap0')))
 
 
 class TestIPCommandBase(unittest.TestCase):
@@ -394,7 +394,7 @@ class TestIPDeviceCommandBase(unittest.TestCase):
         self.ip_cmd.COMMAND = 'foo'
 
     def test_name_property(self):
-        self.assertEqual(self.ip_cmd.name, 'eth0')
+        self.assertEqual('eth0', self.ip_cmd.name)
 
 
 class TestIPCmdBase(unittest.TestCase):
@@ -440,12 +440,12 @@ class TestIpLinkCommand(TestIPCmdBase):
     def test_set_netns(self):
         self.link_cmd.set_netns('foo')
         self._assert_sudo([], ('set', 'eth0', 'netns', 'foo'))
-        self.assertEqual(self.parent.namespace, 'foo')
+        self.assertEqual('foo', self.parent.namespace)
 
     def test_set_name(self):
         self.link_cmd.set_name('tap1')
         self._assert_sudo([], ('set', 'eth0', 'name', 'tap1'))
-        self.assertEqual(self.parent.name, 'tap1')
+        self.assertEqual('tap1', self.parent.name)
 
     def test_set_alias(self):
         self.link_cmd.set_alias('openvswitch')
@@ -457,27 +457,27 @@ class TestIpLinkCommand(TestIPCmdBase):
 
     def test_address_property(self):
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.address, 'cc:dd:ee:ff:ab:cd')
+        self.assertEqual('cc:dd:ee:ff:ab:cd', self.link_cmd.address)
 
     def test_mtu_property(self):
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.mtu, 1500)
+        self.assertEqual(1500, self.link_cmd.mtu)
 
     def test_qdisc_property(self):
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.qdisc, 'mq')
+        self.assertEqual('mq', self.link_cmd.qdisc)
 
     def test_qlen_property(self):
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.qlen, 1000)
+        self.assertEqual(1000, self.link_cmd.qlen)
 
     def test_alias_property(self):
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.alias, 'openvswitch')
+        self.assertEqual('openvswitch', self.link_cmd.alias)
 
     def test_state_property(self):
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.state, 'UP')
+        self.assertEqual('UP', self.link_cmd.state)
 
     def test_settings_property(self):
         expected = {'mtu': 1500,
@@ -488,7 +488,7 @@ class TestIpLinkCommand(TestIPCmdBase):
                     'link/ether': 'cc:dd:ee:ff:ab:cd',
                     'alias': 'openvswitch'}
         self.parent._execute = mock.Mock(return_value=LINK_SAMPLE[1])
-        self.assertEqual(self.link_cmd.attributes, expected)
+        self.assertEqual(expected, self.link_cmd.attributes)
         self._assert_call('o', ('show', 'eth0'))
 
 
@@ -546,7 +546,7 @@ class TestIpAddrCommand(TestIPCmdBase):
 
         for test_case in test_cases:
             self.parent._run = mock.Mock(return_value=test_case)
-            self.assertEqual(self.addr_cmd.list(), expected)
+            self.assertEqual(expected, self.addr_cmd.list())
             self._assert_call([], ('show', 'tap0'))
 
     def test_list_filtered(self):
@@ -560,8 +560,9 @@ class TestIpAddrCommand(TestIPCmdBase):
         for test_case in test_cases:
             output = '\n'.join(test_case.split('\n')[0:4])
             self.parent._run.return_value = output
-            self.assertEqual(self.addr_cmd.list('global',
-                             filters=['permanent']), expected)
+            self.assertEqual(expected,
+                            self.addr_cmd.list('global',
+                            filters=['permanent']))
             self._assert_call([], ('show', 'tap0', 'permanent', 'scope',
                               'global'))
 
@@ -602,8 +603,9 @@ class TestIpRouteCommand(TestIPCmdBase):
                        'expected': {'gateway': '10.35.19.254'}}]
         for test_case in test_cases:
             self.parent._run = mock.Mock(return_value=test_case['sample'])
-            self.assertEqual(self.route_cmd.get_gateway(),
-                             test_case['expected'])
+            self.assertEqual(test_case['expected'],
+                             self.route_cmd.get_gateway()
+                             )
 
     def test_pullup_route(self):
         # interface is not the first in the list - requires
@@ -631,7 +633,7 @@ class TestIpRouteCommand(TestIPCmdBase):
         self.parent._run = mock.Mock(side_effect=pullup_side_effect)
         self.route_cmd.pullup_route('tap1d7888a7-10')
         # Check two calls - device get and subnet get
-        self.assertEqual(len(self.parent._run.mock_calls), 2)
+        self.assertEqual(2, len(self.parent._run.mock_calls))
 
 
 class TestIpNetnsCommand(TestIPCmdBase):
@@ -643,7 +645,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
     def test_add_namespace(self):
         ns = self.netns_cmd.add('ns')
         self._assert_sudo([], ('add', 'ns'), force_root_namespace=True)
-        self.assertEqual(ns.namespace, 'ns')
+        self.assertEqual('ns', ns.namespace)
 
     def test_delete_namespace(self):
         with mock.patch('astara.common.linux.utils.execute'):

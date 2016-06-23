@@ -60,14 +60,14 @@ class BaseTestStateCase(unittest.TestCase):
 class TestBaseState(BaseTestStateCase):
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('action', self.ctx),
-            'action'
+            'action',
+            self.state.execute('action', self.ctx)
         )
 
     def test_transition(self):
         self.assertEqual(
-            self.state.transition('action', self.ctx),
-            self.state
+            self.state,
+            self.state.transition('action', self.ctx)
         )
 
 
@@ -78,10 +78,10 @@ class TestCalcActionState(BaseTestStateCase):
                    leftover=0, initial_action=event.POLL):
         self.params.queue = deque(queue_states)
         self.assertEqual(
-            self.state.execute(initial_action, self.ctx),
-            expected_action
+            expected_action,
+            self.state.execute(initial_action, self.ctx)
         )
-        self.assertEqual(len(self.params.queue), leftover)
+        self.assertEqual(leftover, len(self.params.queue))
 
     def test_execute_empty_queue(self):
         self._test_hlpr('testaction', [], initial_action='testaction')
@@ -227,8 +227,8 @@ class TestAliveState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
-            'passthrough'
+            'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.instance.update_state.assert_called_once_with(self.ctx)
 
@@ -273,16 +273,16 @@ class TestCreateInstanceState(BaseTestStateCase):
     def test_execute(self):
         self.instance.attempts = 0
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
-            'passthrough'
+            'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.instance.boot.assert_called_once_with(self.ctx)
 
     def test_execute_too_many_attempts(self):
         self.instance.attempts = self.params.reboot_error_threshold
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
-            'passthrough'
+            'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.assertEqual([], self.instance.boot.mock_calls)
         self.instance.set_error.assert_called_once_with(self.ctx)
@@ -318,16 +318,16 @@ class TestRebuildInstanceState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('ignored', self.ctx),
             event.CREATE,
+            self.state.execute('ignored', self.ctx)
         )
         self.instance.stop.assert_called_once_with(self.ctx)
 
     def test_execute_gone(self):
         self.instance.state = states.GONE
         self.assertEqual(
-            self.state.execute('ignored', self.ctx),
             event.DELETE,
+            self.state.execute('ignored', self.ctx)
         )
         self.instance.stop.assert_called_once_with(self.ctx)
 
@@ -337,16 +337,16 @@ class TestClearErrorState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
             'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.instance.clear_error.assert_called_once_with(self.ctx)
 
     def test_execute_after_error(self):
         self.instance.state = states.ERROR
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
             'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.instance.clear_error.assert_called_once_with(self.ctx)
 
@@ -370,8 +370,8 @@ class TestCheckBootState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
-            'passthrough'
+            'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.instance.update_state.assert_called_once_with(self.ctx)
         assert list(self.params.queue) == ['passthrough']
@@ -403,8 +403,8 @@ class TestStopInstanceState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('passthrough', self.ctx),
-            'passthrough'
+            'passthrough',
+            self.state.execute('passthrough', self.ctx)
         )
         self.instance.stop.assert_called_once_with(self.ctx)
 
@@ -427,8 +427,8 @@ class TestReplugState(BaseTestStateCase):
 
     def test_execute(self):
         self.assertEqual(
-            self.state.execute('update', self.ctx),
-            'update'
+            'update',
+            self.state.execute('update', self.ctx)
         )
         self.instance.replug.assert_called_once_with(self.ctx)
 
@@ -456,20 +456,20 @@ class TestConfigureInstanceState(BaseTestStateCase):
 
     def test_execute_read_configure_success(self):
         self.instance.state = states.CONFIGURED
-        self.assertEqual(self.state.execute(event.READ, self.ctx),
-                         event.READ)
+        self.assertEqual(event.READ,
+                        self.state.execute(event.READ, self.ctx))
         self.instance.configure.assert_called_once_with(self.ctx)
 
     def test_execute_update_configure_success(self):
         self.instance.state = states.CONFIGURED
-        self.assertEqual(self.state.execute(event.UPDATE, self.ctx),
-                         event.POLL)
+        self.assertEqual(event.POLL,
+                        self.state.execute(event.UPDATE, self.ctx))
         self.instance.configure.assert_called_once_with(self.ctx)
 
     def test_execute_configure_failure(self):
         self.assertEqual(
-            self.state.execute(event.CREATE, self.ctx),
-            event.CREATE
+            event.CREATE,
+            self.state.execute(event.CREATE, self.ctx)
         )
         self.instance.configure.assert_called_once_with(self.ctx)
 
@@ -510,8 +510,8 @@ class TestReadStatsState(BaseTestStateCase):
         self.instance.read_stats.return_value = 'foo'
 
         self.assertEqual(
-            self.state.execute(event.READ, self.ctx),
-            event.POLL
+            event.POLL,
+            self.state.execute(event.READ, self.ctx)
         )
         self.instance.read_stats.assert_called_once_with()
         self.params.bandwidth_callback.assert_called_once_with('foo')
@@ -549,7 +549,7 @@ class TestAutomaton(unittest.TestCase):
         message.crud = 'update'
         with mock.patch.object(self.sm.resource, 'log') as logger:
             self.sm.send_message(message)
-            self.assertEqual(len(self.sm._queue), 1)
+            self.assertEqual(1, len(self.sm._queue))
             logger.debug.assert_called_with(
                 'incoming message brings queue length to %s',
                 1,
@@ -572,7 +572,7 @@ class TestAutomaton(unittest.TestCase):
         message.crud = 'update'
         self.sm.deleted = True
         self.sm.send_message(message)
-        self.assertEqual(len(self.sm._queue), 0)
+        self.assertEqual(0, len(self.sm._queue))
         self.assertFalse(self.sm.has_more_work())
 
     def test_send_message_in_error(self):
@@ -581,14 +581,14 @@ class TestAutomaton(unittest.TestCase):
         message = mock.Mock()
         message.crud = 'poll'
         self.sm.send_message(message)
-        self.assertEqual(len(self.sm._queue), 0)
+        self.assertEqual(0, len(self.sm._queue))
         self.assertFalse(self.sm.has_more_work())
 
         # Non-POLL events should *not* be ignored for routers in ERROR state
         message.crud = 'create'
         with mock.patch.object(self.sm.resource, 'log') as logger:
             self.sm.send_message(message)
-            self.assertEqual(len(self.sm._queue), 1)
+            self.assertEqual(1, len(self.sm._queue))
             logger.debug.assert_called_with(
                 'incoming message brings queue length to %s',
                 1,
@@ -603,14 +603,14 @@ class TestAutomaton(unittest.TestCase):
             message.crud = 'rebuild'
             message.body = {'image_uuid': 'ABC123'}
             self.sm.send_message(message)
-            self.assertEqual(self.sm.image_uuid, 'ABC123')
+            self.assertEqual('ABC123', self.sm.image_uuid)
 
             # rebuilds with image default.
             message = mock.Mock()
             message.crud = 'rebuild'
             message.body = {}
             self.sm.send_message(message)
-            self.assertEqual(self.sm.image_uuid, self.fake_driver.image_uuid)
+            self.assertEqual(self.fake_driver.image_uuid, self.sm.image_uuid)
 
     def test_has_more_work(self):
         with mock.patch.object(self.sm, '_queue'):

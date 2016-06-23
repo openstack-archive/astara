@@ -35,4 +35,4 @@ class KeystoneTest(base.RugTestBase):
         ks_session = keystone.KeystoneSession().session
         mock_load_auth.assert_called_with(cfg.CONF, 'keystone_authtoken')
         mock_session.assert_called_with(auth=fake_auth)
-        self.assertEqual(ks_session, fake_session)
+        self.assertEqual(fake_session, ks_session)

@@ -129,7 +129,7 @@ class TestGetCRUD(base.RugTestBase):
                 # message was discarded and not queued
                 return None
             tenant, event = self.queue.get()
-            self.assertEqual(tenant, fake_tenant_id)
+            self.assertEqual(fake_tenant_id, tenant)
             return event
 
     def _get_event_l3_rpc(self, method, **kwargs):
@@ -144,7 +144,7 @@ class TestGetCRUD(base.RugTestBase):
             if not self.queue.qsize():
                 return None
             tenant, event = self.queue.get()
-            self.assertEqual(tenant, fake_tenant_id)
+            self.assertEqual(fake_tenant_id, tenant)
             return event
 
     def test_rpc_router_deleted(self):
@@ -152,7 +152,7 @@ class TestGetCRUD(base.RugTestBase):
             method='router_deleted',
             router_id='fake_router_id')
         self.assertEqual(event.DELETE, e.crud)
-        self.assertEqual(e.resource.id, 'fake_router_id')
+        self.assertEqual('fake_router_id', e.resource.id)
 
     def test_notification_port(self):
         e = self._get_event_notification('port.create.start')
@@ -209,8 +209,8 @@ class TestGetCRUD(base.RugTestBase):
             }
         }
         e = self._get_event_notification('router.create.end', payload)
-        self.assertEqual(e.resource.id,
-                         u'f95fb32d-0072-4675-b4bd-61d829a46aca')
+        self.assertEqual(u'f95fb32d-0072-4675-b4bd-61d829a46aca',
+                         e.resource.id)
 
     def test_interface_create_and_delete(self):
         for action in ('create', 'delete'):
