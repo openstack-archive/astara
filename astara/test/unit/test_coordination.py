@@ -104,7 +104,7 @@ class TestRugCoordinator(base.RugTestBase):
         )
         self.fake_coord.get_members.return_value = fake_async_resp
         self.coordinator = coordination.RugCoordinator(self.queue)
-        self.assertEqual(self.coordinator.members, ['foo', 'bar'])
+        self.assertEqual(['foo', 'bar'], self.coordinator.members)
         self.fake_coord.get_members.assert_called_with(self.coordinator.group)
 
     def test_members_filter_leader(self):
@@ -113,7 +113,7 @@ class TestRugCoordinator(base.RugTestBase):
         )
         self.fake_coord.get_members.return_value = fake_async_resp
         self.coordinator = coordination.RugCoordinator(self.queue)
-        self.assertEqual(self.coordinator.members, ['foo', 'bar'])
+        self.assertEqual(['foo', 'bar'], self.coordinator.members)
         self.fake_coord.get_members.assert_called_with(self.coordinator.group)
 
     def test_members_filter_no_leader(self):
@@ -122,7 +122,7 @@ class TestRugCoordinator(base.RugTestBase):
         )
         self.fake_coord.get_members.return_value = fake_async_resp
         self.coordinator = coordination.RugCoordinator(self.queue)
-        self.assertEqual(self.coordinator.members, ['foo', 'bar'])
+        self.assertEqual(['foo', 'bar'], self.coordinator.members)
         self.fake_coord.get_members.assert_called_with(self.coordinator.group)
 
     def test_is_leader(self):
@@ -131,7 +131,7 @@ class TestRugCoordinator(base.RugTestBase):
         )
         self.fake_coord.get_leader.return_value = fake_async_resp
         self.coordinator = coordination.RugCoordinator(self.queue)
-        self.assertEqual(self.coordinator.is_leader, True)
+        self.assertEqual(True, self.coordinator.is_leader)
         self.fake_coord.get_leader.assert_called_with(self.coordinator.group)
 
     @mock.patch('astara.coordination.RugCoordinator.start')
@@ -147,4 +147,4 @@ class TestRugCoordinator(base.RugTestBase):
         self.coordinator.cluster_changed(event=None)
         expected = ('*', expected_rebalance_event)
         res = self.queue.get()
-        self.assertEqual(res, expected)
+        self.assertEqual(expected, res)

@@ -74,8 +74,8 @@ class TestPrePopulateWorkers(base.RugTestBase):
             name='PrePopulateWorkers'
         )
         self.assertEqual(
-            t.mock_calls,
-            [mock.call.setDaemon(True), mock.call.start()]
+            [mock.call.setDaemon(True), mock.call.start()],
+            t.mock_calls
         )
 
     @mock.patch('astara.drivers.enabled_drivers')
@@ -91,4 +91,4 @@ class TestPrePopulateWorkers(base.RugTestBase):
         enabled_drivers.return_value = drivers
         res = populate.repopulate()
         self.assertEqual(
-            set(res), set(['driver_0_resource', 'driver_1_resource']))
+            set(['driver_0_resource', 'driver_1_resource']), set(res))

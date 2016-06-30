@@ -36,7 +36,7 @@ class TestDBDebugModes(base.DbTestCase):
         self.dbapi.enable_global_debug(reason='foo')
         enabled, reason = self.dbapi.global_debug()
         self.assertTrue(enabled)
-        self.assertEqual(reason, 'foo')
+        self.assertEqual('foo', reason)
 
         self.dbapi.disable_global_debug()
         enabled, reason = self.dbapi.global_debug()
@@ -60,7 +60,7 @@ class TestDBDebugModes(base.DbTestCase):
         enabled, reason = self.dbapi.resource_in_debug(
             resource_uuid=r_id)
         self.assertTrue(enabled)
-        self.assertEqual(reason, 'foo')
+        self.assertEqual('foo', reason)
 
     def test_resources_in_debug(self):
         r_ids = [uuid.uuid4().hex for i in range(1, 3)]
@@ -69,7 +69,7 @@ class TestDBDebugModes(base.DbTestCase):
                 resource_uuid=r_id, reason='resource %s is broken' % r_id)
         for debug_r_id, reason in self.dbapi.resources_in_debug():
             self.assertIn(debug_r_id, r_ids)
-            self.assertEqual(reason, 'resource %s is broken' % debug_r_id)
+            self.assertEqual('resource %s is broken' % debug_r_id, reason)
 
     def test_tenant_debug(self):
         t_id = uuid.uuid4().hex
@@ -88,7 +88,7 @@ class TestDBDebugModes(base.DbTestCase):
         enabled, reason = self.dbapi.tenant_in_debug(
             tenant_uuid=t_id)
         self.assertTrue(enabled)
-        self.assertEqual(reason, 'foo')
+        self.assertEqual('foo', reason)
 
     def test_tenants_in_debug(self):
         t_ids = [uuid.uuid4().hex for i in range(1, 3)]
@@ -97,4 +97,4 @@ class TestDBDebugModes(base.DbTestCase):
                 tenant_uuid=t_id, reason='tenant %s is broken' % t_id)
         for debug_t_id, reason in self.dbapi.tenants_in_debug():
             self.assertIn(debug_t_id, t_ids)
-            self.assertEqual(reason, 'tenant %s is broken' % debug_t_id)
+            self.assertEqual('tenant %s is broken' % debug_t_id, reason)

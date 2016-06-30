@@ -164,7 +164,7 @@ class TestNovaWrapper(base.RugTestBase):
 
         result = self.nova.get_instance_for_obj('foo_instance_name')
         self.client.assert_has_calls(expected)
-        self.assertEqual(result, instance)
+        self.assertEqual(instance, result)
 
     def test_get_instance_for_obj_not_found(self):
         self.client.servers.list.return_value = []
@@ -184,7 +184,7 @@ class TestNovaWrapper(base.RugTestBase):
         ]
         result = self.nova.get_instance_by_id('instance_id')
         self.client.servers.get.assert_has_calls(expected)
-        self.assertEqual(result, 'fake_instance')
+        self.assertEqual('fake_instance', result)
 
     def test_get_instance_by_id_not_found(self):
         not_found = novaclient_exceptions.NotFound('instance_id')
@@ -200,7 +200,7 @@ class TestNovaWrapper(base.RugTestBase):
     def test_format_userdata(self, fake_ssh_key):
         fake_ssh_key.return_value = 'fake_key'
         result = nova.format_userdata(fake_int_port)
-        self.assertEqual(result.strip(), EXPECTED_USERDATA.strip())
+        self.assertEqual(EXPECTED_USERDATA.strip(), result.strip())
 
     @mock.patch.object(__builtins__, 'open', autospec=True)
     def test_ssh_key(self, fake_open):
@@ -209,7 +209,7 @@ class TestNovaWrapper(base.RugTestBase):
         mock_key_file.__enter__.return_value = mock_key_file
         fake_open.return_value = mock_key_file
         result = nova._ssh_key()
-        self.assertEqual(result, 'fake-key')
+        self.assertEqual('fake-key', result)
 
     @mock.patch.object(__builtins__, 'open', autospec=True)
     def test_ssh_key_sanitize(self, fake_open):
@@ -222,14 +222,14 @@ class TestNovaWrapper(base.RugTestBase):
         mock_key_file.__enter__.return_value = mock_key_file
         fake_open.return_value = mock_key_file
         result = nova._ssh_key()
-        self.assertEqual(result, 'fake-key with some newlines')
+        self.assertEqual('fake-key with some newlines', result)
 
     @mock.patch.object(nova, 'LOG', autospec=True)
     @mock.patch.object(__builtins__, 'open', autospec=True)
     def test_ssh_key_not_found(self, fake_open, fake_log):
         fake_open.side_effect = IOError
         result = nova._ssh_key()
-        self.assertEqual(result, '')
+        self.assertEqual('', result)
         self.assertTrue(fake_log.warning.called)
 
     @mock.patch.object(nova.Nova, 'get_instance_for_obj', return_value=None)
@@ -252,7 +252,7 @@ class TestNovaWrapper(base.RugTestBase):
             make_ports_callback='foo_callback',
         )
         fake_get.assert_called_with('foo_instance_name')
-        self.assertEqual(res, 'fake_new_instance_info')
+        self.assertEqual('fake_new_instance_info', res)
 
     @mock.patch.object(nova.Nova, 'get_instance_for_obj')
     def test_boot_instance_exists(self, fake_get):
@@ -292,9 +292,9 @@ class TestNovaWrapper(base.RugTestBase):
         )
         fake_get.assert_called_with('foo_instance_name')
         self.assertIsInstance(res, nova.InstanceInfo)
-        self.assertEqual(res.id_, 'existing_instance_id')
-        self.assertEqual(res.name, 'ak-appliance')
-        self.assertEqual(res.image_uuid, 'fake_image_uuid')
+        self.assertEqual('existing_instance_id', res.id_)
+        self.assertEqual('ak-appliance', res.name)
+        self.assertEqual('fake_image_uuid', res.image_uuid)
 
     @mock.patch.object(nova.Nova, 'get_instance_by_id', return_value=None)
     def test_boot_instance_prev_inst(self, fake_get):
@@ -316,7 +316,7 @@ class TestNovaWrapper(base.RugTestBase):
             flavor='foo_flavor',
             make_ports_callback='foo_callback',
         )
-        self.assertEqual(res, 'fake_new_instance_info')
+        self.assertEqual('fake_new_instance_info', res)
 
     @mock.patch.object(nova.Nova, 'get_instance_by_id')
     def test_boot_instance_exists_prev_inst(self, fake_get):
@@ -355,8 +355,8 @@ class TestNovaWrapper(base.RugTestBase):
             make_ports_callback='foo_callback',
         )
         # assert we get back the same instance_info but with updated status
-        self.assertEqual(res.nova_status, 'BUILD')
-        self.assertEqual(res.id_, fake_instance.id)
+        self.assertEqual('BUILD', res.nova_status)
+        self.assertEqual(fake_instance.id, res.id_)
         self.assertIsInstance(res, nova.InstanceInfo)
 
     def test_from_nova(self):

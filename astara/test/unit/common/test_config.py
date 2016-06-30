@@ -26,8 +26,8 @@ class TestConfig(base.RugTestBase):
 
         with mock.patch('os.path.isfile', side_effect=mock_isfile_f):
             self.assertEqual(
-                config.get_best_config_path(original),
-                expected
+                expected,
+                config.get_best_config_path(original)
             )
 
     def test_get_best_config_path_preferred(self):

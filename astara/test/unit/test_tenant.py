@@ -67,7 +67,7 @@ class TestTenantResourceManager(base.RugTestBase):
         self.fake_load_resource.return_value = fakes.fake_driver(
             resource_id='5678')
         sm = self.trm.get_state_machines(msg, self.ctx)[0]
-        self.assertEqual(sm.resource_id, '5678')
+        self.assertEqual('5678', sm.resource_id)
         self.assertIn('5678', self.trm.state_machines)
 
     def test_get_state_machine_no_resoruce_id(self):
@@ -240,7 +240,7 @@ class TestTenantResourceManager(base.RugTestBase):
         self.trm._default_resource_id = 'abcd'
         self.trm.state_machines['5678'] = mock.Mock()
         self.trm._delete_resource(r)
-        self.assertEqual(self.trm.state_machines.values(), [])
+        self.assertEqual([], self.trm.state_machines.values())
         r = event.Resource(
             tenant_id='1234',
             id='5678',
@@ -252,7 +252,7 @@ class TestTenantResourceManager(base.RugTestBase):
             body={'key': 'value'},
         )
         sms = self.trm.get_state_machines(msg, self.ctx)
-        self.assertEqual(sms, [])
+        self.assertEqual([], sms)
         self.assertIn('5678', self.trm.state_machines.deleted)
 
     def test_deleter_callback(self):
@@ -297,9 +297,8 @@ class TestTenantResourceManager(base.RugTestBase):
         fake_sm = mock.Mock()
         self.trm.state_machines['fake_resource_id'] = fake_sm
         self.assertEqual(
-            self.trm.get_state_machine_by_resource_id('fake_resource_id'),
-            fake_sm
-        )
+            fake_sm,
+            self.trm.get_state_machine_by_resource_id('fake_resource_id'))
 
     def test_unmanage_resource(self):
         fake_sm = mock.Mock()
@@ -329,8 +328,8 @@ class TestTenantResourceManager(base.RugTestBase):
         fake_get.return_value = fake_driver
 
         self.assertEqual(
-            self.trm._load_resource_from_message(self.ctx, msg),
-            'fake_driver')
+            'fake_driver',
+            self.trm._load_resource_from_message(self.ctx, msg))
         fake_get.assert_called_with(msg.resource.driver)
         fake_driver.assert_called_with(self.ctx, msg.resource.id)
         self.assertFalse(fake_byonf.called)
@@ -355,7 +354,7 @@ class TestTenantResourceManager(base.RugTestBase):
 
         self.ctx.neutron.tenant_has_byo_for_function.return_value = 'byonf_res'
         self.assertEqual(
-            self.trm._load_resource_from_message(self.ctx, msg), fake_driver)
+            fake_driver, self.trm._load_resource_from_message(self.ctx, msg))
         fake_byonf.assert_called_with(
             self.ctx, 'byonf_res', msg.resource.id)
         self.assertFalse(fake_get.called)
@@ -382,6 +381,6 @@ class TestTenantResourceManager(base.RugTestBase):
 
         self.ctx.neutron.tenant_has_byo_for_function.return_value = None
         self.assertEqual(
-            self.trm._load_resource_from_message(self.ctx, msg),
-            'fake_fallback_driver')
+            'fake_fallback_driver',
+            self.trm._load_resource_from_message(self.ctx, msg))
         fake_get.assert_called_with(msg.resource.driver)

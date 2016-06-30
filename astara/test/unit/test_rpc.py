@@ -36,8 +36,8 @@ class TestRPC(testtools.TestCase):
 
     def test__deprecated_amqp_url(self):
         self.config(amqp_url='amqp://stackrabbit:secretrabbit@127.0.0.1:/')
-        self.assertEqual(rpc._deprecated_amqp_url(),
-                         'rabbit://stackrabbit:secretrabbit@127.0.0.1:5672/')
+        self.assertEqual('rabbit://stackrabbit:secretrabbit@127.0.0.1:5672/',
+                         rpc._deprecated_amqp_url())
 
     @mock.patch('oslo_messaging.get_transport')
     @mock.patch.object(rpc, '_deprecated_amqp_url')
@@ -45,7 +45,7 @@ class TestRPC(testtools.TestCase):
         fake_amqp_url.return_value = 'fake_url'
         fake_get_transport.return_value = 'fake_transport'
         transport = rpc.get_transport()
-        self.assertEqual(transport, 'fake_transport')
+        self.assertEqual('fake_transport', transport)
         fake_get_transport.assert_called_with(conf=cfg.CONF, url='fake_url')
 
     @mock.patch.object(rpc, 'get_transport')
@@ -55,7 +55,7 @@ class TestRPC(testtools.TestCase):
         fake_get_server.return_value = 'fake_server'
         fake_endpoints = [1, 2]
         result = rpc.get_server(target='fake_target', endpoints=fake_endpoints)
-        self.assertEqual(result, 'fake_server')
+        self.assertEqual('fake_server', result)
         fake_get_server.assert_called_with(
             transport='fake_transport',
             target='fake_target',
@@ -73,7 +73,7 @@ class TestRPC(testtools.TestCase):
             'server': 'fake_server',
         }
         result = rpc.get_target(**target_args)
-        self.assertEqual(result, 'fake_target')
+        self.assertEqual('fake_target', result)
         fake_target.assert_called_with(**target_args)
 
     @mock.patch.object(rpc, 'get_transport')
@@ -90,7 +90,7 @@ class TestRPC(testtools.TestCase):
             topic='foo_target', exchange='foo_exchange', version='2.5',
             fanout=False,
         )
-        self.assertEqual(res, 'fake_rpc_client')
+        self.assertEqual('fake_rpc_client', res)
         fake_client.assert_called_with(
             'fake_transport', 'fake_target'
         )
@@ -101,7 +101,7 @@ class TestRPC(testtools.TestCase):
         fake_get_transport.return_value = 'fake_transport'
         fake_notifier.return_value = 'fake_rpc_notifier'
         res = rpc.get_rpc_notifier(topic='foo_topic')
-        self.assertEqual(res, 'fake_rpc_notifier')
+        self.assertEqual('fake_rpc_notifier', res)
         fake_notifier.assert_called_with(
             transport='fake_transport', driver='messaging', topic='foo_topic')
 
