@@ -445,7 +445,7 @@ class TestTenant(object):
                 if e.status_code == 404:
                     router_ids.remove(rid)
                 else:
-                    raise e
+                    raise
         self._wait_for_neutron_delete('router', router_ids)
 
         time.sleep(2)
@@ -461,7 +461,7 @@ class TestTenant(object):
                 if e.status_code == 404:
                     port_ids.remove(pid)
                 else:
-                    raise e
+                    raise
         self._wait_for_neutron_delete('port', port_ids)
 
         subnet_ids = [
@@ -475,7 +475,7 @@ class TestTenant(object):
                 if e.status_code == 404:
                     subnet_ids.remove(sid)
                 else:
-                    raise e
+                    raise
         self._wait_for_neutron_delete('subnet', subnet_ids)
 
         # need to make sure the vrrp and mgt ports get deleted
@@ -487,7 +487,7 @@ class TestTenant(object):
                 if e.status_code == 404:
                     astara_router_ports.remove(p)
                 else:
-                    raise e
+                    raise
         self._wait_for_neutron_delete('port', astara_router_ports)
 
         networks = self.clients.neutronclient.list_networks().get('networks')
@@ -501,7 +501,7 @@ class TestTenant(object):
                 if e.status_code == 404:
                     net_ids.remove(nid)
                 else:
-                    raise e
+                    raise
 
         self._wait_for_neutron_delete('network', net_ids)
 
