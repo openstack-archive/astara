@@ -27,8 +27,6 @@ from astara.common import config
 
 class RugController(app.App):
 
-    log = logging.getLogger(__name__)
-
     def __init__(self):
         dist = pkg_resources.get_distribution('astara')
         super(RugController, self).__init__(
