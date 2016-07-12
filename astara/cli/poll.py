@@ -17,15 +17,11 @@
 
 """Commands related to tenants.
 """
-import logging
-
 from astara import commands
 from astara.cli import message
 
 
 class Poll(message.MessageSending):
-
-    log = logging.getLogger(__name__)
 
     def make_message(self, parsed_args):
         return {
