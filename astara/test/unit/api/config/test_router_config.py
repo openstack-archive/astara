@@ -112,7 +112,7 @@ class TestAstaraClient(unittest.TestCase):
         rules_dict = {'labels': {}, 'preanchors': [], 'postanchors': []}
         with mock.patch('oslo_serialization.jsonutils.load') as load:
             load.return_value = rules_dict
-            with mock.patch('__builtin__.open') as mock_open:
+            with mock.patch('six.moves.builtins.open') as mock_open:
                 r = conf_mod.load_provider_rules('/the/path')
 
                 mock_open.assert_called_once_with('/the/path')
