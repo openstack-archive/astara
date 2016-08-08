@@ -206,8 +206,8 @@ class AdminClientManager(ClientManager):
                               instance, instance.status)
                     time.sleep(1)
             raise ApplianceServerTimeout(
-                'Timed out waiting for backing instance of %s %s to become '
-                'ACTIVE' % router_uuid)
+                ('Timed out waiting for backing instance of %s %s to become '
+                 'ACTIVE') % router_uuid)
 
         if wait_for_active:
             LOG.debug('Waiting for %s backing instances to become ACTIVE',
