@@ -19,14 +19,13 @@ from oslo_utils import timeutils
 
 from neutronclient.common import exceptions as q_exceptions
 
-from astara.common.i18n import _
 from astara.api import astara_client
 from astara.api.config import router as configuration
 from astara import event
 from astara.api import neutron
+from astara.common.i18n import _, _LW
 from astara.drivers.base import BaseDriver
 from astara.drivers import states
-from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
