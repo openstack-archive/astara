@@ -362,6 +362,9 @@ class Port(DictModelBase):
     def __eq__(self, other):
         return type(self) == type(other) and vars(self) == vars(other)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def first_v4(self):
         for fixed_ip in self.fixed_ips:
@@ -395,6 +398,9 @@ class FixedIp(DictModelBase):
 
     def __eq__(self, other):
         return type(self) == type(other) and vars(self) == vars(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @classmethod
     def from_dict(cls, d):

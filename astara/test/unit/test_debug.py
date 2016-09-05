@@ -62,6 +62,9 @@ class TestDebug(base.RugTestBase):
             def __eq__(self, other):
                 return self.crud == other.crud
 
+            def __ne__(self, other):
+                return not self.__eq__(other)
+
         automaton.return_value.send_message.assert_called_once_with(
             CrudMatch('update')
         )
