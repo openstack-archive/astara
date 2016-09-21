@@ -344,7 +344,7 @@ class TestTenant(object):
                     break
                 else:
                     LOG.debug(
-                        'Still waiting for auto-creted router. %s/%s',
+                        'Still waiting for auto-created router. %s/%s',
                         i, CONF.appliance_active_timeout)
                 time.sleep(1)
             else:
