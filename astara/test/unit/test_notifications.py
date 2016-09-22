@@ -233,7 +233,7 @@ class TestGetCRUD(base.RugTestBase):
 
     def test_notification_astara(self):
         e = self._get_event_notification('astara.bandwidth.used')
-        self.assertIs(None, e)
+        self.assertIsNone(e)
 
     def test_notification_cmd_poll(self):
         event_type = 'astara.command'
