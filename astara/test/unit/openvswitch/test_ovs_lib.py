@@ -80,7 +80,7 @@ class OVS_Lib_Test(unittest.TestCase):
 
         # test __str__
         foo = str(port)
-        self.assert_(foo)
+        self.assertTrue(foo)
 
         self.mox.VerifyAll()
 
