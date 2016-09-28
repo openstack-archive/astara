@@ -219,7 +219,7 @@ class TestTenantResourceManager(base.RugTestBase):
         self.trm.state_machines['1234'] = mock.Mock()
         self.trm._delete_resource(r)
         self.assertNotIn('1234', self.trm.state_machines)
-        self.assertIs(None, self.trm._default_resource_id)
+        self.assertIsNone(self.trm._default_resource_id)
 
     def test_delete_not_default_resource(self):
         r = event.Resource(
