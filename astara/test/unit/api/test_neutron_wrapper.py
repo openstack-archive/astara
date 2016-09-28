@@ -157,7 +157,7 @@ class TestuNeutronModels(base.RugTestBase):
         }
         s = neutron.Subnet.from_dict(d)
         self.assertEqual(netaddr.IPNetwork('fe80::/64'), s.cidr)
-        self.assertIs(None, s.gateway_ip)
+        self.assertIsNone(s.gateway_ip)
 
     def test_subnet_gateway_not_ip(self):
         d = {
@@ -175,7 +175,7 @@ class TestuNeutronModels(base.RugTestBase):
         }
         s = neutron.Subnet.from_dict(d)
         self.assertEqual(netaddr.IPNetwork('fe80::/64'), s.cidr)
-        self.assertIs(None, s.gateway_ip)
+        self.assertIsNone(s.gateway_ip)
 
     def test_subnet_cidr_none(self):
         d = {
