@@ -38,7 +38,7 @@ COORD_OPTS = [
                        'disabled for astara-orchestrator node environments.')),
     cfg.StrOpt('url',
                default='memcached://localhost:11211',
-               help=_('URL of suppoted coordination service')),
+               help=_('URL of supported coordination service')),
     cfg.StrOpt('group_id', default='astara.orchestrator',
                help=_('ID of coordination group to join.')),
     cfg.IntOpt('heartbeat_interval', default=1,
