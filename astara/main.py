@@ -28,6 +28,7 @@ from oslo_log import log
 
 from astara.common.i18n import _LE, _LI
 from astara.common import config as ak_cfg
+from astara import agent
 from astara import coordination
 from astara import daemon
 from astara import health
@@ -44,7 +45,7 @@ CONF = cfg.CONF
 
 MAIN_OPTS = [
     cfg.StrOpt('host',
-               default=socket.getfqdn(),
+               default=socket.gethostname(),
                help="The hostname Astara is running on"),
 ]
 CONF.register_opts(MAIN_OPTS)
@@ -195,6 +196,9 @@ def main(argv=sys.argv[1:]):
 
     # Set up the periodic health check
     health.start_inspector(cfg.CONF.health_check_period, sched)
+
+    # Set up the periodic neutron agent report
+    agent.start_inspector()
 
     # Block the main process, copying messages from the notification
     # listener to the scheduler
