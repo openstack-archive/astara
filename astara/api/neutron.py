@@ -15,6 +15,7 @@
 # under the License.
 
 import collections
+from datetime import datetime
 import itertools
 import socket
 import time
@@ -54,7 +55,19 @@ neutron_opts = [
                 help=_('Check for resources using the Liberty naming scheme '
                        'when the modern name does not exist.'))
 ]
+
+agent_opts = [
+    cfg.BoolOpt('log_agent_heartbeats', default=False,
+                help=_('Log agent heartbeats')),
+
+    # The default AZ name "nova" is selected to match the default
+    # AZ name in Nova and Cinder.
+    cfg.StrOpt('availability_zone', max_length=255, default='nova',
+               help=_("Availability zone of this node")),
+]
+
 CONF.register_opts(neutron_opts)
+CONF.register_opts(agent_opts, 'AGENT')
 
 
 # copied from Neutron source
@@ -66,6 +79,11 @@ DEVICE_OWNER_FLOATINGIP = "network:floatingip"
 DEVICE_OWNER_RUG = "network:astara"
 
 PLUGIN_ROUTER_RPC_TOPIC = 'q-l3-plugin'
+L3_AGENT_REPORT_TOPIC = 'q-reports-plugin'
+L3_AGENT_UPDATE_TOPIC = 'l3_agent'
+L3_AGENT_MODE = 'legacy'
+AGENT_TYPE_L3 = 'L3 agent'
+ISO8601_TIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
 
 STATUS_ACTIVE = 'ACTIVE'
 STATUS_BUILD = 'BUILD'
@@ -1187,3 +1205,50 @@ class Neutron(object):
                 'Found BYONF for tenant %s with function %s',
                 tenant_id, function_type)
             return retval[0]
+
+
+class NeutronAgentReporter(object):
+    def __init__(self):
+        self.host = CONF.host
+        self.state = {
+            'binary': 'astara-agent',
+            'host': self.host,
+            'availability_zone': CONF.AGENT.availability_zone,
+            'topic': L3_AGENT_UPDATE_TOPIC,
+            'configurations': {
+                'agent_mode': L3_AGENT_MODE,
+                'handle_internal_only_routers': True,
+                'external_network_bridge': '',
+                'gateway_external_network_id': '',
+                'interface_driver': CONF.interface_driver,
+                'log_agent_heartbeats': CONF.AGENT.log_agent_heartbeats,
+                'routers': 0,  # TODO: make this number accurate
+                'ex_gw_ports': 0,
+                'interfaces': 0,
+                'floating_ips': 0
+            },
+            'start_flag': True,
+            'agent_type': AGENT_TYPE_L3,
+        }
+
+        self._client = rpc.get_rpc_client(
+            topic=L3_AGENT_REPORT_TOPIC,
+            exchange=cfg.CONF.neutron_control_exchange,
+            version='1.0'
+        )
+
+    def report(self):
+        try:
+            self.state['uuid'] = str(uuid.uuid4())
+            self._client.call(
+                context.get_admin_context().to_dict(),
+                'report_state',
+                agent_state={'agent_state': self.state},
+                time=datetime.utcnow().strftime(ISO8601_TIME_FORMAT)
+            )
+            self.state['start_flag'] = False
+        except AttributeError:
+            raise
+            LOG.info(_LI('State reporting not supported in Neutron Server'))
+        except:
+            LOG.exception(_('Error reporting state'))

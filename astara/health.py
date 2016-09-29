@@ -24,6 +24,7 @@ import time
 from oslo_config import cfg
 
 from astara import event
+from astara.api import neutron
 
 from oslo_log import log as logging
 
@@ -66,6 +67,20 @@ def start_inspector(period, scheduler):
         target=_health_inspector,
         args=(scheduler,),
         name='HealthInspector',
+    )
+    t.setDaemon(True)
+    t.start()
+    return t
+
+
+def start_reporter():
+    """Start a agent report thread.
+    """
+    reporter = neutron.NeutronAgentReporter()
+    t = threading.Thread(
+        target=reporter.report_forever,
+        args=(),
+        name='AgentReporter',
     )
     t.setDaemon(True)
     t.start()
