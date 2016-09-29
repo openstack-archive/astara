@@ -84,13 +84,21 @@ function configure_astara_nova() {
 }
 
 function configure_astara_neutron() {
-    iniset $NEUTRON_CONF DEFAULT core_plugin astara_neutron.plugins.ml2_neutron_plugin.Ml2Plugin
+    iniset $NEUTRON_CONF DEFAULT core_plugin astara.newton_fix.Ml2Plugin
     iniset $NEUTRON_CONF DEFAULT api_extensions_path $ASTARA_NEUTRON_DIR/astara_neutron/extensions
     # Use rpc as notification driver instead of the default no_ops driver
     # We need the RUG to be able to get neutron's events notification like port.create.start/end
     # or router.interface.start/end to make it able to boot astara routers
     iniset $NEUTRON_CONF DEFAULT notification_driver "neutron.openstack.common.notifier.rpc_notifier"
     iniset $NEUTRON_CONF DEFAULT astara_auto_add_resources False
+
+    iniset_multiline $NEUTRON_CONF service_providers service_provider L3_ROUTER_NAT:single_node:astara.newton_fix.SingleNodeDriver L3_ROUTER_NAT:ha:astara.newton_fix.HaNodeDriver
+
+    # The plugin l3 function does more than just configure the Neutron L3
+    # so we pass a dummy l3 file here
+    TEMPFILE=`mktemp`
+    neutron_plugin_configure_l3_agent $TEMPFILE
+    rm $TEMPFILE
 }
 
 function configure_astara_horizon() {
@@ -250,9 +258,8 @@ function set_neutron_user_permission() {
     # public networks, we need to modify the policy and allow users with the service
     # to do that too.
 
-    local old_value='"network:attach_external_network": "rule:admin_api"'
-    local new_value='"network:attach_external_network": "rule:admin_api or role:service"'
-    sed -i "s/$old_value/$new_value/g" "$NOVA_CONF_DIR/policy.json"
+    policy_add "$NOVA_CONF_DIR/policy.json" "network:attach_external_network" "\"rule:admin_api or role:service\""
+
 }
 
 function set_demo_tenant_sec_group_private_traffic() {
