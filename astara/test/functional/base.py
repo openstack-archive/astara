@@ -82,7 +82,7 @@ class ClientManager(object):
 
     @property
     def auth_version(self):
-        if self.auth_url.endswith('v3'):
+        if self.auth_url.endswith('v3') or self.auth_url.endswith('identity'):
             return 3
         else:
             return 2.0
@@ -221,6 +221,11 @@ class AdminClientManager(ClientManager):
             return sorted(service_instances, key=lambda i: i.name)
         else:
             return service_instances[0]
+
+    def get_network_info(self, network_name):
+        net_response = self.neutronclient.list_networks(name=network_name)
+        network = net_response.get('networks', [None])[0]
+        return network
 
 
 class TestTenant(object):
@@ -554,19 +559,32 @@ class AstaraFunctionalBase(testtools.TestCase):
         return self.admin_clients.get_router_appliance_server(
             router_uuid, retries, wait_for_active, ha_router)
 
-    def get_management_address(self, router_uuid):
+    def get_management_address(self, router_uuid, retries=10):
         LOG.debug('Getting management address for resource %s', router_uuid)
 
-        service_instance = self.get_router_appliance_server(router_uuid)
+        service_instance = self.get_router_appliance_server(
+            router_uuid,
+            retries=retries,
+            wait_for_active=True
+        )
 
-        try:
-            management_address = service_instance.addresses['mgt'][0]
-        except KeyError:
+        mgt_network = self.admin_clients.get_network_info(
+            CONF.management_network_name
+        )
+
+        for interface in service_instance.interface_list():
+            if interface.net_id == mgt_network['id']:
+                addr = interface.fixed_ips[0]['ip_address']
+                LOG.debug(
+                    'Got management address %s for resource %s',
+                    addr,
+                    router_uuid
+                )
+                return addr
+        else:
             raise Exception(
                 '"mgt" port not found on service instance %s (%s)' %
                 (service_instance.id, service_instance.name))
-        LOG.debug('Got management address for resource %s', router_uuid)
-        return management_address['addr']
 
     def assert_router_is_active(self, router_uuid, ha_router=False):
         LOG.debug('Waiting for resource %s to become ACTIVE', router_uuid)
@@ -599,10 +617,11 @@ class AstaraFunctionalBase(testtools.TestCase):
             'current status=%s' % (router_uuid, router['status']))
 
     def ping_router_mgt_address(self, router_uuid):
-        server = self.get_router_appliance_server(router_uuid)
-        mgt_interface = server.addresses['mgt'][0]
+        mgt_address = self.get_management_address(router_uuid)
         program = {4: 'ping', 6: 'ping6'}
-        cmd = [program[mgt_interface['version']], '-c5', mgt_interface['addr']]
+
+        mgt_ip_version = netaddr.IPNetwork(mgt_address).version
+        cmd = [program[mgt_ip_version], '-c30', mgt_address]
         LOG.debug('Pinging resource %s: %s', router_uuid, ' '.join(cmd))
         try:
             subprocess.check_call(cmd)
