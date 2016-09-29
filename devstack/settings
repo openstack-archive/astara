@@ -57,7 +57,5 @@ ASTARA_COORDINATION_ENABLED=$(trueorfalse True ASTARA_COORDINATION_ENABLED)
 ASTARA_COORDINATION_URL=${ASTARA_COORDINATION_URL:-memcached://localhost:11211}
 
 if [[ "$ASTARA_ENABLED_DRIVERS" =~ "router" ]]; then
-    ML2_L3_PLUGIN="astara_neutron.plugins.ml2_neutron_plugin.L3RouterPlugin"
-    Q_L3_ENABLED=True
     Q_L3_ROUTER_PER_TENANT=True
 fi
