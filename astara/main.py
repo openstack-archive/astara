@@ -44,7 +44,7 @@ CONF = cfg.CONF
 
 MAIN_OPTS = [
     cfg.StrOpt('host',
-               default=socket.getfqdn(),
+               default=socket.gethostname(),
                help="The hostname Astara is running on"),
 ]
 CONF.register_opts(MAIN_OPTS)
