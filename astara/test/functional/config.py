@@ -50,7 +50,10 @@ functional_test_opts = [
     cfg.IntOpt(
         'health_check_period', required=False, default=60,
         help='Time health_check_period astara-orchestrator is configured to '
-             'use')
+             'use'),
+    cfg.StrOpt(
+        'management_network_name', required=False, default='mgt',
+        help='The name of the management network')
 ]
 
 
