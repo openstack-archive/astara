@@ -81,6 +81,9 @@ class TestAstaraRouter(AstaraRouterTestBase):
         correctly plugged appliance, and that manually destroying the
         Nova instance results in a new appliance being booted.
         """
+
+        self.skipTest("Race condition makes this test too unstable")
+
         # for each subnet that was created during setup, ensure we have a
         # router interface added
         ports = self.neutronclient.list_ports(
