@@ -1,0 +1,9 @@
+Code-Review+2: Ryan Petrello <ryan@ryanpetrello.com>
+Code-Review+2: mark mcclain <mark@mcclain.xyz>
+Workflow+1: mark mcclain <mark@mcclain.xyz>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 05 Oct 2016 14:05:21 +0000
+Reviewed-on: https://review.openstack.org/345756
+Project: openstack/astara
+Branch: refs/heads/master
