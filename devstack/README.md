@@ -8,8 +8,4 @@ For example:
 
     enable_plugin astara http://github.com/openstack/astara
 
-You will also need to enable the service:
-
-    enable_service astara
-
 For more info see: http://docs.openstack.org/developer/devstack/plugins.html
