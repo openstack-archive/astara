@@ -163,7 +163,7 @@ class InstanceGroupManager(container.ResourceContainer):
         # zero managed instances report alive
         if not alive:
             self.log.debug(
-                'Alive check failed for all instnaces after %s attempts.',
+                'Alive check failed for all instances after %s attempts.',
                 cfg.CONF.max_retries)
             return [], self.instances
 
