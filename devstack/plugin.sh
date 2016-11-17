@@ -259,7 +259,7 @@ function set_neutron_user_permission() {
     # public networks, we need to modify the policy and allow users with the service
     # to do that too.
 
-    policy_add "$NOVA_CONF_DIR/policy.json" "network:attach_external_network" "\"rule:admin_api or role:service\""
+#    policy_add "$NOVA_CONF_DIR/policy.json" "network:attach_external_network" "\"rule:admin_api or role:service\""
 
 }
 
