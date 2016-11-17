@@ -294,9 +294,9 @@ if is_service_enabled astara; then
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Astara"
-        if is_service_enabled n-api; then
-            set_neutron_user_permission
-        fi
+        #if is_service_enabled n-api; then
+            #set_neutron_user_permission
+        #fi
         install_astara
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
