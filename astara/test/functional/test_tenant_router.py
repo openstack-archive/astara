@@ -50,26 +50,26 @@ class AstaraRouterTestBase(base.AstaraFunctionalBase):
         return router.get('ha', False)
 
 
-class TestAstaraHARouter(AstaraRouterTestBase):
-    HA_ROUTER = True
+#class TestAstaraHARouter(AstaraRouterTestBase):
+#    HA_ROUTER = True
 
-    def test_ha_router_servers(self):
-        service_instances = self.get_router_appliance_server(
-            self.router['id'], ha_router=self.HA_ROUTER)
-        self.assertEqual(2, len(service_instances))
+#    def test_ha_router_servers(self):
+#        service_instances = self.get_router_appliance_server(
+#            self.router['id'], ha_router=self.HA_ROUTER)
+#        self.assertEqual(2, len(service_instances))
 
         # kill the master and ensure it is backfilled with a new instance
-        master, backup = service_instances
-        self.admin_clients.novaclient.servers.delete(master.id)
+#        master, backup = service_instances
+#        self.admin_clients.novaclient.servers.delete(master.id)
 
-        LOG.debug('Waiting %s seconds for astara health check to tick',
-                  CONF.health_check_period)
-        time.sleep(CONF.health_check_period)
+#        LOG.debug('Waiting %s seconds for astara health check to tick',
+#                  CONF.health_check_period)
+#        time.sleep(CONF.health_check_period)
 
-        service_instances = self.get_router_appliance_server(
-            self.router['id'], retries=600, ha_router=self.HA_ROUTER)
-        self.assertEqual(2, len(service_instances))
-        self.assertEqual(backup, service_instances[0])
+#        service_instances = self.get_router_appliance_server(
+#            self.router['id'], retries=600, ha_router=self.HA_ROUTER)
+#        self.assertEqual(2, len(service_instances))
+#        self.assertEqual(backup, service_instances[0])
 
 
 class TestAstaraRouter(AstaraRouterTestBase):
