@@ -109,7 +109,7 @@ class TestGetCRUD(base.RugTestBase):
     def _get_event_notification(self, event_type, payload=None):
         # Creates a message /w event_type and payload, sends it through the
         # notifications Endpoint, asserts on its existence in the notifications
-        # queue, pops it off and returns it for futher assertions
+        # queue, pops it off and returns it for further assertions
         payload = payload or {}
         with mock.patch.object(notifications,
                                '_get_tenant_id_for_message') as fake_tenant:
