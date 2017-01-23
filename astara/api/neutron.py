@@ -60,8 +60,8 @@ agent_opts = [
     cfg.BoolOpt('log_agent_heartbeats', default=False,
                 help=_('Log agent heartbeats')),
 
-    # The default AZ name "nova" is selected to match the default
-    # AZ name in Nova and Cinder.
+    # The default AZ names "nova" is selected to match the default
+    # AZ names in Nova and Cinder.
     cfg.StrOpt('availability_zone', max_length=255, default='nova',
                help=_("Availability zone of this node")),
     cfg.IntOpt('report_interval', default=60,

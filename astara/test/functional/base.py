@@ -284,7 +284,7 @@ class TestTenant(object):
         :returns: a (network dict, router dict) tuple
         """
         # NOTE(adam_g): I didn't expect simply creating a network
-        # to also create a subnet and router automatically, but this
+        # to, also, create a subnet and router automatically, but this
         # does?
         net_body = {
             'network': {
@@ -408,7 +408,7 @@ class TestTenant(object):
                 attempt += 1
                 time.sleep(1)
 
-        # also wait for nova backing instance to delete after routers
+        # Also, wait for nova backing instance to delete after routers
         if thing in ['router']:
             [self._wait_for_backing_instance_delete(i) for i in ids]
 

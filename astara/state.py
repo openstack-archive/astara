@@ -303,7 +303,7 @@ class StopInstance(State):
         self.instance.stop(worker_context)
         if self.instance.state == states.GONE:
             # Force the action to delete since the router isn't there
-            # any more.
+            # anymore.
             return DELETE
         return action
 
@@ -323,7 +323,7 @@ class RebuildInstance(State):
         self.instance.stop(worker_context)
         if self.instance.state == states.GONE:
             # Force the action to delete since the router isn't there
-            # any more.
+            # anymore.
             return DELETE
         # Re-create the instance
         self.instance.reset_boot_counter()
@@ -500,7 +500,7 @@ class Automaton(object):
     def send_message(self, message):
         "Called when the worker put a message in the state machine queue"
         if self.deleted:
-            # Ignore any more incoming messages
+            # Ignore anymore incoming messages
             self.resource.log.debug(
                 'deleted state machine, ignoring incoming message %s',
                 message)

@@ -374,7 +374,7 @@ class TestWorker(WorkerTestBase):
             resource_id: fake_lock
         }
         fake_sm = mock.Mock(resource_id=resource_id)
-        # just ensure we dont raise
+        # just ensure we don't raise
         self.w._release_resource_lock(fake_sm)
 
     def test_worker_context_config(self):

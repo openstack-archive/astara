@@ -111,7 +111,7 @@ class TestAstaraRouter(AstaraRouterTestBase):
 
         # NOTE(adam_g): In the gate, sometimes the appliance hangs on the
         # first config update and health checks get queued up behind the
-        # hanging config update.  If thats the case, we need to wait a while
+        # hanging config update.  If that's the case, we need to wait a while
         # before deletion for the first to timeout.
         time.sleep(30)
         LOG.debug('Deleting original nova server: %s', old_server.id)

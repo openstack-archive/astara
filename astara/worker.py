@@ -176,7 +176,7 @@ class Worker(object):
         # work queue at a time
         self._resource_locks = collections.defaultdict(threading.Lock)
         # Messages about what each thread is doing, keyed by thread id
-        # and reported by the debug command.
+        # and reported by the debugging command.
         self._thread_status = {}
         # Start the threads last, so they can use the instance
         # variables created above.
@@ -304,7 +304,7 @@ class Worker(object):
             t.join(timeout=5)
             LOG.debug('%s is %s', t.name,
                       'alive' if t.is_alive() else 'stopped')
-        # Shutdown all of the tenant router managers. The lock is
+        # Shutdown all the tenant router managers. The lock is
         # probably not necessary, since this should be running in the
         # same thread where new messages are being received (and
         # therefore those messages aren't being processed).
@@ -437,7 +437,7 @@ class Worker(object):
         """
         LOG.debug('got: %s %r', target, message)
 
-        # If the cluster ring hasnt been seeded yet, we cannot make decisions
+        # If the cluster ring hasn't been seeded yet, we cannot make decisions
         # about which messages to process.  Instead, receive them and defer
         # handling until we know the ring layout.
         if (cfg.CONF.coordination.enabled and
@@ -546,7 +546,7 @@ class Worker(object):
                 self._add_resource_to_work_queue(sm)
 
         # NOTE(adam_g): If somethings queued up on a SM, it means the SM
-        # is currently executing something thats probably long running
+        # is currently executing something that's probably long running
         # (ie a create).  We should add some smarts here to transfer the
         # currently executing task to the new owner
 
