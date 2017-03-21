@@ -24,7 +24,7 @@ import tooz
 from tooz import coordination as tz_coordination
 
 from astara import event as ak_event
-from astara.common.i18n import _, _LI
+from astara.common.i18n import _
 
 
 LOG = log.getLogger(__name__)
@@ -83,7 +83,7 @@ class RugCoordinator(object):
         peers, it fires off an initial rebalance event to the workers
         so they can seed their hash ring with the current membership.
         """
-        LOG.info(_LI('Starting RUG coordinator process for host %s on %s'),
+        LOG.info('Starting RUG coordinator process for host %s on %s',
                  self.host, self.url)
         self._coordinator = tz_coordination.get_coordinator(
             self.url, self.host)
@@ -114,7 +114,7 @@ class RugCoordinator(object):
                 self._coordinator.run_watchers()
                 time.sleep(self.heartbeat_interval)
         except CoordinatorDone:
-            LOG.info(_LI('Stopping RUG coordinator.'))
+            LOG.info('Stopping RUG coordinator.')
             return
 
     def stop(self, signal=None, frame=None):

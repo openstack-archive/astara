@@ -22,7 +22,6 @@ import six
 from oslo_config import cfg
 
 from astara.drivers import states
-from astara.common.i18n import _LE, _LI
 from astara.common import container
 
 
@@ -253,7 +252,7 @@ class InstanceGroupManager(container.ResourceContainer):
             except Exception:
                 if i == attempts - 1:
                     # Only log the traceback if we encounter it many times.
-                    self.log.exception(_LE('failed to update config'))
+                    self.log.exception('failed to update config')
                 else:
                     self.log.debug(
                         'failed to update config, attempt %d',
@@ -481,13 +480,13 @@ class InstanceManager(object):
             return self.state
 
         if not self.instances:
-            self.log.info(_LI('no backing instance(s), marking as %s'),
+            self.log.info('no backing instance(s), marking as %s',
                           states.DOWN)
             self.state = states.DOWN
             return self.state
         elif self.instances.cluster_degraded is True:
-            self.log.info(_LI(
-                'instance cluster for resource %s reports degraded'),
+            self.log.info(
+                'instance cluster for resource %s reports degraded',
                 self.resource.id)
             self.state = states.DEGRADED
             return self.state
@@ -563,13 +562,13 @@ class InstanceManager(object):
         try:
             self.instances.create(worker_context)
             if not self.instances:
-                self.log.info(_LI('Previous instances are still deleting'))
+                self.log.info('Previous instances are still deleting')
                 # Reset the boot counter, causing the state machine to start
                 # again with a new Instance.
                 self.reset_boot_counter()
                 return
         except:
-            self.log.exception(_LE('Instances failed to start boot'))
+            self.log.exception('Instances failed to start boot')
         else:
             self.state = states.BOOTING
 
@@ -625,12 +624,12 @@ class InstanceManager(object):
         :param worker_context:
         :returns:
         """
-        self.log.info(_LI('Destroying instance'))
+        self.log.info('Destroying instance')
 
         self.resource.delete_ports(worker_context)
 
         if not self.instances:
-            self.log.info(_LI('Instance(s) already destroyed.'))
+            self.log.info('Instance(s) already destroyed.')
             if self.state != states.GONE:
                 self.state = states.DOWN
             return self.state
@@ -640,7 +639,7 @@ class InstanceManager(object):
             if self.state != states.GONE:
                 self.state = states.DOWN
         except Exception:
-            self.log.exception(_LE('Failed to stop instance(s)'))
+            self.log.exception('Failed to stop instance(s)')
 
     @synchronize_driver_state
     @ensure_cache
