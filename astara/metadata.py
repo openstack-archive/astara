@@ -98,7 +98,7 @@ class MetadataProxyHandler(object):
                 return webob.exc.HTTPNotFound()
 
         except Exception:
-            LOG.exception(_LE("Unexpected error."))
+            LOG.exception("Unexpected error.")
             msg = ('An unknown error has occurred. '
                    'Please try your request again.')
             return webob.exc.HTTPInternalServerError(
@@ -189,8 +189,8 @@ class MetadataProxy(object):
         """
         app = MetadataProxyHandler()
         for i in six.moves.range(5):
-            LOG.info(_LI(
-                'Starting the metadata proxy on %s:%s'),
+            LOG.info(
+                'Starting the metadata proxy on %s:%s',
                 ip_address, port
             )
             try:
@@ -203,8 +203,8 @@ class MetadataProxy(object):
                 if err.errno != 99:
                     raise
                 LOG.warning(
-                    _LW('Could not create metadata proxy socket: %s'), err)
-                LOG.warning(_LW('Sleeping %s before trying again'), i + 1)
+                    'Could not create metadata proxy socket: %s', err)
+                LOG.warning('Sleeping %s before trying again', i + 1)
                 eventlet.sleep(i + 1)
             else:
                 break

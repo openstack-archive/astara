@@ -100,8 +100,8 @@ class TenantResourceManager(object):
             try:
                 sm.service_shutdown()
             except Exception:
-                LOG.exception(_LE(
-                    'Failed to shutdown state machine for %s'), resource_id
+                LOG.exception(
+                    'Failed to shutdown state machine for %s', resource_id
                 )
 
     def _report_bandwidth(self, resource_id, bandwidth):
@@ -124,9 +124,9 @@ class TenantResourceManager(object):
         """
         if (not message.resource or
            (message.resource and not message.resource.id)):
-                LOG.error(_LE(
+                LOG.error(
                     'Cannot get state machine for message with '
-                    'no message.resource'))
+                    'no message.resource')
                 raise InvalidIncomingMessage()
 
         state_machines = []
@@ -156,8 +156,8 @@ class TenantResourceManager(object):
 
             # load the driver
             if not message.resource.driver:
-                LOG.error(_LE('cannot create state machine without specifying'
-                              'a driver.'))
+                LOG.error('cannot create state machine without specifying'
+                              'a driver.')
                 return []
 
             resource_obj = self._load_resource_from_message(
@@ -215,9 +215,9 @@ class TenantResourceManager(object):
                         byonf_res,
                         message.resource.id)
                 except drivers.InvalidDriverException:
-                    LOG.exception(_LE(
+                    LOG.exception(
                         'Could not load BYONF driver, falling back to '
-                        'configured image'))
+                        'configured image')
                     pass
 
         return drivers.get(message.resource.driver)(

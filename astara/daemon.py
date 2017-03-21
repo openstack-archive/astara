@@ -40,5 +40,5 @@ def ignore_signals():
 
     """
     for s in [signal.SIGHUP, signal.SIGUSR1, signal.SIGUSR2, signal.SIGALRM]:
-        logging.getLogger(__name__).info(_LI('ignoring signal %s'), s)
+        logging.getLogger(__name__).info('ignoring signal %s', s)
         signal.signal(s, signal.SIG_IGN)

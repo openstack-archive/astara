@@ -214,7 +214,7 @@ class Worker(object):
             except Queue.Empty:
                 continue
             if sm is None:
-                LOG.info(_LI('received stop message'))
+                LOG.info('received stop message')
                 break
 
             # Make sure we didn't already have some updates under way
@@ -252,7 +252,7 @@ class Worker(object):
                 self._thread_status[my_id] = 'updating %s' % sm.resource_id
                 sm.update(context)
             except:
-                LOG.exception(_LE('could not complete update for %s'),
+                LOG.exception('could not complete update for %s',
                               sm.resource_id)
             finally:
                 self._thread_status[my_id] = (
@@ -349,8 +349,8 @@ class Worker(object):
             message.resource, self._context, message)
 
         if not resource_id:
-            LOG.warning(_LW(
-                'Resource of type %s not found for tenant %s.'),
+            LOG.warning(
+                'Resource of type %s not found for tenant %s.',
                 message.resource.driver, message.resource.tenant_id)
         else:
             new_resource = event.Resource(
@@ -379,7 +379,7 @@ class Worker(object):
         if message.resource.id not in commands.WILDCARDS:
             message = self._populate_resource_id(message)
             if not message.resource.id:
-                LOG.info(_LI('Ignoring message with no resource found.'))
+                LOG.info('Ignoring message with no resource found.')
                 return False
 
             should_ignore, reason = \
@@ -611,16 +611,16 @@ class Worker(object):
             resource_id = (instructions.get('resource_id') or
                            instructions.get('router_id'))
             if not resource_id:
-                LOG.warning(_LW(
-                    'Ignoring instruction to debug resource with no id'))
+                LOG.warning(
+                    'Ignoring instruction to debug resource with no id')
                 return
             reason = instructions.get('reason')
             if resource_id in commands.WILDCARDS:
-                LOG.warning(_LW(
-                    'Ignoring instruction to debug all resources with %r'),
+                LOG.warning(
+                    'Ignoring instruction to debug all resources with %r',
                     resource_id)
             else:
-                LOG.info(_LI('Placing resource %s in debug mode (reason: %s)'),
+                LOG.info('Placing resource %s in debug mode (reason: %s)',
                          resource_id, reason)
                 self.db_api.enable_resource_debug(resource_id, reason)
 
@@ -629,18 +629,18 @@ class Worker(object):
             resource_id = (instructions.get('resource_id') or
                            instructions.get('router_id'))
             if not resource_id:
-                LOG.warning(_LW(
-                    'Ignoring instruction to manage resource with no id'))
+                LOG.warning(
+                    'Ignoring instruction to manage resource with no id')
                 return
             try:
                 self.db_api.disable_resource_debug(resource_id)
-                LOG.info(_LI('Resuming management of resource %s'),
+                LOG.info('Resuming management of resource %s',
                          resource_id)
             except KeyError:
                 pass
             try:
                 self._resource_locks[resource_id].release()
-                LOG.info(_LI('Unlocked resource %s'), resource_id)
+                LOG.info('Unlocked resource %s', resource_id)
             except KeyError:
                 pass
             except threading.ThreadError:
@@ -665,10 +665,10 @@ class Worker(object):
                 body=instructions,
             )
             # Use handle_message() to ensure we acquire the lock
-            LOG.info(_LI('sending %s instruction to %s'),
+            LOG.info('sending %s instruction to %s',
                      instructions['command'], new_res)
             self.handle_message(new_msg.resource.tenant_id, new_msg)
-            LOG.info(_LI('forced %s for %s complete'),
+            LOG.info('forced %s for %s complete',
                      instructions['command'], new_res)
 
         # NOTE(adam_g): This is here to support the deprecated old format of
@@ -686,21 +686,21 @@ class Worker(object):
                 body=instructions,
             )
             # Use handle_message() to ensure we acquire the lock
-            LOG.info(_LI('sending %s instruction to %s'),
+            LOG.info('sending %s instruction to %s',
                      instructions['command'], new_rsc)
             self.handle_message(new_msg.resource.tenant_id, new_msg)
-            LOG.info(_LI('forced %s for %s complete'),
+            LOG.info('forced %s for %s complete',
                      instructions['command'], new_rsc)
 
         elif instructions['command'] == commands.TENANT_DEBUG:
             tenant_id = instructions['tenant_id']
             reason = instructions.get('reason')
             if tenant_id in commands.WILDCARDS:
-                LOG.warning(_LW(
-                    'Ignoring instruction to debug all tenants with %r'),
+                LOG.warning(
+                    'Ignoring instruction to debug all tenants with %r',
                     tenant_id)
             else:
-                LOG.info(_LI('Placing tenant %s in debug mode (reason: %s)'),
+                LOG.info('Placing tenant %s in debug mode (reason: %s)',
                          tenant_id, reason)
                 self.db_api.enable_tenant_debug(tenant_id, reason)
 
@@ -708,7 +708,7 @@ class Worker(object):
             tenant_id = instructions['tenant_id']
             try:
                 self.db_api.disable_tenant_debug(tenant_id)
-                LOG.info(_LI('Resuming management of tenant %s'), tenant_id)
+                LOG.info('Resuming management of tenant %s', tenant_id)
             except KeyError:
                 pass
 
@@ -728,12 +728,12 @@ class Worker(object):
             try:
                 cfg.CONF()
             except Exception:
-                LOG.exception(_LE('Could not reload configuration'))
+                LOG.exception('Could not reload configuration')
             else:
                 cfg.CONF.log_opt_values(LOG, INFO)
 
         else:
-            LOG.warning(_LW('Unrecognized command: %s'), instructions)
+            LOG.warning('Unrecognized command: %s', instructions)
 
     def _deliver_message(self, target, message):
         LOG.debug('preparing to deliver %r to %r', message, target)
@@ -775,17 +775,17 @@ class Worker(object):
     def report_status(self, show_config=True):
         if show_config:
             cfg.CONF.log_opt_values(LOG, INFO)
-        LOG.info(_LI(
-            'Number of state machines in work queue: %d'),
+        LOG.info(
+            'Number of state machines in work queue: %d',
             self.work_queue.qsize()
         )
-        LOG.info(_LI(
-            'Number of tenant resource managers managed: %d'),
+        LOG.info(
+            'Number of tenant resource managers managed: %d',
             len(self.tenant_managers)
         )
         for thread in self.threads:
-            LOG.info(_LI(
-                'Thread %s is %s. Last seen: %s'),
+            LOG.info(
+                'Thread %s is %s. Last seen: %s',
                 thread.name,
                 'alive' if thread.isAlive() else 'DEAD',
                 self._thread_status.get(thread.name, 'UNKNOWN'),
@@ -793,23 +793,23 @@ class Worker(object):
         debug_tenants = self.db_api.tenants_in_debug()
         if debug_tenants:
             for t_uuid, reason in debug_tenants:
-                LOG.info(_LI('Debugging tenant: %s (reason: %s)'),
+                LOG.info('Debugging tenant: %s (reason: %s)',
                          t_uuid, reason)
         else:
-            LOG.info(_LI('No tenants in debug mode'))
+            LOG.info('No tenants in debug mode')
 
         debug_resources = self.db_api.resources_in_debug()
         if debug_resources:
             for resource_id, reason in debug_resources:
-                LOG.info(_LI('Debugging resource: %s (reason: %s)'),
+                LOG.info('Debugging resource: %s (reason: %s)',
                          resource_id, reason)
         else:
-            LOG.info(_LI('No resources in debug mode'))
+            LOG.info('No resources in debug mode')
 
         if cfg.CONF.coordination.enabled:
             # NOTE(adam_g): This list could be big with a large cluster.
-            LOG.info(_LI('Peer astara-orchestrator hosts: %s'),
+            LOG.info('Peer astara-orchestrator hosts: %s',
                      self.hash_ring_mgr.hosts)
         else:
-            LOG.info(_LI(
-                'No peer astara-orchestrator hosts, coordination disabled.'))
+            LOG.info(
+                'No peer astara-orchestrator hosts, coordination disabled.')

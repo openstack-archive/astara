@@ -253,7 +253,7 @@ class InstanceGroupManager(container.ResourceContainer):
             except Exception:
                 if i == attempts - 1:
                     # Only log the traceback if we encounter it many times.
-                    self.log.exception(_LE('failed to update config'))
+                    self.log.exception('failed to update config')
                 else:
                     self.log.debug(
                         'failed to update config, attempt %d',

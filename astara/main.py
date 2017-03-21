@@ -77,10 +77,10 @@ def shuffle_notifications(notification_queue, sched):
             # meantime waiting for a better solution.
             pass
         except KeyboardInterrupt:
-            LOG.info(_LI('got Ctrl-C'))
+            LOG.info('got Ctrl-C')
             break
         except:
-            LOG.exception(_LE('unhandled exception processing message'))
+            LOG.exception('unhandled exception processing message')
 
 
 def main(argv=sys.argv[1:]):
@@ -204,9 +204,9 @@ def main(argv=sys.argv[1:]):
     try:
         shuffle_notifications(notification_queue, sched)
     finally:
-        LOG.info(_LI('Stopping scheduler.'))
+        LOG.info('Stopping scheduler.')
         sched.stop()
-        LOG.info(_LI('Stopping notification publisher.'))
+        LOG.info('Stopping notification publisher.')
         publisher.stop()
 
         # Terminate the subprocesses
@@ -214,5 +214,5 @@ def main(argv=sys.argv[1:]):
                         rug_api_proc]:
             if not subproc:
                 continue
-            LOG.info(_LI('Stopping %s.'), subproc.name)
+            LOG.info('Stopping %s.', subproc.name)
             subproc.terminate()
