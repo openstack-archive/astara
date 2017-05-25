@@ -21,7 +21,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-from astara.common.i18n import _LI, _LW
 from astara.api.config import common
 
 LOG = logging.getLogger(__name__)
@@ -111,7 +110,7 @@ def get_default_v4_gateway(client, router, networks):
     # when the external interface is still marked as "down". We can
     # report that case, but we don't treat it as an error here because
     # we'll be asked to do it again when the interface comes up.
-    LOG.info(_LI('%s: no default gateway was found'), router.id)
+    LOG.info('%s: no default gateway was found', router.id)
     return ''
 
 
@@ -119,7 +118,7 @@ def load_provider_rules(path):
     try:
         return jsonutils.load(open(path))
     except:  # pragma nocover
-        LOG.warning(_LW('unable to open provider rules: %s'), path)
+        LOG.warning('unable to open provider rules: %s', path)
         return {}
 
 

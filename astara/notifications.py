@@ -30,7 +30,6 @@ from oslo_config import cfg
 from oslo_context import context
 from oslo_log import log as logging
 
-from astara.common.i18n import _LE
 
 from oslo_service import service
 
@@ -238,7 +237,7 @@ class Publisher(Sender):
             try:
                 self.send(event_type=msg['event_type'], message=msg['payload'])
             except Exception:
-                LOG.exception(_LE('could not publish notification'))
+                LOG.exception('could not publish notification')
 
 
 class NoopPublisher(Publisher):
