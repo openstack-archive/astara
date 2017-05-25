@@ -26,7 +26,6 @@ from astara import event
 from astara.api import neutron
 from astara.drivers.base import BaseDriver
 from astara.drivers import states
-from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -243,13 +242,13 @@ class Router(BaseDriver):
 
                 return resources
             except (q_exceptions.Unauthorized, q_exceptions.Forbidden) as err:
-                LOG.warning(_LW('PrePopulateWorkers thread failed: %s'), err)
+                LOG.warning('PrePopulateWorkers thread failed: %s', err)
                 return
             except Exception as err:
                 LOG.warning(
-                    _LW('Could not fetch routers from neutron: %s'), err)
-                LOG.warning(_LW(
-                    'sleeping %s seconds before retrying'), nap_time)
+                    'Could not fetch routers from neutron: %s', err)
+                LOG.warning(
+                    'sleeping %s seconds before retrying', nap_time)
                 time.sleep(nap_time)
                 nap_time = min(nap_time * 2,
                                cfg.CONF.astara_appliance.max_sleep)

@@ -71,6 +71,7 @@ class AstaraBase(models.TimestampMixin,
 
         super(AstaraBase, self).save(session)
 
+
 Base = declarative_base(cls=AstaraBase)
 
 

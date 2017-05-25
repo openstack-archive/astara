@@ -21,7 +21,6 @@ from oslo_config import cfg
 from oslo_service import service
 import oslo_messaging
 
-from astara.common.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
@@ -34,9 +33,9 @@ def _deprecated_amqp_url():
     url = cfg.CONF.amqp_url
     if not url:
         return
-    LOG.warning(_LW(
+    LOG.warning(
         'Use of amqp_url is deprecated. Please instead use options defined in '
-        'oslo_messaging_rabbit to declare your AMQP connection.'))
+        'oslo_messaging_rabbit to declare your AMQP connection.')
     url = urlparse.urlsplit(url)
     if url.scheme == 'amqp':
         scheme = 'rabbit'
