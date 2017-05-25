@@ -25,7 +25,6 @@
 import collections
 import itertools
 
-from astara.common.i18n import _LE, _LI, _LW
 from astara.event import (POLL, CREATE, READ, UPDATE, DELETE, REBUILD,
                           CLUSTER_REBUILD)
 from astara import instance_manager
@@ -242,8 +241,8 @@ class CreateInstance(State):
         # accept the configuration.
         if (not self.instance.state == states.DEGRADED and
            self.instance.attempts >= self.params.reboot_error_threshold):
-            self.params.resource.log.info(_LI(
-                'Dropping out of boot loop after  %s trials'),
+            self.params.resource.log.info(
+                'Dropping out of boot loop after  %s trials',
                 self.instance.attempts)
             self.instance.set_error(worker_context)
             return action
@@ -468,7 +467,7 @@ class Automaton(object):
                         self.instance.state)
                 except:
                     self.resource.log.exception(
-                        _LE('%s.execute() failed for action: %s'),
+                        '%s.execute() failed for action: %s',
                         self.state,
                         self.action
                     )
@@ -514,16 +513,16 @@ class Automaton(object):
         # do any work.
         if message.crud == POLL and \
                 self.instance.state == states.ERROR:
-            self.resource.log.info(_LI(
-                'Resource status is ERROR, ignoring POLL message: %s'),
+            self.resource.log.info(
+                'Resource status is ERROR, ignoring POLL message: %s',
                 message,
             )
             return False
 
         if message.crud == REBUILD:
             if message.body.get('image_uuid'):
-                self.resource.log.info(_LI(
-                    'Resource is being REBUILT with custom image %s'),
+                self.resource.log.info(
+                    'Resource is being REBUILT with custom image %s',
                     message.body['image_uuid']
                 )
                 self.image_uuid = message.body['image_uuid']
@@ -536,7 +535,7 @@ class Automaton(object):
             logger = self.resource.log.warning
         else:
             logger = self.resource.log.debug
-        logger(_LW('incoming message brings queue length to %s'), queue_len)
+        logger('incoming message brings queue length to %s', queue_len)
         return True
 
     @property

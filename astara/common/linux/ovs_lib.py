@@ -38,7 +38,7 @@
 import re
 
 from astara.common.linux import utils
-from astara.common.i18n import _, _LE, _LW
+from astara.common.i18n import _
 
 from oslo_log import log as logging
 
@@ -81,8 +81,8 @@ class OVSBridge:
         try:
             return utils.execute(full_args, root_helper=self.root_helper)
         except Exception, e:
-            LOG.error(_LE(
-                "Unable to execute %(cmd)s. Exception: %(exception)s"),
+            LOG.error(
+                "Unable to execute %(cmd)s. Exception: %(exception)s",
                 {'cmd': full_args, 'exception': e})
 
     def reset_bridge(self):
@@ -111,8 +111,8 @@ class OVSBridge:
         try:
             return utils.execute(full_args, root_helper=self.root_helper)
         except Exception, e:
-            LOG.error(_LE(
-                "Unable to execute %(cmd)s. Exception: %(exception)s"),
+            LOG.error(
+                "Unable to execute %(cmd)s. Exception: %(exception)s",
                 {'cmd': full_args, 'exception': e})
 
     def count_flows(self):
@@ -234,8 +234,8 @@ class OVSBridge:
         try:
             return utils.execute(args, root_helper=self.root_helper).strip()
         except Exception, e:
-            LOG.error(_LE(
-                "Unable to execute %(cmd)s. Exception: %(exception)s"),
+            LOG.error(
+                "Unable to execute %(cmd)s. Exception: %(exception)s",
                 {'cmd': args, 'exception': e})
 
     # returns a VIF object for each VIF port
@@ -290,7 +290,7 @@ class OVSBridge:
             ofport = int(match.group('ofport'))
             return VifPort(port_name, ofport, vif_id, vif_mac, self)
         except Exception, e:
-            LOG.warning(_LW("Unable to parse regex results. Exception: %s"), e)
+            LOG.warning("Unable to parse regex results. Exception: %s", e)
             return
 
     def delete_ports(self, all_ports=False):
@@ -308,7 +308,7 @@ def get_bridge_for_iface(root_helper, iface):
     try:
         return utils.execute(args, root_helper=root_helper).strip()
     except Exception:
-        LOG.exception(_LE("Interface %s not found."), iface)
+        LOG.exception("Interface %s not found.", iface)
         return None
 
 
@@ -317,5 +317,5 @@ def get_bridges(root_helper):
     try:
         return utils.execute(args, root_helper=root_helper).strip().split("\n")
     except Exception:
-        LOG.exception(_LE("Unable to retrieve bridges."))
+        LOG.exception("Unable to retrieve bridges.")
         return []

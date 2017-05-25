@@ -19,6 +19,3 @@ import oslo_i18n
 _translators = oslo_i18n.TranslatorFactory(domain='astara')
 
 _ = _translators.primary
-_LI = _translators.log_info
-_LW = _translators.log_warning
-_LE = _translators.log_error

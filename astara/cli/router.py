@@ -21,7 +21,6 @@ import argparse
 import subprocess
 import sys
 
-from astara.common.i18n import _LW
 from astara import commands
 from astara.cli import message
 from astara.api import keystone, nova
@@ -40,9 +39,9 @@ class _TenantRouterCmd(message.MessageSending):
 
     def get_parser(self, prog_name):
         new_cmd = str(prog_name).replace('router', 'resource')
-        LOG.warning(_LW(
+        LOG.warning(
             "WARNING: '%s' is deprecated in favor of '%s' and will be removed "
-            "in the Mitaka release.") % (prog_name, new_cmd))
+            "in the Mitaka release." % (prog_name, new_cmd))
         # Bypass the direct base class to let us put the tenant id
         # argument first
         p = super(_TenantRouterCmd, self).get_parser(prog_name)
