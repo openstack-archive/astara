@@ -31,7 +31,7 @@ from oslo_context import context
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from astara.common.i18n import _, _LI, _LW
+from astara.common.i18n import _
 from astara.common.linux import ip_lib
 from astara.api import keystone
 from astara.common import constants, rpc
@@ -313,8 +313,8 @@ class Subnet(DictModelBase):
             self.gateway_ip = netaddr.IPAddress(gateway_ip)
         except (TypeError, netaddr.AddrFormatError) as e:
             self.gateway_ip = None
-            LOG.info(_LI(
-                'Bad gateway_ip on subnet %s: %r (%s)'),
+            LOG.info(
+                'Bad gateway_ip on subnet %s: %r (%s)',
                 id_, gateway_ip, e)
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers
@@ -829,8 +829,8 @@ class Neutron(object):
             # We don't want to die just because we can't tell neutron
             # what the status of the router should be. Log the error
             # but otherwise ignore it.
-            LOG.info(_LI(
-                'ignoring failure to update status for %s to %s: %s'),
+            LOG.info(
+                'ignoring failure to update status for %s to %s: %s',
                 id, status, e,
             )
 
@@ -987,7 +987,7 @@ class Neutron(object):
             try:
                 response.append(Subnet.from_dict(s))
             except Exception as e:
-                LOG.info(_LI('ignoring subnet %s (%s) on network %s: %s'),
+                LOG.info('ignoring subnet %s (%s) on network %s: %s',
                          s.get('id'), s.get('cidr'),
                          network_id, e)
         return response
@@ -1055,13 +1055,13 @@ class Neutron(object):
 
         if not port_data and self.conf.legacy_fallback_mode:
             name = name.replace('ASTARA', 'AKANDA')
-            LOG.info(_LI('Attempting legacy query for %s.'), name)
+            LOG.info('Attempting legacy query for %s.', name)
             response = self.api_client.list_ports(name=name)
             port_data = response.get('ports')
 
         if not port_data:
-            LOG.warning(_LW(
-                'Unable to find VRRP port to delete with name %s.'), name)
+            LOG.warning(
+                'Unable to find VRRP port to delete with name %s.', name)
         for port in port_data:
             self.api_client.delete_port(port['id'])
 
@@ -1082,7 +1082,7 @@ class Neutron(object):
         ports = self.api_client.list_ports(**query_dict)['ports']
 
         if not ports and self.conf.legacy_fallback_mode:
-            LOG.info(_LI('Attempting legacy query for %s.'), name)
+            LOG.info('Attempting legacy query for %s.', name)
             query_dict.update({
                 'name': name.replace('ASTARA', 'AKANDA'),
                 'device_owner': DEVICE_OWNER_RUG.replace('astara', 'akanda')
@@ -1092,7 +1092,7 @@ class Neutron(object):
         if ports and 'AKANDA' in ports[0]['name']:
             port = Port.from_dict(ports[0])
             LOG.info(
-                _LI('migrating port to ASTARA for port %r and using local %s'),
+                'migrating port to ASTARA for port %r and using local %s',
                 port,
                 network_type
             )
@@ -1107,10 +1107,10 @@ class Neutron(object):
             )
         elif ports:
             port = Port.from_dict(ports[0])
-            LOG.info(_LI('already have local %s port, using %r'),
+            LOG.info('already have local %s port, using %r',
                      network_type, port)
         else:
-            LOG.info(_LI('creating a new local %s port'), network_type)
+            LOG.info('creating a new local %s port', network_type)
             port_dict = {
                 'admin_state_up': True,
                 'network_id': network_id,
@@ -1132,7 +1132,7 @@ class Neutron(object):
             )
             port.device_owner = DEVICE_OWNER_RUG
 
-            LOG.info(_LI('new local %s port: %r'), network_type, port)
+            LOG.info('new local %s port: %r', network_type, port)
 
         # create the tap interface if it doesn't already exist
         if not ip_lib.device_exists(driver.get_device_name(port)):
@@ -1195,8 +1195,8 @@ class Neutron(object):
             # We don't want to die just because we can't tell neutron
             # what the status of the router should be. Log the error
             # but otherwise ignore it.
-            LOG.info(_LI(
-                'ignoring failure to update status for %s to %s: %s'),
+            LOG.info(
+                'ignoring failure to update status for %s to %s: %s',
                 id, status, e,
             )
 
@@ -1257,7 +1257,7 @@ class NeutronAgentReporter(object):
             self.state['start_flag'] = False
         except AttributeError:
             raise
-            LOG.info(_LI('State reporting not supported in Neutron Server'))
+            LOG.info('State reporting not supported in Neutron Server')
         except:
             LOG.exception(_('Error reporting state'))
 

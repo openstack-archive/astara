@@ -23,7 +23,6 @@ from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from astara.common.i18n import _LW, _LE, _LI
 from astara.api import keystone
 from astara.api import neutron
 from astara.common import config
@@ -114,8 +113,8 @@ class InstanceInfo(object):
 class InstanceProvider(object):
     def __init__(self, client):
         self.nova_client = client
-        LOG.debug(_LI(
-            'Initialized %s with novaclient %s'),
+        LOG.debug(
+            'Initialized %s with novaclient %s',
             self.__class__.__name__, self.nova_client)
 
     def create_instance(self, driver, name, image_uuid, flavor,
@@ -133,8 +132,8 @@ class PezInstanceProvider(InstanceProvider):
     def __init__(self, client):
         super(PezInstanceProvider, self).__init__(client)
         self.rpc_client = pez_api.AstaraPezAPI(rpc_topic='astara-pez')
-        LOG.debug(_LI(
-            'Initialized %s with rpc client %s'),
+        LOG.debug(
+            'Initialized %s with rpc client %s',
             self.__class__.__name__, self.rpc_client)
 
     def create_instance(self, resource_type, name, image_uuid, flavor,
@@ -225,11 +224,11 @@ class OnDemandInstanceProvider(InstanceProvider):
 
         return instance_info
 
-INSTANCE_PROVIDERS = {
-    'on_demand': OnDemandInstanceProvider,
-    'pez': PezInstanceProvider,
-    'default': OnDemandInstanceProvider,
-}
+        INSTANCE_PROVIDERS = {
+            'on_demand': OnDemandInstanceProvider,
+            'pez': PezInstanceProvider,
+            'default': OnDemandInstanceProvider,
+        }
 
 
 def get_instance_provider(provider):
@@ -237,7 +236,7 @@ def get_instance_provider(provider):
         return INSTANCE_PROVIDERS[provider]
     except KeyError:
         default = INSTANCE_PROVIDERS['default']
-        LOG.error(_LE('Could not find %s instance provider, using default %s'),
+        LOG.error('Could not find %s instance provider, using default %s',
                   provider, default)
         return default
 
@@ -257,7 +256,7 @@ class Nova(object):
                 conf.instance_provider)(self.client)
         except AttributeError:
             default = INSTANCE_PROVIDERS['default']
-            LOG.error(_LE('Could not find provider config, using default %s'),
+            LOG.error('Could not find provider config, using default %s',
                       default)
             self.instance_provider = default(self.client)
 
@@ -366,7 +365,7 @@ class Nova(object):
                 pass
             except Exception:
                 LOG.exception(
-                    _LE('Error deleting instance %s' % inst.id_))
+                    'Error deleting instance %s' % inst.id_)
                 to_poll.remove(inst)
 
         # XXX parallelize this
@@ -384,8 +383,8 @@ class Nova(object):
                 time.sleep(cfg.CONF.retry_delay)
             else:
                 timed_out.append(inst)
-                LOG.error(_LE(
-                    'Instance %s failed to stop within %d secs'),
+                LOG.error(
+                    'Instance %s failed to stop within %d secs',
                     inst.id_, cfg.CONF.boot_timeout)
 
         if timed_out:
@@ -435,7 +434,7 @@ def _ssh_key():
         with open(key) as out:
             return out.read().strip()
     except IOError:
-        LOG.warning(_LW('Could not load router ssh public key from %s'), key)
+        LOG.warning('Could not load router ssh public key from %s', key)
         return ''
 
 

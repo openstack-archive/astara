@@ -17,7 +17,6 @@
 import logging
 import sys
 
-from astara.common.i18n import _LI
 from astara.common import config as ak_cfg
 
 from astara.common import rpc
@@ -58,7 +57,7 @@ def main(argv=sys.argv[1:]):
     log.setup(CONF, 'astara-pez')
     CONF.log_opt_values(LOG, logging.INFO)
 
-    LOG.info(_LI("Starting Astara Pez service."))
+    LOG.info("Starting Astara Pez service.")
 
     mgr = PezService()
     launcher = service.launch(CONF, mgr)

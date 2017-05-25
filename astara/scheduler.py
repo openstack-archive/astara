@@ -26,7 +26,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from astara import commands
-from astara.common.i18n import _, _LE, _LI, _LW
+from astara.common.i18n import _
 from astara import daemon
 
 
@@ -60,7 +60,7 @@ def _worker(inq, worker_factory, scheduler, proc_name):
         try:
             worker.handle_message(target, message)
         except Exception:
-            LOG.exception(_LE('Error processing data %s'), six.text_type(data))
+            LOG.exception('Error processing data %s', six.text_type(data))
         if data is None:
             break
     LOG.debug('exiting')
@@ -87,8 +87,8 @@ class Dispatcher(object):
         try:
             idx = uuid.UUID(target).int % len(self.workers)
         except (TypeError, ValueError) as e:
-            LOG.warning(_LW(
-                'Could not determine UUID from %r: %s, ignoring message'),
+            LOG.warning(
+                'Could not determine UUID from %r: %s, ignoring message',
                 target, e,
             )
             return []
@@ -151,7 +151,7 @@ class Scheduler(object):
             w['queue'].close()
             LOG.debug('waiting for worker %s', w['worker'].name)
             w['worker'].join()
-        LOG.info(_LI('scheduler shutdown'))
+        LOG.info('scheduler shutdown')
 
     def handle_message(self, target, message):
         """Call this method when a new notification message is delivered. The
