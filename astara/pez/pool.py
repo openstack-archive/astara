@@ -23,7 +23,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
-from astara.common.i18n import _LE, _LI
 from astara import drivers
 from astara.api import neutron
 from astara.api import nova
@@ -118,7 +117,7 @@ class PezPoolManager(object):
 
     @lockutils.synchronized(PEZ_LOCK)
     def delete_instance(self, instance_uuid):
-        LOG.info(_LI('Deleting instance %s.'), instance_uuid)
+        LOG.info('Deleting instance %s.', instance_uuid)
         self.ctxt.nova_client.client.servers.delete(instance_uuid)
         self._delete_counters[instance_uuid] = timeutils.utcnow()
 
@@ -127,8 +126,8 @@ class PezPoolManager(object):
         for resource, pool in copy.copy(pools).items():
             err_instances = [i for i in pool if i.status == ERROR]
             for err_inst in err_instances:
-                LOG.error(_LE(
-                    'Instance %s is in %s state, deleting.'),
+                LOG.error(
+                    'Instance %s is in %s state, deleting.',
                     i.id, ERROR)
                 del_instance = self.delete_instance(err_inst.id)
                 i = pool.index(err_inst)
@@ -157,9 +156,9 @@ class PezPoolManager(object):
             else:
                 if timeutils.is_older_than(self._delete_counters[del_inst.id],
                                            self.delete_timeout):
-                    LOG.error(_LE(
+                    LOG.error(
                         'Instance %s is stuck in %s for more than %s '
-                        'seconds.'), i.id, DELETING, self.delete_timeout)
+                        'seconds.', i.id, DELETING, self.delete_timeout)
                     stuck_instances.append(del_inst)
         return stuck_instances
 
@@ -168,15 +167,15 @@ class PezPoolManager(object):
         for resource, pool in pools.items():
             for server in pool:
                 if server.image['id'] != str(self.images[resource]):
-                    LOG.info(_LI(
+                    LOG.info(
                         'Deleting instance %s with outdated image, '
-                        '%s != %s'),
+                        '%s != %s',
                         server.id, server.image['id'], self.image_uuid)
                     outdated_instances.append(server)
                 elif server.flavor['id'] != str(self.flavors[resource]):
-                    LOG.info(_LI(
+                    LOG.info(
                         'Deleting instance %s with outdated flavor, '
-                        '%s != %s'),
+                        '%s != %s',
                         server.id, server.flavor['id'], self.flavor)
                     outdated_instances.append(server)
 
@@ -222,8 +221,8 @@ class PezPoolManager(object):
         return pools
 
     def launch_instances(self, count, driver):
-        LOG.info(_LI(
-            'Launching %s %s instances.'), driver.RESOURCE_NAME, count)
+        LOG.info(
+            'Launching %s %s instances.', driver.RESOURCE_NAME, count)
         for i in range(0, count):
             # NOTE: Use a fake UUID so astara-neutron's name matching still
             # catches this port as an astara port. This can be avoided if
@@ -277,12 +276,12 @@ class PezPoolManager(object):
         except IndexError:
             raise PezPoolExhausted()
 
-        LOG.info(_LI('Renaming instance %s to %s'), server.name, name)
+        LOG.info('Renaming instance %s to %s', server.name, name)
         server = self.ctxt.nova_client.client.servers.update(
             server, name=name)
 
         for port in instance_ports:
-            LOG.info(_LI('Attaching instance port %s to %s (%s)'),
+            LOG.info('Attaching instance port %s to %s (%s)',
                      port['id'], server.name, server.id)
             self.ctxt.nova_client.client.servers.interface_attach(
                 server=server, port_id=port['id'], net_id=None, fixed_ip=None)
@@ -319,8 +318,8 @@ class PezPoolManager(object):
                 cur_pool = cur_pools[driver.RESOURCE_NAME]
                 deficit = self.pool_size - len(cur_pool)
                 if deficit:
-                    LOG.info(_LI(
-                        'Need to launch %s more %s instance(s).'),
+                    LOG.info(
+                        'Need to launch %s more %s instance(s).',
                         deficit, driver.RESOURCE_NAME)
                     self.launch_instances(
                         driver=driver, count=deficit)

@@ -27,7 +27,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from astara.cli import app
-from astara.common.i18n import _, _LE, _LI, _LW
+from astara.common.i18n import _
 
 LOG = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class RugAPI(object):
         except ValueError:
             return webob.exc.HTTPNotFound()
         except Exception:
-            LOG.exception(_LE("Unexpected error."))
+            LOG.exception("Unexpected error.")
             msg = _('An unknown error has occurred. '
                     'Please try your request again.')
             return webob.exc.HTTPInternalServerError(
@@ -91,8 +91,8 @@ class RugAPIServer(object):
             family = socket.AF_INET
 
         for i in six.moves.range(5):
-            LOG.info(_LI(
-                'Starting the rug-api on %s:%s'),
+            LOG.info(
+                'Starting the rug-api on %s:%s',
                 ip_address, port,
             )
             try:
@@ -104,8 +104,8 @@ class RugAPIServer(object):
             except socket.error as err:
                 if err.errno != 99:  # EADDRNOTAVAIL
                     raise
-                LOG.warning(_LW('Could not create rug-api socket: %s'), err)
-                LOG.warning(_LW('Sleeping %s before trying again'), i + 1)
+                LOG.warning('Could not create rug-api socket: %s', err)
+                LOG.warning('Sleeping %s before trying again', i + 1)
                 eventlet.sleep(i + 1)
             else:
                 break

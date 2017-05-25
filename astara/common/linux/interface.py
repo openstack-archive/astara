@@ -39,7 +39,7 @@ import netaddr
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from astara.common.i18n import _, _LE, _LW
+from astara.common.i18n import _
 from astara.common.linux import ip_lib
 from astara.common.linux import ovs_lib
 from astara.common.linux import utils
@@ -200,7 +200,7 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
             if self.conf.ovs_use_veth:
                 root_dev.link.set_up()
         else:
-            LOG.warning(_LW("Device %s already exists"), device_name)
+            LOG.warning("Device %s already exists", device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""
@@ -220,7 +220,7 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
                 device.link.delete()
                 LOG.debug(_("Unplugged interface '%s'"), device_name)
         except RuntimeError:
-            LOG.exception(_LE("Failed unplugging interface '%s'"), device_name)
+            LOG.exception("Failed unplugging interface '%s'", device_name)
 
 
 class BridgeInterfaceDriver(LinuxInterfaceDriver):
@@ -256,7 +256,7 @@ class BridgeInterfaceDriver(LinuxInterfaceDriver):
             ns_veth.link.set_up()
 
         else:
-            LOG.warning(_LW("Device %s already exists"), device_name)
+            LOG.warning("Device %s already exists", device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""
@@ -265,5 +265,5 @@ class BridgeInterfaceDriver(LinuxInterfaceDriver):
             device.link.delete()
             LOG.debug("Unplugged interface '%s'", device_name)
         except RuntimeError:
-            LOG.exception(_LE(
-                "Failed unplugging interface '%s'"), device_name)
+            LOG.exception(
+                "Failed unplugging interface '%s'", device_name)
