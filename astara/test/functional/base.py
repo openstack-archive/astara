@@ -224,7 +224,7 @@ class AdminClientManager(ClientManager):
 
     def get_network_info(self, network_name):
         net_response = self.neutronclient.list_networks(name=network_name)
-        network = net_response.get('networks', [None])[0]
+        network = net_response.get('networks')[0]
         return network
 
 
