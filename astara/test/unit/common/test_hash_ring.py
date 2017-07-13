@@ -147,7 +147,7 @@ class HashRingTestCase(base.RugTestBase):
             (node, new_ring.get_hosts(node)[0]) for node in nodes)
 
         for key, old in mapping.items():
-            new = new_mapping.get(key, None)
+            new = new_mapping.get(key)
             if new != old:
                 delta[key] = (old, new)
         return delta
