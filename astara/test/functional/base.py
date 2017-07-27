@@ -34,7 +34,7 @@ from novaclient import client as _novaclient
 from keystoneclient import exceptions as ksc_exceptions
 from neutronclient.common import exceptions as neutron_exceptions
 
-from tempest_lib.common.utils import data_utils
+from tempest.lib.common.utils import data_utils
 
 from astara.test.functional import config
 
