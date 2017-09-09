@@ -164,10 +164,10 @@ class TestSubProcessBase(unittest.TestCase):
 
     def test_as_root_no_root_helper(self):
         base = ip_lib.SubProcessBase()
-        self.assertRaisesRegexp(Exception,
-                                'Sudo is required to run this command',
-                                base._as_root,
-                                [], 'link', ('list',))
+        self.assertRaisesRegex(Exception,
+                               'Sudo is required to run this command',
+                               base._as_root,
+                               [], 'link', ('list',))
 
 
 class TestIpWrapper(unittest.TestCase):
