@@ -225,6 +225,7 @@ class OnDemandInstanceProvider(InstanceProvider):
 
         return instance_info
 
+
 INSTANCE_PROVIDERS = {
     'on_demand': OnDemandInstanceProvider,
     'pez': PezInstanceProvider,

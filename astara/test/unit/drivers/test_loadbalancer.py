@@ -350,7 +350,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         self.assertEqual(
             ['fake_interface'], lb.get_interfaces('fake_mgt_addr'))
         mock_get_interfaces.assert_called_with(
-            'fake_mgt_addr', self.mgt_port)
+            'fake_mgt_addr', lb.mgt_port)
 
     @mock.patch('astara.api.astara_client.is_alive')
     def test_is_alive(self, mock_is_alive):
@@ -358,7 +358,7 @@ class LoadBalancerDriverTest(base.RugTestBase):
         lb = self._init_driver()
         self.assertFalse(lb.is_alive('fake_mgt_addr'))
         mock_is_alive.assert_called_with(
-            'fake_mgt_addr', self.mgt_port)
+            'fake_mgt_addr', lb.mgt_port)
 
     def test__ensure_cache(self):
         lb = self._init_driver()
