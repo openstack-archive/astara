@@ -62,7 +62,7 @@ class RouterDriverTest(base.RugTestBase):
         rtr.post_init(self.ctx)
         self.assertEqual(self.image_uuid, rtr.image_uuid)
         self.assertEqual(self.flavor, rtr.flavor)
-        self.assertEqual(self.mgt_port, rtr.mgt_port)
+        self.assertEqual(int(self.mgt_port), rtr.mgt_port)
         mock_ensure_cache.assert_called_with(self.ctx)
 
     def test__ensure_cache_no_router(self):
@@ -376,7 +376,7 @@ class RouterDriverTest(base.RugTestBase):
         self.assertEqual(
             ['fake_interface'], rtr.get_interfaces('fake_mgt_addr'))
         mock_get_interfaces.assert_called_with(
-            'fake_mgt_addr', self.mgt_port)
+            'fake_mgt_addr', rtr.mgt_port)
 
     @mock.patch('astara.api.astara_client.is_alive')
     def test_is_alive(self, mock_is_alive):
@@ -384,7 +384,7 @@ class RouterDriverTest(base.RugTestBase):
         rtr = self._init_driver()
         self.assertFalse(rtr.is_alive('fake_mgt_addr'))
         mock_is_alive.assert_called_with(
-            'fake_mgt_addr', self.mgt_port)
+            'fake_mgt_addr', rtr.mgt_port)
 
     def test_post_boot(self):
         self._init_driver().post_boot(self.ctx)

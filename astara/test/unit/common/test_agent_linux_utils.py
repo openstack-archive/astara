@@ -105,5 +105,5 @@ class AgentUtilsReplaceFile(testtools.TestCase):
                                 mock.call().close()]
 
                     ntf.assert_has_calls(expected)
-                    chmod.assert_called_once_with('/baz', 0644)
+                    chmod.assert_called_once_with('/baz', 644)
                     rename.assert_called_once_with('/baz', '/foo')

@@ -41,7 +41,7 @@ _DEFAULT_SQL_CONNECTION = 'sqlite:///astara.db'
 
 
 cfg.CONF.register_opts(sql_opts, 'database')
-db_options.set_defaults(cfg.CONF, _DEFAULT_SQL_CONNECTION, 'ironic.sqlite')
+db_options.set_defaults(cfg.CONF, _DEFAULT_SQL_CONNECTION)
 
 
 def table_args():
@@ -70,6 +70,7 @@ class AstaraBase(models.TimestampMixin,
             session = db_api.get_session()
 
         super(AstaraBase, self).save(session)
+
 
 Base = declarative_base(cls=AstaraBase)
 
