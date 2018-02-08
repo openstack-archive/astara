@@ -6,6 +6,6 @@ following to the [[local|localrc]] section.
 
 For example:
 
-    enable_plugin astara http://github.com/openstack/astara
+    enable_plugin astara https://github.com/openstack/astara
 
-For more info see: http://docs.openstack.org/developer/devstack/plugins.html
+For more info see: https://docs.openstack.org/devstack/latest/plugins.html
