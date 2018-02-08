@@ -197,5 +197,5 @@ References
 ==========
 
 [1] https://git.openstack.org/cgit/openstack/ironic/tree/ironic/common/hash_ring.py
-[2] http://docs.openstack.org/developer/tooz/drivers.html
+[2] https://docs.openstack.org/tooz/latest/user/drivers.html
 
