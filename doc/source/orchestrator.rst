@@ -13,7 +13,7 @@ of the main :py:mod:`astara-orchestrator` process:
 L3 and DHCP Event Consumption
 -----------------------------
 
-:py:mod:`astara.notifications` uses `kombu <https://pypi.python.org/pypi/kombu>`_
+:py:mod:`astara.notifications` uses `kombu <https://pypi.org/project/kombu/>`_
 and a Python :py:mod:`multiprocessing.Queue` to listen for specific Neutron service
 events (e.g., ``router.interface.create``, ``subnet.create.end``,
 ``port.create.end``, ``port.delete.end``) and normalize them into one of
