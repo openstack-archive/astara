@@ -1,3 +1,0 @@
----
-fixes:
-  - Bug `1531597 <https://bugs.launchpad.net/astara/+bug/1531597/>`_ \- Deleted resources are properly invalidated from the local tenant resource cache

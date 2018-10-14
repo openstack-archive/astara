@@ -1,3 +1,0 @@
----
-fixes:
-  - Bug `1524068 <https://bugs.launchpad.net/astara/+bug/1524068/>`_ Local management port addresses are now allocated from the management subnet rather than using a hard-coded address, fixing Neutron port address conflicts when clustering astara-orchestrators.

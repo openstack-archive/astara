@@ -1,4 +1,0 @@
-WORKER p[0-9][0-9]
-THREAD tmain|t[0-9][0-9]
-ASTARA_STATE_METHOD (?:[a-zA-Z]*\.)*
-METHOD (?:astara.openstack.common.rpc.amqp|astara.worker|astara.api.configuration|astara.tenant|astara.state.|astara.scheduler)

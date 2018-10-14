@@ -1,5 +1,0 @@
----
-fixes:
-  - Bug `1527396 <https://bugs.launchpad.net/astara/+bug/1527396>`_
-    Fixes issue where, after a cluster rebalance, stat machines are created across
-    all workers and instead ensures they are only created on a single target worker.

@@ -1,5 +1,0 @@
----
-features:
-  - >
-    `Blueprint astara-rootwrap <https://blueprints.launchpad.net/astara/+spec/astara-rootwrap>`_ \-
-    We replace shelling out directly to sudo with the oslo.rootwrap library.

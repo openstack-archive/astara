@@ -1,4 +1,0 @@
----
-features:
-  - Astara now supports orchestrating clustered pairs of appliance VMs for
-    Neutron routers that have the been set to highly-available.
